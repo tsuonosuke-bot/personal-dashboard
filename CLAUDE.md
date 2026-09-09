@@ -88,6 +88,11 @@ src/
 ## デプロイ
 
 Cloudflare Pages に GitHub 連携でデプロイしている。main への push で本番が更新される。
+本番: https://knowledge-dashboard-27t.pages.dev （Framework preset は None、ビルドコマンド直指定）
+
+グラフの描画確認をヘッドレス/非表示のブラウザで行うと、`requestAnimationFrame` が止まるため
+recharts の初回アニメーションが進まず、棒グラフと円グラフが空に見える（折れ線は描画される）。
+本番ビルドの不具合ではないので、実際に表示されているブラウザで確認すること。
 ビルド設定と環境変数、閲覧制限、クラウドセッション用の設定は README.md を参照。
 
 `VITE_` 変数はビルド時にバンドルへ埋め込まれる。環境変数を変えたら再デプロイが必要。
