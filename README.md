@@ -56,10 +56,12 @@ GitHub 連携でビルド・公開する。設定値は以下。
 
 | 項目 | 値 |
 | --- | --- |
-| Framework preset | Vite |
+| Framework preset | **None**（一覧に単体の Vite は無い。VitePress は別物） |
 | Build command | `npm run build` |
 | Build output directory | `dist` |
 | Node バージョン | `.node-version`（22）を参照 |
+
+公開URL: https://knowledge-dashboard-27t.pages.dev
 
 Cloudflare Pages の **Settings → Environment variables** に、Production と Preview の
 両方へ `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` を登録する。
