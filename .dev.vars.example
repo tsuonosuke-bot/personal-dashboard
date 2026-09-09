@@ -1,0 +1,4 @@
+DASHBOARD_USER=admin
+DASHBOARD_PASSWORD=replace-with-a-long-ascii-password
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SECRET_KEY=sb_secret_replace-me

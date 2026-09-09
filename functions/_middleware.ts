@@ -23,15 +23,26 @@ interface MiddlewareContext {
 
 const REALM = 'Basic realm="knowledge-dashboard", charset="UTF-8"';
 
+function withPrivacyHeaders(response: Response): Response {
+  const secured = new Response(response.body, response);
+  secured.headers.set("Cache-Control", "private, no-store");
+  secured.headers.set("Content-Security-Policy", "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+  secured.headers.set("Referrer-Policy", "no-referrer");
+  secured.headers.set("Vary", "Authorization");
+  secured.headers.set("X-Content-Type-Options", "nosniff");
+  secured.headers.set("X-Frame-Options", "DENY");
+  secured.headers.set("X-Robots-Tag", "noindex, nofollow");
+  return secured;
+}
+
 function unauthorized(): Response {
-  return new Response("認証が必要です。\n", {
+  return withPrivacyHeaders(new Response("認証が必要です。\n", {
     status: 401,
     headers: {
       "WWW-Authenticate": REALM,
       "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-store",
     },
-  });
+  }));
 }
 
 /** 長さの違いは漏れるが、内容の比較は定数時間で行う。 */
@@ -49,10 +60,10 @@ export const onRequest = async (context: MiddlewareContext): Promise<Response> =
   const expectedPassword = env.DASHBOARD_PASSWORD;
 
   if (!expectedPassword) {
-    return new Response(
+    return withPrivacyHeaders(new Response(
       "DASHBOARD_PASSWORD が未設定です。Cloudflare Pages の環境変数に設定してください。\n",
-      { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } },
-    );
+      { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } },
+    ));
   }
 
   const header = request.headers.get("Authorization");
@@ -77,9 +88,5 @@ export const onRequest = async (context: MiddlewareContext): Promise<Response> =
   const passwordOk = safeEqual(password, expectedPassword);
   if (!userOk || !passwordOk) return unauthorized();
 
-  const response = await next();
-  const withPrivacy = new Response(response.body, response);
-  withPrivacy.headers.set("Cache-Control", "private, no-cache");
-  withPrivacy.headers.set("X-Robots-Tag", "noindex, nofollow");
-  return withPrivacy;
+  return withPrivacyHeaders(await next());
 };

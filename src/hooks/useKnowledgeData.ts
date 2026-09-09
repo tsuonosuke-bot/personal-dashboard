@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { configError, supabase } from "../lib/supabase";
+import { getKnowledge, getQuizLog } from "../lib/api";
 import type { Knowledge, QuizLog } from "../types";
 
 export function useKnowledgeData() {
@@ -9,31 +9,15 @@ export function useKnowledgeData() {
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    if (configError) {
-      setError(configError);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
-      const [k, q] = await Promise.all([
-        supabase
-          .from("knowledge")
-          .select("*")
-          .eq("archived", false)
-          .order("created_at", { ascending: false })
-          .limit(2000),
-        supabase
-          .from("quiz_log")
-          .select("*")
-          .order("asked_on", { ascending: true })
-          .limit(5000),
+      const [nextKnowledge, nextQuizLog] = await Promise.all([
+        getKnowledge(),
+        getQuizLog(),
       ]);
-      if (k.error) throw new Error(`knowledge: ${k.error.message}`);
-      if (q.error) throw new Error(`quiz_log: ${q.error.message}`);
-      setKnowledge((k.data ?? []) as Knowledge[]);
-      setQuizLog((q.data ?? []) as QuizLog[]);
+      setKnowledge(nextKnowledge);
+      setQuizLog(nextQuizLog);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
