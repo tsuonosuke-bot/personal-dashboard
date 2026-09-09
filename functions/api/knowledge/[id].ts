@@ -3,13 +3,13 @@ import {
   methodNotAllowed,
   requestSupabaseRows,
   type SupabaseEnv,
-} from "../../_shared/supabaseRest";
+} from "../../_shared/supabaseRest.ts";
 import {
   isUuid,
   readJsonBody,
   validateKnowledgeInput,
   validateMutationRequest,
-} from "../../_shared/knowledgeValidation";
+} from "../../_shared/knowledgeValidation.ts";
 
 interface FunctionContext {
   request: Request;

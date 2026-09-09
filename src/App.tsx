@@ -1,12 +1,9 @@
-import { useMemo, useState } from "react";
-import { CategoryChart } from "./components/CategoryChart";
-import { ChartCard } from "./components/ChartCard";
+import { lazy, Suspense, useMemo, useState } from "react";
+import { ArchivedKnowledgeModal } from "./components/ArchivedKnowledgeModal";
 import { FilterBar } from "./components/FilterBar";
-import { HistoryChart } from "./components/HistoryChart";
 import { KnowledgeTable } from "./components/KnowledgeTable";
 import { KnowledgeDetailModal } from "./components/KnowledgeDetailModal";
 import { KnowledgeFormModal } from "./components/KnowledgeFormModal";
-import { MasteryChart } from "./components/MasteryChart";
 import { Pagination } from "./components/Pagination";
 import { ReviewInsights } from "./components/ReviewInsights";
 import { StatsCards } from "./components/StatsCards";
@@ -15,9 +12,12 @@ import { useFilteredKnowledge } from "./hooks/useFilteredKnowledge";
 import { useKnowledgeData } from "./hooks/useKnowledgeData";
 import type { Filters, Knowledge, KnowledgeDraft, ReviewFilter, SortKey, SortState } from "./types";
 
+const DashboardCharts = lazy(() => import("./components/DashboardCharts")
+  .then((module) => ({ default: module.DashboardCharts })));
+
 export default function App() {
   const {
-    knowledge, quizLog, loading, error, mutating,
+    knowledge, archivedKnowledge, quizLog, loading, error, mutating,
     reload, createKnowledge, updateKnowledge,
   } = useKnowledgeData();
   const [filters, setFilters] = useState<Filters>({
@@ -33,6 +33,8 @@ export default function App() {
   const [formTarget, setFormTarget] = useState<Knowledge | null | undefined>(undefined);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [undoArchived, setUndoArchived] = useState<Knowledge | null>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   const filtered = useFilteredKnowledge(knowledge, filters, sort);
   const categories = useMemo(
@@ -52,6 +54,7 @@ export default function App() {
   const handleReload = () => {
     setPage(1);
     setNotice(null);
+    setUndoArchived(null);
     void reload();
   };
 
@@ -88,6 +91,7 @@ export default function App() {
       }
       setFormTarget(undefined);
       setPage(1);
+      setUndoArchived(null);
     } catch (caught) {
       setActionError(caught instanceof Error ? caught.message : "保存に失敗しました。");
     }
@@ -97,11 +101,24 @@ export default function App() {
     if (!window.confirm(`「${item.title}」をアーカイブしますか？\n一覧から非表示になります。`)) return;
     setActionError(null);
     try {
-      await updateKnowledge(item.id, { archived: true });
+      const archived = await updateKnowledge(item.id, { archived: true });
       setSelected(null);
       setNotice("ナレッジをアーカイブしました。");
+      setUndoArchived(archived);
     } catch (caught) {
       setActionError(caught instanceof Error ? caught.message : "アーカイブに失敗しました。");
+    }
+  };
+
+  const restoreKnowledge = async (item: Knowledge) => {
+    setActionError(null);
+    try {
+      await updateKnowledge(item.id, { archived: false });
+      setUndoArchived(null);
+      setNotice("ナレッジを復元しました。");
+      setPage(1);
+    } catch (caught) {
+      setActionError(caught instanceof Error ? caught.message : "復元に失敗しました。");
     }
   };
 
@@ -113,15 +130,38 @@ export default function App() {
           <h1>ナレッジDB ダッシュボード</h1>
         </div>
         <div className="head-actions">
-          <button onClick={handleReload} disabled={loading}>↻ 更新</button>
-          <button className="primary-button" onClick={openNew}>＋ ナレッジを追加</button>
+          <button onClick={handleReload} disabled={loading || mutating}>↻ 更新</button>
+          <button
+            onClick={() => { setActionError(null); setArchiveOpen(true); }}
+            disabled={loading || mutating}
+          >
+            アーカイブ {archivedKnowledge.length}件
+          </button>
+          <button className="primary-button" onClick={openNew} disabled={loading || mutating}>＋ ナレッジを追加</button>
         </div>
       </div>
 
       {loading && <div className="msg">読み込み中...</div>}
       {!loading && error && <div className="err">エラー: {error}</div>}
-      {notice && <div className="notice" role="status">{notice}<button aria-label="閉じる" onClick={() => setNotice(null)}>×</button></div>}
-      {formTarget === undefined && actionError && <div className="err compact" role="alert">{actionError}</div>}
+      {notice && (
+        <div className="notice" role="status">
+          <span>{notice}</span>
+          <span className="notice-actions">
+            {undoArchived && (
+              <button className="notice-undo" disabled={mutating} onClick={() => void restoreKnowledge(undoArchived)}>
+                元に戻す
+              </button>
+            )}
+            <button
+              aria-label="閉じる"
+              onClick={() => { setNotice(null); setUndoArchived(null); }}
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      )}
+      {formTarget === undefined && !archiveOpen && actionError && <div className="err compact" role="alert">{actionError}</div>}
 
       {!loading && !error && (
         <>
@@ -132,17 +172,9 @@ export default function App() {
             onCategorySelect={selectCategory}
           />
 
-          <div className="charts">
-            <ChartCard title="カテゴリ別分布">
-              <CategoryChart knowledge={knowledge} />
-            </ChartCard>
-            <ChartCard title="習熟度分布">
-              <MasteryChart knowledge={knowledge} />
-            </ChartCard>
-            <ChartCard title="学習履歴（日別出題数・正答率）" full>
-              <HistoryChart quizLog={quizLog} />
-            </ChartCard>
-          </div>
+          <Suspense fallback={<div className="card chart-loading" role="status">グラフを読み込み中...</div>}>
+            <DashboardCharts knowledge={knowledge} quizLog={quizLog} />
+          </Suspense>
 
           <FilterBar
             filters={filters}
@@ -181,6 +213,15 @@ export default function App() {
           error={actionError}
           onClose={() => { setFormTarget(undefined); setActionError(null); }}
           onSave={saveKnowledge}
+        />
+      )}
+      {archiveOpen && (
+        <ArchivedKnowledgeModal
+          knowledge={archivedKnowledge}
+          mutating={mutating}
+          error={actionError}
+          onClose={() => { setArchiveOpen(false); setActionError(null); }}
+          onRestore={restoreKnowledge}
         />
       )}
     </div>

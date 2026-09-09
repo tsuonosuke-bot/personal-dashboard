@@ -1,4 +1,5 @@
-import { useEffect, useId } from "react";
+import { useId } from "react";
+import { useModalDialog } from "../hooks/useModalDialog";
 import type { Knowledge, QuizLog } from "../types";
 
 interface Props {
@@ -21,22 +22,17 @@ export function KnowledgeDetailModal({
   const history = quizLog
     .filter((item) => item.knowledge_id === knowledge.id)
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
-
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && onClose();
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
+  const dialogRef = useModalDialog(onClose, mutating);
 
   return (
-    <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="modal detail-modal" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+    <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !mutating && onClose()}>
+      <section ref={dialogRef} className="modal detail-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="modal-head detail-heading">
           <div>
             <span className="eyebrow">{knowledge.category}</span>
             <h2 id={titleId}>{knowledge.title}</h2>
           </div>
-          <button className="icon-button" aria-label="閉じる" onClick={onClose}>×</button>
+          <button className="icon-button" aria-label="閉じる" onClick={onClose} disabled={mutating}>×</button>
         </div>
 
         <div className="detail-body">
@@ -91,8 +87,8 @@ export function KnowledgeDetailModal({
         <div className="modal-actions detail-actions">
           <button className="danger-button" onClick={onArchive} disabled={mutating}>アーカイブ</button>
           <span className="action-spacer" />
-          <button onClick={onClose}>閉じる</button>
-          <button className="primary-button" onClick={onEdit}>編集する</button>
+          <button onClick={onClose} disabled={mutating}>閉じる</button>
+          <button className="primary-button" onClick={onEdit} disabled={mutating}>編集する</button>
         </div>
       </section>
     </div>

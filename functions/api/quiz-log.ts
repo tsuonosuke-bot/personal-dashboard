@@ -1,8 +1,9 @@
 import {
-  fetchSupabaseRows,
+  fetchSupabasePage,
   methodNotAllowed,
+  readPagination,
   type SupabaseEnv,
-} from "../_shared/supabaseRest";
+} from "../_shared/supabaseRest.ts";
 
 interface FunctionContext {
   request: Request;
@@ -11,11 +12,16 @@ interface FunctionContext {
 
 const params = new URLSearchParams({
   select: "id,knowledge_id,asked_on,quality,verdict,format,note,created_at",
-  order: "asked_on.asc",
-  limit: "5000",
+  order: "asked_on.desc,created_at.desc,id.desc",
 });
 
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
   if (context.request.method !== "GET") return methodNotAllowed("GET");
-  return fetchSupabaseRows(context.env, { table: "quiz_log", params });
+  const pagination = readPagination(context.request);
+  if (!pagination.ok) return pagination.response;
+  return fetchSupabasePage(
+    context.env,
+    { table: "quiz_log", params },
+    pagination.value,
+  );
 };

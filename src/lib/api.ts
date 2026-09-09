@@ -1,4 +1,5 @@
 import type { Knowledge, KnowledgeDraft, QuizLog } from "../types";
+import { parseKnowledge, parsePageEnvelope, parseQuizLog } from "./apiValidation.ts";
 
 interface ErrorBody {
   error?: unknown;
@@ -25,20 +26,46 @@ async function requestJson(path: string, init: RequestInit): Promise<unknown> {
   return response.json() as Promise<unknown>;
 }
 
-async function getJson<T>(path: string): Promise<T> {
-  const data = await requestJson(path, { method: "GET" });
-  if (!Array.isArray(data)) {
-    throw new Error("APIから想定外の応答を受信しました。");
+const API_PAGE_SIZE = 1_000;
+const MAX_PAGE_REQUESTS = 10_000;
+
+async function getAllPages<T>(
+  path: string,
+  parseItem: (value: unknown) => T,
+): Promise<T[]> {
+  const result: T[] = [];
+  let offset = 0;
+  let requestCount = 0;
+
+  while (true) {
+    requestCount++;
+    if (requestCount > MAX_PAGE_REQUESTS) {
+      throw new Error("データ件数が安全な取得上限を超えています。");
+    }
+    const separator = path.includes("?") ? "&" : "?";
+    const data = await requestJson(
+      `${path}${separator}limit=${API_PAGE_SIZE}&offset=${offset}`,
+      { method: "GET" },
+    );
+    const page = parsePageEnvelope(data);
+    if (page.offset !== offset || page.limit !== API_PAGE_SIZE) {
+      throw new Error("APIのページ情報が要求内容と一致しません。");
+    }
+    result.push(...page.items.map(parseItem));
+
+    if (page.items.length === 0) break;
+    offset += page.items.length;
+    if (page.total !== null && offset >= page.total) break;
   }
-  return data as T;
+  return result;
 }
 
 export function getKnowledge(): Promise<Knowledge[]> {
-  return getJson<Knowledge[]>("/api/knowledge");
+  return getAllPages("/api/knowledge?status=all", parseKnowledge);
 }
 
 export function getQuizLog(): Promise<QuizLog[]> {
-  return getJson<QuizLog[]>("/api/quiz-log");
+  return getAllPages("/api/quiz-log", parseQuizLog);
 }
 
 async function writeKnowledge(
@@ -54,10 +81,7 @@ async function writeKnowledge(
     },
     body: JSON.stringify(input),
   });
-  if (typeof data !== "object" || data === null || Array.isArray(data) || typeof (data as { id?: unknown }).id !== "string") {
-    throw new Error("更新APIから想定外の応答を受信しました。");
-  }
-  return data as Knowledge;
+  return parseKnowledge(data);
 }
 
 export function createKnowledge(input: KnowledgeDraft): Promise<Knowledge> {

@@ -9,6 +9,7 @@ import type { Knowledge, KnowledgeDraft, QuizLog } from "../types";
 
 export function useKnowledgeData() {
   const [knowledge, setKnowledge] = useState<Knowledge[]>([]);
+  const [archivedKnowledge, setArchivedKnowledge] = useState<Knowledge[]>([]);
   const [quizLog, setQuizLog] = useState<QuizLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +23,8 @@ export function useKnowledgeData() {
         getKnowledge(),
         getQuizLog(),
       ]);
-      setKnowledge(nextKnowledge);
+      setKnowledge(nextKnowledge.filter((item) => !item.archived));
+      setArchivedKnowledge(nextKnowledge.filter((item) => item.archived));
       setQuizLog(nextQuizLog);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -55,7 +57,10 @@ export function useKnowledgeData() {
       const updated = await updateKnowledgeApi(id, input);
       setKnowledge((current) => updated.archived
         ? current.filter((item) => item.id !== id)
-        : current.map((item) => item.id === id ? updated : item));
+        : [updated, ...current.filter((item) => item.id !== id)]);
+      setArchivedKnowledge((current) => updated.archived
+        ? [updated, ...current.filter((item) => item.id !== id)]
+        : current.filter((item) => item.id !== id));
       return updated;
     } finally {
       setMutating(false);
@@ -63,7 +68,7 @@ export function useKnowledgeData() {
   }, []);
 
   return {
-    knowledge, quizLog, loading, error, mutating,
+    knowledge, archivedKnowledge, quizLog, loading, error, mutating,
     reload, createKnowledge, updateKnowledge,
   };
 }

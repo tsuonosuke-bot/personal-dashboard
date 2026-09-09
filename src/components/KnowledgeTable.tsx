@@ -1,4 +1,3 @@
-import { MASTERY_COLORS } from "../constants";
 import { getJstToday } from "../lib/knowledge";
 import type { Knowledge, SortKey, SortState } from "../types";
 
@@ -44,7 +43,6 @@ export function KnowledgeTable({ rows, sort, onSort, onOpen }: Props) {
             </tr>
           ) : (
             rows.map((k) => {
-              const color = MASTERY_COLORS[k.mastery] ?? "#94a3b8";
               return (
                 <tr key={k.id}>
                   <td>
@@ -54,7 +52,7 @@ export function KnowledgeTable({ rows, sort, onSort, onOpen }: Props) {
                   </td>
                   <td>{k.category}</td>
                   <td>
-                    <span className="badge" style={{ background: `${color}22`, color }}>
+                    <span className={`badge mastery-badge mastery-${k.mastery}`}>
                       {k.mastery}
                     </span>
                   </td>
