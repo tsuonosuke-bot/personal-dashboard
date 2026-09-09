@@ -1,4 +1,5 @@
 import type { Knowledge, QuizLog } from "../types";
+import { getReviewCounts } from "../lib/knowledge";
 
 interface Props {
   knowledge: Knowledge[];
@@ -6,11 +7,11 @@ interface Props {
 }
 
 export function StatsCards({ knowledge, quizLog }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
+  const review = getReviewCounts(knowledge);
   const stats: [string, number][] = [
     ["総カード数", knowledge.length],
     ["定着済み", knowledge.filter((k) => k.mastery === "定着").length],
-    ["本日復習予定", knowledge.filter((k) => k.next_review_on && k.next_review_on <= today).length],
+    ["本日までの復習対象", review.due],
     ["累計出題数", quizLog.length],
   ];
 

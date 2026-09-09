@@ -27,6 +27,16 @@ export function FilterBar({ filters, categories, resultCount, onChange }: Props)
           <option key={m} value={m}>{m}</option>
         ))}
       </select>
+      <select
+        aria-label="復習状況"
+        value={filters.review}
+        onChange={(e) => onChange({ review: e.target.value as Filters["review"] })}
+      >
+        <option value="all">復習日: すべて</option>
+        <option value="due">本日まで</option>
+        <option value="today">本日</option>
+        <option value="overdue">期限超過</option>
+      </select>
       <span className="count">{resultCount}件</span>
     </div>
   );

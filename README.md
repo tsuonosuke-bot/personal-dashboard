@@ -4,7 +4,7 @@ Supabase のナレッジDBを自分専用で閲覧するダッシュボード
 （Vite + React + TypeScript + Cloudflare Pages Functions）。
 
 ブラウザはSupabaseへ直接接続しない。全リクエストをHTTP Basic認証で保護し、
-認証後の `/api/*` だけがCloudflare Pages FunctionsからSupabaseを読み取る。
+認証後の `/api/*` だけがCloudflare Pages FunctionsからSupabaseを読み書きする。
 
 ```text
 Browser --Basic認証--> Cloudflare Pages Functions --Secret key--> Supabase REST API
@@ -15,7 +15,7 @@ Browser --Basic認証--> Cloudflare Pages Functions --Secret key--> Supabase RES
 ```bash
 npm install
 cp .dev.vars.example .dev.vars
-# .dev.vars の4項目を記入
+# .dev.vars の必須3項目を記入
 npm run dev:pages
 ```
 
@@ -45,16 +45,21 @@ Viteだけを起動するため `/api/*` は利用できない。
 - `npm run build` — 型チェック + 本番ビルド
 - `npm run preview` — ビルド結果のプレビュー（Functionsなし）
 - `npm run typecheck` — 型チェックのみ
+- `npm test` — API入力検証・書き込み防御の自動テスト
 
 ## API
 
-APIは次のGETだけを提供する。取得列、並び順、上限はサーバー側で固定している。
+取得列、並び順、上限と編集可能項目はサーバー側で固定している。
 
 - `GET /api/knowledge` — 未アーカイブのナレッジ、最大2,000件
+- `POST /api/knowledge` — ナレッジを新規登録
+- `PATCH /api/knowledge/:id` — 許可項目の編集またはアーカイブ
 - `GET /api/quiz-log` — クイズ履歴、最大5,000件
 
-GET以外は405。DB接続設定がない場合は503、Supabase取得失敗は502を返す。
-Basic認証は静的アセットとAPIの両方に適用される。
+書き込みはBasic認証に加えて、同一オリジン、専用ヘッダー、JSON、25,000文字以下の本文を
+必須とする。サーバー側で許可するのはタイトル、説明、出典メモ、カテゴリ、習熟度、タグ、
+次回復習日、アーカイブ状態だけで、ID・作成日時・学習統計は変更できない。
+DB接続設定がない場合は503、Supabase通信失敗は502を返す。
 
 ## 構成
 
@@ -63,7 +68,8 @@ src/
   App.tsx                   画面全体の組み立てとフィルタ/ページ状態
   constants.ts             習熟度の色・並び順、配色、ページサイズ
   types.ts                 knowledge / quiz_log の型
-  lib/api.ts               同一オリジンの読み取り専用APIクライアント
+  lib/api.ts               同一オリジンAPIクライアント
+  lib/knowledge.ts         絞り込み・並び替え・復習分析
   hooks/
     useKnowledgeData.ts     APIからの取得とリロード
     useFilteredKnowledge.ts 検索・カテゴリ・習熟度による絞り込み
@@ -71,7 +77,9 @@ src/
 functions/
   _middleware.ts            全リクエストのBasic認証とセキュリティヘッダー
   _shared/supabaseRest.ts   Supabase REST APIのサーバー専用クライアント
-  api/knowledge.ts          ナレッジ読み取りAPI
+  _shared/knowledgeValidation.ts 書き込み防御と入力検証
+  api/knowledge.ts          ナレッジ一覧・新規登録API
+  api/knowledge/[id].ts     ナレッジ編集・アーカイブAPI
   api/quiz-log.ts           クイズ履歴読み取りAPI
 supabase/
   disable-anon-access.sql   移行完了後にanon権限を外すSQL
@@ -93,8 +101,11 @@ GitHub 連携でビルド・公開する。
 公開URL: https://knowledge-dashboard-27t.pages.dev
 
 Cloudflare Pages の **Settings → Variables and Secrets** で、Production と Preview の
-両方へ4つの環境変数を登録する。`DASHBOARD_PASSWORD` と
+両方へ必須3つの環境変数を登録する。`DASHBOARD_PASSWORD` と
 `SUPABASE_SECRET_KEY` は必ずSecretとして保存し、設定後に再デプロイする。
+
+ブラウザからSupabaseへ直接接続しないため、`VITE_SUPABASE_URL` と
+`VITE_SUPABASE_ANON_KEY` は設定しない。
 
 ### 閲覧制限
 
@@ -109,7 +120,7 @@ Cloudflare Access（Zero Trust）は $0 プランでもカード登録が必要�
 現在公開中のバージョンを停止させないため、次の順番を守る。
 
 1. Supabaseでダッシュボード専用Secret keyを発行する。
-2. Cloudflare Previewへ4つの環境変数を設定してPreviewデプロイを確認する。
+2. Cloudflare Previewへ必須3つの環境変数を設定してPreviewデプロイを確認する。
 3. Productionへ同じ構成を設定し、このバージョンをデプロイする。
 4. Basic認証後に実データが表示されることを確認する。
 5. 最後に `supabase/disable-anon-access.sql` をSupabase SQL Editorで実行する。
