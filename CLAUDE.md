@@ -1,8 +1,9 @@
 # CLAUDE.md
 
-Supabase のナレッジDB（学習カード + クイズ履歴）を自分専用で閲覧する
-読み取り専用ダッシュボード。Vite + React + TypeScript、グラフは recharts。
+Supabase のナレッジDB（学習カード + クイズ履歴）を自分専用で管理する
+ダッシュボード。Vite + React + TypeScript、グラフは recharts。
 ブラウザはSupabaseへ直接接続せず、Basic認証済みのCloudflare Pages Functions APIを使う。
+ナレッジの追加・編集・アーカイブ・復元を行える。クイズ履歴と学習統計は読み取り専用。
 
 ## コマンド
 
@@ -13,6 +14,7 @@ npm run dev:pages  # ビルド + Functions込み (http://localhost:8788)
 npm run build      # tsc -b + vite build
 npm run typecheck  # 型チェックのみ
 npm run preview    # ビルド結果のプレビュー（Functionsなし）
+npm test           # ロジック、API、認証、入力・応答検証
 ```
 
 変更後は最低限 `npm run typecheck` を通すこと。ビルドまで通せるとなお良い。
@@ -38,10 +40,10 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 ### `knowledge`
 
 - `id` はuuid文字列
-- `mastery` は `未学習` / `学習中` / `定着` の3種。この語彙を変えない
+- `mastery` は `未学習` / `学習中` / `習得中` / `定着` の4種。この語彙を変えない
 - 他: `title`, `explanation`, `category`, `tags`, `accuracy`,
   `next_review_on`, `archived`, `created_at`
-- 一覧は `archived = false` のみ対象
+- 通常一覧は `archived = false`、アーカイブ一覧は `archived = true` が対象
 
 ### `quiz_log`
 
@@ -53,10 +55,14 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 
 Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは次だけ。
 
-- `GET /api/knowledge`: 明示した列、`archived = false`、最大2,000件
-- `GET /api/quiz-log`: 明示した列、最大5,000件
+- `GET /api/knowledge`: 明示した列。`status=active|archived|all` と制限付きページング
+- `POST /api/knowledge`: 検証済みの編集可能項目だけで新規登録
+- `PATCH /api/knowledge/:id`: UUIDで特定した1件の編集、アーカイブ、復元
+- `GET /api/quiz-log`: 明示した列を新しい順に制限付きページング
 
-GET以外や任意テーブル・任意クエリを受け付けてはいけない。このアプリに書き込み機能を
+一覧APIの `limit` は1〜1,000、`offset` は0以上に限定し、応答は
+`{ items, total, limit, offset }` とする。ブラウザ側は全ページを取得し、固定件数で
+黙って切り捨てない。任意テーブル、任意クエリ、クイズ履歴・学習統計の書き込みを
 追加してはいけない。移行完了後、`supabase/disable-anon-access.sql` でanon権限を外す。
 
 ## 構成
@@ -66,15 +72,20 @@ src/
   App.tsx                   画面の組み立て、フィルタとページ番号の状態
   constants.ts              習熟度の色・並び順、円グラフ配色、PAGE_SIZE
   types.ts                  Knowledge / QuizLog / Filters
-  lib/api.ts                同一オリジンの読み取り専用APIクライアント
+  lib/api.ts                同一オリジンAPIクライアントと全ページ取得
+  lib/apiValidation.ts      DB応答の実行時型検証
+  lib/knowledge.ts          絞り込み・並び替え・復習分析
   hooks/
     useKnowledgeData.ts     APIからの取得とリロード
     useFilteredKnowledge.ts 検索・カテゴリ・習熟度での絞り込み
-  components/               表示コンポーネント
+    useModalDialog.ts       モーダルのフォーカス管理
+  components/               表示、編集、詳細、アーカイブ復元
 functions/
   _middleware.ts            全リクエストのBasic認証とセキュリティヘッダー
   _shared/supabaseRest.ts   Supabase REST API呼び出し
-  api/knowledge.ts          ナレッジ読み取りAPI
+  _shared/knowledgeValidation.ts 書き込み要求と入力の検証
+  api/knowledge.ts          ナレッジ一覧・新規登録API
+  api/knowledge/[id].ts     ナレッジ編集・アーカイブ・復元API
   api/quiz-log.ts           クイズ履歴読み取りAPI
 ```
 
@@ -83,6 +94,7 @@ functions/
 - `index.css` はクラス名ベース。CSS ModulesやTailwindは使わない。
 - rechartsの親要素には高さが必要（`.chart-box` は `height: 240px`）。
 - フィルタ変更時と更新時はページ番号を1へ戻す。
+- モーダルはフォーカスを内部に保ち、閉じたら呼び出し元へ戻す。
 
 ## デプロイと閲覧制限
 
@@ -94,6 +106,8 @@ Functionsの環境変数はCloudflareのVariables and SecretsでProduction/Previ
 
 `functions/_middleware.ts` は静的アセットと `/api/*` の全リクエストにBasic認証をかける。
 パスワード未設定時は503を返すフェイルクローズ設計を変えない。
+CSPは外部スクリプト・外部スタイルを禁止する。rechartsが生成するstyle属性だけは
+`style-src-attr` で許可し、アプリ固有の色分けはCSSクラスで行う。
 
 `functions/` はtsconfigのincludeに入っており、`npm run typecheck` の対象。
 ローカル統合確認は `.dev.vars` を用意して `npm run dev:pages` を使う。

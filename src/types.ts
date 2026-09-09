@@ -28,11 +28,13 @@ export interface QuizLog {
   knowledge_id: string;
   asked_on: string;
   quality: number;
-  verdict: string;
+  verdict: QuizVerdict;
   format: string;
   note: string | null;
   created_at: string;
 }
+
+export type QuizVerdict = "正解" | "不正解" | "部分正解";
 
 export type ReviewFilter = "all" | "today" | "overdue" | "due";
 export type SortKey = "created_at" | "title" | "category" | "mastery" | "accuracy" | "next_review_on";

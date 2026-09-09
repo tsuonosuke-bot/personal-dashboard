@@ -26,7 +26,7 @@ const REALM = 'Basic realm="knowledge-dashboard", charset="UTF-8"';
 function withPrivacyHeaders(response: Response): Response {
   const secured = new Response(response.body, response);
   secured.headers.set("Cache-Control", "private, no-store");
-  secured.headers.set("Content-Security-Policy", "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+  secured.headers.set("Content-Security-Policy", "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; script-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
   secured.headers.set("Referrer-Policy", "no-referrer");
   secured.headers.set("Vary", "Authorization");
   secured.headers.set("X-Content-Type-Options", "nosniff");

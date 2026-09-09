@@ -13,11 +13,65 @@ interface QueryDefinition {
 export interface SupabaseRequest extends QueryDefinition {
   method?: "GET" | "POST" | "PATCH";
   body?: unknown;
+  count?: "exact";
 }
 
 export type SupabaseRowsResult =
-  | { ok: true; rows: unknown[] }
+  | { ok: true; rows: unknown[]; total: number | null }
   | { ok: false; response: Response };
+
+export interface Pagination {
+  limit: number;
+  offset: number;
+}
+
+export type PaginationResult =
+  | { ok: true; value: Pagination }
+  | { ok: false; response: Response };
+
+const DEFAULT_PAGE_SIZE = 500;
+const MAX_PAGE_SIZE = 1_000;
+
+function parseNonNegativeInteger(value: string | null): number | null {
+  if (value === null || !/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+export function readPagination(request: Request): PaginationResult {
+  let url: URL;
+  try {
+    url = new URL(request.url);
+  } catch {
+    return { ok: false, response: jsonResponse({ error: "リクエストURLが正しくありません。" }, 400) };
+  }
+
+  const rawLimit = url.searchParams.get("limit");
+  const rawOffset = url.searchParams.get("offset");
+  const limit = rawLimit === null ? DEFAULT_PAGE_SIZE : parseNonNegativeInteger(rawLimit);
+  const offset = rawOffset === null ? 0 : parseNonNegativeInteger(rawOffset);
+  if (limit === null || limit < 1 || limit > MAX_PAGE_SIZE) {
+    return { ok: false, response: jsonResponse(
+      { error: `limitは1〜${MAX_PAGE_SIZE}の整数で指定してください。` },
+      400,
+    ) };
+  }
+  if (offset === null) {
+    return { ok: false, response: jsonResponse(
+      { error: "offsetは0以上の整数で指定してください。" },
+      400,
+    ) };
+  }
+  return { ok: true, value: { limit, offset } };
+}
+
+function parseContentRange(value: string | null): number | null {
+  if (!value) return null;
+  const match = value.match(/\/(\d+)$/);
+  if (!match) return null;
+  const total = Number(match[1]);
+  return Number.isSafeInteger(total) ? total : null;
+}
 
 export function jsonResponse(body: unknown, status = 200): Response {
   return Response.json(body, {
@@ -76,10 +130,12 @@ export async function requestSupabaseRows(
   try {
     const method = query.method ?? "GET";
     const headers: Record<string, string> = {
-        Accept: "application/json",
-        apikey: secretKey,
+      Accept: "application/json",
+      apikey: secretKey,
     };
-    if (method !== "GET") {
+    if (method === "GET" && query.count === "exact") {
+      headers.Prefer = "count=exact";
+    } else if (method !== "GET") {
       headers["Content-Type"] = "application/json";
       headers.Prefer = "return=representation";
     }
@@ -109,7 +165,13 @@ export async function requestSupabaseRows(
       ) };
     }
 
-    return { ok: true, rows: data };
+    return {
+      ok: true,
+      rows: data,
+      total: method === "GET" && query.count === "exact"
+        ? parseContentRange(response.headers.get("Content-Range"))
+        : null,
+    };
   } catch (error) {
     console.error(
       `Supabase ${query.table} request failed`,
@@ -122,10 +184,24 @@ export async function requestSupabaseRows(
   }
 }
 
-export async function fetchSupabaseRows(
+export async function fetchSupabasePage(
   env: SupabaseEnv,
   query: QueryDefinition,
+  pagination: Pagination,
 ): Promise<Response> {
-  const result = await requestSupabaseRows(env, query);
-  return result.ok ? jsonResponse(result.rows) : result.response;
+  const params = new URLSearchParams(query.params);
+  params.set("limit", String(pagination.limit));
+  params.set("offset", String(pagination.offset));
+  const result = await requestSupabaseRows(env, {
+    table: query.table,
+    params,
+    count: "exact",
+  });
+  if (!result.ok) return result.response;
+  return jsonResponse({
+    items: result.rows,
+    total: result.total,
+    limit: pagination.limit,
+    offset: pagination.offset,
+  });
 }

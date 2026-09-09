@@ -1,5 +1,6 @@
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { MASTERY_ORDER } from "../constants";
+import { useModalDialog } from "../hooks/useModalDialog";
 import type { Knowledge, KnowledgeDraft, Mastery } from "../types";
 
 interface Props {
@@ -23,14 +24,7 @@ export function KnowledgeFormModal({
   const [sourceNote, setSourceNote] = useState(knowledge?.source_note ?? "");
   const [tags, setTags] = useState((knowledge?.tags ?? []).join(", "));
   const [nextReviewOn, setNextReviewOn] = useState(knowledge?.next_review_on ?? "");
-
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !saving) onClose();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose, saving]);
+  const dialogRef = useModalDialog(onClose, saving);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -48,7 +42,7 @@ export function KnowledgeFormModal({
 
   return (
     <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && !saving && onClose()}>
-      <section className="modal form-modal" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <section ref={dialogRef} className="modal form-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="modal-head">
           <div>
             <span className="eyebrow">{knowledge ? "EDIT KNOWLEDGE" : "NEW KNOWLEDGE"}</span>
