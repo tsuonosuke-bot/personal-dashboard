@@ -67,11 +67,23 @@ Cloudflare Pages の **Settings → Environment variables** に、Production と
 両方へ `VITE_SUPABASE_URL` と `VITE_SUPABASE_ANON_KEY` を登録する。
 Vite の `VITE_` 変数はビルド時にJSへ埋め込まれるため、変更後は再デプロイが必要。
 
-### 閲覧制限
+### 閲覧制限（Basic 認証）
 
-anon key はバンドルに含まれるため、URL を知っていれば誰でもナレッジを閲覧できる。
-RLS により anon は SELECT のみで書き込みは不可だが、閲覧を自分だけに限定する場合は
-Cloudflare Access（Zero Trust → Access → Applications）で対象ドメインを保護する。
+anon key はバンドルに含まれるため、素のままでは URL を知る人が誰でも閲覧できる。
+そこで `functions/_middleware.ts`（Pages Functions）で全リクエストに HTTP Basic 認証をかけている。
+静的アセットも含めて認証対象。
+
+Cloudflare Pages の **Settings → Environment variables** に設定する:
+
+| 変数 | 必須 | 説明 |
+| --- | --- | --- |
+| `DASHBOARD_PASSWORD` | 必須 | 閲覧用パスワード。**ASCII のみ**（`atob` でデコードするため） |
+| `DASHBOARD_USER` | 任意 | 閲覧用ユーザー名。既定は `admin` |
+
+`DASHBOARD_PASSWORD` が未設定だとサイト全体が 503 を返す（フェイルクローズ）。
+設定漏れで中身が公開されることはない。環境変数を変更したら再デプロイが必要。
+
+Cloudflare Access（Zero Trust）は $0 プランでもカード登録が必須のため採用していない。
 
 ## Claude Code クラウドセッション
 

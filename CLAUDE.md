@@ -97,6 +97,15 @@ recharts の初回アニメーションが進まず、棒グラフと円グラ�
 
 `VITE_` 変数はビルド時にバンドルへ埋め込まれる。環境変数を変えたら再デプロイが必要。
 
+## 閲覧制限
+
+`functions/_middleware.ts` が Pages Functions として全リクエストに Basic 認証をかけている。
+`DASHBOARD_PASSWORD`（必須）/ `DASHBOARD_USER`（任意、既定 admin）は Cloudflare Pages の
+環境変数。未設定時は 503 を返すフェイルクローズ設計で、この挙動は変えないこと。
+
+`functions/` は tsconfig の include に入れてあるので `npm run typecheck` の対象。
+ローカル検証は `npx wrangler@3 pages dev dist --binding DASHBOARD_PASSWORD=... --port 8788`。
+
 ## Git 運用
 
 `claude/*` ブランチを切って PR を作る。main への直接コミットは避ける。
