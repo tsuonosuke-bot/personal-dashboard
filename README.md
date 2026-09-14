@@ -2,7 +2,7 @@
 
 Supabaseの `idea_inbox`、`wants`、`next_actions` を1画面で確認する個人用Webダッシュボードです。Knowledge DBダッシュボードと同じく、Cloudflare Pages FunctionsをBasic認証とSupabase RESTの境界として使用します。
 
-- Production: Cloudflare Git integration setup in progress
+- Production: https://personal-dashboard-7md.pages.dev/
 
 ## セキュリティ構成
 
