@@ -1,8 +1,8 @@
-# Compass — Inbox & Wants Dashboard
+# Personal Dashboard — Compass
 
 Supabaseの `idea_inbox`、`wants`、`next_actions` を1画面で確認する個人用Webダッシュボードです。Knowledge DBダッシュボードと同じく、Cloudflare Pages FunctionsをBasic認証とSupabase RESTの境界として使用します。
 
-- Production: https://inbox-wants-dashboard.pages.dev/
+- Production: Cloudflare Git integration setup in progress
 
 ## セキュリティ構成
 

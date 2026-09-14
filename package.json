@@ -1,9 +1,9 @@
 {
-  "name": "inbox-wants-dashboard",
-  "version": "0.2.0",
+  "name": "personal-dashboard",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Private Cloudflare Pages dashboard for Supabase idea inbox, wants, and next actions.",
+  "description": "Unified personal dashboard, initially serving the Compass Inbox and Wants view.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

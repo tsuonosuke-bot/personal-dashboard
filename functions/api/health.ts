@@ -21,8 +21,8 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   } catch (error) {
     const failure = publicError(error);
     return Response.json({
-      appId: "inbox-wants-dashboard",
-      version: "0.2.0",
+      appId: "personal-dashboard",
+      version: "0.3.0",
       status: "degraded",
       error: { code: failure.code, message: failure.message },
       timestamp: new Date().toISOString(),

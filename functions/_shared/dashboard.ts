@@ -168,7 +168,7 @@ export function normalizeDashboard(
   });
 
   return {
-    app: { appId: "inbox-wants-dashboard", version: "0.2.0", mode: "read-only" },
+    app: { appId: "personal-dashboard", version: "0.3.0", mode: "read-only" },
     source: { system: "supabase", state: "live", fetchedAt: new Date().toISOString() },
     navigation: [
       { id: "compass", label: "Compass", url: null, current: true },
