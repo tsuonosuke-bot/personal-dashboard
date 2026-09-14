@@ -13,7 +13,7 @@
       <header class="topbar">
         <a class="brand" href="/" aria-label="Personal Hub ホーム">
           <span class="brand-mark" aria-hidden="true">H</span>
-          <span><b>Personal Hub</b><small>ONE PLACE FOR YOUR DAY</small></span>
+          <b>Personal Hub</b>
         </a>
         <div class="topbar-actions">
           <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
@@ -25,43 +25,30 @@
       </header>
 
       <main>
-        <section class="hero">
-          <div>
-            <p class="eyebrow">DAILY OVERVIEW</p>
-            <h1 id="greeting">おかえりなさい。</h1>
-            <p>お金、学び、やりたいことを、ここから見渡せます。</p>
-          </div>
-          <div class="today-card">
-            <span id="dayLabel">—</span>
-            <div><strong id="dateLabel">読み込み中</strong><small id="updatedLabel">更新時刻を確認中</small></div>
-          </div>
-        </section>
+        <div class="context-strip">
+          <strong id="dateLabel">読み込み中</strong>
+          <small id="updatedLabel">更新時刻を確認中</small>
+        </div>
 
         <section class="dashboard-grid" aria-label="ダッシュボード">
           <a class="dashboard-card compass-card" id="compassLink" href="/compass/">
             <span class="card-icon" aria-hidden="true">↗</span>
-            <div><small>INBOX & WANTS</small><h2>Compass</h2><p>考えを受け止めて、次の一歩へ。</p></div>
-            <strong id="compassMeta">読み込み中</strong>
-            <span class="open-label">開く <b aria-hidden="true">→</b></span>
+            <div><h2>Compass</h2><strong id="compassMeta">読み込み中</strong></div>
+            <b class="card-arrow" aria-hidden="true">→</b>
           </a>
           <a class="dashboard-card finance-card" id="financialLink" href="https://financial-dashboard-9q8.pages.dev/">
             <span class="card-icon" aria-hidden="true">¥</span>
-            <div><small>PERSONAL FINANCE</small><h2>家計簿</h2><p>支出の流れと月ごとの変化を見る。</p></div>
-            <strong id="financialMeta">読み込み中</strong>
-            <span class="open-label">開く <b aria-hidden="true">→</b></span>
+            <div><h2>家計簿</h2><strong id="financialMeta">読み込み中</strong></div>
+            <b class="card-arrow" aria-hidden="true">→</b>
           </a>
           <a class="dashboard-card knowledge-card" id="knowledgeLink" href="https://knowledge-dashboard-27t.pages.dev/">
             <span class="card-icon" aria-hidden="true">K</span>
-            <div><small>KNOWLEDGE BASE</small><h2>ナレッジ</h2><p>復習の優先度と蓄積を確認する。</p></div>
-            <strong id="knowledgeMeta">読み込み中</strong>
-            <span class="open-label">開く <b aria-hidden="true">→</b></span>
+            <div><h2>ナレッジ</h2><strong id="knowledgeMeta">読み込み中</strong></div>
+            <b class="card-arrow" aria-hidden="true">→</b>
           </a>
         </section>
 
-        <section class="snapshot" aria-labelledby="snapshotTitle">
-          <div class="section-heading compact-heading">
-            <div><p class="eyebrow">TODAY AT A GLANCE</p><h2 id="snapshotTitle">今日のスナップショット</h2></div>
-          </div>
+        <section class="snapshot" aria-label="今日のスナップショット">
           <div class="metric-grid">
             <a href="https://financial-dashboard-9q8.pages.dev/" id="spendMetricLink" class="metric"><span>今月の支出</span><strong id="currentMonthSpend">—</strong><small id="spendComparison">前月と比較中</small></a>
             <a href="https://knowledge-dashboard-27t.pages.dev/" id="reviewMetricLink" class="metric"><span>復習期限</span><strong id="dueKnowledge">—</strong><small id="weakKnowledge">苦手を確認中</small></a>
@@ -76,35 +63,31 @@
         </div>
 
         <div id="hubContent" class="content-grid" hidden>
+          <section class="panel wants-panel" aria-labelledby="wantsTitle">
+            <div class="section-heading">
+              <h2 id="wantsTitle">Next action未設定のWants</h2>
+              <a href="/compass/">一覧 →</a>
+            </div>
+            <div id="wantList" class="want-list"></div>
+          </section>
+
           <section class="panel expenses-panel" aria-labelledby="expensesTitle">
             <div class="section-heading">
-              <div><p class="eyebrow">LATEST MONEY</p><h2 id="expensesTitle">直近の家計簿</h2></div>
-              <a id="allExpensesLink" href="https://financial-dashboard-9q8.pages.dev/">家計簿を開く →</a>
+              <h2 id="expensesTitle">直近の家計簿</h2>
+              <a id="allExpensesLink" href="https://financial-dashboard-9q8.pages.dev/">一覧 →</a>
             </div>
             <div id="expenseList" class="record-list"></div>
           </section>
 
           <section class="panel knowledge-panel" aria-labelledby="knowledgeTitle">
             <div class="section-heading">
-              <div><p class="eyebrow">REVIEW NEXT</p><h2 id="knowledgeTitle">今見るナレッジ</h2></div>
-              <a id="allKnowledgeLink" href="https://knowledge-dashboard-27t.pages.dev/">ナレッジを開く →</a>
+              <h2 id="knowledgeTitle">今見るナレッジ</h2>
+              <a id="allKnowledgeLink" href="https://knowledge-dashboard-27t.pages.dev/">一覧 →</a>
             </div>
-            <p class="section-note">苦手を最大2件、その後に復習期限と新規を混ぜています。</p>
             <div id="knowledgeList" class="knowledge-list"></div>
-          </section>
-
-          <section class="panel wants-panel" aria-labelledby="wantsTitle">
-            <div class="section-heading">
-              <div><p class="eyebrow">DAILY PROMPT</p><h2 id="wantsTitle">次の一歩を決めるWants</h2></div>
-              <a href="/compass/">Compassを開く →</a>
-            </div>
-            <p class="section-note">次の行動がないActive Wantsから日替わりで選びます。再読込しても今日は同じ候補です。</p>
-            <div id="wantList" class="want-list"></div>
           </section>
         </div>
       </main>
-
-      <footer><span>Personal Hub v1.0</span><span>Supabaseを正本とする読み取り専用ビュー</span></footer>
     </div>
     <script src="/hub.js" type="module"></script>
   </body>

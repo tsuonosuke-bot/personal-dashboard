@@ -1,5 +1,5 @@
 const ids = [
-  "sourceBadge", "refreshButton", "dayLabel", "dateLabel", "updatedLabel", "greeting",
+  "sourceBadge", "refreshButton", "dateLabel", "updatedLabel",
   "compassLink", "financialLink", "knowledgeLink", "compassMeta", "financialMeta", "knowledgeMeta",
   "spendMetricLink", "reviewMetricLink", "currentMonthSpend", "spendComparison", "dueKnowledge",
   "weakKnowledge", "pendingInbox", "wantsWithoutAction", "loadingState", "errorState", "errorMessage",
@@ -37,10 +37,7 @@ function formatDate(value, includeTime = false) {
 
 function setClock() {
   const now = new Date();
-  const hour = now.getHours();
-  els.greeting.textContent = hour < 11 ? "おはようございます。" : hour < 18 ? "こんにちは。" : "おつかれさまです。";
-  els.dayLabel.textContent = String(now.getDate()).padStart(2, "0");
-  els.dateLabel.textContent = new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", weekday: "long" }).format(now);
+  els.dateLabel.textContent = new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" }).format(now);
 }
 
 function empty(message) {
@@ -63,9 +60,9 @@ function renderSummary(summary) {
   els.pendingInbox.textContent = `${summary.pendingInbox}件`;
   els.wantsWithoutAction.textContent = `${summary.wantsWithoutAction}件`;
   els.weakKnowledge.textContent = `苦手候補 ${summary.weakKnowledge}件`;
-  els.compassMeta.textContent = `未整理 ${summary.pendingInbox}件 · 次の行動なし ${summary.wantsWithoutAction}件`;
-  els.financialMeta.textContent = `今月 ${formatYen(summary.currentMonthSpend)}`;
-  els.knowledgeMeta.textContent = `復習期限 ${summary.dueKnowledge}件`;
+  els.compassMeta.textContent = `未整理 ${summary.pendingInbox} · 未設定 ${summary.wantsWithoutAction}`;
+  els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
+  els.knowledgeMeta.textContent = `期限 ${summary.dueKnowledge}`;
   if (summary.previousMonthSpend > 0) {
     const difference = summary.currentMonthSpend - summary.previousMonthSpend;
     els.spendComparison.textContent = `前月比 ${difference >= 0 ? "+" : ""}${formatYen(difference)}`;
