@@ -1,3 +1,6 @@
+import { validateAccess, type AccessEnv } from "./_shared/accessAuth.ts";
+import { acceptHandoff, attachSession, hasValidSession, type SessionEnv } from "./_shared/sessionAuth.ts";
+
 /**
  * Cloudflare Pages Functions のミドルウェア。
  * 全リクエストに HTTP Basic 認証をかける（静的アセットも含む）。
@@ -10,9 +13,10 @@
  * 非ASCII文字だと正しく比較できない。
  */
 
-interface Env {
+interface Env extends AccessEnv, SessionEnv {
   DASHBOARD_PASSWORD?: string;
   DASHBOARD_USER?: string;
+  HUB_SERVICE_TOKEN?: string;
 }
 
 interface MiddlewareContext {
@@ -28,7 +32,7 @@ function withPrivacyHeaders(response: Response): Response {
   secured.headers.set("Cache-Control", "private, no-store");
   secured.headers.set("Content-Security-Policy", "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; style-src-elem 'self'; style-src-attr 'unsafe-inline'; script-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
   secured.headers.set("Referrer-Policy", "no-referrer");
-  secured.headers.set("Vary", "Authorization");
+  secured.headers.set("Vary", "Authorization, Cf-Access-Jwt-Assertion, Cookie");
   secured.headers.set("X-Content-Type-Options", "nosniff");
   secured.headers.set("X-Frame-Options", "DENY");
   secured.headers.set("X-Robots-Tag", "noindex, nofollow");
@@ -57,6 +61,35 @@ function safeEqual(a: string, b: string): boolean {
 
 export const onRequest = async (context: MiddlewareContext): Promise<Response> => {
   const { request, env, next } = context;
+  const authMode = env.AUTH_MODE?.trim().toLowerCase() || "basic";
+  if (authMode === "access") {
+    const access = await validateAccess(request, env);
+    if (!access.ok) {
+      return withPrivacyHeaders(new Response(access.message, {
+        status: access.status,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      }));
+    }
+    return withPrivacyHeaders(await next());
+  }
+  if (authMode !== "basic") {
+    return withPrivacyHeaders(new Response("AUTH_MODE is invalid.\n", {
+      status: 503,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    }));
+  }
+  const handoff = await acceptHandoff(request, env);
+  if (handoff) return withPrivacyHeaders(handoff);
+  if (await hasValidSession(request, env)) {
+    return withPrivacyHeaders(await next());
+  }
+  const requestUrl = new URL(request.url);
+  const hubToken = request.headers.get("X-Hub-Service") || "";
+  const expectedHubToken = env.HUB_SERVICE_TOKEN?.trim() || "";
+  if (request.method === "GET" && requestUrl.pathname === "/api/knowledge"
+    && expectedHubToken.length >= 32 && safeEqual(hubToken, expectedHubToken)) {
+    return withPrivacyHeaders(await next());
+  }
   const expectedPassword = env.DASHBOARD_PASSWORD;
 
   if (!expectedPassword) {
@@ -88,5 +121,5 @@ export const onRequest = async (context: MiddlewareContext): Promise<Response> =
   const passwordOk = safeEqual(password, expectedPassword);
   if (!userOk || !passwordOk) return unauthorized();
 
-  return withPrivacyHeaders(await next());
+  return withPrivacyHeaders(await attachSession(await next(), request, env));
 };

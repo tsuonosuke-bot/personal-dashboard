@@ -40,3 +40,42 @@ test("Basic認証を検証し、CSPを全レスポンスへ付ける", async () 
   );
   assert.equal(response.headers.get("X-Frame-Options"), "DENY");
 });
+
+test("Cloudflare Accessモードは設定不足と不正JWTを拒否する", async () => {
+  const missing = await onRequest({
+    request: request(),
+    env: { AUTH_MODE: "access" },
+    next: async () => new Response("secret"),
+  });
+  assert.equal(missing.status, 503);
+
+  const invalid = await onRequest({
+    request: new Request("https://dashboard.example/", { headers: { "Cf-Access-Jwt-Assertion": "not-a-jwt" } }),
+    env: { AUTH_MODE: "access", TEAM_DOMAIN: "https://owner.cloudflareaccess.com", POLICY_AUD: "audience" },
+    next: async () => new Response("secret"),
+  });
+  assert.equal(invalid.status, 403);
+  assert.doesNotMatch(await invalid.text(), /not-a-jwt/);
+});
+
+test("Hubサービスキーはナレッジ一覧GETだけを許可する", async () => {
+  const token = "hub-service-token-that-is-at-least-32-characters";
+  const env = { HUB_SERVICE_TOKEN: token, DASHBOARD_PASSWORD: "password" };
+  const allowed = await onRequest({
+    request: new Request("https://dashboard.example/api/knowledge?limit=5", { headers: { "X-Hub-Service": token } }),
+    env,
+    next: async () => new Response("knowledge"),
+  });
+  assert.equal(allowed.status, 200);
+  assert.equal(await allowed.text(), "knowledge");
+
+  const denied = await onRequest({
+    request: new Request("https://dashboard.example/api/knowledge", {
+      method: "POST",
+      headers: { "X-Hub-Service": token },
+    }),
+    env,
+    next: async () => new Response("write"),
+  });
+  assert.equal(denied.status, 401);
+});

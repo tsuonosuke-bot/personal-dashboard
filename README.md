@@ -3,11 +3,11 @@
 Supabase のナレッジDBを自分専用で閲覧するダッシュボード
 （Vite + React + TypeScript + Cloudflare Pages Functions）。
 
-ブラウザはSupabaseへ直接接続しない。全リクエストをHTTP Basic認証で保護し、
+ブラウザはSupabaseへ直接接続しない。全リクエストをHTTP Basic認証またはCloudflare Accessで保護し、
 認証後の `/api/*` だけがCloudflare Pages FunctionsからSupabaseを読み書きする。
 
 ```text
-Browser --Basic認証--> Cloudflare Pages Functions --Secret key--> Supabase REST API
+Browser --Basic認証 / Cloudflare Access--> Cloudflare Pages Functions --Secret key--> Supabase REST API
 ```
 
 ## セットアップ
@@ -29,8 +29,14 @@ Viteだけを起動するため `/api/*` は利用できない。
 
 | 変数 | 必須 | 説明 |
 | --- | --- | --- |
-| `DASHBOARD_PASSWORD` | 必須 | 閲覧用パスワード（ASCIIのみ） |
+| `DASHBOARD_PASSWORD` | Basic時 | 閲覧用パスワード（ASCIIのみ） |
 | `DASHBOARD_USER` | 任意 | 閲覧用ユーザー名。既定は `admin` |
+| `AUTH_MODE` | 任意 | `basic`（既定）または `access` |
+| `TEAM_DOMAIN` | Access時 | `https://<team>.cloudflareaccess.com` |
+| `POLICY_AUD` | Access時 | Access Application Audience tag |
+| `HUB_SERVICE_TOKEN` | Hub連携時 | Hubからナレッジ一覧GETだけを許可する共有secret |
+| `SSO_SHARED_SECRET` | Hub連携時 | Hubからの署名付き認証引き継ぎを検証する共有secret |
+| `SESSION_TTL_DAYS` | 任意 | 引き継いだセッションの日数。既定30 |
 | `SUPABASE_URL` | 必須 | SupabaseプロジェクトURL |
 | `SUPABASE_SECRET_KEY` | 必須 | サーバー専用の `sb_secret_...` キー |
 
@@ -82,7 +88,7 @@ src/
     useModalDialog.ts       モーダルのフォーカス管理
   components/              統計、グラフ、編集、アーカイブ復元、一覧
 functions/
-  _middleware.ts            全リクエストのBasic認証とセキュリティヘッダー
+  _middleware.ts            Basic / Access認証とセキュリティヘッダー
   _shared/supabaseRest.ts   Supabase REST APIのサーバー専用クライアント
   _shared/knowledgeValidation.ts 書き込み防御と入力検証
   api/knowledge.ts          ナレッジ一覧・新規登録API
@@ -121,7 +127,10 @@ HTTP Basic認証をかける。`DASHBOARD_PASSWORD` が未設定だとサイト�
 フェイルクローズ設計。認証後のレスポンスもキャッシュおよび検索エンジン登録を禁止する。
 CSPは外部のスクリプトとスタイルを禁止し、rechartsに必要なstyle属性だけを許可する。
 
-Cloudflare Access（Zero Trust）は $0 プランでもカード登録が必要なため採用していない。
+`AUTH_MODE=access` ではCloudflare Access JWTの署名・issuer・audienceを検証する。
+Personal Hub、家計簿、ナレッジを同じAccess applicationで保護すると、1回のログインで3画面を移動できる。
+
+Basic認証を継続する場合も、3サイトへ同じ `SSO_SHARED_SECRET` を設定すれば、Hubからの署名付き引き継ぎで対象ホストに固定したHttpOnlyセッションを作成できる。`HUB_SERVICE_TOKEN` は `GET /api/knowledge` のみに使え、POST/PATCHや他のAPIは認証を迂回できない。
 
 ## 既存のブラウザ直接接続からの移行
 

@@ -130,6 +130,7 @@ export default function App() {
           <h1>ナレッジDB ダッシュボード</h1>
         </div>
         <div className="head-actions">
+          <a className="hub-link" href="https://personal-dashboard-7md.pages.dev/">← Hub</a>
           <button onClick={handleReload} disabled={loading || mutating}>↻ 更新</button>
           <button
             onClick={() => { setActionError(null); setArchiveOpen(true); }}
