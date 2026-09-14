@@ -2,6 +2,8 @@
 
 Supabaseの `idea_inbox`、`wants`、`next_actions` を1画面で確認する個人用Webダッシュボードです。Knowledge DBダッシュボードと同じく、Cloudflare Pages FunctionsをBasic認証とSupabase RESTの境界として使用します。
 
+- Production: https://inbox-wants-dashboard.pages.dev/
+
 ## セキュリティ構成
 
 ```text
@@ -16,6 +18,7 @@ Browser
 - 静的ファイルとAPIを含む全リクエストをBasic認証で保護
 - `DASHBOARD_PASSWORD` 未設定時は503でフェイルクローズ
 - Supabase URLとsecret keyはPages Functionsだけが参照
+- 新形式のSupabase secret keyはサーバーから `apikey` ヘッダーだけで送信
 - ブラウザは同一オリジンの `/api/dashboard` だけを呼び出す
 - APIレスポンス、URL、Viteバンドルへsecret keyを含めない
 - `Cache-Control: private, no-store`、CSP、`X-Frame-Options: DENY`、`X-Robots-Tag` を適用
