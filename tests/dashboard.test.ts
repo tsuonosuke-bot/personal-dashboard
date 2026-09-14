@@ -28,9 +28,10 @@ test("dashboard summary and future navigation are normalized", () => {
     wantsWithoutAction: 1,
     openActions: 1,
   });
-  assert.equal(dashboard.navigation[1].url, "https://knowledge.example/");
-  assert.equal(dashboard.navigation[2].url, null);
-  assert.equal(dashboard.navigation[3].url, "http://127.0.0.1:4173/");
+  assert.equal(dashboard.navigation[0].url, "/");
+  assert.equal(dashboard.navigation[2].url, "/go/knowledge");
+  assert.equal(dashboard.navigation[3].url, "/go/financial");
+  assert.equal(dashboard.navigation[4].url, "http://127.0.0.1:4173/");
 });
 
 test("dashboard route sends the secret key only in server-side headers", async () => {

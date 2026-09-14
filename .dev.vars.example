@@ -1,9 +1,17 @@
 DASHBOARD_USER=admin
 DASHBOARD_PASSWORD=replace-with-a-long-ascii-password
+AUTH_MODE=basic
+# Cloudflare Accessへ切り替える場合:
+# AUTH_MODE=access
+# TEAM_DOMAIN=https://your-team.cloudflareaccess.com
+# POLICY_AUD=replace-with-access-application-aud
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_replace-me
+HUB_SERVICE_TOKEN=replace-with-a-random-32-byte-secret
+SSO_SHARED_SECRET=replace-with-a-different-random-32-byte-secret
+SESSION_TTL_DAYS=30
 
-# Optional destinations for the shared dashboard switcher.
+# Optional destinations for Hub and the dashboard switcher.
 NAV_KNOWLEDGE_URL=https://your-knowledge-dashboard.pages.dev/
 NAV_FINANCIAL_URL=https://your-financial-dashboard.pages.dev/
 NAV_TASK_BOARD_URL=

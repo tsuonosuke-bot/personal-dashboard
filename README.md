@@ -1,6 +1,6 @@
-# Personal Dashboard — Compass
+# Personal Hub
 
-Supabaseの `idea_inbox`、`wants`、`next_actions` を1画面で確認する個人用Webダッシュボードです。Knowledge DBダッシュボードと同じく、Cloudflare Pages FunctionsをBasic認証とSupabase RESTの境界として使用します。
+家計簿、ナレッジ、Compass（Inbox / Wants）を束ねる個人用Hubです。ルートに全体サマリーを表示し、既存のCompass画面は `/compass/` で利用できます。
 
 - Production: https://personal-dashboard-7md.pages.dev/
 
@@ -8,14 +8,15 @@ Supabaseの `idea_inbox`、`wants`、`next_actions` を1画面で確認する個
 
 ```text
 Browser
-  └─ Basic authentication
+  └─ Basic authentication または Cloudflare Access
       └─ Cloudflare Pages + Functions
           ├─ /api/dashboard
           └─ SUPABASE_SECRET_KEY (Cloudflare environment only)
               └─ Supabase REST API
 ```
 
-- 静的ファイルとAPIを含む全リクエストをBasic認証で保護
+- 初期状態は静的ファイルとAPIを含む全リクエストをBasic認証で保護
+- `AUTH_MODE=access` ではCloudflare Access JWTの署名・issuer・audienceを検証
 - `DASHBOARD_PASSWORD` 未設定時は503でフェイルクローズ
 - Supabase URLとsecret keyはPages Functionsだけが参照
 - 新形式のSupabase secret keyはサーバーから `apikey` ヘッダーだけで送信
@@ -24,7 +25,15 @@ Browser
 - `Cache-Control: private, no-store`、CSP、`X-Frame-Options: DENY`、`X-Robots-Tag` を適用
 - 初版は読み取り専用で、Supabase変更APIを持たない
 
-## 機能
+## Hubの機能
+
+- Compass、家計簿、ナレッジへの入口
+- 今月支出、復習期限、未整理Inbox、次の行動がないWantsのスナップショット
+- 直近5件の家計簿レコード
+- 苦手を最大2件、復習期限、新規を混ぜたナレッジ候補
+- 次の行動がないActive Wantsを、JST日付に基づく日替わり順で3件表示
+
+## Compassの機能
 
 - Inbox総数・未整理件数
 - Active Wants
@@ -33,7 +42,7 @@ Browser
 - Inbox / Wants / Next Actionsの切り替え
 - 検索、ステータス絞り込み、詳細ドロワー、再読込
 - `/api/health` による接続状態確認
-- Knowledge DB、Financial、Task Boardへの将来の画面遷移を考慮したダッシュボードスイッチャー
+- Hub、Knowledge DB、Financialへのダッシュボードスイッチャー
 
 画面遷移先は環境変数で変更できるため、各ダッシュボードを再ビルドせずにURLを差し替えられます。
 
@@ -65,14 +74,20 @@ PreviewとProductionの両方に、次の環境変数を設定します。
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DASHBOARD_USER` | Optional | Basic認証ユーザー。既定値は `admin` |
-| `DASHBOARD_PASSWORD` | Required | Basic認証パスワード |
+| `DASHBOARD_PASSWORD` | Basic時 | Basic認証パスワード |
+| `AUTH_MODE` | Optional | `basic`（既定）または `access` |
+| `TEAM_DOMAIN` | Access時 | `https://<team>.cloudflareaccess.com` |
+| `POLICY_AUD` | Access時 | Access Application Audience tag |
 | `SUPABASE_URL` | Required | SupabaseプロジェクトURL |
 | `SUPABASE_SECRET_KEY` | Required | Pages Functions専用のsecret key |
+| `HUB_SERVICE_TOKEN` | Required | 家計簿・ナレッジの読取専用APIを呼ぶ共有secret |
+| `SSO_SHARED_SECRET` | Recommended | Hubから各サイトへ認証を引き継ぐ共有secret（32文字以上） |
+| `SESSION_TTL_DAYS` | Optional | 引き継いだセッションの日数。既定30、最大365 |
 | `NAV_KNOWLEDGE_URL` | Optional | Knowledge DBダッシュボードURL |
 | `NAV_FINANCIAL_URL` | Optional | FinancialダッシュボードURL |
 | `NAV_TASK_BOARD_URL` | Optional | Task Board URL |
 
-`SUPABASE_SECRET_KEY` はCloudflare側の暗号化されたSecretとして登録し、GitHubやフロントエンド環境変数（`VITE_*`）には登録しません。
+`SUPABASE_SECRET_KEY`、`HUB_SERVICE_TOKEN`、`SSO_SHARED_SECRET` はCloudflare側の暗号化されたSecretとして登録し、GitHubやフロントエンド環境変数（`VITE_*`）には登録しません。Hubは家計簿・ナレッジの各Pages Functionが公開する読取専用APIを呼ぶため、別プロジェクトのSupabaseキーを複製しません。
 
 ## 検証
 
@@ -84,6 +99,8 @@ npm run build
 
 WindowsでNodeのテスト分離プロセスが制限される環境を考慮し、`--test-isolation=none` を使用しています。
 
-## 将来の統合方針
+## 1回の認証で3画面を使う
 
-ダッシュボードスイッチャーの共通化を想定しています。各サイトが別ドメインのままでも遷移できますが、Basic認証セッションはオリジンごとに独立します。将来的に1回の認証で3画面を移動したい場合は、共通カスタムドメイン配下への統合またはCloudflare Accessへの移行を検討します。
+`AUTH_MODE=basic` のままでも、3サイトへ同じ `SSO_SHARED_SECRET` を設定すると、Hubでの認証成功時に30日間のHttpOnlyセッションを作り、詳細サイトへは60秒だけ有効な署名付き引き継ぎURLで移動します。URLは移動直後に除去され、署名は対象ホストに固定されます。
+
+より標準化されたSSOへ移行する場合はCloudflare Accessも利用できます。3ホストを同じAccess applicationとAllow policyで保護し、各Pages環境の `AUTH_MODE=access`、`TEAM_DOMAIN`、`POLICY_AUD` を設定します。設定が欠けた場合は503、不正JWTは403でフェイルクローズします。

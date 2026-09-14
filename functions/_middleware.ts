@@ -1,4 +1,7 @@
-interface Env {
+import { validateAccess, type AccessEnv } from "./_shared/accessAuth.ts";
+import { acceptHandoff, attachSession, hasValidSession, type SessionEnv } from "./_shared/sessionAuth.ts";
+
+interface Env extends AccessEnv, SessionEnv {
   DASHBOARD_PASSWORD?: string;
   DASHBOARD_USER?: string;
 }
@@ -20,7 +23,7 @@ function withPrivacyHeaders(response: Response): Response {
   );
   secured.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   secured.headers.set("Referrer-Policy", "no-referrer");
-  secured.headers.set("Vary", "Authorization");
+  secured.headers.set("Vary", "Authorization, Cf-Access-Jwt-Assertion, Cookie");
   secured.headers.set("X-Content-Type-Options", "nosniff");
   secured.headers.set("X-Frame-Options", "DENY");
   secured.headers.set("X-Robots-Tag", "noindex, nofollow");
@@ -47,6 +50,30 @@ function safeEqual(left: string, right: string): boolean {
 }
 
 export const onRequest = async (context: MiddlewareContext): Promise<Response> => {
+  const authMode = context.env.AUTH_MODE?.trim().toLowerCase() || "basic";
+  if (authMode === "access") {
+    const access = await validateAccess(context.request, context.env);
+    if (!access.ok) {
+      return withPrivacyHeaders(new Response(access.message, {
+        status: access.status,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      }));
+    }
+    return withPrivacyHeaders(await context.next());
+  }
+  if (authMode !== "basic") {
+    return withPrivacyHeaders(new Response("AUTH_MODE is invalid.\n", {
+      status: 503,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    }));
+  }
+
+  const handoff = await acceptHandoff(context.request, context.env);
+  if (handoff) return withPrivacyHeaders(handoff);
+  if (await hasValidSession(context.request, context.env)) {
+    return withPrivacyHeaders(await context.next());
+  }
+
   const expectedPassword = context.env.DASHBOARD_PASSWORD;
   if (!expectedPassword) {
     return withPrivacyHeaders(new Response(
@@ -74,5 +101,5 @@ export const onRequest = async (context: MiddlewareContext): Promise<Response> =
   const passwordMatches = safeEqual(suppliedPassword, expectedPassword);
   if (!userMatches || !passwordMatches) return unauthorized();
 
-  return withPrivacyHeaders(await context.next());
+  return withPrivacyHeaders(await attachSession(await context.next(), context.request, context.env));
 };

@@ -26,6 +26,23 @@ test("Basic auth protects static assets and APIs with privacy headers", async ()
   assert.equal(await allowed.text(), "private");
   assert.equal(allowed.headers.get("X-Frame-Options"), "DENY");
   assert.equal(allowed.headers.get("X-Robots-Tag"), "noindex, nofollow");
-  assert.equal(allowed.headers.get("Vary"), "Authorization");
+  assert.match(allowed.headers.get("Vary") || "", /Cf-Access-Jwt-Assertion/);
   assert.match(allowed.headers.get("Content-Security-Policy") || "", /connect-src 'self'/);
+});
+
+test("Cloudflare Access mode fails closed without configuration or a valid JWT", async () => {
+  const missing = await onRequest({
+    request: request(),
+    env: { AUTH_MODE: "access" },
+    next: async () => new Response("private"),
+  });
+  assert.equal(missing.status, 503);
+
+  const invalid = await onRequest({
+    request: new Request("https://compass.example/", { headers: { "Cf-Access-Jwt-Assertion": "not-a-jwt" } }),
+    env: { AUTH_MODE: "access", TEAM_DOMAIN: "https://owner.cloudflareaccess.com", POLICY_AUD: "audience" },
+    next: async () => new Response("private"),
+  });
+  assert.equal(invalid.status, 403);
+  assert.doesNotMatch(await invalid.text(), /not-a-jwt/);
 });

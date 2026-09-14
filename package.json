@@ -1,21 +1,24 @@
 {
   "name": "personal-dashboard",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Unified personal dashboard, initially serving the Compass Inbox and Wants view.",
+  "description": "Personal Hub for Compass, finance, and knowledge dashboards.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "dev:pages": "npm run build && wrangler pages dev dist --port 4183",
     "typecheck": "tsc --noEmit",
     "test": "node --test --test-isolation=none tests/*.test.ts",
-    "check": "node --check public/app.js && npm run typecheck"
+    "check": "node --check public/app.js && node --check public/hub.js && npm run typecheck"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",
     "wrangler": "^4.37.1"
+  },
+  "dependencies": {
+    "jose": "^6.2.12"
   }
 }

@@ -120,6 +120,7 @@ function isoDate(value: unknown): string | null {
 
 function safeNavigationUrl(value: string | undefined): string | null {
   if (!value) return null;
+  if (value.startsWith("/") && !value.startsWith("//")) return value;
   try {
     const url = new URL(value);
     const local = url.protocol === "http:" && (url.hostname === "127.0.0.1" || url.hostname === "localhost");
@@ -171,9 +172,10 @@ export function normalizeDashboard(
     app: { appId: "personal-dashboard", version: "0.3.0", mode: "read-only" },
     source: { system: "supabase", state: "live", fetchedAt: new Date().toISOString() },
     navigation: [
+      { id: "hub", label: "Hub", url: "/", current: false },
       { id: "compass", label: "Compass", url: null, current: true },
-      { id: "knowledge", label: "Knowledge DB", url: safeNavigationUrl(env.NAV_KNOWLEDGE_URL), current: false },
-      { id: "financial", label: "Financial", url: safeNavigationUrl(env.NAV_FINANCIAL_URL), current: false },
+      { id: "knowledge", label: "Knowledge DB", url: "/go/knowledge", current: false },
+      { id: "financial", label: "Financial", url: "/go/financial", current: false },
       { id: "task-board", label: "Task Board", url: safeNavigationUrl(env.NAV_TASK_BOARD_URL), current: false },
     ],
     summary: {
