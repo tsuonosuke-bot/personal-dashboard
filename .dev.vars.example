@@ -1,0 +1,9 @@
+DASHBOARD_USER=admin
+DASHBOARD_PASSWORD=replace-with-a-long-ascii-password
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SECRET_KEY=sb_secret_replace-me
+
+# Optional destinations for the shared dashboard switcher.
+NAV_KNOWLEDGE_URL=https://your-knowledge-dashboard.pages.dev/
+NAV_FINANCIAL_URL=https://your-financial-dashboard.pages.dev/
+NAV_TASK_BOARD_URL=
