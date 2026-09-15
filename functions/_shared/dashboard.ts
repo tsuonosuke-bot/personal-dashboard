@@ -169,7 +169,7 @@ export function normalizeDashboard(
   });
 
   return {
-    app: { appId: "personal-dashboard", version: "0.3.0", mode: "read-only" },
+    app: { appId: "personal-dashboard", version: "0.4.0", mode: "read-write" },
     source: { system: "supabase", state: "live", fetchedAt: new Date().toISOString() },
     navigation: [
       { id: "hub", label: "Hub", url: "/", current: false },

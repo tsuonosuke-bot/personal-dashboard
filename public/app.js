@@ -12,6 +12,8 @@ const els = Object.fromEntries([
   "inboxTabCount", "wantsTabCount", "actionsTabCount", "listTitle", "searchInput",
   "statusFilter", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher", "dashboardNav",
+  "addInboxButton", "inboxModal", "inboxModalClose", "inboxCancelButton", "inboxForm",
+  "inboxContent", "inboxCharacterCount", "inboxFormError", "inboxSubmitButton", "toast",
 ].map((id) => [id, document.getElementById(id)]));
 
 const viewMeta = {
@@ -166,6 +168,64 @@ function closeDrawer() {
   document.body.style.overflow = "";
 }
 
+function setModalOpen(open) {
+  els.inboxModal.hidden = !open;
+  document.body.style.overflow = open ? "hidden" : "";
+  if (!open && new URLSearchParams(window.location.search).get("new") === "inbox") {
+    window.history.replaceState(null, "", window.location.pathname);
+  }
+  if (open) {
+    els.inboxFormError.hidden = true;
+    window.setTimeout(() => els.inboxContent.focus(), 0);
+  }
+}
+
+function showToast(message) {
+  els.toast.textContent = message;
+  els.toast.hidden = false;
+  window.clearTimeout(showToast.timer);
+  showToast.timer = window.setTimeout(() => { els.toast.hidden = true; }, 3500);
+}
+
+async function createInbox(event) {
+  event.preventDefault();
+  const content = els.inboxContent.value.trim();
+  if (!content) {
+    els.inboxFormError.textContent = "Inboxの内容を入力してください。";
+    els.inboxFormError.hidden = false;
+    return;
+  }
+  els.inboxSubmitButton.disabled = true;
+  els.inboxFormError.hidden = true;
+  try {
+    const response = await fetch("/api/inbox", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Dashboard-Action": "inbox-create",
+      },
+      body: JSON.stringify({ content }),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "Inboxを保存できませんでした。");
+    els.inboxForm.reset();
+    els.inboxCharacterCount.textContent = "0";
+    setModalOpen(false);
+    state.view = "inbox";
+    state.status = "";
+    state.metricFilter = "";
+    showToast("Inboxに保存しました。リストへ反映しています。");
+    await loadDashboard();
+  } catch (error) {
+    els.inboxFormError.textContent = error instanceof Error ? error.message : "Inboxを保存できませんでした。";
+    els.inboxFormError.hidden = false;
+  } finally {
+    els.inboxSubmitButton.disabled = false;
+  }
+}
+
 function setView(view, filter = "") {
   state.view = view;
   state.metricFilter = filter;
@@ -206,12 +266,23 @@ els.clearFilter.addEventListener("click", () => {
   els.searchInput.value = ""; updateStatusOptions(); renderList();
 });
 els.refreshButton.addEventListener("click", loadDashboard);
+els.addInboxButton.addEventListener("click", () => setModalOpen(true));
+els.inboxModalClose.addEventListener("click", () => setModalOpen(false));
+els.inboxCancelButton.addEventListener("click", () => setModalOpen(false));
+els.inboxModal.addEventListener("click", (event) => { if (event.target === els.inboxModal) setModalOpen(false); });
+els.inboxForm.addEventListener("submit", createInbox);
+els.inboxContent.addEventListener("input", () => { els.inboxCharacterCount.textContent = String(els.inboxContent.value.length); });
 els.drawerClose.addEventListener("click", closeDrawer);
 els.drawerBackdrop.addEventListener("click", closeDrawer);
-document.addEventListener("keydown", (event) => { if (event.key === "Escape" && els.drawer.classList.contains("open")) closeDrawer(); });
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!els.inboxModal.hidden) setModalOpen(false);
+  else if (els.drawer.classList.contains("open")) closeDrawer();
+});
 document.addEventListener("click", (event) => {
   if (!els.dashboardSwitcher.contains(event.target)) els.dashboardSwitcher.removeAttribute("open");
 });
 
 setClock();
 loadDashboard();
+if (new URLSearchParams(window.location.search).get("new") === "inbox") setModalOpen(true);

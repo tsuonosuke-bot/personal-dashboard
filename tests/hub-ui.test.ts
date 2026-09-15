@@ -24,3 +24,16 @@ test("mobile Hub retains three navigation choices in one row", async () => {
   assert.match(css, /\.dashboard-card \{ min-height: 88px;/);
   assert.match(css, /\.metric-grid \{ grid-template-columns: 1fr 1fr;/);
 });
+
+test("Compass exposes a real Inbox create menu", async () => {
+  const [html, script] = await Promise.all([
+    readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(html, /id="addInboxButton"/);
+  assert.match(html, /id="inboxForm"/);
+  assert.match(html, /maxlength="2000"/);
+  assert.match(script, /fetch\("\/api\/inbox"/);
+  assert.match(script, /X-Dashboard-Action.*inbox-create/s);
+});

@@ -11,6 +11,7 @@ Browser
   └─ Basic authentication または Cloudflare Access
       └─ Cloudflare Pages + Functions
           ├─ /api/dashboard
+          ├─ /api/inbox (POST)
           └─ SUPABASE_SECRET_KEY (Cloudflare environment only)
               └─ Supabase REST API
 ```
@@ -20,10 +21,10 @@ Browser
 - `DASHBOARD_PASSWORD` 未設定時は503でフェイルクローズ
 - Supabase URLとsecret keyはPages Functionsだけが参照
 - 新形式のSupabase secret keyはサーバーから `apikey` ヘッダーだけで送信
-- ブラウザは同一オリジンの `/api/dashboard` だけを呼び出す
+- ブラウザは同一オリジンの `/api/dashboard` と `/api/inbox` だけを呼び出す
 - APIレスポンス、URL、Viteバンドルへsecret keyを含めない
 - `Cache-Control: private, no-store`、CSP、`X-Frame-Options: DENY`、`X-Robots-Tag` を適用
-- 初版は読み取り専用で、Supabase変更APIを持たない
+- Inbox登録は同一オリジン・専用ヘッダー・入力文字数を検証し、`pending` として保存
 
 ## Hubの機能
 
@@ -40,6 +41,7 @@ Browser
 - 次のアクションがないWants
 - Open Actions
 - Inbox / Wants / Next Actionsの切り替え
+- Inboxの新規登録
 - 検索、ステータス絞り込み、詳細ドロワー、再読込
 - `/api/health` による接続状態確認
 - Hub、Knowledge DB、Financialへのダッシュボードスイッチャー

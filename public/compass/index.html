@@ -43,6 +43,7 @@
           <div class="workspace-head">
             <div><p class="section-kicker">YOUR MAP</p><h2 id="listTitle">Inbox</h2></div>
             <div class="workspace-tools">
+              <button class="primary-action" id="addInboxButton" type="button"><span aria-hidden="true">＋</span> Inboxを追加</button>
               <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><span class="sr-only">検索</span><input id="searchInput" type="search" placeholder="キーワードで検索" autocomplete="off" /></label>
               <select id="statusFilter" aria-label="ステータスで絞り込み"><option value="">すべてのステータス</option></select>
             </div>
@@ -56,11 +57,33 @@
           <div class="card-list" id="cardList" aria-live="polite"><div class="loading"><span></span><p>Supabaseから読み込んでいます</p></div></div>
         </section>
       </main>
-      <footer><span>Compass v0.3</span><span>Supabaseを正本とする読み取り専用ビュー</span></footer>
+      <footer><span>Compass</span><span>Supabaseと同期</span></footer>
     </div>
 
     <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
     <aside class="drawer" id="drawer" aria-hidden="true" aria-labelledby="drawerTitle"><button class="drawer-close" id="drawerClose" type="button" aria-label="詳細を閉じる">×</button><p class="drawer-kicker" id="drawerKicker"></p><h2 id="drawerTitle"></h2><div id="drawerBody"></div></aside>
+
+    <div class="form-backdrop" id="inboxModal" hidden>
+      <section class="form-modal" role="dialog" aria-modal="true" aria-labelledby="inboxModalTitle">
+        <div class="form-modal-head">
+          <div><p class="section-kicker">QUICK CAPTURE</p><h2 id="inboxModalTitle">Inboxを追加</h2></div>
+          <button class="modal-close" id="inboxModalClose" type="button" aria-label="閉じる">×</button>
+        </div>
+        <form id="inboxForm">
+          <label class="form-field">
+            <span>内容 <b>必須</b></span>
+            <textarea id="inboxContent" maxlength="2000" rows="7" placeholder="気になったこと、思いついたことをそのまま入力" required></textarea>
+            <small><span id="inboxCharacterCount">0</span> / 2000</small>
+          </label>
+          <p class="form-error" id="inboxFormError" role="alert" hidden></p>
+          <div class="form-actions">
+            <button class="secondary-action" id="inboxCancelButton" type="button">キャンセル</button>
+            <button class="primary-action" id="inboxSubmitButton" type="submit">Inboxに保存</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <div class="toast" id="toast" role="status" hidden></div>
     <script src="/app.js" type="module"></script>
   </body>
 </html>

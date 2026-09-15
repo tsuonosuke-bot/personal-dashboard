@@ -1,8 +1,8 @@
 :root {
   color-scheme: light;
-  --paper: #f3f2ed;
-  --surface: #fffefa;
-  --ink: #1c2822;
+  --paper: #f5f5f2;
+  --surface: #ffffff;
+  --ink: #202822;
   --muted: #6f7973;
   --line: #dcded8;
   --green: #245949;
@@ -40,8 +40,8 @@ a { color: inherit; }
   backdrop-filter: blur(10px);
 }
 .brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; }
-.brand-mark { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; background: var(--ink); color: #fff; font: 600 15px/1 Georgia, serif; }
-.brand b { font: 500 17px/1.1 Georgia, "Yu Mincho", serif; }
+.brand-mark { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; background: var(--ink); color: #fff; font: 700 14px/1 Inter, "Segoe UI", sans-serif; }
+.brand b { font: 700 16px/1.1 Inter, "Segoe UI", sans-serif; }
 .topbar-actions { display: flex; align-items: center; gap: 7px; }
 .source-badge { display: inline-flex; align-items: center; gap: 6px; min-height: 31px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.62); color: var(--muted); font-size: 9px; font-weight: 750; }
 .source-badge i { width: 6px; height: 6px; border-radius: 50%; background: #9da39f; }
@@ -69,7 +69,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
   gap: 11px;
   padding: 14px;
   border: 1px solid rgba(49,70,58,.12);
-  border-radius: 14px;
+  border-radius: 12px;
   background: var(--surface);
   text-decoration: none;
   transition: border-color .18s ease, transform .18s ease;
@@ -79,7 +79,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .knowledge-card { --accent: var(--violet); --soft: var(--violet-soft); }
 .card-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--soft); color: var(--accent); font: 600 15px/1 Georgia, serif; }
 .dashboard-card div { min-width: 0; }
-.dashboard-card h2 { margin: 0 0 6px; font: 500 21px/1.05 Georgia, "Yu Mincho", serif; }
+.dashboard-card h2 { margin: 0 0 6px; font: 700 19px/1.05 Inter, "Segoe UI", sans-serif; }
 .dashboard-card strong { display: block; overflow: hidden; color: var(--accent); font-size: 9px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .card-arrow { color: var(--accent); font-size: 14px; }
 
@@ -89,19 +89,19 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .metric:hover { border-color: rgba(36,89,73,.45); background: var(--surface); }
 .metric span, .metric strong, .metric small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .metric span { color: var(--muted); font-size: 9px; font-weight: 750; }
-.metric strong { margin: 5px 0 3px; font: 500 19px/1 Georgia, serif; }
+.metric strong { margin: 5px 0 3px; font: 700 18px/1 Inter, "Segoe UI", sans-serif; }
 .metric small { color: #89918c; font-size: 8px; }
 
 .state-card { min-height: 150px; display: grid; place-items: center; align-content: center; margin: 3px 0 12px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,254,250,.75); color: var(--muted); }
 .state-card p { margin: 10px 0 0; font-size: 10px; }
 .spinner { width: 24px; height: 24px; border: 2px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; }
-.error-state h2 { margin: 0; color: var(--ink); font: 500 19px/1.2 Georgia, serif; }
+.error-state h2 { margin: 0; color: var(--ink); font: 700 18px/1.2 Inter, "Segoe UI", sans-serif; }
 .error-state button { margin-top: 11px; padding: 7px 13px; border: 0; border-radius: 8px; background: var(--green); color: #fff; cursor: pointer; }
 
 .content-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; padding: 0 0 14px; }
-.panel { min-width: 0; padding: 14px; border: 1px solid rgba(49,70,58,.12); border-radius: 14px; background: rgba(255,254,250,.88); }
+.panel { min-width: 0; padding: 14px; border: 1px solid rgba(49,70,58,.12); border-radius: 12px; background: var(--surface); }
 .section-heading { min-height: 25px; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
-.section-heading h2 { margin: 0; font: 500 18px/1.15 Georgia, "Yu Mincho", serif; letter-spacing: -.01em; }
+.section-heading h2 { margin: 0; font: 700 17px/1.15 Inter, "Segoe UI", sans-serif; letter-spacing: -.01em; }
 .section-heading > a { color: var(--green); font-size: 9px; font-weight: 750; text-decoration: none; white-space: nowrap; }
 .section-heading > a:hover { text-decoration: underline; }
 
@@ -113,7 +113,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .record-row strong, .record-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .record-row strong { font-size: 10px; }
 .record-row small { margin-top: 3px; color: var(--muted); font-size: 8px; }
-.record-row > b { color: var(--blue); font: 600 12px/1 Georgia, serif; white-space: nowrap; }
+.record-row > b { color: var(--blue); font: 700 12px/1 Inter, "Segoe UI", sans-serif; white-space: nowrap; }
 
 .knowledge-list { display: grid; gap: 5px; }
 .knowledge-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 7px; min-height: 44px; padding: 7px 8px; border-radius: 9px; background: #f4f3ef; text-decoration: none; }
@@ -130,7 +130,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .want-list { display: grid; gap: 5px; }
 .want-card { min-height: 61px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 9px; border: 1px solid #e3e3dc; border-radius: 10px; background: #fff; text-decoration: none; transition: border-color .18s ease; }
 .want-card:hover { border-color: rgba(36,89,73,.5); }
-.want-card > span { color: var(--orange); font: 500 13px/1 Georgia, serif; }
+.want-card > span { color: var(--orange); font: 700 12px/1 Inter, "Segoe UI", sans-serif; }
 .want-card div { min-width: 0; }
 .want-card strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 9px; line-height: 1.35; }
 .want-card small { display: block; margin-top: 4px; color: var(--muted); font-size: 8px; }
