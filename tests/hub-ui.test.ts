@@ -37,3 +37,14 @@ test("Compass exposes a real Inbox create menu", async () => {
   assert.match(script, /fetch\("\/api\/inbox"/);
   assert.match(script, /X-Dashboard-Action.*inbox-create/s);
 });
+
+test("Compass starts with the summary and omits the decorative hero and large date", async () => {
+  const [html, script] = await Promise.all([
+    readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(html, /class="hero"|PERSONAL DIRECTION|頭の中を、|hero-date|dayLabel|dateLabel|updatedLabel/);
+  assert.doesNotMatch(script, /setClock|dayLabel|dateLabel|updatedLabel/);
+  assert.match(html, /<main>\s*<section class="metrics"/);
+});

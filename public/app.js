@@ -7,7 +7,7 @@ const state = {
 };
 
 const els = Object.fromEntries([
-  "sourceBadge", "refreshButton", "dayLabel", "dateLabel", "updatedLabel",
+  "sourceBadge", "refreshButton",
   "pendingInbox", "inboxTotal", "activeWants", "wantsWithoutAction", "openActions",
   "inboxTabCount", "wantsTabCount", "actionsTabCount", "listTitle", "searchInput",
   "statusFilter", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
@@ -41,12 +41,6 @@ function formatDate(value, includeTime = false) {
   ).format(date);
 }
 
-function setClock() {
-  const now = new Date();
-  els.dayLabel.textContent = String(now.getDate()).padStart(2, "0");
-  els.dateLabel.textContent = new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", weekday: "long" }).format(now);
-}
-
 function setSource(source, error = false) {
   els.sourceBadge.className = "source-badge";
   if (error) {
@@ -57,7 +51,6 @@ function setSource(source, error = false) {
   const demo = source.state === "demo";
   els.sourceBadge.classList.add(demo ? "demo" : "live");
   els.sourceBadge.lastChild.textContent = demo ? "DEMO DATA" : "SUPABASE LIVE";
-  els.updatedLabel.textContent = `${formatDate(source.fetchedAt, true)} 更新`;
 }
 
 function currentItems() {
@@ -283,6 +276,5 @@ document.addEventListener("click", (event) => {
   if (!els.dashboardSwitcher.contains(event.target)) els.dashboardSwitcher.removeAttribute("open");
 });
 
-setClock();
 loadDashboard();
 if (new URLSearchParams(window.location.search).get("new") === "inbox") setModalOpen(true);

@@ -53,16 +53,7 @@ button { color: inherit; }
 .icon-button:hover { transform: translateY(-1px); border-color: var(--green); }
 .icon-button svg { width: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.8; }
 main { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
-.hero { min-height: 300px; display: flex; align-items: center; justify-content: space-between; gap: 60px; padding: 48px 4px 36px; }
 .eyebrow, .section-kicker { margin: 0 0 12px; color: var(--orange); font-size: 11px; font-weight: 800; letter-spacing: .19em; }
-.hero h1 { margin: 0; font-family: Georgia, "Yu Mincho", serif; font-size: clamp(42px, 6vw, 72px); font-weight: 500; line-height: 1.08; letter-spacing: -.05em; }
-.hero h1 em { color: var(--green); font-style: normal; }
-.hero-copy { max-width: 580px; margin: 20px 0 0; color: var(--muted); font-size: 15px; line-height: 1.8; }
-.hero-date { min-width: 155px; padding: 8px 0 8px 28px; border-left: 1px solid var(--line); }
-.hero-date strong, .hero-date span, .hero-date small { display: block; }
-.hero-date strong { font-family: Georgia, serif; color: var(--green); font-size: 54px; font-weight: 400; line-height: 1; }
-.hero-date span { margin-top: 7px; font-weight: 700; }
-.hero-date small { margin-top: 12px; color: var(--muted); font-size: 11px; }
 .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 0 0 34px; }
 .metric { position: relative; min-height: 158px; padding: 22px; overflow: hidden; text-align: left; border: 1px solid rgba(50,70,58,.12); border-radius: 18px; background: var(--card); box-shadow: 0 6px 24px rgba(39,54,45,.045); cursor: pointer; transition: transform .2s ease, box-shadow .2s ease; }
 .metric:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
@@ -135,8 +126,6 @@ footer { display: flex; justify-content: space-between; width: min(1180px, calc(
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 850px) {
   .metrics { grid-template-columns: repeat(2, 1fr); }
-  .hero { min-height: 260px; }
-  .hero-date { display: none; }
 }
 @media (max-width: 650px) {
   .topbar { height: 70px; padding: 0 18px; }
@@ -146,9 +135,6 @@ footer { display: flex; justify-content: space-between; width: min(1180px, calc(
   .dashboard-switcher summary { width: 40px; height: 40px; justify-content: center; overflow: hidden; padding: 0; color: transparent; }
   .dashboard-switcher summary span { color: var(--green); font-size: 18px; }
   main { width: min(100% - 24px, 1180px); }
-  .hero { padding: 38px 2px 28px; }
-  .hero h1 { font-size: 42px; }
-  .hero-copy { font-size: 13px; }
   .metrics { gap: 9px; }
   .metric { min-height: 140px; padding: 17px; }
   .metric strong { font-size: 39px; }
@@ -201,14 +187,8 @@ body { background: var(--paper); }
 .source-badge { min-height: 34px; padding: 7px 10px; font-size: 10px; }
 .icon-button { width: 34px; height: 34px; border-radius: 9px; }
 main { width: min(1240px, calc(100% - 28px)); }
-.hero { min-height: 144px; padding: 26px 2px 22px; gap: 30px; }
-.hero h1 { font: 700 clamp(28px, 4vw, 40px)/1.25 Inter, "Segoe UI", sans-serif; letter-spacing: -.035em; }
-.hero h1 br { display: none; }
-.hero-copy { margin-top: 9px; font-size: 13px; line-height: 1.6; }
-.hero-date { min-width: 150px; padding-left: 20px; }
-.hero-date strong { font: 650 36px/1 Inter, "Segoe UI", sans-serif; }
 .eyebrow, .section-kicker { margin-bottom: 7px; color: var(--green); font-size: 9px; letter-spacing: .15em; }
-.metrics { gap: 9px; margin-bottom: 14px; }
+.metrics { gap: 9px; margin: 16px 0 14px; }
 .metric {
   min-height: 102px;
   padding: 15px;
@@ -264,10 +244,7 @@ main { width: min(1240px, calc(100% - 28px)); }
   .hub-link { font-size: 11px; }
   .hub-link::after { content: none; }
   main { width: calc(100% - 16px); }
-  .hero { min-height: 116px; padding: 20px 2px 16px; }
-  .hero h1 { font-size: 27px; }
-  .hero-copy { font-size: 11px; }
-  .metrics { gap: 6px; }
+  .metrics { gap: 6px; margin-top: 10px; }
   .metric { min-height: 88px; padding: 12px; }
   .metric strong { font-size: 25px; }
   .metric small { display: none; }
