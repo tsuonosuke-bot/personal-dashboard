@@ -123,24 +123,30 @@ export default function App() {
   };
 
   return (
-    <div className="wrap">
-      <div className="head">
-        <div>
-          <span className="eyebrow">PERSONAL KNOWLEDGE BASE</span>
-          <h1>ナレッジDB ダッシュボード</h1>
+    <div className="app-page">
+      <header className="app-header">
+        <div className="head">
+          <div className="page-heading">
+            <span className="eyebrow">Personal knowledge</span>
+            <h1>ナレッジ</h1>
+            <p>学びを整理・確認</p>
+          </div>
+          <div className="head-actions">
+            <a className="hub-link" href="https://personal-dashboard-7md.pages.dev/">← Hub</a>
+            <button onClick={handleReload} disabled={loading || mutating}>↻ 更新</button>
+            <button
+              className="archive-button"
+              onClick={() => { setActionError(null); setArchiveOpen(true); }}
+              disabled={loading || mutating}
+            >
+              アーカイブ {archivedKnowledge.length}件
+            </button>
+            <button className="primary-button" onClick={openNew} disabled={loading || mutating}>＋ ナレッジを追加</button>
+          </div>
         </div>
-        <div className="head-actions">
-          <a className="hub-link" href="https://personal-dashboard-7md.pages.dev/">← Hub</a>
-          <button onClick={handleReload} disabled={loading || mutating}>↻ 更新</button>
-          <button
-            onClick={() => { setActionError(null); setArchiveOpen(true); }}
-            disabled={loading || mutating}
-          >
-            アーカイブ {archivedKnowledge.length}件
-          </button>
-          <button className="primary-button" onClick={openNew} disabled={loading || mutating}>＋ ナレッジを追加</button>
-        </div>
-      </div>
+      </header>
+
+      <main className="wrap">
 
       {loading && <div className="msg">読み込み中...</div>}
       {!loading && error && <div className="err">エラー: {error}</div>}
@@ -225,6 +231,7 @@ export default function App() {
           onRestore={restoreKnowledge}
         />
       )}
+      </main>
     </div>
   );
 }
