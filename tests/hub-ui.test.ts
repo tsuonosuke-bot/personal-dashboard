@@ -66,7 +66,11 @@ test("Compass promotes Inbox content to a Want and breaks a Want into a Next Act
   assert.match(script, /actionHeader: "want-create"/);
   assert.match(script, /actionHeader: "action-create"/);
   assert.match(script, /sourceView === "wants" \? \{ wantId: sourceItem\.id, content \} : \{ content \}/);
-  assert.match(script, /元のInboxはそのまま残ります/);
+  assert.match(script, /async function markInboxPromoted\(sourceItem\)/);
+  assert.match(script, /status: "done",\s+result: "Wantsに登録"/);
+  assert.match(script, /"X-Dashboard-Action": "inbox-update"/);
+  assert.match(script, /Wantは追加しましたが、Inboxを処理済みにできませんでした/);
+  assert.match(script, /Want追加後、元のInboxを処理済みにし/);
 });
 
 test("Compass starts with the summary and omits the decorative hero and large date", async () => {

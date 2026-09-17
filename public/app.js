@@ -50,8 +50,8 @@ const createFlowMeta = {
     actionHeader: "want-create",
     submit: "Wantに追加",
     sourceLabel: "元のInbox",
-    note: "元のInboxはそのまま残ります。必要に応じて編集画面から整理済みにしてください。",
-    success: "Wantを追加しました。",
+    note: "Want追加後、元のInboxを処理済みにし、処理結果を「Wantsに登録」と記録します。",
+    success: "Wantを追加し、Inboxを処理済みにしました。",
   },
   wants: {
     title: "Next Actionを追加",
@@ -443,6 +443,32 @@ function setCreateFlowError(message) {
   error.hidden = !message;
 }
 
+async function markInboxPromoted(sourceItem) {
+  const response = await fetch("/api/inbox", {
+    method: "PATCH",
+    credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": "inbox-update",
+    },
+    body: JSON.stringify({
+      id: sourceItem.id,
+      content: sourceItem.content,
+      status: "done",
+      result: "Wantsに登録",
+      original: {
+        content: sourceItem.content,
+        status: sourceItem.status,
+        result: sourceItem.result ?? null,
+      },
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+  if (!response.ok) throw new Error(message || "元のInboxを処理済みにできませんでした。");
+}
+
 async function saveCreateFlow(event, sourceItem, sourceView) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -478,6 +504,15 @@ async function saveCreateFlow(event, sourceItem, sourceView) {
     if (!response.ok) throw new Error(message || `${meta.title}に失敗しました。`);
     if (!Number.isSafeInteger(Number(payload.id))) throw new Error("保存結果を確認できませんでした。");
 
+    let sourceUpdateWarning = "";
+    if (sourceView === "inbox") {
+      try {
+        await markInboxPromoted(sourceItem);
+      } catch {
+        sourceUpdateWarning = "Wantは追加しましたが、Inboxを処理済みにできませんでした。Inboxを再読込して確認してください。";
+      }
+    }
+
     state.view = meta.targetView;
     state.status = "";
     state.search = "";
@@ -489,7 +524,7 @@ async function saveCreateFlow(event, sourceItem, sourceView) {
       setCreateFlowError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
       return;
     }
-    showToast(meta.success);
+    showToast(sourceUpdateWarning || meta.success);
   } catch (error) {
     setCreateFlowError(error instanceof Error ? error.message : `${meta.title}に失敗しました。`);
   } finally {

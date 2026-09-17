@@ -47,7 +47,7 @@ Browser
 - Inboxの新規登録
 - Inboxの本文・ステータス・整理結果を編集
 - WantsとNext Actionsの本文・ステータスを編集
-- InboxからWantを追加し、Wantから紐づくNext Actionを追加
+- InboxからWantを追加すると元のInboxを処理済み（処理結果: Wantsに登録）にし、Wantから紐づくNext Actionを追加
 - 検索、ステータス絞り込み、詳細ドロワー、再読込
 - `/api/health` による接続状態確認
 - Hub、Knowledge DB、Financialへのダッシュボードスイッチャー
