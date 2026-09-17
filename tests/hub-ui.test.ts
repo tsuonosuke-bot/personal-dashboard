@@ -58,6 +58,17 @@ test("Compass edits Wants and Next Actions through dedicated APIs", async () => 
   assert.match(script, /actionHeader: "action-update"/);
 });
 
+test("Compass promotes Inbox content to a Want and breaks a Want into a Next Action", async () => {
+  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+
+  assert.match(script, /id="createWantButton"/);
+  assert.match(script, /id="createActionButton"/);
+  assert.match(script, /actionHeader: "want-create"/);
+  assert.match(script, /actionHeader: "action-create"/);
+  assert.match(script, /sourceView === "wants" \? \{ wantId: sourceItem\.id, content \} : \{ content \}/);
+  assert.match(script, /元のInboxはそのまま残ります/);
+});
+
 test("Compass starts with the summary and omits the decorative hero and large date", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),

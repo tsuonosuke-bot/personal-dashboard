@@ -42,6 +42,29 @@ const itemEditMeta = {
   },
 };
 
+const createFlowMeta = {
+  inbox: {
+    title: "Wantとして追加",
+    targetView: "wants",
+    endpoint: "/api/wants",
+    actionHeader: "want-create",
+    submit: "Wantに追加",
+    sourceLabel: "元のInbox",
+    note: "元のInboxはそのまま残ります。必要に応じて編集画面から整理済みにしてください。",
+    success: "Wantを追加しました。",
+  },
+  wants: {
+    title: "Next Actionを追加",
+    targetView: "actions",
+    endpoint: "/api/actions",
+    actionHeader: "action-create",
+    submit: "Next Actionに追加",
+    sourceLabel: "対象のWant",
+    note: "このWantに紐づく、次に実行できる具体的な行動を入力してください。",
+    success: "Next Actionを追加しました。",
+  },
+};
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -158,20 +181,28 @@ function renderDrawerItem(item, view) {
   </div>`;
   if (view === "inbox") {
     body += `<div class="detail-section"><span>整理結果</span><p>${escapeHtml(item.result || "まだ整理されていません")}</p></div>
-      <div class="drawer-actions"><button class="primary-action" id="editInboxButton" type="button">Inboxを編集</button></div>`;
+      <div class="drawer-actions">
+        <button class="secondary-action" id="editInboxButton" type="button">Inboxを編集</button>
+        <button class="primary-action" id="createWantButton" type="button">Wantとして追加</button>
+      </div>`;
   }
   if (view === "wants") {
     body += `<div class="detail-section"><span>Next Actions</span>${item.nextActions.length
       ? `<div class="next-action-list">${item.nextActions.map((action) => `<div class="next-action"><b>${escapeHtml(action.content)}</b><small>${escapeHtml(statusLabel(action.status))}</small></div>`).join("")}</div>`
       : '<p>次のアクションはまだ登録されていません。</p>'}</div>
-      <div class="drawer-actions"><button class="primary-action" id="editWantButton" type="button">Wantを編集</button></div>`;
+      <div class="drawer-actions">
+        <button class="secondary-action" id="editWantButton" type="button">Wantを編集</button>
+        <button class="primary-action" id="createActionButton" type="button">Next Actionを追加</button>
+      </div>`;
   }
   if (view === "actions") {
     body += `<div class="drawer-actions"><button class="primary-action" id="editActionButton" type="button">Next Actionを編集</button></div>`;
   }
   els.drawerBody.innerHTML = body;
   document.getElementById("editInboxButton")?.addEventListener("click", () => renderInboxEditForm(item));
+  document.getElementById("createWantButton")?.addEventListener("click", () => renderCreateFlowForm(item, "inbox"));
   document.getElementById("editWantButton")?.addEventListener("click", () => renderItemEditForm(item, "wants"));
+  document.getElementById("createActionButton")?.addEventListener("click", () => renderCreateFlowForm(item, "wants"));
   document.getElementById("editActionButton")?.addEventListener("click", () => renderItemEditForm(item, "actions"));
 }
 
@@ -369,6 +400,103 @@ async function saveItem(event, item, view) {
       submit.disabled = false;
       cancel.disabled = false;
       submit.textContent = "変更を保存";
+    }
+  }
+}
+
+function renderCreateFlowForm(sourceItem, sourceView) {
+  const meta = createFlowMeta[sourceView];
+  if (!meta) return;
+  const initialContent = sourceView === "inbox" ? sourceItem.content : "";
+  els.drawerTitle.textContent = meta.title;
+  els.drawerBody.innerHTML = `<form class="edit-form" id="createFlowForm">
+    <div class="source-context">
+      <span>${escapeHtml(meta.sourceLabel)}</span>
+      <p>${escapeHtml(sourceItem.content)}</p>
+    </div>
+    <p class="flow-note">${escapeHtml(meta.note)}</p>
+    <label class="form-field" for="createFlowContent">
+      <span>内容</span>
+      <textarea id="createFlowContent" name="content" rows="7" maxlength="2000" required placeholder="${sourceView === "wants" ? "次に取る具体的な行動" : "Wantの内容"}">${escapeHtml(initialContent)}</textarea>
+      <small><b id="createFlowContentCount">${initialContent.length}</b> / 2000</small>
+    </label>
+    <p class="form-error" id="createFlowError" role="alert" hidden></p>
+    <div class="drawer-actions">
+      <button class="secondary-action" id="cancelCreateFlow" type="button">キャンセル</button>
+      <button class="primary-action" id="saveCreateFlow" type="submit">${escapeHtml(meta.submit)}</button>
+    </div>
+  </form>`;
+
+  const form = document.getElementById("createFlowForm");
+  const content = document.getElementById("createFlowContent");
+  content.addEventListener("input", () => { document.getElementById("createFlowContentCount").textContent = content.value.length; });
+  document.getElementById("cancelCreateFlow").addEventListener("click", () => renderDrawerItem(sourceItem, sourceView));
+  form.addEventListener("submit", (event) => saveCreateFlow(event, sourceItem, sourceView));
+  content.focus();
+  content.setSelectionRange(content.value.length, content.value.length);
+}
+
+function setCreateFlowError(message) {
+  const error = document.getElementById("createFlowError");
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+}
+
+async function saveCreateFlow(event, sourceItem, sourceView) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const meta = createFlowMeta[sourceView];
+  const content = form.elements.content.value.trim();
+  if (!content) {
+    setCreateFlowError("内容を入力してください。");
+    form.elements.content.focus();
+    return;
+  }
+
+  const submit = document.getElementById("saveCreateFlow");
+  const cancel = document.getElementById("cancelCreateFlow");
+  submit.disabled = true;
+  cancel.disabled = true;
+  submit.textContent = "保存中…";
+  setCreateFlowError("");
+
+  try {
+    const requestBody = sourceView === "wants" ? { wantId: sourceItem.id, content } : { content };
+    const response = await fetch(meta.endpoint, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Dashboard-Action": meta.actionHeader,
+      },
+      body: JSON.stringify(requestBody),
+    });
+    const payload = await response.json().catch(() => ({}));
+    const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+    if (!response.ok) throw new Error(message || `${meta.title}に失敗しました。`);
+    if (!Number.isSafeInteger(Number(payload.id))) throw new Error("保存結果を確認できませんでした。");
+
+    state.view = meta.targetView;
+    state.status = "";
+    state.search = "";
+    state.metricFilter = "";
+    els.searchInput.value = "";
+    state.drawerItem = { id: Number(payload.id), view: meta.targetView };
+    const refreshed = await loadDashboard();
+    if (!refreshed) {
+      setCreateFlowError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
+      return;
+    }
+    showToast(meta.success);
+  } catch (error) {
+    setCreateFlowError(error instanceof Error ? error.message : `${meta.title}に失敗しました。`);
+  } finally {
+    if (submit.isConnected) {
+      submit.disabled = false;
+      cancel.disabled = false;
+      submit.textContent = meta.submit;
     }
   }
 }

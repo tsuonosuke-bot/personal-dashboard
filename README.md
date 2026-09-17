@@ -12,8 +12,8 @@ Browser
       └─ Cloudflare Pages + Functions
           ├─ /api/dashboard
           ├─ /api/inbox (POST / PATCH)
-          ├─ /api/wants (PATCH)
-          ├─ /api/actions (PATCH)
+          ├─ /api/wants (POST / PATCH)
+          ├─ /api/actions (POST / PATCH)
           └─ SUPABASE_SECRET_KEY (Cloudflare environment only)
               └─ Supabase REST API
 ```
@@ -47,6 +47,7 @@ Browser
 - Inboxの新規登録
 - Inboxの本文・ステータス・整理結果を編集
 - WantsとNext Actionsの本文・ステータスを編集
+- InboxからWantを追加し、Wantから紐づくNext Actionを追加
 - 検索、ステータス絞り込み、詳細ドロワー、再読込
 - `/api/health` による接続状態確認
 - Hub、Knowledge DB、Financialへのダッシュボードスイッチャー

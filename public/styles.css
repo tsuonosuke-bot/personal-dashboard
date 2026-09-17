@@ -123,6 +123,10 @@ footer { display: flex; justify-content: space-between; width: min(1180px, calc(
 .edit-form .form-field > span small { font-size: 10px; font-weight: 500; }
 .edit-form .form-field select { width: 100%; }
 .edit-form .form-error { margin: 0; }
+.source-context { padding: 12px 14px; border-left: 3px solid var(--green); border-radius: 5px 9px 9px 5px; background: var(--green-soft); }
+.source-context span { display: block; margin-bottom: 5px; color: var(--green); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.source-context p, .flow-note { margin: 0; font-size: 12px; line-height: 1.65; }
+.flow-note { color: var(--muted); }
 .next-action-list { display: grid; gap: 9px; margin-top: 9px; }
 .next-action { padding: 13px; border-left: 3px solid var(--green); border-radius: 4px 10px 10px 4px; background: var(--green-soft); }
 .next-action b { display: block; font-size: 13px; line-height: 1.55; }
