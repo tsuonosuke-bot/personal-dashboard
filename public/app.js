@@ -4,6 +4,7 @@ const state = {
   status: "",
   search: "",
   metricFilter: "",
+  drawerItem: null,
 };
 
 const els = Object.fromEntries([
@@ -129,24 +130,133 @@ function renderList() {
   els.cardList.querySelectorAll(".item-card").forEach((card) => card.addEventListener("click", () => openDrawer(Number(card.dataset.id))));
 }
 
-function openDrawer(id) {
-  const item = (state.data?.[state.view] || []).find((entry) => entry.id === id);
-  if (!item) return;
-  els.drawerKicker.textContent = `${viewMeta[state.view].singular} · ${item.id}`;
+function renderDrawerItem(item, view) {
+  els.drawerKicker.textContent = `${viewMeta[view].singular} · ${item.id}`;
   els.drawerTitle.textContent = item.content || "内容なし";
   let body = `<div class="detail-grid">
     <div class="detail-box"><span>Status</span><strong>${escapeHtml(statusLabel(item.status))}</strong></div>
     <div class="detail-box"><span>Created</span><strong>${escapeHtml(formatDate(item.createdAt, true))}</strong></div>
   </div>`;
-  if (state.view === "inbox") {
-    body += `<div class="detail-section"><span>整理結果</span><p>${escapeHtml(item.result || "まだ整理されていません")}</p></div>`;
+  if (view === "inbox") {
+    body += `<div class="detail-section"><span>整理結果</span><p>${escapeHtml(item.result || "まだ整理されていません")}</p></div>
+      <div class="drawer-actions"><button class="primary-action" id="editInboxButton" type="button">Inboxを編集</button></div>`;
   }
-  if (state.view === "wants") {
+  if (view === "wants") {
     body += `<div class="detail-section"><span>Next Actions</span>${item.nextActions.length
       ? `<div class="next-action-list">${item.nextActions.map((action) => `<div class="next-action"><b>${escapeHtml(action.content)}</b><small>${escapeHtml(statusLabel(action.status))}</small></div>`).join("")}</div>`
       : '<p>次のアクションはまだ登録されていません。</p>'}</div>`;
   }
   els.drawerBody.innerHTML = body;
+  document.getElementById("editInboxButton")?.addEventListener("click", () => renderInboxEditForm(item));
+}
+
+function renderInboxEditForm(item) {
+  const statuses = ["pending", "done"];
+  const currentOption = statuses.includes(item.status)
+    ? ""
+    : `<option value="${escapeHtml(item.status)}" selected disabled>${escapeHtml(statusLabel(item.status))}</option>`;
+  const statusOptions = statuses.map((status) => `<option value="${status}" ${item.status === status ? "selected" : ""}>${escapeHtml(statusLabel(status))}</option>`).join("");
+  els.drawerTitle.textContent = "Inboxを編集";
+  els.drawerBody.innerHTML = `<form class="edit-form" id="inboxEditForm">
+    <label class="form-field" for="editInboxContent">
+      <span>内容</span>
+      <textarea id="editInboxContent" name="content" rows="7" maxlength="2000" required>${escapeHtml(item.content)}</textarea>
+      <small><b id="editContentCount">${item.content.length}</b> / 2000</small>
+    </label>
+    <label class="form-field" for="editInboxStatus">
+      <span>ステータス</span>
+      <select id="editInboxStatus" name="status">${currentOption}${statusOptions}</select>
+    </label>
+    <label class="form-field" for="editInboxResult">
+      <span>整理結果 <small>空欄可</small></span>
+      <textarea id="editInboxResult" name="result" rows="5" maxlength="2000">${escapeHtml(item.result || "")}</textarea>
+      <small><b id="editResultCount">${(item.result || "").length}</b> / 2000</small>
+    </label>
+    <p class="form-error" id="inboxEditError" role="alert" hidden></p>
+    <div class="drawer-actions">
+      <button class="secondary-action" id="cancelInboxEdit" type="button">キャンセル</button>
+      <button class="primary-action" id="saveInboxEdit" type="submit">変更を保存</button>
+    </div>
+  </form>`;
+
+  const form = document.getElementById("inboxEditForm");
+  const content = document.getElementById("editInboxContent");
+  const result = document.getElementById("editInboxResult");
+  content.addEventListener("input", () => { document.getElementById("editContentCount").textContent = content.value.length; });
+  result.addEventListener("input", () => { document.getElementById("editResultCount").textContent = result.value.length; });
+  document.getElementById("cancelInboxEdit").addEventListener("click", () => renderDrawerItem(item, "inbox"));
+  form.addEventListener("submit", (event) => saveInbox(event, item));
+  content.focus();
+  content.setSelectionRange(content.value.length, content.value.length);
+}
+
+function setInboxEditError(message) {
+  const error = document.getElementById("inboxEditError");
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+}
+
+async function saveInbox(event, item) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const content = form.elements.content.value.trim();
+  if (!content) {
+    setInboxEditError("Inboxの内容を入力してください。");
+    form.elements.content.focus();
+    return;
+  }
+
+  const submit = document.getElementById("saveInboxEdit");
+  const cancel = document.getElementById("cancelInboxEdit");
+  submit.disabled = true;
+  cancel.disabled = true;
+  submit.textContent = "保存中…";
+  setInboxEditError("");
+
+  try {
+    const response = await fetch("/api/inbox", {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Dashboard-Action": "inbox-update",
+      },
+      body: JSON.stringify({
+        id: item.id,
+        content,
+        status: form.elements.status.value,
+        result: form.elements.result.value,
+        original: { content: item.content, status: item.status, result: item.result },
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+    if (!response.ok) throw new Error(message || "Inboxを更新できませんでした。");
+
+    const refreshed = await loadDashboard();
+    if (!refreshed) {
+      setInboxEditError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
+      return;
+    }
+    showToast("Inboxを更新しました。");
+  } catch (error) {
+    setInboxEditError(error instanceof Error ? error.message : "Inboxを更新できませんでした。");
+  } finally {
+    if (submit.isConnected) {
+      submit.disabled = false;
+      cancel.disabled = false;
+      submit.textContent = "変更を保存";
+    }
+  }
+}
+
+function openDrawer(id, view = state.view) {
+  const item = (state.data?.[view] || []).find((entry) => entry.id === id);
+  if (!item) return;
+  state.drawerItem = { id, view };
+  renderDrawerItem(item, view);
   els.drawerBackdrop.hidden = false;
   els.drawer.classList.add("open");
   els.drawer.setAttribute("aria-hidden", "false");
@@ -155,6 +265,7 @@ function openDrawer(id) {
 }
 
 function closeDrawer() {
+  state.drawerItem = null;
   els.drawer.classList.remove("open");
   els.drawer.setAttribute("aria-hidden", "true");
   els.drawerBackdrop.hidden = true;
@@ -240,11 +351,14 @@ async function loadDashboard() {
     renderNavigation(payload.navigation || []);
     updateStatusOptions();
     renderList();
+    if (state.drawerItem) openDrawer(state.drawerItem.id, state.drawerItem.view);
+    return true;
   } catch (error) {
     setSource(null, true);
     els.resultCount.textContent = "読み込みに失敗しました";
     els.cardList.innerHTML = `<div class="error-state"><h3>データを表示できません</h3><p>${escapeHtml(error.message)}</p><button type="button" id="retryButton">再試行</button></div>`;
     document.getElementById("retryButton").addEventListener("click", loadDashboard);
+    return false;
   } finally {
     els.refreshButton.disabled = false;
   }

@@ -38,6 +38,15 @@ test("Compass exposes a real Inbox create menu", async () => {
   assert.match(script, /X-Dashboard-Action.*inbox-create/s);
 });
 
+test("Compass edits an Inbox and reloads the canonical data", async () => {
+  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+
+  assert.match(script, /id="editInboxButton"/);
+  assert.match(script, /method: "PATCH"/);
+  assert.match(script, /X-Dashboard-Action": "inbox-update"/);
+  assert.match(script, /const refreshed = await loadDashboard\(\)/);
+});
+
 test("Compass starts with the summary and omits the decorative hero and large date", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),

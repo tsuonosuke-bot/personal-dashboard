@@ -169,7 +169,7 @@ export function normalizeDashboard(
   });
 
   return {
-    app: { appId: "personal-dashboard", version: "0.4.0", mode: "read-write" },
+    app: { appId: "personal-dashboard", version: "0.5.0", mode: "read-write" },
     source: { system: "supabase", state: "live", fetchedAt: new Date().toISOString() },
     navigation: [
       { id: "hub", label: "Hub", url: "/", current: false },
@@ -211,6 +211,7 @@ export function publicError(error: unknown) {
     SUPABASE_UNAVAILABLE: "Supabaseへ接続できませんでした。",
     SUPABASE_REQUEST_FAILED: "Supabaseからデータを取得できませんでした。",
     SUPABASE_RESPONSE_INVALID: "Supabaseから想定外の応答を受信しました。",
+    INBOX_UPDATE_CONFLICT: "このInboxは別の画面で更新されています。再読み込みしてからやり直してください。",
   };
   return { code, status, message: messages[code] || "ダッシュボードを読み込めませんでした。" };
 }

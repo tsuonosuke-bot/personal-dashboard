@@ -11,7 +11,7 @@ Browser
   └─ Basic authentication または Cloudflare Access
       └─ Cloudflare Pages + Functions
           ├─ /api/dashboard
-          ├─ /api/inbox (POST)
+          ├─ /api/inbox (POST / PATCH)
           └─ SUPABASE_SECRET_KEY (Cloudflare environment only)
               └─ Supabase REST API
 ```
@@ -25,6 +25,7 @@ Browser
 - APIレスポンス、URL、Viteバンドルへsecret keyを含めない
 - `Cache-Control: private, no-store`、CSP、`X-Frame-Options: DENY`、`X-Robots-Tag` を適用
 - Inbox登録は同一オリジン・専用ヘッダー・入力文字数を検証し、`pending` として保存
+- Inbox更新はIDと編集前の値を条件にし、別画面で更新済みの場合は409で拒否
 
 ## Hubの機能
 
@@ -42,6 +43,7 @@ Browser
 - Open Actions
 - Inbox / Wants / Next Actionsの切り替え
 - Inboxの新規登録
+- Inboxの本文・ステータス・整理結果を編集
 - 検索、ステータス絞り込み、詳細ドロワー、再読込
 - `/api/health` による接続状態確認
 - Hub、Knowledge DB、Financialへのダッシュボードスイッチャー
