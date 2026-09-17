@@ -23,6 +23,25 @@ const viewMeta = {
   actions: { title: "Next Actions", singular: "Action", empty: "次のアクションはまだありません" },
 };
 
+const itemEditMeta = {
+  wants: {
+    title: "Wantを編集",
+    button: "Wantを編集",
+    endpoint: "/api/wants",
+    actionHeader: "want-update",
+    statuses: ["active", "completed"],
+    success: "Wantを更新しました。",
+  },
+  actions: {
+    title: "Next Actionを編集",
+    button: "Next Actionを編集",
+    endpoint: "/api/actions",
+    actionHeader: "action-update",
+    statuses: ["open", "done"],
+    success: "Next Actionを更新しました。",
+  },
+};
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -144,10 +163,16 @@ function renderDrawerItem(item, view) {
   if (view === "wants") {
     body += `<div class="detail-section"><span>Next Actions</span>${item.nextActions.length
       ? `<div class="next-action-list">${item.nextActions.map((action) => `<div class="next-action"><b>${escapeHtml(action.content)}</b><small>${escapeHtml(statusLabel(action.status))}</small></div>`).join("")}</div>`
-      : '<p>次のアクションはまだ登録されていません。</p>'}</div>`;
+      : '<p>次のアクションはまだ登録されていません。</p>'}</div>
+      <div class="drawer-actions"><button class="primary-action" id="editWantButton" type="button">Wantを編集</button></div>`;
+  }
+  if (view === "actions") {
+    body += `<div class="drawer-actions"><button class="primary-action" id="editActionButton" type="button">Next Actionを編集</button></div>`;
   }
   els.drawerBody.innerHTML = body;
   document.getElementById("editInboxButton")?.addEventListener("click", () => renderInboxEditForm(item));
+  document.getElementById("editWantButton")?.addEventListener("click", () => renderItemEditForm(item, "wants"));
+  document.getElementById("editActionButton")?.addEventListener("click", () => renderItemEditForm(item, "actions"));
 }
 
 function renderInboxEditForm(item) {
@@ -243,6 +268,102 @@ async function saveInbox(event, item) {
     showToast("Inboxを更新しました。");
   } catch (error) {
     setInboxEditError(error instanceof Error ? error.message : "Inboxを更新できませんでした。");
+  } finally {
+    if (submit.isConnected) {
+      submit.disabled = false;
+      cancel.disabled = false;
+      submit.textContent = "変更を保存";
+    }
+  }
+}
+
+function renderItemEditForm(item, view) {
+  const meta = itemEditMeta[view];
+  if (!meta) return;
+  const currentOption = meta.statuses.includes(item.status)
+    ? ""
+    : `<option value="${escapeHtml(item.status)}" selected disabled>${escapeHtml(statusLabel(item.status))}</option>`;
+  const statusOptions = meta.statuses.map((status) => `<option value="${status}" ${item.status === status ? "selected" : ""}>${escapeHtml(statusLabel(status))}</option>`).join("");
+  els.drawerTitle.textContent = meta.title;
+  els.drawerBody.innerHTML = `<form class="edit-form" id="itemEditForm">
+    <label class="form-field" for="editItemContent">
+      <span>内容</span>
+      <textarea id="editItemContent" name="content" rows="7" maxlength="2000" required>${escapeHtml(item.content)}</textarea>
+      <small><b id="editItemContentCount">${item.content.length}</b> / 2000</small>
+    </label>
+    <label class="form-field" for="editItemStatus">
+      <span>ステータス</span>
+      <select id="editItemStatus" name="status">${currentOption}${statusOptions}</select>
+    </label>
+    <p class="form-error" id="itemEditError" role="alert" hidden></p>
+    <div class="drawer-actions">
+      <button class="secondary-action" id="cancelItemEdit" type="button">キャンセル</button>
+      <button class="primary-action" id="saveItemEdit" type="submit">変更を保存</button>
+    </div>
+  </form>`;
+
+  const form = document.getElementById("itemEditForm");
+  const content = document.getElementById("editItemContent");
+  content.addEventListener("input", () => { document.getElementById("editItemContentCount").textContent = content.value.length; });
+  document.getElementById("cancelItemEdit").addEventListener("click", () => renderDrawerItem(item, view));
+  form.addEventListener("submit", (event) => saveItem(event, item, view));
+  content.focus();
+  content.setSelectionRange(content.value.length, content.value.length);
+}
+
+function setItemEditError(message) {
+  const error = document.getElementById("itemEditError");
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+}
+
+async function saveItem(event, item, view) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const meta = itemEditMeta[view];
+  const content = form.elements.content.value.trim();
+  if (!content) {
+    setItemEditError("内容を入力してください。");
+    form.elements.content.focus();
+    return;
+  }
+
+  const submit = document.getElementById("saveItemEdit");
+  const cancel = document.getElementById("cancelItemEdit");
+  submit.disabled = true;
+  cancel.disabled = true;
+  submit.textContent = "保存中…";
+  setItemEditError("");
+
+  try {
+    const response = await fetch(meta.endpoint, {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Dashboard-Action": meta.actionHeader,
+      },
+      body: JSON.stringify({
+        id: item.id,
+        content,
+        status: form.elements.status.value,
+        original: { content: item.content, status: item.status },
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+    if (!response.ok) throw new Error(message || `${meta.title}を保存できませんでした。`);
+
+    const refreshed = await loadDashboard();
+    if (!refreshed) {
+      setItemEditError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
+      return;
+    }
+    showToast(meta.success);
+  } catch (error) {
+    setItemEditError(error instanceof Error ? error.message : `${meta.title}を保存できませんでした。`);
   } finally {
     if (submit.isConnected) {
       submit.disabled = false;

@@ -22,7 +22,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     const failure = publicError(error);
     return Response.json({
       appId: "personal-dashboard",
-      version: "0.5.0",
+      version: "0.6.0",
       status: "degraded",
       error: { code: failure.code, message: failure.message },
       timestamp: new Date().toISOString(),

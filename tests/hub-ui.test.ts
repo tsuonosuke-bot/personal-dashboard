@@ -47,6 +47,17 @@ test("Compass edits an Inbox and reloads the canonical data", async () => {
   assert.match(script, /const refreshed = await loadDashboard\(\)/);
 });
 
+test("Compass edits Wants and Next Actions through dedicated APIs", async () => {
+  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+
+  assert.match(script, /id="editWantButton"/);
+  assert.match(script, /id="editActionButton"/);
+  assert.match(script, /endpoint: "\/api\/wants"/);
+  assert.match(script, /actionHeader: "want-update"/);
+  assert.match(script, /endpoint: "\/api\/actions"/);
+  assert.match(script, /actionHeader: "action-update"/);
+});
+
 test("Compass starts with the summary and omits the decorative hero and large date", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
