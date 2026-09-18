@@ -1,7 +1,7 @@
 const state = {
   data: null,
   view: "inbox",
-  status: "",
+  status: "pending",
   search: "",
   metricFilter: "",
   drawerItem: null,
@@ -23,6 +23,18 @@ const viewMeta = {
   actions: { title: "Next Actions", singular: "Action", empty: "次のアクションはまだありません" },
 };
 
+const defaultStatusByView = {
+  inbox: "pending",
+  wants: "active",
+  actions: "open",
+};
+
+const closedStatusesByView = {
+  inbox: new Set(["done", "completed", "closed", "cancelled", "archived"]),
+  wants: new Set(["completed", "done", "closed", "cancelled", "archived"]),
+  actions: new Set(["done", "completed", "closed", "cancelled", "archived"]),
+};
+
 const itemEditMeta = {
   wants: {
     title: "Wantを編集",
@@ -39,6 +51,33 @@ const itemEditMeta = {
     actionHeader: "action-update",
     statuses: ["open", "done"],
     success: "Next Actionを更新しました。",
+  },
+};
+
+const closeMeta = {
+  inbox: {
+    endpoint: "/api/inbox",
+    actionHeader: "inbox-update",
+    closedStatus: "done",
+    button: "Inboxをクローズ",
+    confirm: "このInboxをクローズしますか？\n\nクローズ後も、ステータスフィルターから確認・再開できます。",
+    success: "Inboxをクローズしました。",
+  },
+  wants: {
+    endpoint: "/api/wants",
+    actionHeader: "want-update",
+    closedStatus: "completed",
+    button: "Wantをクローズ",
+    confirm: "このWantをクローズしますか？\n\nクローズ後も、ステータスフィルターから確認・再開できます。",
+    success: "Wantをクローズしました。",
+  },
+  actions: {
+    endpoint: "/api/actions",
+    actionHeader: "action-update",
+    closedStatus: "done",
+    button: "Next Actionをクローズ",
+    confirm: "このNext Actionをクローズしますか？\n\nクローズ後も、ステータスフィルターから確認・再開できます。",
+    success: "Next Actionをクローズしました。",
   },
 };
 
@@ -119,15 +158,24 @@ function updateStatusOptions() {
 }
 
 function renderSummary() {
-  const { summary, inbox, wants, actions } = state.data;
+  const { summary } = state.data;
   els.pendingInbox.textContent = summary.pendingInbox;
   els.inboxTotal.textContent = summary.inboxTotal;
   els.activeWants.textContent = summary.activeWants;
   els.wantsWithoutAction.textContent = summary.wantsWithoutAction;
   els.openActions.textContent = summary.openActions;
-  els.inboxTabCount.textContent = inbox.length;
-  els.wantsTabCount.textContent = wants.length;
-  els.actionsTabCount.textContent = actions.length;
+}
+
+function renderCurrentTabCount(items) {
+  els.inboxTabCount.textContent = state.data.inbox.filter((item) => item.status === defaultStatusByView.inbox).length;
+  els.wantsTabCount.textContent = state.data.wants.filter((item) => item.status === defaultStatusByView.wants).length;
+  els.actionsTabCount.textContent = state.data.actions.filter((item) => item.status === defaultStatusByView.actions).length;
+  const countElement = {
+    inbox: els.inboxTabCount,
+    wants: els.wantsTabCount,
+    actions: els.actionsTabCount,
+  }[state.view];
+  countElement.textContent = items.length;
 }
 
 function renderNavigation(items) {
@@ -143,6 +191,10 @@ function statusLabel(status) {
   return ({ pending: "未整理", done: "整理済み", active: "進行中", open: "未完了", completed: "完了", closed: "完了" })[status] || status;
 }
 
+function canCloseItem(item, view) {
+  return !closedStatusesByView[view]?.has(item.status);
+}
+
 function cardMarkup(item) {
   const actionInfo = state.view === "wants"
     ? `<span class="action-count ${item.nextActions.length ? "" : "missing"}">${item.nextActions.length ? `次の行動 ${item.nextActions.length}件` : "次の行動なし"}</span>`
@@ -156,6 +208,7 @@ function cardMarkup(item) {
 
 function renderList() {
   const items = currentItems();
+  renderCurrentTabCount(items);
   els.listTitle.textContent = viewMeta[state.view].title;
   els.resultCount.textContent = `${items.length}件を表示`;
   els.clearFilter.hidden = !(state.status || state.search || state.metricFilter);
@@ -183,8 +236,10 @@ function renderDrawerItem(item, view) {
     body += `<div class="detail-section"><span>整理結果</span><p>${escapeHtml(item.result || "まだ整理されていません")}</p></div>
       <div class="drawer-actions">
         <button class="secondary-action" id="editInboxButton" type="button">Inboxを編集</button>
+        ${canCloseItem(item, view) ? '<button class="close-action" id="closeItemButton" type="button">Inboxをクローズ</button>' : ""}
         <button class="primary-action" id="createWantButton" type="button">Wantとして追加</button>
-      </div>`;
+      </div>
+      <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
   }
   if (view === "wants") {
     body += `<div class="detail-section"><span>Next Actions</span>${item.nextActions.length
@@ -192,11 +247,17 @@ function renderDrawerItem(item, view) {
       : '<p>次のアクションはまだ登録されていません。</p>'}</div>
       <div class="drawer-actions">
         <button class="secondary-action" id="editWantButton" type="button">Wantを編集</button>
+        ${canCloseItem(item, view) ? '<button class="close-action" id="closeItemButton" type="button">Wantをクローズ</button>' : ""}
         <button class="primary-action" id="createActionButton" type="button">Next Actionを追加</button>
-      </div>`;
+      </div>
+      <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
   }
   if (view === "actions") {
-    body += `<div class="drawer-actions"><button class="primary-action" id="editActionButton" type="button">Next Actionを編集</button></div>`;
+    body += `<div class="drawer-actions">
+      <button class="secondary-action" id="editActionButton" type="button">Next Actionを編集</button>
+      ${canCloseItem(item, view) ? '<button class="close-action" id="closeItemButton" type="button">Next Actionをクローズ</button>' : ""}
+    </div>
+    <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
   }
   els.drawerBody.innerHTML = body;
   document.getElementById("editInboxButton")?.addEventListener("click", () => renderInboxEditForm(item));
@@ -204,6 +265,66 @@ function renderDrawerItem(item, view) {
   document.getElementById("editWantButton")?.addEventListener("click", () => renderItemEditForm(item, "wants"));
   document.getElementById("createActionButton")?.addEventListener("click", () => renderCreateFlowForm(item, "wants"));
   document.getElementById("editActionButton")?.addEventListener("click", () => renderItemEditForm(item, "actions"));
+  document.getElementById("closeItemButton")?.addEventListener("click", () => closeItem(item, view));
+}
+
+function setCloseItemError(message) {
+  const error = document.getElementById("closeItemError");
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+}
+
+async function closeItem(item, view) {
+  const meta = closeMeta[view];
+  const button = document.getElementById("closeItemButton");
+  if (!meta || !button || !canCloseItem(item, view)) return;
+  if (!window.confirm(meta.confirm)) return;
+
+  button.disabled = true;
+  button.textContent = "クローズ中…";
+  setCloseItemError("");
+
+  const body = view === "inbox"
+    ? {
+        id: item.id,
+        content: item.content,
+        status: meta.closedStatus,
+        result: item.result,
+        original: { content: item.content, status: item.status, result: item.result },
+      }
+    : {
+        id: item.id,
+        content: item.content,
+        status: meta.closedStatus,
+        original: { content: item.content, status: item.status },
+      };
+
+  try {
+    const response = await fetch(meta.endpoint, {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Dashboard-Action": meta.actionHeader,
+      },
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json().catch(() => ({}));
+    const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+    if (!response.ok) throw new Error(message || `${meta.button}に失敗しました。`);
+
+    closeDrawer();
+    const refreshed = await loadDashboard();
+    showToast(refreshed ? meta.success : `${meta.success} 最新状態は再読込して確認してください。`);
+  } catch (error) {
+    setCloseItemError(error instanceof Error ? error.message : `${meta.button}に失敗しました。`);
+    if (button.isConnected) {
+      button.disabled = false;
+      button.textContent = meta.button;
+    }
+  }
 }
 
 function renderInboxEditForm(item) {
@@ -514,7 +635,7 @@ async function saveCreateFlow(event, sourceItem, sourceView) {
     }
 
     state.view = meta.targetView;
-    state.status = "";
+    state.status = defaultStatusByView[meta.targetView];
     state.search = "";
     state.metricFilter = "";
     els.searchInput.value = "";
@@ -602,7 +723,7 @@ async function createInbox(event) {
     els.inboxCharacterCount.textContent = "0";
     setModalOpen(false);
     state.view = "inbox";
-    state.status = "";
+    state.status = defaultStatusByView.inbox;
     state.metricFilter = "";
     showToast("Inboxに保存しました。リストへ反映しています。");
     await loadDashboard();
@@ -614,7 +735,7 @@ async function createInbox(event) {
   }
 }
 
-function setView(view, filter = "") {
+function setView(view, filter = defaultStatusByView[view]) {
   state.view = view;
   state.metricFilter = filter;
   state.status = filter === "pending" || filter === "active" ? filter : "";

@@ -58,6 +58,21 @@ test("Compass edits Wants and Next Actions through dedicated APIs", async () => 
   assert.match(script, /actionHeader: "action-update"/);
 });
 
+test("Compass closes actionable Inbox, Wants, and Next Actions with conflict-safe updates", async () => {
+  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+
+  assert.match(script, /inbox:[\s\S]*closedStatus: "done"/);
+  assert.match(script, /wants:[\s\S]*closedStatus: "completed"/);
+  assert.match(script, /actions:[\s\S]*closedStatus: "done"/);
+  assert.match(script, /id="closeItemButton"/);
+  assert.match(script, /function canCloseItem\(item, view\)/);
+  assert.match(script, /cancelled", "archived"/);
+  assert.match(script, /if \(!window\.confirm\(meta\.confirm\)\) return/);
+  assert.match(script, /original: \{ content: item\.content, status: item\.status, result: item\.result \}/);
+  assert.match(script, /original: \{ content: item\.content, status: item\.status \}/);
+  assert.match(script, /const refreshed = await loadDashboard\(\)/);
+});
+
 test("Compass promotes Inbox content to a Want and breaks a Want into a Next Action", async () => {
   const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
 
@@ -82,4 +97,14 @@ test("Compass starts with the summary and omits the decorative hero and large da
   assert.doesNotMatch(html, /class="hero"|PERSONAL DIRECTION|頭の中を、|hero-date|dayLabel|dateLabel|updatedLabel/);
   assert.doesNotMatch(script, /setClock|dayLabel|dateLabel|updatedLabel/);
   assert.match(html, /<main>\s*<section class="metrics"/);
+});
+
+test("Compass defaults each tab to actionable items and counts the filtered results", async () => {
+  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+
+  assert.match(script, /status: "pending"/);
+  assert.match(script, /inbox: "pending",\s+wants: "active",\s+actions: "open"/);
+  assert.match(script, /function setView\(view, filter = defaultStatusByView\[view\]\)/);
+  assert.match(script, /function renderCurrentTabCount\(items\)/);
+  assert.match(script, /countElement\.textContent = items\.length/);
 });
