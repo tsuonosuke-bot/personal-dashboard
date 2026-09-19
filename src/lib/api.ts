@@ -1,5 +1,11 @@
-import type { Knowledge, KnowledgeDraft, QuizLog } from "../types";
-import { parseKnowledge, parsePageEnvelope, parseQuizLog } from "./apiValidation.ts";
+import type { Knowledge, KnowledgeDraft, QuizGradeResult, QuizLog, QuizMode, QuizQuestion } from "../types";
+import {
+  parseKnowledge,
+  parsePageEnvelope,
+  parseQuizGradeResponse,
+  parseQuizLog,
+  parseQuizStartResponse,
+} from "./apiValidation.ts";
 
 interface ErrorBody {
   error?: unknown;
@@ -93,4 +99,27 @@ export function updateKnowledge(
   input: Partial<KnowledgeDraft> | { archived: boolean },
 ): Promise<Knowledge> {
   return writeKnowledge(`/api/knowledge/${encodeURIComponent(id)}`, "PATCH", input);
+}
+
+async function postQuiz(path: string, body: unknown): Promise<unknown> {
+  return requestJson(path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": "quiz-session",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function startQuiz(mode: QuizMode, limit: number): Promise<QuizQuestion[]> {
+  const data = await postQuiz("/api/quiz/start", { mode, limit });
+  return parseQuizStartResponse(data);
+}
+
+export async function gradeQuiz(
+  answers: { id: string; answer: string }[],
+): Promise<QuizGradeResult[]> {
+  const data = await postQuiz("/api/quiz/grade", answers);
+  return parseQuizGradeResponse(data);
 }

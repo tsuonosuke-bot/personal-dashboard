@@ -28,10 +28,11 @@ npm test           # ロジック、API、認証、入力・応答検証
 - `DASHBOARD_USER`（任意、既定 admin）
 - `SUPABASE_URL`（必須）
 - `SUPABASE_SECRET_KEY`（必須、CloudflareではSecretとして保存）
+- `ANTHROPIC_API_KEY`（必須、復習クイズの出題・採点に使用。CloudflareではSecretとして保存）
 
 Secret keyはRLSを迂回するサーバー専用キー。`VITE_` 接頭辞を付けたり、ブラウザ、
 ソース、ログへ出したりしてはいけない。実値がない環境でも型チェックとビルドは可能。
-実データ確認が必要な作業では判断を仰ぐこと。
+実データ確認が必要な作業では判断を仰ぐこと。ANTHROPIC_API_KEYも同様にサーバー専用。
 
 ## DBスキーマ（実データに基づく事実）
 
@@ -59,34 +60,63 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `POST /api/knowledge`: 検証済みの編集可能項目だけで新規登録
 - `PATCH /api/knowledge/:id`: UUIDで特定した1件の編集、アーカイブ、復元
 - `GET /api/quiz-log`: 明示した列を新しい順に制限付きページング
+- `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す
+- `POST /api/quiz/grade`: `knowledge`/`quiz_log` を読み直して正解を確認し、Claude APIで採点、
+  `record_answers_batch` RPCで一括記録
 
 一覧APIの `limit` は1〜1,000、`offset` は0以上に限定し、応答は
 `{ items, total, limit, offset }` とする。ブラウザ側は全ページを取得し、固定件数で
-黙って切り捨てない。任意テーブル、任意クエリ、クイズ履歴・学習統計の書き込みを
-追加してはいけない。移行完了後、`supabase/disable-anon-access.sql` でanon権限を外す。
+黙って切り捨てない。任意テーブル、任意クエリの追加は禁止。移行完了後、
+`supabase/disable-anon-access.sql` でanon権限を外す。
+
+### 復習クイズのDB関数
+
+SM-2の計算は全てDB関数側にあり、Functions側やブラウザ側で再実装しない。
+
+- `pick_quiz(p_include, p_exclude, p_limit, p_include_mastered=false)`: 出題候補を返す
+- `record_answer(p_knowledge_id, p_quality, p_verdict, p_note, p_format)`: 採点1件を
+  SM-2更新・knowledge更新・quiz_log挿入までまとめて確定する（SECURITY INVOKER）
+- `record_answers_batch(p_answers jsonb)`: `record_answer` を `cross join lateral` で
+  複数件まとめて1SQLで呼ぶだけの薄いラッパー。採点全体の原子性のために追加した
+  （SM-2ロジック自体は持たない）
+- `jst_today()`: 日本時間の今日。日付判定は必ずこれを経由する
+
+`/api/quiz/grade` は書き込み前に `quiz_log` を `asked_on = jst_today()` で確認し、
+その日にまだ記録がない項目だけを `record_answers_batch` に渡す（同日重複記録の防止）。
+Secret keyはservice_roleのためRLSを迂回する。ブラウザのanon keyでは
+`record_answer` / `record_answers_batch` は書き込めない設計を変えない。
 
 ## 構成
 
 ```text
 src/
-  App.tsx                   画面の組み立て、フィルタとページ番号の状態
+  App.tsx                   画面の組み立て、フィルタとページ番号の状態、復習クイズへの導線
   constants.ts              習熟度の色・並び順、円グラフ配色、PAGE_SIZE
-  types.ts                  Knowledge / QuizLog / Filters
-  lib/api.ts                同一オリジンAPIクライアントと全ページ取得
-  lib/apiValidation.ts      DB応答の実行時型検証
+  types.ts                  Knowledge / QuizLog / Filters / クイズ関連の型
+  lib/api.ts                同一オリジンAPIクライアントと全ページ取得、クイズAPI呼び出し
+  lib/apiValidation.ts      DB応答・クイズAPI応答の実行時型検証
   lib/knowledge.ts          絞り込み・並び替え・復習分析
   hooks/
     useKnowledgeData.ts     APIからの取得とリロード
     useFilteredKnowledge.ts 検索・カテゴリ・習熟度での絞り込み
     useModalDialog.ts       モーダルのフォーカス管理
-  components/               表示、編集、詳細、アーカイブ復元
+    useQuiz.ts              復習クイズの出題・回答・採点フロー管理
+  components/               表示、編集、詳細、アーカイブ復元、復習クイズ画面（QuizView）
 functions/
   _middleware.ts            全リクエストのBasic認証とセキュリティヘッダー
-  _shared/supabaseRest.ts   Supabase REST API呼び出し
+  _shared/supabaseRest.ts   Supabase REST API / RPC呼び出し
   _shared/knowledgeValidation.ts 書き込み要求と入力の検証
+  _shared/quizValidation.ts クイズAPIの要求検証
+  _shared/anthropicClient.ts Claude APIをツール強制呼び出しで叩く共通クライアント
   api/knowledge.ts          ナレッジ一覧・新規登録API
   api/knowledge/[id].ts     ナレッジ編集・アーカイブ・復元API
   api/quiz-log.ts           クイズ履歴読み取りAPI
+  api/quiz/start.ts         復習クイズの出題API
+  api/quiz/grade.ts         復習クイズの採点・記録API
+public/
+  manifest.webmanifest      PWA用マニフェスト
+  sw.js                     ホーム画面起動のための最小限のService Worker（キャッシュしない）
+  icon.svg / icon-maskable.svg PWAアイコン
 ```
 
 - データ取得とフィルタ計算はhooksに置き、componentsは表示に徹する。

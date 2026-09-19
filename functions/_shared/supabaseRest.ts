@@ -184,6 +184,75 @@ export async function requestSupabaseRows(
   }
 }
 
+export type SupabaseFunctionResult =
+  | { ok: true; data: unknown }
+  | { ok: false; response: Response };
+
+/** Supabase RPC (`/rest/v1/rpc/:fn`) を呼び出す。戻り値の形はDB関数の戻り値型に依存する
+ * （setof→配列、単一行→オブジェクト、スカラー→そのままの値）ため、呼び出し側で解釈する。 */
+export async function requestSupabaseFunction(
+  env: SupabaseEnv,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<SupabaseFunctionResult> {
+  const rawUrl = env.SUPABASE_URL?.trim();
+  const secretKey = env.SUPABASE_SECRET_KEY?.trim();
+
+  if (!rawUrl || !secretKey) {
+    return { ok: false, response: jsonResponse(
+      { error: "サーバーのDB接続設定が未完了です。" },
+      503,
+    ) };
+  }
+
+  let endpoint: URL;
+  try {
+    endpoint = new URL(`/rest/v1/rpc/${name}`, rawUrl);
+  } catch {
+    return { ok: false, response: jsonResponse(
+      { error: "サーバーのDB接続先が正しくありません。" },
+      503,
+    ) };
+  }
+  if (endpoint.protocol !== "https:") {
+    return { ok: false, response: jsonResponse(
+      { error: "サーバーのDB接続先はHTTPSである必要があります。" },
+      503,
+    ) };
+  }
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        apikey: secretKey,
+      },
+      body: JSON.stringify(args),
+    });
+
+    if (!response.ok) {
+      console.error(`Supabase rpc ${name} request failed with status ${response.status}`);
+      return { ok: false, response: jsonResponse(
+        { error: "DBの処理に失敗しました。" },
+        502,
+      ) };
+    }
+
+    return { ok: true, data: await response.json() };
+  } catch (error) {
+    console.error(
+      `Supabase rpc ${name} request failed`,
+      error instanceof Error ? error.message : "unknown error",
+    );
+    return { ok: false, response: jsonResponse(
+      { error: "DBへの接続中にエラーが発生しました。" },
+      502,
+    ) };
+  }
+}
+
 export async function fetchSupabasePage(
   env: SupabaseEnv,
   query: QueryDefinition,

@@ -39,6 +39,7 @@ Viteだけを起動するため `/api/*` は利用できない。
 | `SESSION_TTL_DAYS` | 任意 | 引き継いだセッションの日数。既定30 |
 | `SUPABASE_URL` | 必須 | SupabaseプロジェクトURL |
 | `SUPABASE_SECRET_KEY` | 必須 | サーバー専用の `sb_secret_...` キー |
+| `ANTHROPIC_API_KEY` | 必須 | 復習クイズの出題・採点で使うサーバー専用キー |
 
 `SUPABASE_SECRET_KEY` はRLSを迂回できる強い権限を持つ。Cloudflareでは
 暗号化されたSecretとして登録し、ブラウザ用の `VITE_` 変数、ソースコード、
@@ -61,6 +62,12 @@ Viteだけを起動するため `/api/*` は利用できない。
 - `POST /api/knowledge` — ナレッジを新規登録
 - `PATCH /api/knowledge/:id` — 許可項目の編集、アーカイブまたは復元
 - `GET /api/quiz-log` — クイズ履歴を新しい順に取得
+- `POST /api/quiz/start` — 復習クイズを出題（`{ mode: "english"|"non_english"|"all", limit }`）。
+  DBの `pick_quiz` で候補を選び、Claude APIで問題文を生成する。応答は `{ id, question }` の配列のみで、
+  正解（タイトル・説明）は返さない
+- `POST /api/quiz/grade` — 回答 `[{ id, answer }]` を採点。サーバー側でDBから正解を引き直し、
+  Claude APIで採点した上で `record_answers_batch`（`record_answer` をまとめて呼ぶRPC）で
+  1回のSQLとして記録する。同日に記録済みの項目は再記録しない
 
 一覧APIは `limit`（1〜1,000、既定500）と `offset`（0以上、既定0）を受け付け、
 `{ items, total, limit, offset }` を返す。画面は必要なページをすべて取得するため、
@@ -94,11 +101,16 @@ functions/
   api/knowledge.ts          ナレッジ一覧・新規登録API
   api/knowledge/[id].ts     ナレッジ編集・アーカイブ・復元API
   api/quiz-log.ts           クイズ履歴読み取りAPI
+  api/quiz/start.ts         復習クイズの出題API
+  api/quiz/grade.ts         復習クイズの採点・記録API
+public/
+  manifest.webmanifest      PWAマニフェスト（ホーム画面から起動可能にする）
+  sw.js                     最小限のService Worker
 supabase/
   disable-anon-access.sql   移行完了後にanon権限を外すSQL
 ```
 
-グラフは [recharts](https://recharts.org/)。
+グラフは [recharts](https://recharts.org/)。復習クイズの出題・採点にはClaude APIを使う。
 
 ## デプロイ（Cloudflare Pages）
 

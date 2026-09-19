@@ -61,3 +61,20 @@ export interface KnowledgeDraft {
   tags: string[];
   next_review_on: string | null;
 }
+
+export type QuizMode = "english" | "non_english" | "all";
+
+export interface QuizQuestion {
+  id: string;
+  question: string;
+}
+
+export interface QuizGradeResult {
+  id: string;
+  title: string;
+  verdict: QuizVerdict;
+  quality: number;
+  explanation: string;
+  next_review_on: string | null;
+  recorded: boolean;
+}

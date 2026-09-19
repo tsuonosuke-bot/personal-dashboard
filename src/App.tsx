@@ -14,8 +14,11 @@ import type { Filters, Knowledge, KnowledgeDraft, ReviewFilter, SortKey, SortSta
 
 const DashboardCharts = lazy(() => import("./components/DashboardCharts")
   .then((module) => ({ default: module.DashboardCharts })));
+const QuizView = lazy(() => import("./components/QuizView")
+  .then((module) => ({ default: module.QuizView })));
 
 export default function App() {
+  const [showQuiz, setShowQuiz] = useState(false);
   const {
     knowledge, archivedKnowledge, quizLog, loading, error, mutating,
     reload, createKnowledge, updateKnowledge,
@@ -122,6 +125,14 @@ export default function App() {
     }
   };
 
+  if (showQuiz) {
+    return (
+      <Suspense fallback={<div className="msg">読み込み中...</div>}>
+        <QuizView onExit={() => setShowQuiz(false)} />
+      </Suspense>
+    );
+  }
+
   return (
     <div className="app-page">
       <header className="app-header">
@@ -133,6 +144,7 @@ export default function App() {
           </div>
           <div className="head-actions">
             <a className="hub-link" href="https://personal-dashboard-7md.pages.dev/">← Hub</a>
+            <button className="primary-button quiz-nav-button" onClick={() => setShowQuiz(true)}>▶ 復習する</button>
             <button onClick={handleReload} disabled={loading || mutating}>↻ 更新</button>
             <button
               className="archive-button"
