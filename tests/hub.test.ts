@@ -9,11 +9,10 @@ test("hub combines finance, knowledge, inbox, and daily Wants previews", () => {
   const hub = normalizeHub(
     [{ status: "pending" }, { status: "done" }],
     [
-      { id: 1, content: "Want one", status: "active", created_at: "2026-09-01T00:00:00Z" },
-      { id: 2, content: "Want two", status: "active", created_at: "2026-09-02T00:00:00Z" },
-      { id: 3, content: "Closed want", status: "completed", created_at: "2026-09-03T00:00:00Z" },
+      { id: 1, content: "Want one", status: "active", revisit_on: "2026-09-10", created_at: "2026-09-01T00:00:00Z" },
+      { id: 2, content: "Want two", status: "active", revisit_on: "2099-01-01", created_at: "2026-09-02T00:00:00Z" },
+      { id: 3, content: "Closed want", status: "completed", revisit_on: "2026-09-10", created_at: "2026-09-03T00:00:00Z" },
     ],
-    [{ want_id: 2, status: "open" }],
     [
       { id: 10, transaction_date: "2026-09-13", amount: 1200, title: "Lunch", category: "Food" },
       { id: 9, transaction_date: "2026-08-20", amount: 800, title: "Book", category: "Learning" },
@@ -32,7 +31,7 @@ test("hub combines finance, knowledge, inbox, and daily Wants previews", () => {
   assert.equal(hub.summary.pendingInbox, 1);
   assert.equal(hub.summary.dueKnowledge, 1);
   assert.equal(hub.summary.weakKnowledge, 1);
-  assert.equal(hub.summary.wantsWithoutAction, 1);
+  assert.equal(hub.summary.wantsDueForReview, 1);
   assert.equal(hub.wants[0].id, 1);
   assert.deepEqual(hub.knowledge.map((item) => item.reason), ["weak", "due", "new"]);
   assert.equal(hub.recentExpenses[0].title, "Lunch");
@@ -43,10 +42,11 @@ test("daily Wants order is stable for the same JST date", () => {
     id: index + 1,
     content: `Want ${index + 1}`,
     status: "active",
+    revisit_on: "2026-09-10",
     created_at: "2026-09-01T00:00:00Z",
   }));
-  const first = normalizeHub([], wants, [], [], [], {}, now).wants.map((item) => item.id);
-  const second = normalizeHub([], [...wants].reverse(), [], [], [], {}, now).wants.map((item) => item.id);
+  const first = normalizeHub([], wants, [], [], {}, now).wants.map((item) => item.id);
+  const second = normalizeHub([], [...wants].reverse(), [], [], {}, now).wants.map((item) => item.id);
   assert.deepEqual(first, second);
 });
 
@@ -70,8 +70,8 @@ test("hub route keeps the Supabase secret in server-side headers", async () => {
     });
     const body = await response.text();
     assert.equal(response.status, 200);
-    assert.equal(requests.length, 5);
-    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 3);
+    assert.equal(requests.length, 4);
+    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 2);
     assert.equal(requests.filter((entry) => entry.headers["X-Hub-Service"] === "hub-service-token-that-is-at-least-32-characters").length, 2);
     assert.ok(requests.every((entry) => !entry.url.includes("secret")));
     assert.doesNotMatch(body, /server-secret|hub-service-token/);

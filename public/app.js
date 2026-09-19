@@ -9,8 +9,8 @@ const state = {
 
 const els = Object.fromEntries([
   "sourceBadge", "refreshButton",
-  "pendingInbox", "inboxTotal", "activeWants", "wantsWithoutAction", "openActions",
-  "inboxTabCount", "wantsTabCount", "actionsTabCount", "listTitle", "searchInput",
+  "pendingInbox", "inboxTotal", "activeWants", "dueForReview",
+  "inboxTabCount", "wantsTabCount", "listTitle", "searchInput",
   "statusFilter", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher", "dashboardNav",
   "addInboxButton", "inboxModal", "inboxModalClose", "inboxCancelButton", "inboxForm",
@@ -20,19 +20,16 @@ const els = Object.fromEntries([
 const viewMeta = {
   inbox: { title: "Inbox", singular: "Inbox", empty: "Inboxはすべて整理されています" },
   wants: { title: "Wants", singular: "Want", empty: "Wantsはまだありません" },
-  actions: { title: "Next Actions", singular: "Action", empty: "次のアクションはまだありません" },
 };
 
 const defaultStatusByView = {
   inbox: "pending",
   wants: "active",
-  actions: "open",
 };
 
 const closedStatusesByView = {
-  inbox: new Set(["done", "completed", "closed", "cancelled", "archived"]),
-  wants: new Set(["completed", "done", "closed", "cancelled", "archived"]),
-  actions: new Set(["done", "completed", "closed", "cancelled", "archived"]),
+  inbox: new Set(["done", "skipped", "completed", "closed", "cancelled", "archived"]),
+  wants: new Set(["completed", "dropped", "done", "closed", "cancelled", "archived"]),
 };
 
 const itemEditMeta = {
@@ -41,16 +38,8 @@ const itemEditMeta = {
     button: "Wantを編集",
     endpoint: "/api/wants",
     actionHeader: "want-update",
-    statuses: ["active", "completed"],
+    statuses: ["active", "completed", "dropped"],
     success: "Wantを更新しました。",
-  },
-  actions: {
-    title: "Next Actionを編集",
-    button: "Next Actionを編集",
-    endpoint: "/api/actions",
-    actionHeader: "action-update",
-    statuses: ["open", "done"],
-    success: "Next Actionを更新しました。",
   },
 };
 
@@ -71,14 +60,6 @@ const closeMeta = {
     confirm: "このWantをクローズしますか？\n\nクローズ後も、ステータスフィルターから確認・再開できます。",
     success: "Wantをクローズしました。",
   },
-  actions: {
-    endpoint: "/api/actions",
-    actionHeader: "action-update",
-    closedStatus: "done",
-    button: "Next Actionをクローズ",
-    confirm: "このNext Actionをクローズしますか？\n\nクローズ後も、ステータスフィルターから確認・再開できます。",
-    success: "Next Actionをクローズしました。",
-  },
 };
 
 const createFlowMeta = {
@@ -91,16 +72,6 @@ const createFlowMeta = {
     sourceLabel: "元のInbox",
     note: "Want追加後、元のInboxを処理済みにし、処理結果を「Wantsに登録」と記録します。",
     success: "Wantを追加し、Inboxを処理済みにしました。",
-  },
-  wants: {
-    title: "Next Actionを追加",
-    targetView: "actions",
-    endpoint: "/api/actions",
-    actionHeader: "action-create",
-    submit: "Next Actionに追加",
-    sourceLabel: "対象のWant",
-    note: "このWantに紐づく、次に実行できる具体的な行動を入力してください。",
-    success: "Next Actionを追加しました。",
   },
 };
 
@@ -135,15 +106,21 @@ function setSource(source, error = false) {
   els.sourceBadge.lastChild.textContent = demo ? "DEMO DATA" : "SUPABASE LIVE";
 }
 
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function currentItems() {
   if (!state.data) return [];
   let items = state.data[state.view] || [];
   if (state.status) items = items.filter((item) => item.status === state.status);
-  if (state.metricFilter === "no-action") items = items.filter((item) => item.nextActions?.length === 0);
-  if (state.metricFilter === "open") items = items.filter((item) => !["done", "completed", "closed"].includes(item.status));
+  if (state.metricFilter === "due-review") {
+    const today = todayIso();
+    items = items.filter((item) => item.revisitOn !== null && item.revisitOn <= today);
+  }
   const needle = state.search.trim().toLocaleLowerCase("ja");
   if (needle) {
-    items = items.filter((item) => [item.content, item.result, ...(item.nextActions || []).map((action) => action.content)]
+    items = items.filter((item) => [item.content, item.result, item.note]
       .filter(Boolean).some((value) => value.toLocaleLowerCase("ja").includes(needle)));
   }
   return items;
@@ -162,18 +139,15 @@ function renderSummary() {
   els.pendingInbox.textContent = summary.pendingInbox;
   els.inboxTotal.textContent = summary.inboxTotal;
   els.activeWants.textContent = summary.activeWants;
-  els.wantsWithoutAction.textContent = summary.wantsWithoutAction;
-  els.openActions.textContent = summary.openActions;
+  els.dueForReview.textContent = summary.dueForReview;
 }
 
 function renderCurrentTabCount(items) {
   els.inboxTabCount.textContent = state.data.inbox.filter((item) => item.status === defaultStatusByView.inbox).length;
   els.wantsTabCount.textContent = state.data.wants.filter((item) => item.status === defaultStatusByView.wants).length;
-  els.actionsTabCount.textContent = state.data.actions.filter((item) => item.status === defaultStatusByView.actions).length;
   const countElement = {
     inbox: els.inboxTabCount,
     wants: els.wantsTabCount,
-    actions: els.actionsTabCount,
   }[state.view];
   countElement.textContent = items.length;
 }
@@ -188,7 +162,7 @@ function renderNavigation(items) {
 }
 
 function statusLabel(status) {
-  return ({ pending: "未整理", done: "整理済み", active: "進行中", open: "未完了", completed: "完了", closed: "完了" })[status] || status;
+  return ({ pending: "未整理", done: "整理済み", skipped: "対象外", active: "進行中", completed: "完了", dropped: "見送り", closed: "完了" })[status] || status;
 }
 
 function canCloseItem(item, view) {
@@ -196,13 +170,15 @@ function canCloseItem(item, view) {
 }
 
 function cardMarkup(item) {
-  const actionInfo = state.view === "wants"
-    ? `<span class="action-count ${item.nextActions.length ? "" : "missing"}">${item.nextActions.length ? `次の行動 ${item.nextActions.length}件` : "次の行動なし"}</span>`
-    : "";
+  let revisitInfo = "";
+  if (state.view === "wants" && item.revisitOn) {
+    const due = item.revisitOn <= todayIso();
+    revisitInfo = `<span class="revisit-tag ${due ? "due" : ""}">再訪 ${escapeHtml(formatDate(item.revisitOn))}</span>`;
+  }
   return `<button class="item-card" type="button" data-id="${item.id}">
     <div class="item-top"><span class="item-id">${viewMeta[state.view].singular.toUpperCase()} · ${item.id ?? "?"}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(statusLabel(item.status))}</span></div>
     <h3>${escapeHtml(item.content || "内容なし")}</h3>
-    <div class="item-footer"><span>${formatDate(item.createdAt)}</span>${actionInfo}</div>
+    <div class="item-footer"><span>${formatDate(item.createdAt)}</span>${revisitInfo}</div>
   </button>`;
 }
 
@@ -242,29 +218,19 @@ function renderDrawerItem(item, view) {
       <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
   }
   if (view === "wants") {
-    body += `<div class="detail-section"><span>Next Actions</span>${item.nextActions.length
-      ? `<div class="next-action-list">${item.nextActions.map((action) => `<div class="next-action"><b>${escapeHtml(action.content)}</b><small>${escapeHtml(statusLabel(action.status))}</small></div>`).join("")}</div>`
-      : '<p>次のアクションはまだ登録されていません。</p>'}</div>
+    body += `<div class="detail-section"><span>再訪</span>${item.revisitOn
+      ? `<div class="revisit-note"><b>次回 ${escapeHtml(formatDate(item.revisitOn))}</b><small>寝かせ直し ${item.revisitCount}回</small></div>`
+      : '<p>再訪日は設定されていません。</p>'}${item.note ? `<p>${escapeHtml(item.note)}</p>` : ""}</div>
       <div class="drawer-actions">
         <button class="secondary-action" id="editWantButton" type="button">Wantを編集</button>
         ${canCloseItem(item, view) ? '<button class="close-action" id="closeItemButton" type="button">Wantをクローズ</button>' : ""}
-        <button class="primary-action" id="createActionButton" type="button">Next Actionを追加</button>
       </div>
       <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
-  }
-  if (view === "actions") {
-    body += `<div class="drawer-actions">
-      <button class="secondary-action" id="editActionButton" type="button">Next Actionを編集</button>
-      ${canCloseItem(item, view) ? '<button class="close-action" id="closeItemButton" type="button">Next Actionをクローズ</button>' : ""}
-    </div>
-    <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
   }
   els.drawerBody.innerHTML = body;
   document.getElementById("editInboxButton")?.addEventListener("click", () => renderInboxEditForm(item));
   document.getElementById("createWantButton")?.addEventListener("click", () => renderCreateFlowForm(item, "inbox"));
   document.getElementById("editWantButton")?.addEventListener("click", () => renderItemEditForm(item, "wants"));
-  document.getElementById("createActionButton")?.addEventListener("click", () => renderCreateFlowForm(item, "wants"));
-  document.getElementById("editActionButton")?.addEventListener("click", () => renderItemEditForm(item, "actions"));
   document.getElementById("closeItemButton")?.addEventListener("click", () => closeItem(item, view));
 }
 
@@ -328,7 +294,7 @@ async function closeItem(item, view) {
 }
 
 function renderInboxEditForm(item) {
-  const statuses = ["pending", "done"];
+  const statuses = ["pending", "done", "skipped"];
   const currentOption = statuses.includes(item.status)
     ? ""
     : `<option value="${escapeHtml(item.status)}" selected disabled>${escapeHtml(statusLabel(item.status))}</option>`;
@@ -538,7 +504,7 @@ function renderCreateFlowForm(sourceItem, sourceView) {
     <p class="flow-note">${escapeHtml(meta.note)}</p>
     <label class="form-field" for="createFlowContent">
       <span>内容</span>
-      <textarea id="createFlowContent" name="content" rows="7" maxlength="2000" required placeholder="${sourceView === "wants" ? "次に取る具体的な行動" : "Wantの内容"}">${escapeHtml(initialContent)}</textarea>
+      <textarea id="createFlowContent" name="content" rows="7" maxlength="2000" required placeholder="Wantの内容">${escapeHtml(initialContent)}</textarea>
       <small><b id="createFlowContentCount">${initialContent.length}</b> / 2000</small>
     </label>
     <p class="form-error" id="createFlowError" role="alert" hidden></p>
@@ -609,7 +575,7 @@ async function saveCreateFlow(event, sourceItem, sourceView) {
   setCreateFlowError("");
 
   try {
-    const requestBody = sourceView === "wants" ? { wantId: sourceItem.id, content } : { content };
+    const requestBody = { content };
     const response = await fetch(meta.endpoint, {
       method: "POST",
       credentials: "same-origin",

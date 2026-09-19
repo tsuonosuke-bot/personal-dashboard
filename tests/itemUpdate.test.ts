@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { onRequest as actionRoute } from "../functions/api/actions.ts";
 import { onRequest as wantRoute } from "../functions/api/wants.ts";
 
 const env = {
@@ -8,8 +7,8 @@ const env = {
   SUPABASE_SECRET_KEY: "secret-test-key",
 };
 
-function request(path: "wants" | "actions", action: string, body: unknown, headers: Record<string, string> = {}) {
-  return new Request(`https://dashboard.example/api/${path}`, {
+function request(action: string, body: unknown, headers: Record<string, string> = {}) {
+  return new Request("https://dashboard.example/api/wants", {
     method: "PATCH",
     headers: {
       Origin: "https://dashboard.example",
@@ -32,7 +31,7 @@ test("Wantを編集前の値との一致を条件に更新する", async () => {
   };
   try {
     const response = await wantRoute({
-      request: request("wants", "want-update", {
+      request: request("want-update", {
         id: 10,
         content: "  更新後のWant  ",
         status: "completed",
@@ -52,27 +51,18 @@ test("Wantを編集前の値との一致を条件に更新する", async () => {
   }
 });
 
-test("Next Actionを編集し、不正なステータスは拒否する", async () => {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => Response.json([{ id: 20, want_id: 10, content: "更新後", status: "done" }]);
-  try {
-    const body = {
-      id: 20,
-      content: "更新後",
-      status: "done",
-      original: { content: "更新前", status: "open" },
-    };
-    const accepted = await actionRoute({ request: request("actions", "action-update", body), env });
-    assert.equal(accepted.status, 200);
-
-    const rejected = await actionRoute({
-      request: request("actions", "action-update", { ...body, status: "deleted" }),
-      env,
-    });
-    assert.equal(rejected.status, 400);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+test("不正なステータスは拒否する", async () => {
+  const body = {
+    id: 20,
+    content: "更新後",
+    status: "active",
+    original: { content: "更新前", status: "active" },
+  };
+  const rejected = await wantRoute({
+    request: request("want-update", { ...body, status: "deleted" }),
+    env,
+  });
+  assert.equal(rejected.status, 400);
 });
 
 test("別画面で更新済みのWantと異なるOriginを拒否する", async () => {
@@ -85,14 +75,14 @@ test("別画面で更新済みのWantと異なるOriginを拒否する", async (
       status: "active",
       original: { content: "更新前", status: "active" },
     };
-    const conflict = await wantRoute({ request: request("wants", "want-update", body), env });
+    const conflict = await wantRoute({ request: request("want-update", body), env });
     assert.equal(conflict.status, 409);
     assert.deepEqual(await conflict.json(), {
       error: "このWantは別の画面で更新されています。再読み込みしてからやり直してください。",
     });
 
     const wrongOrigin = await wantRoute({
-      request: request("wants", "want-update", body, { Origin: "https://attacker.example" }),
+      request: request("want-update", body, { Origin: "https://attacker.example" }),
       env,
     });
     assert.equal(wrongOrigin.status, 403);

@@ -6,7 +6,7 @@ export interface DashboardEnv {
   NAV_TASK_BOARD_URL?: string;
 }
 
-type TableName = "idea_inbox" | "wants" | "next_actions";
+type TableName = "idea_inbox" | "wants";
 
 interface TableDefinition {
   name: TableName;
@@ -26,21 +26,16 @@ interface WantRow {
   id?: unknown;
   content?: unknown;
   status?: unknown;
-  created_at?: unknown;
-}
-
-interface ActionRow {
-  id?: unknown;
-  want_id?: unknown;
-  content?: unknown;
-  status?: unknown;
+  type?: unknown;
+  revisit_on?: unknown;
+  revisit_count?: unknown;
+  note?: unknown;
   created_at?: unknown;
 }
 
 const TABLES: Record<string, TableDefinition> = {
   inbox: { name: "idea_inbox", select: "id,content,status,result,created_at", order: "created_at.desc,id.desc" },
-  wants: { name: "wants", select: "id,content,status,created_at", order: "created_at.desc,id.desc" },
-  actions: { name: "next_actions", select: "id,want_id,content,status,created_at", order: "created_at.desc,id.desc" },
+  wants: { name: "wants", select: "id,content,status,type,revisit_on,revisit_count,note,created_at", order: "created_at.desc,id.desc" },
 };
 
 const PAGE_SIZE = 1000;
@@ -118,6 +113,10 @@ function isoDate(value: unknown): string | null {
   return new Date(value).toISOString();
 }
 
+function plainDate(value: unknown): string | null {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
 function safeNavigationUrl(value: string | undefined): string | null {
   if (!value) return null;
   if (value.startsWith("/") && !value.startsWith("//")) return value;
@@ -133,9 +132,9 @@ function safeNavigationUrl(value: string | undefined): string | null {
 export function normalizeDashboard(
   inboxRows: InboxRow[],
   wantRows: WantRow[],
-  actionRows: ActionRow[],
   env: DashboardEnv = {},
 ) {
+  const today = new Date().toISOString().slice(0, 10);
   const inbox = inboxRows.map((row) => ({
     id: integer(row.id),
     content: text(row.content),
@@ -143,30 +142,16 @@ export function normalizeDashboard(
     result: text(row.result) || null,
     createdAt: isoDate(row.created_at),
   }));
-  const actions = actionRows.map((row) => ({
+  const wants = wantRows.map((row) => ({
     id: integer(row.id),
-    wantId: integer(row.want_id),
     content: text(row.content),
     status: text(row.status) || "unknown",
+    type: text(row.type) || "want",
+    revisitOn: plainDate(row.revisit_on),
+    revisitCount: integer(row.revisit_count) ?? 0,
+    note: text(row.note) || null,
     createdAt: isoDate(row.created_at),
   }));
-  const actionsByWant = new Map<number, typeof actions>();
-  for (const action of actions) {
-    if (action.wantId === null) continue;
-    const items = actionsByWant.get(action.wantId) || [];
-    items.push(action);
-    actionsByWant.set(action.wantId, items);
-  }
-  const wants = wantRows.map((row) => {
-    const id = integer(row.id);
-    return {
-      id,
-      content: text(row.content),
-      status: text(row.status) || "unknown",
-      createdAt: isoDate(row.created_at),
-      nextActions: id === null ? [] : actionsByWant.get(id) || [],
-    };
-  });
 
   return {
     app: { appId: "personal-dashboard", version: "0.8.0", mode: "read-write" },
@@ -183,22 +168,19 @@ export function normalizeDashboard(
       pendingInbox: inbox.filter((item) => item.status === "pending").length,
       wantsTotal: wants.length,
       activeWants: wants.filter((item) => item.status === "active").length,
-      wantsWithoutAction: wants.filter((item) => item.nextActions.length === 0).length,
-      openActions: actions.filter((item) => !["done", "completed", "closed"].includes(item.status)).length,
+      dueForReview: wants.filter((item) => item.status === "active" && item.revisitOn !== null && item.revisitOn <= today).length,
     },
     inbox,
     wants,
-    actions,
   };
 }
 
 export async function loadDashboard(env: DashboardEnv) {
-  const [inbox, wants, actions] = await Promise.all([
+  const [inbox, wants] = await Promise.all([
     fetchTable(env, TABLES.inbox) as Promise<InboxRow[]>,
     fetchTable(env, TABLES.wants) as Promise<WantRow[]>,
-    fetchTable(env, TABLES.actions) as Promise<ActionRow[]>,
   ]);
-  return normalizeDashboard(inbox, wants, actions, env);
+  return normalizeDashboard(inbox, wants, env);
 }
 
 export function publicError(error: unknown) {
@@ -213,7 +195,6 @@ export function publicError(error: unknown) {
     SUPABASE_RESPONSE_INVALID: "Supabaseから想定外の応答を受信しました。",
     INBOX_UPDATE_CONFLICT: "このInboxは別の画面で更新されています。再読み込みしてからやり直してください。",
     WANT_UPDATE_CONFLICT: "このWantは別の画面で更新されています。再読み込みしてからやり直してください。",
-    ACTION_UPDATE_CONFLICT: "このNext Actionは別の画面で更新されています。再読み込みしてからやり直してください。",
   };
   return { code, status, message: messages[code] || "ダッシュボードを読み込めませんでした。" };
 }

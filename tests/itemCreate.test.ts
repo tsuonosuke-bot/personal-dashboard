@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { onRequest as actionRoute } from "../functions/api/actions.ts";
 import { onRequest as wantRoute } from "../functions/api/wants.ts";
 
 const env = {
@@ -8,8 +7,8 @@ const env = {
   SUPABASE_SECRET_KEY: "secret-test-key",
 };
 
-function request(path: "wants" | "actions", action: string, body: unknown, headers: Record<string, string> = {}) {
-  return new Request(`https://dashboard.example/api/${path}`, {
+function request(action: string, body: unknown, headers: Record<string, string> = {}) {
+  return new Request("https://dashboard.example/api/wants", {
     method: "POST",
     headers: {
       Origin: "https://dashboard.example",
@@ -32,7 +31,7 @@ test("Inbox由来の内容をactive Wantとして登録する", async () => {
   };
   try {
     const response = await wantRoute({
-      request: request("wants", "want-create", { content: "  新しいWant  " }),
+      request: request("want-create", { content: "  新しいWant  " }),
       env,
     });
     assert.equal(response.status, 201);
@@ -44,45 +43,16 @@ test("Inbox由来の内容をactive Wantとして登録する", async () => {
   }
 });
 
-test("Wantに紐づくopen Next Actionを登録する", async () => {
-  const originalFetch = globalThis.fetch;
-  let seenInit: RequestInit | undefined;
-  globalThis.fetch = async (_input, init) => {
-    seenInit = init;
-    return Response.json([{ id: 61, want_id: 51, content: "次にやること", status: "open" }]);
-  };
-  try {
-    const response = await actionRoute({
-      request: request("actions", "action-create", { wantId: 51, content: "  次にやること  " }),
-      env,
-    });
-    assert.equal(response.status, 201);
-    assert.deepEqual(JSON.parse(String(seenInit?.body)), {
-      want_id: 51,
-      content: "次にやること",
-      status: "open",
-    });
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test("不正なOrigin、余分な項目、Want IDを拒否する", async () => {
+test("不正なOrigin、余分な項目を拒否する", async () => {
   const wrongOrigin = await wantRoute({
-    request: request("wants", "want-create", { content: "Want" }, { Origin: "https://attacker.example" }),
+    request: request("want-create", { content: "Want" }, { Origin: "https://attacker.example" }),
     env,
   });
   assert.equal(wrongOrigin.status, 403);
 
   const extraField = await wantRoute({
-    request: request("wants", "want-create", { content: "Want", status: "active" }),
+    request: request("want-create", { content: "Want", status: "active" }),
     env,
   });
   assert.equal(extraField.status, 400);
-
-  const invalidWant = await actionRoute({
-    request: request("actions", "action-create", { wantId: 0, content: "Action" }),
-    env,
-  });
-  assert.equal(invalidWant.status, 400);
 });
