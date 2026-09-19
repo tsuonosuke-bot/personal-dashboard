@@ -47,23 +47,19 @@ test("Compass edits an Inbox and reloads the canonical data", async () => {
   assert.match(script, /const refreshed = await loadDashboard\(\)/);
 });
 
-test("Compass edits Wants and Next Actions through dedicated APIs", async () => {
+test("Compass edits Wants through a dedicated API", async () => {
   const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
 
   assert.match(script, /id="editWantButton"/);
-  assert.match(script, /id="editActionButton"/);
   assert.match(script, /endpoint: "\/api\/wants"/);
   assert.match(script, /actionHeader: "want-update"/);
-  assert.match(script, /endpoint: "\/api\/actions"/);
-  assert.match(script, /actionHeader: "action-update"/);
 });
 
-test("Compass closes actionable Inbox, Wants, and Next Actions with conflict-safe updates", async () => {
+test("Compass closes actionable Inbox and Wants with conflict-safe updates", async () => {
   const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
 
   assert.match(script, /inbox:[\s\S]*closedStatus: "done"/);
   assert.match(script, /wants:[\s\S]*closedStatus: "completed"/);
-  assert.match(script, /actions:[\s\S]*closedStatus: "done"/);
   assert.match(script, /id="closeItemButton"/);
   assert.match(script, /function canCloseItem\(item, view\)/);
   assert.match(script, /cancelled", "archived"/);
@@ -73,19 +69,17 @@ test("Compass closes actionable Inbox, Wants, and Next Actions with conflict-saf
   assert.match(script, /const refreshed = await loadDashboard\(\)/);
 });
 
-test("Compass promotes Inbox content to a Want and breaks a Want into a Next Action", async () => {
+test("Compass promotes Inbox content to a Want", async () => {
   const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
 
   assert.match(script, /id="createWantButton"/);
-  assert.match(script, /id="createActionButton"/);
   assert.match(script, /actionHeader: "want-create"/);
-  assert.match(script, /actionHeader: "action-create"/);
-  assert.match(script, /sourceView === "wants" \? \{ wantId: sourceItem\.id, content \} : \{ content \}/);
   assert.match(script, /async function markInboxPromoted\(sourceItem\)/);
   assert.match(script, /status: "done",\s+result: "Wantsに登録"/);
   assert.match(script, /"X-Dashboard-Action": "inbox-update"/);
   assert.match(script, /Wantは追加しましたが、Inboxを処理済みにできませんでした/);
   assert.match(script, /Want追加後、元のInboxを処理済みにし/);
+  assert.doesNotMatch(script, /action-create|action-update|createActionButton|editActionButton/);
 });
 
 test("Compass starts with the summary and omits the decorative hero and large date", async () => {
@@ -103,7 +97,7 @@ test("Compass defaults each tab to actionable items and counts the filtered resu
   const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
 
   assert.match(script, /status: "pending"/);
-  assert.match(script, /inbox: "pending",\s+wants: "active",\s+actions: "open"/);
+  assert.match(script, /inbox: "pending",\s+wants: "active",/);
   assert.match(script, /function setView\(view, filter = defaultStatusByView\[view\]\)/);
   assert.match(script, /function renderCurrentTabCount\(items\)/);
   assert.match(script, /countElement\.textContent = items\.length/);

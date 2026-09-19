@@ -4,11 +4,10 @@ const MAX_REQUEST_CHARS = 5_000;
 const MAX_CONTENT_CHARS = 2_000;
 
 export interface ItemCreateDefinition {
-  table: "wants" | "next_actions";
-  actionHeader: "want-create" | "action-create";
+  table: "wants";
+  actionHeader: "want-create";
   select: string;
-  status: "active" | "open";
-  requiresWantId: boolean;
+  status: "active";
 }
 
 export const WANT_CREATE: ItemCreateDefinition = {
@@ -16,20 +15,10 @@ export const WANT_CREATE: ItemCreateDefinition = {
   actionHeader: "want-create",
   select: "id,content,status,created_at",
   status: "active",
-  requiresWantId: false,
-};
-
-export const ACTION_CREATE: ItemCreateDefinition = {
-  table: "next_actions",
-  actionHeader: "action-create",
-  select: "id,want_id,content,status,created_at",
-  status: "open",
-  requiresWantId: true,
 };
 
 export interface ItemCreateInput {
   content: string;
-  wantId?: number;
 }
 
 type ValidationResult =
@@ -67,10 +56,7 @@ export function validateItemCreateRequest(
   return null;
 }
 
-export async function readItemCreateInput(
-  request: Request,
-  definition: ItemCreateDefinition,
-): Promise<ValidationResult> {
+export async function readItemCreateInput(request: Request): Promise<ValidationResult> {
   let raw: string;
   try {
     raw = await request.text();
@@ -90,7 +76,7 @@ export async function readItemCreateInput(
   if (!isPlainObject(value)) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
-  const expectedKeys = definition.requiresWantId ? ["content", "wantId"] : ["content"];
+  const expectedKeys = ["content"];
   if (Object.keys(value).some((key) => !expectedKeys.includes(key)) || expectedKeys.some((key) => !(key in value))) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
@@ -101,13 +87,7 @@ export async function readItemCreateInput(
   if (content.length > MAX_CONTENT_CHARS) {
     return { ok: false, status: 400, error: `内容は${MAX_CONTENT_CHARS}文字以内で入力してください。` };
   }
-  if (definition.requiresWantId && (!Number.isSafeInteger(value.wantId) || Number(value.wantId) <= 0)) {
-    return { ok: false, status: 400, error: "Want IDが正しくありません。" };
-  }
-  return {
-    ok: true,
-    value: definition.requiresWantId ? { content, wantId: Number(value.wantId) } : { content },
-  };
+  return { ok: true, value: { content } };
 }
 
 export async function insertItem(
@@ -130,9 +110,7 @@ export async function insertItem(
   }
   endpoint.searchParams.set("select", definition.select);
 
-  const payload = definition.requiresWantId
-    ? { want_id: input.wantId, content: input.content, status: definition.status }
-    : { content: input.content, status: definition.status };
+  const payload = { content: input.content, status: definition.status };
   let response: Response;
   try {
     response = await fetch(endpoint, {

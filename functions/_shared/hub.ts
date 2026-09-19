@@ -4,11 +4,10 @@ export interface HubEnv extends DashboardEnv {
   HUB_SERVICE_TOKEN?: string;
 }
 
-type TableName = "idea_inbox" | "wants" | "next_actions" | "expenses" | "knowledge";
+type TableName = "idea_inbox" | "wants" | "expenses" | "knowledge";
 
 interface InboxRow { status?: unknown }
-interface WantRow { id?: unknown; content?: unknown; status?: unknown; created_at?: unknown }
-interface ActionRow { want_id?: unknown; status?: unknown }
+interface WantRow { id?: unknown; content?: unknown; status?: unknown; revisit_on?: unknown; created_at?: unknown }
 interface ExpenseRow {
   id?: unknown;
   transaction_date?: unknown;
@@ -39,7 +38,6 @@ interface QueryDefinition {
 }
 
 const PAGE_SIZE = 1_000;
-const CLOSED_ACTIONS = new Set(["done", "completed", "closed", "cancelled", "archived"]);
 const DEFAULT_FINANCIAL_URL = "https://financial-dashboard-9q8.pages.dev/";
 const DEFAULT_KNOWLEDGE_URL = "https://knowledge-dashboard-27t.pages.dev/";
 
@@ -238,7 +236,6 @@ function normalizeKnowledge(rows: KnowledgeRow[], today: string) {
 export function normalizeHub(
   inboxRows: InboxRow[],
   wantRows: WantRow[],
-  actionRows: ActionRow[],
   expenseRows: ExpenseRow[],
   knowledgeRows: KnowledgeRow[],
   _env: HubEnv = {},
@@ -248,19 +245,15 @@ export function normalizeHub(
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
   const previousDate = new Date(Date.UTC(year, month - 1, 1));
   const previousMonth = `${previousDate.getUTCFullYear()}-${String(previousDate.getUTCMonth() + 1).padStart(2, "0")}`;
-  const actions = actionRows.map((row) => ({
-    wantId: integer(row.want_id),
-    status: text(row.status).toLowerCase(),
-  }));
   const wants = wantRows.map((row) => ({
     id: integer(row.id),
     content: text(row.content) || "内容なし",
     status: text(row.status).toLowerCase(),
+    revisitOn: typeof row.revisit_on === "string" ? row.revisit_on : null,
     createdAt: date(row.created_at),
   }));
-  const wantsWithoutAction = wants
-    .filter((want) => want.status === "active")
-    .filter((want) => !actions.some((action) => action.wantId === want.id && !CLOSED_ACTIONS.has(action.status)))
+  const wantsDueForReview = wants
+    .filter((want) => want.status === "active" && want.revisitOn !== null && want.revisitOn <= today)
     .sort((left, right) => dailyRank(today, left.id) - dailyRank(today, right.id));
   const expenses = expenseRows.map((row) => ({
     id: integer(row.id),
@@ -293,16 +286,16 @@ export function normalizeHub(
       pendingInbox: inboxRows.filter((row) => text(row.status).toLowerCase() === "pending").length,
       dueKnowledge: knowledge.dueCount,
       weakKnowledge: knowledge.weakCount,
-      wantsWithoutAction: wantsWithoutAction.length,
+      wantsDueForReview: wantsDueForReview.length,
     },
     recentExpenses: expenses
       .sort((left, right) => (right.transactionDate || "").localeCompare(left.transactionDate || "") || (right.id ?? 0) - (left.id ?? 0))
       .slice(0, 5),
     knowledge: knowledge.items,
-    wants: wantsWithoutAction.slice(0, 3),
+    wants: wantsDueForReview.slice(0, 3),
     selection: {
       knowledge: "苦手を最大2件、復習期限、新規ナレッジの順で重複を除いて選定",
-      wants: `次の行動がないActive Wantsから${today}の日替わり順で選定`,
+      wants: `再訪日が来たActive Wantsから${today}の日替わり順で選定`,
     },
   };
 }
@@ -310,14 +303,13 @@ export function normalizeHub(
 export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
-  const [inbox, wants, actions, expenses, knowledge] = await Promise.all([
+  const [inbox, wants, expenses, knowledge] = await Promise.all([
     fetchRows(env, { table: "idea_inbox", select: "status" }) as Promise<InboxRow[]>,
-    fetchRows(env, { table: "wants", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<WantRow[]>,
-    fetchRows(env, { table: "next_actions", select: "want_id,status" }) as Promise<ActionRow[]>,
+    fetchRows(env, { table: "wants", select: "id,content,status,revisit_on,created_at", order: "created_at.desc,id.desc" }) as Promise<WantRow[]>,
     fetchDashboardRows(env, financialUrl, "/api/expenses") as Promise<ExpenseRow[]>,
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,
   ]);
-  return normalizeHub(inbox, wants, actions, expenses, knowledge, env, now);
+  return normalizeHub(inbox, wants, expenses, knowledge, env, now);
 }
 
 export function publicHubError(error: unknown) {

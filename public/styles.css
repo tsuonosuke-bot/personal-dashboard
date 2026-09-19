@@ -54,7 +54,7 @@ button { color: inherit; }
 .icon-button svg { width: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.8; }
 main { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
 .eyebrow, .section-kicker { margin: 0 0 12px; color: var(--orange); font-size: 11px; font-weight: 800; letter-spacing: .19em; }
-.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 0 0 34px; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 0 0 34px; }
 .metric { position: relative; min-height: 158px; padding: 22px; overflow: hidden; text-align: left; border: 1px solid rgba(50,70,58,.12); border-radius: 18px; background: var(--card); box-shadow: 0 6px 24px rgba(39,54,45,.045); cursor: pointer; transition: transform .2s ease, box-shadow .2s ease; }
 .metric:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
 .metric::after { content: ""; position: absolute; right: -22px; bottom: -35px; width: 100px; height: 100px; border-radius: 50%; background: var(--metric-soft); opacity: .8; }
@@ -66,7 +66,6 @@ main { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
 .metric-inbox { --metric-color: var(--orange); --metric-soft: var(--orange-soft); }
 .metric-wants { --metric-color: var(--green); --metric-soft: var(--green-soft); }
 .metric-gap { --metric-color: #8a6b27; --metric-soft: #f2e9cd; }
-.metric-action { --metric-color: var(--blue); --metric-soft: var(--blue-soft); }
 .workspace { padding: clamp(22px, 4vw, 42px); border: 1px solid rgba(50,70,58,.12); border-radius: 24px; background: rgba(255,253,248,.82); box-shadow: var(--shadow); backdrop-filter: blur(10px); }
 .workspace-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
 .workspace h2 { margin: 0; font-family: Georgia, "Yu Mincho", serif; font-size: 34px; font-weight: 500; }
@@ -96,8 +95,8 @@ select { height: 44px; padding: 0 34px 0 13px; border: 1px solid var(--line); bo
 .status-active { background: var(--blue-soft); color: var(--blue); }
 .item-card h3 { display: -webkit-box; margin: 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 15px; font-weight: 650; line-height: 1.65; }
 .item-footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; color: var(--muted); font-size: 10px; }
-.action-count { color: var(--green); font-weight: 700; }
-.action-count.missing { color: #a5761e; }
+.revisit-tag { color: var(--green); font-weight: 700; }
+.revisit-tag.due { color: #a5761e; }
 .loading, .empty-state, .error-state { grid-column: 1 / -1; min-height: 260px; display: grid; place-items: center; align-content: center; text-align: center; color: var(--muted); }
 .loading span { width: 28px; height: 28px; border: 2px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; }
 .loading p { margin: 15px 0 0; font-size: 12px; }
@@ -127,10 +126,9 @@ footer { display: flex; justify-content: space-between; width: min(1180px, calc(
 .source-context span { display: block; margin-bottom: 5px; color: var(--green); font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .source-context p, .flow-note { margin: 0; font-size: 12px; line-height: 1.65; }
 .flow-note { color: var(--muted); }
-.next-action-list { display: grid; gap: 9px; margin-top: 9px; }
-.next-action { padding: 13px; border-left: 3px solid var(--green); border-radius: 4px 10px 10px 4px; background: var(--green-soft); }
-.next-action b { display: block; font-size: 13px; line-height: 1.55; }
-.next-action small { color: var(--muted); }
+.revisit-note { margin-top: 9px; padding: 13px; border-left: 3px solid var(--green); border-radius: 4px 10px 10px 4px; background: var(--green-soft); }
+.revisit-note b { display: block; font-size: 13px; line-height: 1.55; }
+.revisit-note small { color: var(--muted); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 850px) {

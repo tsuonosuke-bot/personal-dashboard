@@ -2,7 +2,7 @@ const ids = [
   "sourceBadge", "refreshButton", "dateLabel", "updatedLabel",
   "compassLink", "financialLink", "knowledgeLink", "compassMeta", "financialMeta", "knowledgeMeta",
   "spendMetricLink", "reviewMetricLink", "currentMonthSpend", "spendComparison", "dueKnowledge",
-  "weakKnowledge", "pendingInbox", "wantsWithoutAction", "loadingState", "errorState", "errorMessage",
+  "weakKnowledge", "pendingInbox", "wantsDueForReview", "loadingState", "errorState", "errorMessage",
   "retryButton", "hubContent", "expenseList", "knowledgeList", "wantList", "allExpensesLink", "allKnowledgeLink",
 ];
 
@@ -58,9 +58,9 @@ function renderSummary(summary) {
   els.currentMonthSpend.textContent = formatYen(summary.currentMonthSpend);
   els.dueKnowledge.textContent = `${summary.dueKnowledge}件`;
   els.pendingInbox.textContent = `${summary.pendingInbox}件`;
-  els.wantsWithoutAction.textContent = `${summary.wantsWithoutAction}件`;
+  els.wantsDueForReview.textContent = `${summary.wantsDueForReview}件`;
   els.weakKnowledge.textContent = `苦手候補 ${summary.weakKnowledge}件`;
-  els.compassMeta.textContent = `未整理 ${summary.pendingInbox} · 未設定 ${summary.wantsWithoutAction}`;
+  els.compassMeta.textContent = `未整理 ${summary.pendingInbox} · 再訪 ${summary.wantsDueForReview}`;
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
   els.knowledgeMeta.textContent = `期限 ${summary.dueKnowledge}`;
   if (summary.previousMonthSpend > 0) {
@@ -108,13 +108,13 @@ function renderKnowledge(items, url) {
 
 function renderWants(items) {
   if (!items.length) {
-    els.wantList.innerHTML = empty("次の行動を待つActive Wantはありません");
+    els.wantList.innerHTML = empty("再訪日が来たActive Wantはありません");
     return;
   }
   els.wantList.innerHTML = items.map((item, index) => `
     <a class="want-card" href="/compass/">
       <span>${String(index + 1).padStart(2, "0")}</span>
-      <div><strong>${escapeHtml(item.content)}</strong><small>最初の10分でできることは？</small></div>
+      <div><strong>${escapeHtml(item.content)}</strong><small>再訪日が来ています</small></div>
       <b aria-hidden="true">→</b>
     </a>
   `).join("");

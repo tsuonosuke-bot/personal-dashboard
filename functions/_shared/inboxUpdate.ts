@@ -4,7 +4,7 @@ export const INBOX_UPDATE_ACTION_HEADER = "inbox-update";
 const MAX_REQUEST_CHARS = 10_000;
 const MAX_CONTENT_CHARS = 2_000;
 const MAX_RESULT_CHARS = 2_000;
-const EDITABLE_STATUSES = new Set(["pending", "done"]);
+const EDITABLE_STATUSES = new Set(["pending", "done", "skipped"]);
 
 interface InboxSnapshot {
   content: string;
@@ -15,7 +15,7 @@ interface InboxSnapshot {
 export interface InboxUpdateInput {
   id: number;
   content: string;
-  status: "pending" | "done";
+  status: "pending" | "done" | "skipped";
   result: string | null;
   original: InboxSnapshot;
 }
@@ -112,7 +112,7 @@ export async function readInboxUpdateInput(request: Request): Promise<Validation
     value: {
       id: Number(value.id),
       content,
-      status: value.status as "pending" | "done",
+      status: value.status as "pending" | "done" | "skipped",
       result,
       original: value.original,
     },

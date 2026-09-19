@@ -30,8 +30,7 @@
         <section class="metrics" aria-label="サマリー">
           <button class="metric metric-inbox" type="button" data-view="inbox" data-filter="pending"><span class="metric-icon">↘</span><span class="metric-label">未整理のInbox</span><strong id="pendingInbox">—</strong><small><span id="inboxTotal">—</span>件のうち</small></button>
           <button class="metric metric-wants" type="button" data-view="wants" data-filter="active"><span class="metric-icon">✦</span><span class="metric-label">Active Wants</span><strong id="activeWants">—</strong><small>方向を決めたテーマ</small></button>
-          <button class="metric metric-gap" type="button" data-view="wants" data-filter="no-action"><span class="metric-icon">○</span><span class="metric-label">次の一歩が未設定</span><strong id="wantsWithoutAction">—</strong><small>具体化を待っています</small></button>
-          <button class="metric metric-action" type="button" data-view="actions" data-filter="open"><span class="metric-icon">→</span><span class="metric-label">Open Actions</span><strong id="openActions">—</strong><small>実行できる次の行動</small></button>
+          <button class="metric metric-gap" type="button" data-view="wants" data-filter="due-review"><span class="metric-icon">○</span><span class="metric-label">再訪期限</span><strong id="dueForReview">—</strong><small>浮上を待っています</small></button>
         </section>
 
         <section class="workspace">
@@ -46,7 +45,6 @@
           <div class="tabs" role="tablist" aria-label="表示するデータ">
             <button class="tab active" type="button" role="tab" aria-selected="true" data-view="inbox">Inbox <span id="inboxTabCount">—</span></button>
             <button class="tab" type="button" role="tab" aria-selected="false" data-view="wants">Wants <span id="wantsTabCount">—</span></button>
-            <button class="tab" type="button" role="tab" aria-selected="false" data-view="actions">Next Actions <span id="actionsTabCount">—</span></button>
           </div>
           <div class="list-meta"><p id="resultCount">データを読み込んでいます</p><button id="clearFilter" class="text-button" type="button" hidden>絞り込みを解除</button></div>
           <div class="card-list" id="cardList" aria-live="polite"><div class="loading"><span></span><p>Supabaseから読み込んでいます</p></div></div>

@@ -4,27 +4,19 @@ const MAX_REQUEST_CHARS = 8_000;
 const MAX_CONTENT_CHARS = 2_000;
 
 export interface ItemUpdateDefinition {
-  table: "wants" | "next_actions";
-  actionHeader: "want-update" | "action-update";
+  table: "wants";
+  actionHeader: "want-update";
   allowedStatuses: ReadonlySet<string>;
   select: string;
-  conflictCode: "WANT_UPDATE_CONFLICT" | "ACTION_UPDATE_CONFLICT";
+  conflictCode: "WANT_UPDATE_CONFLICT";
 }
 
 export const WANT_UPDATE: ItemUpdateDefinition = {
   table: "wants",
   actionHeader: "want-update",
-  allowedStatuses: new Set(["active", "completed"]),
+  allowedStatuses: new Set(["active", "completed", "dropped"]),
   select: "id,content,status,created_at",
   conflictCode: "WANT_UPDATE_CONFLICT",
-};
-
-export const ACTION_UPDATE: ItemUpdateDefinition = {
-  table: "next_actions",
-  actionHeader: "action-update",
-  allowedStatuses: new Set(["open", "done"]),
-  select: "id,want_id,content,status,created_at",
-  conflictCode: "ACTION_UPDATE_CONFLICT",
 };
 
 interface ItemSnapshot {

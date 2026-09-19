@@ -23,7 +23,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   if (context.request.method === "POST") {
     const guard = validateItemCreateRequest(context.request, WANT_CREATE);
     if (guard) return Response.json({ error: guard.error }, { status: guard.status, headers });
-    const input = await readItemCreateInput(context.request, WANT_CREATE);
+    const input = await readItemCreateInput(context.request);
     if (!input.ok) return Response.json({ error: input.error }, { status: input.status, headers });
     try {
       return Response.json(await insertItem(context.env, WANT_CREATE, input.value), { status: 201, headers });

@@ -13,7 +13,6 @@ Browser
           ├─ /api/dashboard
           ├─ /api/inbox (POST / PATCH)
           ├─ /api/wants (POST / PATCH)
-          ├─ /api/actions (POST / PATCH)
           └─ SUPABASE_SECRET_KEY (Cloudflare environment only)
               └─ Supabase REST API
 ```
@@ -32,22 +31,21 @@ Browser
 ## Hubの機能
 
 - Compass、家計簿、ナレッジへの入口
-- 今月支出、復習期限、未整理Inbox、次の行動がないWantsのスナップショット
+- 今月支出、復習期限、未整理Inbox、再訪日が来たWantsのスナップショット
 - 直近5件の家計簿レコード
 - 苦手を最大2件、復習期限、新規を混ぜたナレッジ候補
-- 次の行動がないActive Wantsを、JST日付に基づく日替わり順で3件表示
+- 再訪日が来たActive Wantsを、JST日付に基づく日替わり順で3件表示
 
 ## Compassの機能
 
 - Inbox総数・未整理件数
 - Active Wants
-- 次のアクションがないWants
-- Open Actions
-- Inbox / Wants / Next Actionsの切り替え
+- 再訪日が来たWants
+- Inbox / Wantsの切り替え
 - Inboxの新規登録
 - Inboxの本文・ステータス・整理結果を編集
-- WantsとNext Actionsの本文・ステータスを編集
-- InboxからWantを追加すると元のInboxを処理済み（処理結果: Wantsに登録）にし、Wantから紐づくNext Actionを追加
+- Wantsの本文・ステータスを編集
+- InboxからWantを追加すると元のInboxを処理済み（処理結果: Wantsに登録）にする
 - 検索、ステータス絞り込み、詳細ドロワー、再読込
 - `/api/health` による接続状態確認
 - Hub、Knowledge DB、Financialへのダッシュボードスイッチャー
