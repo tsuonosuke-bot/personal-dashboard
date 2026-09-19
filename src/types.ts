@@ -69,11 +69,22 @@ export interface QuizQuestion {
   question: string;
 }
 
+export type QuizEmptyReason = "no_knowledge" | "done_today";
+
+export interface QuizStart {
+  items: QuizQuestion[];
+  /** 出題対象が0件だった理由。1件以上あるときはnull。 */
+  reason: QuizEmptyReason | null;
+  /** 全問が復習期限前の前倒し出題であることを示す。 */
+  early: boolean;
+}
+
 export interface QuizGradeResult {
   id: string;
   title: string;
   verdict: QuizVerdict;
   quality: number;
+  correct_answer: string;
   explanation: string;
   next_review_on: string | null;
   recorded: boolean;

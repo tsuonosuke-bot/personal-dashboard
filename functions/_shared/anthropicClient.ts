@@ -2,9 +2,11 @@ export interface AnthropicEnv {
   ANTHROPIC_API_KEY?: string;
 }
 
-/** 出題生成は軽量モデル、採点は精度を優先してSonnetを使う。 */
-export const QUIZ_GENERATE_MODEL = "claude-haiku-4-5";
-export const QUIZ_GRADE_MODEL = "claude-sonnet-5";
+/** 出題も採点も問題文と講評の質が成果物そのものなので、軽量モデルには落とさない。 */
+export const QUIZ_MODEL = "claude-sonnet-5";
+
+/** Sonnet 5は思考トークンもmax_tokensに含まれる。15問分を切らせないための余裕。 */
+export const QUIZ_MAX_TOKENS = 16_000;
 
 export type AnthropicToolCallResult =
   | { ok: true; input: unknown }

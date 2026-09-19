@@ -225,6 +225,8 @@ button.review-card { display: block; }
 .quiz-result-head { display: flex; align-items: center; gap: 8px; }
 .quiz-result-q { font-size: 12px; font-weight: 700; color: #66558c; }
 .quiz-result-question { margin: 0; color: #526079; font-size: 13px; }
+.quiz-result-source { margin: 6px 0 0; color: #94a3b8; font-size: 12px; }
+.quiz-early-note { margin: 0 0 12px; color: #7a879b; font-size: 13px; }
 .quiz-verdict-ok { background: #f0fdf4; color: #15803d; }
 .quiz-verdict-partial { background: #fffbeb; color: #b45309; }
 .quiz-verdict-ng { background: #fef2f2; color: #dc2626; }

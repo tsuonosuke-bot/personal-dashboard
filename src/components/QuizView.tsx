@@ -54,9 +54,17 @@ export function QuizView({ onExit }: { onExit: () => void }) {
 
         {quiz.stage === "empty" && (
           <div className="quiz-setup card">
-            <p>該当する出題対象がありません。カテゴリを変えて試してください。</p>
+            <p>
+              {quiz.emptyReason === "done_today"
+                ? "本日の出題は終わっています。このカテゴリは全問採点済みです。"
+                : "このカテゴリに出題できるナレッジがありません。"}
+            </p>
             <button className="primary-button" onClick={quiz.reset}>戻る</button>
           </div>
+        )}
+
+        {quiz.stage === "quiz" && quiz.early && (
+          <p className="quiz-early-note">本日期限の分はないので、復習日が近い順に出します。</p>
         )}
 
         {quiz.stage === "quiz" && (
@@ -91,7 +99,8 @@ export function QuizView({ onExit }: { onExit: () => void }) {
                     <p className="quiz-result-question">{question.question}</p>
                     <div className="content-block">
                       <h3>正解</h3>
-                      <p>{result.title}</p>
+                      <p>{result.correct_answer}</p>
+                      <p className="quiz-result-source">{result.title}</p>
                     </div>
                     <div className="content-block">
                       <h3>解説</h3>

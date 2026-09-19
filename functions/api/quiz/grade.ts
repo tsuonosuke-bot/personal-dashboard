@@ -7,7 +7,8 @@ import {
 } from "../../_shared/supabaseRest.ts";
 import {
   callAnthropicTool,
-  QUIZ_GRADE_MODEL,
+  QUIZ_MAX_TOKENS,
+  QUIZ_MODEL,
   type AnthropicEnv,
 } from "../../_shared/anthropicClient.ts";
 import {
@@ -22,12 +23,15 @@ interface FunctionContext {
   env: SupabaseEnv & AnthropicEnv;
 }
 
-const QUIZ_FORMAT = "記述説明";
+/** チャットのknowledge-quizスキルと同じ値を使い、履歴が形式で分断されないようにする。 */
+const QUIZ_FORMAT = "一問一答";
 
 interface KnowledgeFact {
   id: string;
   title: string;
   explanation: string | null;
+  category: string;
+  tags: string[];
   next_review_on: string | null;
 }
 
@@ -36,6 +40,8 @@ function isKnowledgeFact(value: unknown): value is KnowledgeFact {
   const record = value as Record<string, unknown>;
   return typeof record.id === "string" && typeof record.title === "string"
     && (record.explanation === null || typeof record.explanation === "string")
+    && typeof record.category === "string"
+    && Array.isArray(record.tags) && record.tags.every((tag) => typeof tag === "string")
     && (record.next_review_on === null || typeof record.next_review_on === "string");
 }
 
@@ -59,20 +65,35 @@ async function fetchJstToday(env: SupabaseEnv): Promise<{ ok: true; value: strin
 }
 
 const SYSTEM_PROMPT = `あなたはナレッジDBの復習クイズの採点者です。各問題について、正解（タイトルと説明）と
-ユーザーの回答を照合し、以下の基準でq値(0〜5)を判定してください。
+ユーザーの回答を照合し、q値(0〜5)を判定してください。
+
+## q値の基準
 
 | q | 状態 |
 | --- | --- |
 | 5 | 即答・完璧 |
 | 4 | 正解だが詰めが甘い |
-| 3 | 正解だが苦戦 |
+| 3 | 正解だが苦戦した |
 | 2 | 部分正解 |
 | 1 | かすった程度 |
 | 0 | 全く思い出せない |
 
-explanationにはユーザーへのフィードバック（正解の要点、何が良かったか・不足していたか）を書いてください。
-noteにはユーザーが実際に何と答えて、どこでつまずいたかを具体的に書いてください。次回の出題時にも参照される
-ため、抽象的な言い回しは避けてください。
+## 判定の指針
+
+- 表現が違っても意味が合っていれば正解とする。語句の完全一致は求めない。
+- 核心を外していれば、部分的に合っていても2以下。
+- 無回答、「わからない」「忘れた」は0。
+
+## 各フィールドの書き方
+
+- **correct_answer**: 出題内容に対する模範解答を1〜2文で。タイトルをそのまま返すのではなく、
+  問われたことへの答えとして書く。
+- **explanation**: 2〜4文。正解の要点と、ユーザーの回答のどこが良くてどこが足りなかったかを
+  具体的に指摘する。一般論ではなく、目の前のこの回答に対する講評を書く。覚え方や区別のコツが
+  あれば添える。
+- **note**: ユーザーが実際に何と答え、どこでつまずいたかを1〜2文で具体的に。次回の出題時に
+  参照されるため、「不正解だった」のような抽象的な記述は役に立たない。
+
 与えられたid一つにつき、gradesに必ず1件、同じidで出力してください。`;
 
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
@@ -91,7 +112,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     table: "knowledge",
     params: new URLSearchParams({
       id: `in.(${ids.join(",")})`,
-      select: "id,title,explanation,next_review_on",
+      select: "id,title,explanation,category,tags,next_review_on",
     }),
   });
   if (!knowledgeResult.ok) return knowledgeResult.response;
@@ -125,15 +146,17 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       id: a.id,
       title: fact.title,
       explanation: fact.explanation ?? "",
+      category: fact.category,
+      tags: fact.tags,
       user_answer: a.answer,
     };
   }));
 
   const graded = await callAnthropicTool(context.env, {
-    model: QUIZ_GRADE_MODEL,
+    model: QUIZ_MODEL,
     system: SYSTEM_PROMPT,
     userText,
-    maxTokens: 8_192,
+    maxTokens: QUIZ_MAX_TOKENS,
     tool: {
       name: "submit_grades",
       description: "採点結果を送信する",
@@ -147,10 +170,11 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
               properties: {
                 id: { type: "string" },
                 quality: { type: "integer", minimum: 0, maximum: 5 },
+                correct_answer: { type: "string" },
                 explanation: { type: "string" },
                 note: { type: "string" },
               },
-              required: ["id", "quality", "explanation", "note"],
+              required: ["id", "quality", "correct_answer", "explanation", "note"],
             },
           },
         },
@@ -165,15 +189,29 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     return jsonResponse({ error: "AIの応答形式が正しくありません。" }, 502);
   }
 
-  interface Grade { id: string; quality: number; verdict: "正解" | "部分正解" | "不正解"; explanation: string; note: string }
+  interface Grade {
+    id: string;
+    quality: number;
+    verdict: "正解" | "部分正解" | "不正解";
+    correctAnswer: string;
+    explanation: string;
+    note: string;
+  }
   const gradeById = new Map<string, Grade>();
   for (const entry of grades) {
     if (typeof entry !== "object" || entry === null) continue;
-    const { id, quality, explanation, note } = entry as Record<string, unknown>;
+    const { id, quality, correct_answer, explanation, note } = entry as Record<string, unknown>;
     if (typeof id !== "string" || !factById.has(id)) continue;
     if (typeof quality !== "number" || !Number.isInteger(quality) || quality < 0 || quality > 5) continue;
-    if (typeof explanation !== "string" || typeof note !== "string") continue;
-    gradeById.set(id, { id, quality, verdict: verdictForQuality(quality), explanation, note: note.slice(0, 2_000) });
+    if (typeof correct_answer !== "string" || typeof explanation !== "string" || typeof note !== "string") continue;
+    gradeById.set(id, {
+      id,
+      quality,
+      verdict: verdictForQuality(quality),
+      correctAnswer: correct_answer,
+      explanation,
+      note: note.slice(0, 2_000),
+    });
   }
   for (const id of ids) {
     if (!gradeById.has(id)) return jsonResponse({ error: "AIが一部の採点結果を生成しませんでした。" }, 502);
@@ -214,6 +252,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       title: fact.title,
       verdict: grade.verdict,
       quality: grade.quality,
+      correct_answer: grade.correctAnswer,
       explanation: grade.explanation,
       next_review_on: recorded ? recorded.next_review_on : fact.next_review_on,
       recorded: Boolean(recorded),

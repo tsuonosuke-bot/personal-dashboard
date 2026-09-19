@@ -1,4 +1,7 @@
-import type { Knowledge, Mastery, QuizGradeResult, QuizLog, QuizQuestion, QuizVerdict } from "../types";
+import type {
+  Knowledge, Mastery, QuizEmptyReason, QuizGradeResult, QuizLog,
+  QuizQuestion, QuizStart, QuizVerdict,
+} from "../types";
 
 interface PageEnvelope {
   items: unknown[];
@@ -114,10 +117,18 @@ export function parseQuizQuestion(value: unknown): QuizQuestion {
   };
 }
 
-export function parseQuizStartResponse(value: unknown): QuizQuestion[] {
+export function parseQuizStartResponse(value: unknown): QuizStart {
   const entity = "出題応答";
   if (!isRecord(value) || !Array.isArray(value.items)) return fail(entity);
-  return value.items.map(parseQuizQuestion);
+  const { reason } = value;
+  if (reason !== undefined && reason !== "no_knowledge" && reason !== "done_today") {
+    return fail(entity, "reason");
+  }
+  return {
+    items: value.items.map(parseQuizQuestion),
+    reason: (reason as QuizEmptyReason | undefined) ?? null,
+    early: value.early === true,
+  };
 }
 
 export function parseQuizGradeResult(value: unknown): QuizGradeResult {
@@ -131,6 +142,7 @@ export function parseQuizGradeResult(value: unknown): QuizGradeResult {
     title: stringValue(value, "title", entity),
     verdict: verdict as QuizVerdict,
     quality: numberValue(value, "quality", entity),
+    correct_answer: stringValue(value, "correct_answer", entity),
     explanation: stringValue(value, "explanation", entity),
     next_review_on: nullableStringValue(value, "next_review_on", entity),
     recorded: value.recorded,

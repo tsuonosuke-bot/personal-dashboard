@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { gradeQuiz, startQuiz } from "../lib/api";
-import type { QuizGradeResult, QuizMode, QuizQuestion } from "../types";
+import type { QuizEmptyReason, QuizGradeResult, QuizMode, QuizQuestion } from "../types";
 
 export const QUIZ_LIMIT = 15;
 
@@ -13,19 +13,23 @@ export function useQuiz() {
   const [index, setIndex] = useState(0);
   const [results, setResults] = useState<QuizGradeResult[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [emptyReason, setEmptyReason] = useState<QuizEmptyReason | null>(null);
+  const [early, setEarly] = useState(false);
 
   const start = useCallback(async (mode: QuizMode) => {
     setStage("loading");
     setError(null);
     try {
-      const items = await startQuiz(mode, QUIZ_LIMIT);
+      const { items, reason, early: isEarly } = await startQuiz(mode, QUIZ_LIMIT);
       if (items.length === 0) {
+        setEmptyReason(reason);
         setStage("empty");
         return;
       }
       setQuestions(items);
       setAnswers(Object.fromEntries(items.map((item) => [item.id, ""])));
       setIndex(0);
+      setEarly(isEarly);
       setStage("quiz");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "出題に失敗しました。");
@@ -68,10 +72,12 @@ export function useQuiz() {
     setIndex(0);
     setResults([]);
     setError(null);
+    setEmptyReason(null);
+    setEarly(false);
   }, []);
 
   return {
-    stage, questions, answers, index, results, error,
+    stage, questions, answers, index, results, error, emptyReason, early,
     start, answerCurrent, goNext, goBack, submit, reset,
   };
 }

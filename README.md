@@ -63,11 +63,14 @@ Viteだけを起動するため `/api/*` は利用できない。
 - `PATCH /api/knowledge/:id` — 許可項目の編集、アーカイブまたは復元
 - `GET /api/quiz-log` — クイズ履歴を新しい順に取得
 - `POST /api/quiz/start` — 復習クイズを出題（`{ mode: "english"|"non_english"|"all", limit }`）。
-  DBの `pick_quiz` で候補を選び、Claude APIで問題文を生成する。応答は `{ id, question }` の配列のみで、
-  正解（タイトル・説明）は返さない
+  DBの `pick_quiz` で候補を選び、カテゴリ・タグ・前回のつまずきメモを添えてClaude APIで問題文を
+  生成する。応答は `{ id, question }` の配列のみで、正解（タイトル・説明）は返さない
 - `POST /api/quiz/grade` — 回答 `[{ id, answer }]` を採点。サーバー側でDBから正解を引き直し、
   Claude APIで採点した上で `record_answers_batch`（`record_answer` をまとめて呼ぶRPC）で
   1回のSQLとして記録する。同日に記録済みの項目は再記録しない
+
+出題・採点は `claude-sonnet-5` を使う。問題文と講評の質が成果物そのものなので、
+コスト目的で軽量モデルへ落とさない。
 
 一覧APIは `limit`（1〜1,000、既定500）と `offset`（0以上、既定0）を受け付け、
 `{ items, total, limit, offset }` を返す。画面は必要なページをすべて取得するため、

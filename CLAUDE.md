@@ -64,6 +64,9 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `POST /api/quiz/grade`: `knowledge`/`quiz_log` を読み直して正解を確認し、Claude APIで採点、
   `record_answers_batch` RPCで一括記録
 
+クイズAPIはブラウザにも `knowledge` の列を素で返さない。`start` は `{ id, question }` だけ、
+`grade` は採点後なので `title` と模範解答を返す。
+
 一覧APIの `limit` は1〜1,000、`offset` は0以上に限定し、応答は
 `{ items, total, limit, offset }` とする。ブラウザ側は全ページを取得し、固定件数で
 黙って切り捨てない。任意テーブル、任意クエリの追加は禁止。移行完了後、
@@ -83,6 +86,20 @@ SM-2の計算は全てDB関数側にあり、Functions側やブラウザ側で�
 
 `/api/quiz/grade` は書き込み前に `quiz_log` を `asked_on = jst_today()` で確認し、
 その日にまだ記録がない項目だけを `record_answers_batch` に渡す（同日重複記録の防止）。
+
+### クイズの出題・採点品質
+
+チャットの `knowledge-quiz` スキルと同じ体験になるよう揃えている。ここを削ると露骨に質が落ちる。
+
+- 出題・採点とも `claude-sonnet-5`。問題文と講評が成果物そのものなので軽量モデルに落とさない
+- `max_tokens` は16,000。Sonnet 5は思考トークンも `max_tokens` に含まれるため、15問だと8,192では足りない
+- 出題時はカテゴリ・タグ・`times_asked` に加えて、直近2回分の `note`（前回どこでつまずいたか）を
+  渡す。noteは次回出題に効かせるために書かせている
+- 出題順は同じカテゴリが連続しないよう入れ替える。並べ替えるのは順番だけで、`pick_quiz` が
+  選んだ問題の差し替えはしない
+- `format` は `一問一答`。スキル側と値を揃えないと `quiz_log` の履歴が形式で分断される
+- 採点は `correct_answer`（模範解答）と `explanation`（この回答への講評）を分けて出させる
+- 0件時は `knowledge` の件数を数えて「対象なし」と「本日出題済み」を切り分ける
 Secret keyはservice_roleのためRLSを迂回する。ブラウザのanon keyでは
 `record_answer` / `record_answers_batch` は書き込めない設計を変えない。
 

@@ -12,6 +12,7 @@ const env = {
 
 const ID_1 = "123e4567-e89b-42d3-a456-426614174000";
 const ID_2 = "223e4567-e89b-42d3-a456-426614174000";
+const ID_3 = "323e4567-e89b-42d3-a456-426614174000";
 
 function quizPost(path: string, body: unknown) {
   return new Request(`https://dashboard.example${path}`, {
@@ -29,24 +30,35 @@ function anthropicToolResponse(name: string, input: unknown) {
   return Response.json({ content: [{ type: "tool_use", name, input }] });
 }
 
+function pickedRow(id: string, category: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    title: `秘密のタイトル ${id.slice(0, 4)}`,
+    explanation: "説明",
+    category,
+    mastery: "学習中",
+    times_asked: 3,
+    pool: "A",
+    ...overrides,
+  };
+}
+
 test("quiz/start はpick_quizの候補にAI生成の問題文だけを付けて返す（正解は含めない）", async () => {
   const originalFetch = globalThis.fetch;
-  const calls: string[] = [];
-  globalThis.fetch = async (input) => {
+  let seenModel = "";
+  globalThis.fetch = async (input, init) => {
     const url = String(input);
-    calls.push(url);
     if (url.includes("/rest/v1/rpc/pick_quiz")) {
-      return Response.json([
-        { id: ID_1, title: "秘密のタイトル1", explanation: "説明1" },
-        { id: ID_2, title: "秘密のタイトル2", explanation: "説明2" },
-      ]);
+      return Response.json([pickedRow(ID_1, "英語"), pickedRow(ID_2, "歴史")]);
     }
+    if (url.includes("/rest/v1/knowledge")) {
+      return Response.json([{ id: ID_1, tags: ["文法"] }, { id: ID_2, tags: [] }]);
+    }
+    if (url.includes("/rest/v1/quiz_log")) return Response.json([]);
     if (url.includes("api.anthropic.com")) {
+      seenModel = (JSON.parse(String(init?.body)) as { model: string }).model;
       return anthropicToolResponse("submit_questions", {
-        questions: [
-          { id: ID_1, question: "問題1" },
-          { id: ID_2, question: "問題2" },
-        ],
+        questions: [{ id: ID_1, question: "問題1" }, { id: ID_2, question: "問題2" }],
       });
     }
     throw new Error(`unexpected fetch: ${url}`);
@@ -57,29 +69,102 @@ test("quiz/start はpick_quizの候補にAI生成の問題文だけを付けて�
       env,
     });
     assert.equal(response.status, 200);
-    const body = await response.json();
-    assert.deepEqual(body, { items: [{ id: ID_1, question: "問題1" }, { id: ID_2, question: "問題2" }] });
+    const body = await response.json() as { items: unknown[]; early: boolean };
+    assert.deepEqual(body.items, [
+      { id: ID_1, question: "問題1" },
+      { id: ID_2, question: "問題2" },
+    ]);
     assert.equal(JSON.stringify(body).includes("秘密のタイトル"), false);
-    assert.ok(calls.some((url) => url.includes("/rest/v1/rpc/pick_quiz")));
+    assert.equal(body.early, false);
+    assert.equal(seenModel, "claude-sonnet-5");
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("quiz/start は出題対象が0件なら空配列を返しAIを呼ばない", async () => {
+test("quiz/start はカテゴリ・タグ・過去のつまずきメモをAIへ渡す", async () => {
   const originalFetch = globalThis.fetch;
-  let anthropicCalled = false;
-  globalThis.fetch = async (input) => {
+  let seenUserText = "";
+  globalThis.fetch = async (input, init) => {
     const url = String(input);
-    if (url.includes("/rest/v1/rpc/pick_quiz")) return Response.json([]);
-    if (url.includes("api.anthropic.com")) { anthropicCalled = true; return anthropicToolResponse("submit_questions", { questions: [] }); }
+    if (url.includes("/rest/v1/rpc/pick_quiz")) return Response.json([pickedRow(ID_1, "英語")]);
+    if (url.includes("/rest/v1/knowledge")) return Response.json([{ id: ID_1, tags: ["文法"] }]);
+    if (url.includes("/rest/v1/quiz_log")) {
+      return Response.json([
+        { knowledge_id: ID_1, quality: 2, verdict: "部分正解", note: "受動態と混同した", asked_on: "2026-09-10" },
+        { knowledge_id: ID_1, quality: 1, verdict: "不正解", note: "語順を間違えた", asked_on: "2026-09-01" },
+        { knowledge_id: ID_1, quality: 0, verdict: "不正解", note: "3件目は渡さない", asked_on: "2026-08-20" },
+      ]);
+    }
+    if (url.includes("api.anthropic.com")) {
+      const body = JSON.parse(String(init?.body)) as { messages: { content: string }[] };
+      seenUserText = body.messages[0].content;
+      return anthropicToolResponse("submit_questions", { questions: [{ id: ID_1, question: "問題1" }] });
+    }
     throw new Error(`unexpected fetch: ${url}`);
   };
   try {
     const response = await startRoute({ request: quizPost("/api/quiz/start", {}), env });
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { items: [] });
-    assert.equal(anthropicCalled, false);
+    const sent = JSON.parse(seenUserText) as {
+      category: string; tags: string[]; past_notes: { note: string }[];
+    }[];
+    assert.equal(sent[0].category, "英語");
+    assert.deepEqual(sent[0].tags, ["文法"]);
+    assert.deepEqual(sent[0].past_notes.map((n) => n.note), ["受動態と混同した", "語順を間違えた"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start は同じカテゴリが連続しないよう出題順を入れ替える", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json([
+        pickedRow(ID_1, "英語"), pickedRow(ID_2, "英語"), pickedRow(ID_3, "歴史"),
+      ]);
+    }
+    if (url.includes("/rest/v1/knowledge")) return Response.json([]);
+    if (url.includes("/rest/v1/quiz_log")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      return anthropicToolResponse("submit_questions", {
+        questions: [
+          { id: ID_1, question: "英語1" }, { id: ID_2, question: "英語2" }, { id: ID_3, question: "歴史" },
+        ],
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({ request: quizPost("/api/quiz/start", {}), env });
+    const body = await response.json() as { items: { id: string }[] };
+    assert.deepEqual(body.items.map((item) => item.id), [ID_1, ID_3, ID_2]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start は0件の理由を本日出題済みと対象なしで切り分ける", async () => {
+  const originalFetch = globalThis.fetch;
+  let knowledgeTotal = "0-0/7";
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) return Response.json([]);
+    if (url.includes("/rest/v1/knowledge")) {
+      return Response.json([], { headers: { "Content-Range": knowledgeTotal } });
+    }
+    if (url.includes("api.anthropic.com")) throw new Error("AIを呼んではいけない");
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const doneToday = await startRoute({ request: quizPost("/api/quiz/start", {}), env });
+    assert.deepEqual(await doneToday.json(), { items: [], reason: "done_today" });
+
+    knowledgeTotal = "*/0";
+    const noKnowledge = await startRoute({ request: quizPost("/api/quiz/start", {}), env });
+    assert.deepEqual(await noKnowledge.json(), { items: [], reason: "no_knowledge" });
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -104,8 +189,8 @@ test("quiz/grade は採点結果をrecord_answers_batchで一括記録し、次�
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
       return Response.json([
-        { id: ID_1, title: "正解1", explanation: "説明1", next_review_on: "2026-09-20" },
-        { id: ID_2, title: "正解2", explanation: "説明2", next_review_on: "2026-09-21" },
+        { id: ID_1, title: "正解1", explanation: "説明1", category: "英語", tags: ["文法"], next_review_on: "2026-09-20" },
+        { id: ID_2, title: "正解2", explanation: "説明2", category: "歴史", tags: [], next_review_on: "2026-09-21" },
       ]);
     }
     if (url.includes("/rest/v1/rpc/jst_today")) return Response.json("2026-09-19");
@@ -113,8 +198,8 @@ test("quiz/grade は採点結果をrecord_answers_batchで一括記録し、次�
     if (url.includes("api.anthropic.com")) {
       return anthropicToolResponse("submit_grades", {
         grades: [
-          { id: ID_1, quality: 5, explanation: "よくできました", note: "完璧に回答した" },
-          { id: ID_2, quality: 1, explanation: "惜しい", note: "用語を思い出せなかった" },
+          { id: ID_1, quality: 5, correct_answer: "模範解答1", explanation: "よくできました", note: "完璧に回答した" },
+          { id: ID_2, quality: 1, correct_answer: "模範解答2", explanation: "惜しい", note: "用語を思い出せなかった" },
         ],
       });
     }
@@ -139,18 +224,19 @@ test("quiz/grade は採点結果をrecord_answers_batchで一括記録し、次�
     const body = await response.json() as { results: unknown[] };
     assert.deepEqual(body.results, [
       {
-        id: ID_1, title: "正解1", verdict: "正解", quality: 5,
+        id: ID_1, title: "正解1", verdict: "正解", quality: 5, correct_answer: "模範解答1",
         explanation: "よくできました", next_review_on: "2026-10-03", recorded: true,
       },
       {
-        id: ID_2, title: "正解2", verdict: "不正解", quality: 1,
+        id: ID_2, title: "正解2", verdict: "不正解", quality: 1, correct_answer: "模範解答2",
         explanation: "惜しい", next_review_on: "2026-09-20", recorded: true,
       },
     ]);
     assert.equal(seenBatchBodies.length, 1);
-    const batch = seenBatchBodies[0] as { p_answers: { id: string; format: string }[] };
+    const batch = seenBatchBodies[0] as { p_answers: { id: string; format: string; note: string }[] };
     assert.equal(batch.p_answers.length, 2);
-    assert.equal(batch.p_answers[0].format, "記述説明");
+    assert.equal(batch.p_answers[0].format, "一問一答");
+    assert.equal(batch.p_answers[1].note, "用語を思い出せなかった");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -159,24 +245,22 @@ test("quiz/grade は採点結果をrecord_answers_batchで一括記録し、次�
 test("quiz/grade は本日記録済みの項目をrecord_answers_batchに含めない", async () => {
   const originalFetch = globalThis.fetch;
   let batchCalled = false;
-  let batchIds: string[] = [];
-  globalThis.fetch = async (input, init) => {
+  globalThis.fetch = async (input) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
       return Response.json([
-        { id: ID_1, title: "正解1", explanation: "説明1", next_review_on: "2026-09-20" },
+        { id: ID_1, title: "正解1", explanation: "説明1", category: "英語", tags: [], next_review_on: "2026-09-20" },
       ]);
     }
     if (url.includes("/rest/v1/rpc/jst_today")) return Response.json("2026-09-19");
     if (url.includes("/rest/v1/quiz_log")) return Response.json([{ knowledge_id: ID_1 }]);
     if (url.includes("api.anthropic.com")) {
       return anthropicToolResponse("submit_grades", {
-        grades: [{ id: ID_1, quality: 4, explanation: "OK", note: "note" }],
+        grades: [{ id: ID_1, quality: 4, correct_answer: "模範解答", explanation: "OK", note: "note" }],
       });
     }
     if (url.includes("/rest/v1/rpc/record_answers_batch")) {
       batchCalled = true;
-      batchIds = (JSON.parse(String(init?.body)) as { p_answers: { id: string }[] }).p_answers.map((a) => a.id);
       return Response.json([]);
     }
     throw new Error(`unexpected fetch: ${url}`);
@@ -191,7 +275,6 @@ test("quiz/grade は本日記録済みの項目をrecord_answers_batchに含め�
     assert.equal(body.results[0].recorded, false);
     assert.equal(body.results[0].next_review_on, "2026-09-20");
     assert.equal(batchCalled, false);
-    assert.deepEqual(batchIds, []);
   } finally {
     globalThis.fetch = originalFetch;
   }
