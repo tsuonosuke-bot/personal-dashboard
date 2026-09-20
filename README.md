@@ -14,6 +14,7 @@ Browser
           ├─ /api/inbox (POST / PATCH)
           ├─ /api/wants (POST / PATCH)
           ├─ /api/want-routes (POST)
+          ├─ /api/focus (GET / PATCH)
           ├─ /api/want-suggestions (POST)
           ├─ /api/google-calendar-* (OAuth / status)
           ├─ /api/habits (GET / POST / PATCH)
@@ -46,6 +47,8 @@ Browser
 - 今月支出、復習期限、未整理Inboxのスナップショット
 - Knowledge Dashboardの復習開始画面へのショートカット
 - 新しいActive Wantsを最大3件表示
+- Wantから選んだFocusを最大5件、指定順で固定表示
+- Focusの言葉・補足の編集、表示解除／再表示、並び替え
 - 直近5件の家計簿レコード
 - 苦手を最大2件、復習期限、新規を混ぜたナレッジ候補
 - 1か月前・半年前・1年前の各基準日以前で最も近い `daily_journal` を表示
@@ -109,12 +112,16 @@ Google Calendar連携を有効にする場合は、続けて `supabase/migration
 
 Habit MVPを有効にする場合は、続けて `supabase/migrations/202609200003_habits_mvp.sql` を適用します。これにより直接登録、開始日、日次・週次の冪等な記録キーが追加されます。
 
+Focus管理を有効にする場合は `supabase/migrations/202609200004_focus_board.sql` も適用します。Active FocusはDBトリガーで5件までに制限し、並び替えは現在の順序を確認してから1トランザクションで更新します。
+
 - `writing_topics`: 掘り下げたいエッセイ候補
 - `habits` / `habit_logs`: 習慣の定義と実施記録
 - `focus_items`: 継続して意識したい言葉
 - `want_routes`: 上記および外部正本への振り分け履歴
 
 Google Calendarだけ外部正本への登録処理を実装しています。GitHub・Knowledge DB・Journalの `planned` は「送信済み」を意味しません。元Wantとの競合検知と処理IDによる二重登録防止を行い、登録に失敗しても元Wantの状態は変更しません。
+
+Focusの新規登録はCompassでWantを「残す → Focus」に明示確定した時だけ行います。HubではActive Focusを最大5件表示し、管理画面から編集、表示解除／再表示、並び替えができます。表示解除しても元Wantと振り分け履歴は残ります。
 
 AI整理も提案専用です。Want登録時・画面表示時・定期処理では呼び出さず、「AIに整理案を聞く」または確認回答後の「回答をもとに再提案」を押した時だけClaude APIへ送信します。提案は自動保存されず、既存の編集・プレビュー・確定を経て初めて `want_routes` に保存されます。
 

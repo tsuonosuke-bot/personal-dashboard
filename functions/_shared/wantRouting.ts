@@ -423,6 +423,12 @@ async function createInternalTarget(
   });
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) throw responseError(response, adapter.table);
+    if (adapter.table === "focus_items") {
+      const detail = await response.text().catch(() => "");
+      if (detail.includes("FOCUS_ACTIVE_LIMIT")) {
+        throw new DashboardError("FOCUS_LIMIT_REACHED", "The active Focus board is full.", 409);
+      }
+    }
     throw new DashboardError("WANT_ROUTE_FAILED", `${adapter.table} returned ${response.status}.`);
   }
   const rows: unknown = await response.json();

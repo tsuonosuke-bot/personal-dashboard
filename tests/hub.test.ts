@@ -51,6 +51,36 @@ test("Wants preview keeps the three newest Active Wants", () => {
   assert.deepEqual(first, second);
 });
 
+test("Focus preview keeps active items in board order and caps the Hub at five", () => {
+  const focusRows = Array.from({ length: 7 }, (_, index) => ({
+    id: index + 1,
+    source_route_id: index + 101,
+    source_want_id: index + 201,
+    content: `Focus ${index + 1}`,
+    note: index === 0 ? "First note" : null,
+    status: index === 6 ? "archived" : "active",
+    sort_order: 6 - index,
+    created_at: `2026-09-${String(index + 1).padStart(2, "0")}T00:00:00Z`,
+    updated_at: `2026-09-${String(index + 1).padStart(2, "0")}T00:00:00Z`,
+  }));
+  const hub = normalizeHub(
+    [],
+    [],
+    [],
+    [],
+    {},
+    now,
+    { inbox: true, wants: true, focus: true, expenses: true, knowledge: true, journal: true },
+    [],
+    null,
+    focusRows,
+  );
+  assert.deepEqual(hub.focus.map((item) => item.id), [6, 5, 4, 3, 2]);
+  assert.equal(hub.focus.length, 5);
+  assert.equal(hub.summary.activeFocus, 5);
+  assert.equal(hub.app.mode, "read-write");
+});
+
 test("unavailable sections use null summaries instead of misleading zeroes", () => {
   const hub = normalizeHub(
     [{ status: "pending" }],
@@ -59,7 +89,7 @@ test("unavailable sections use null summaries instead of misleading zeroes", () 
     [],
     {},
     now,
-    { inbox: true, wants: true, expenses: false, knowledge: false, journal: true },
+    { inbox: true, wants: true, focus: true, expenses: false, knowledge: false, journal: true },
   );
   assert.equal(hub.source.state, "partial");
   assert.deepEqual(hub.source.unavailable, ["expenses", "knowledge"]);
@@ -152,8 +182,8 @@ test("hub route keeps the Supabase secret in server-side headers", async () => {
     });
     const body = await response.text();
     assert.equal(response.status, 200);
-    assert.equal(requests.length, 9);
-    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 7);
+    assert.equal(requests.length, 10);
+    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 8);
     assert.equal(requests.filter((entry) => entry.headers["X-Hub-Service"] === "hub-service-token-that-is-at-least-32-characters").length, 2);
     assert.equal(requests.filter((entry) => entry.url.includes("/daily_journal?")).length, 3);
     assert.ok(requests.every((entry) => !entry.url.includes("secret")));
@@ -216,6 +246,29 @@ test("Journal failure stays isolated from the other Hub sections", async () => {
     assert.equal(hub.availability.expenses, true);
     assert.equal(hub.availability.knowledge, true);
     assert.deepEqual(hub.source.unavailable, ["journal"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("invalid Focus data stays isolated from the other Hub sections", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/focus_items?")) return Response.json([{ id: "invalid" }]);
+    if (url.includes("pages.dev")) return Response.json({ items: [], total: 0, limit: 1000, offset: 0 });
+    return Response.json([]);
+  };
+  try {
+    const hub = await loadHub({
+      SUPABASE_URL: "https://compass.supabase.co",
+      SUPABASE_SECRET_KEY: "server-secret",
+      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
+    }, now);
+    assert.equal(hub.source.state, "partial");
+    assert.equal(hub.availability.focus, false);
+    assert.equal(hub.availability.wants, true);
+    assert.deepEqual(hub.source.unavailable, ["focus"]);
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -1,5 +1,6 @@
 import type { DashboardEnv } from "./dashboard.ts";
 import { loadHabits } from "./habits.ts";
+import { FOCUS_LIMIT, normalizeFocusRows, type FocusRow } from "./focus.ts";
 
 export interface HubEnv extends DashboardEnv {
   HUB_SERVICE_TOKEN?: string;
@@ -8,13 +9,14 @@ export interface HubEnv extends DashboardEnv {
 export interface HubAvailability {
   inbox: boolean;
   wants: boolean;
+  focus: boolean;
   expenses: boolean;
   knowledge: boolean;
   journal: boolean;
   habits?: boolean;
 }
 
-type TableName = "idea_inbox" | "wants" | "expenses" | "knowledge" | "daily_journal";
+type TableName = "idea_inbox" | "wants" | "focus_items" | "expenses" | "knowledge" | "daily_journal";
 
 interface InboxRow { status?: unknown }
 interface WantRow { id?: unknown; content?: unknown; status?: unknown; created_at?: unknown }
@@ -84,6 +86,7 @@ const DEFAULT_KNOWLEDGE_URL = "https://knowledge-dashboard-27t.pages.dev/";
 const FULL_AVAILABILITY: HubAvailability = {
   inbox: true,
   wants: true,
+  focus: true,
   expenses: true,
   knowledge: true,
   journal: true,
@@ -202,6 +205,20 @@ async function fetchRows(env: HubEnv, query: QueryDefinition): Promise<unknown[]
     if (!Array.isArray(page)) throw new HubError("SUPABASE_RESPONSE_INVALID", `${query.table} returned invalid data.`);
     rows.push(...page);
     if (page.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+async function fetchFocusRows(env: HubEnv): Promise<FocusRow[]> {
+  const rows = await fetchRows(env, {
+    table: "focus_items",
+    select: "id,source_route_id,source_want_id,content,note,status,sort_order,created_at,updated_at",
+    order: "status.asc,sort_order.asc.nullslast,created_at.asc,id.asc",
+  }) as FocusRow[];
+  try {
+    normalizeFocusRows(rows);
+  } catch {
+    throw new HubError("SUPABASE_RESPONSE_INVALID", "focus_items returned invalid data.");
   }
   return rows;
 }
@@ -395,6 +412,7 @@ export function normalizeHub(
   availability: HubAvailability = FULL_AVAILABILITY,
   journalMoments: JournalMoment[] = emptyJournalMoments(now),
   habitOverview: HabitOverview | null = null,
+  focusRows: FocusRow[] = [],
 ) {
   const { today, year, month } = jstDateParts(now);
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -409,6 +427,9 @@ export function normalizeHub(
   const activeWants = wants
     .filter((want) => want.status === "active")
     .sort((left, right) => (right.createdAt || "").localeCompare(left.createdAt || "") || (right.id ?? 0) - (left.id ?? 0));
+  const focus = normalizeFocusRows(focusRows)
+    .filter((item) => item.status === "active")
+    .slice(0, FOCUS_LIMIT);
   const expenses = expenseRows.map((row) => ({
     id: integer(row.id),
     transactionDate: typeof row.transaction_date === "string" ? row.transaction_date : null,
@@ -430,7 +451,7 @@ export function normalizeHub(
     .map(([name]) => name);
 
   return {
-    app: { appId: "personal-hub", version: "1.0.0", mode: "read-only" },
+    app: { appId: "personal-hub", version: "1.0.0", mode: "read-write" },
     source: { system: "personal-hub", state: unavailable.length ? "partial" : "live", fetchedAt: now.toISOString(), unavailable },
     availability,
     navigation: {
@@ -450,16 +471,19 @@ export function normalizeHub(
       activeHabits: availability.habits !== false ? habitOverview?.summary.active ?? 0 : null,
       completedHabitsToday: availability.habits !== false ? habitOverview?.summary.completedToday ?? 0 : null,
       remainingHabitsToday: availability.habits !== false ? habitOverview?.summary.remainingToday ?? 0 : null,
+      activeFocus: availability.focus ? focus.length : null,
     },
     recentExpenses: expenses
       .sort((left, right) => (right.transactionDate || "").localeCompare(left.transactionDate || "") || (right.id ?? 0) - (left.id ?? 0))
       .slice(0, 5),
     knowledge: knowledge.items,
     wants: activeWants.slice(0, 3),
+    focus,
     journalMoments,
     selection: {
       knowledge: "苦手を最大2件、復習期限、新規ナレッジの順で重複を除いて選定",
       wants: "作成日時の新しいActive Wantsから最大3件を選定",
+      focus: "手動で選んだActive Focusを並び順どおり最大5件表示",
       journal: "各基準日以前で最も近いdaily_journalを選定",
     },
   };
@@ -468,18 +492,20 @@ export function normalizeHub(
 export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
-  const [inbox, wants, expenses, knowledge, journal, habits] = await Promise.allSettled([
+  const [inbox, wants, focus, expenses, knowledge, journal, habits] = await Promise.allSettled([
     fetchRows(env, { table: "idea_inbox", select: "status" }) as Promise<InboxRow[]>,
     fetchRows(env, { table: "wants", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<WantRow[]>,
+    fetchFocusRows(env),
     fetchDashboardRows(env, financialUrl, "/api/expenses") as Promise<ExpenseRow[]>,
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,
     loadJournalMoments(env, now),
     loadHabits(env, now),
   ] as const);
-  const results = { inbox, wants, expenses, knowledge, journal, habits };
+  const results = { inbox, wants, focus, expenses, knowledge, journal, habits };
   const availability: HubAvailability = {
     inbox: inbox.status === "fulfilled",
     wants: wants.status === "fulfilled",
+    focus: focus.status === "fulfilled",
     expenses: expenses.status === "fulfilled",
     knowledge: knowledge.status === "fulfilled",
     journal: journal.status === "fulfilled",
@@ -503,6 +529,7 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     availability,
     journal.status === "fulfilled" ? journal.value : emptyJournalMoments(now),
     habits.status === "fulfilled" ? habits.value : null,
+    focus.status === "fulfilled" ? focus.value : [],
   );
 }
 

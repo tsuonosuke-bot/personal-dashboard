@@ -27,6 +27,7 @@ body {
   color: var(--ink);
   background: linear-gradient(145deg, rgba(255,255,255,.28), transparent 42%), var(--paper);
 }
+body.modal-open { overflow: hidden; }
 button { font: inherit; color: inherit; }
 a { color: inherit; }
 .page-shell { min-height: 100vh; }
@@ -116,6 +117,53 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .section-heading > a { color: var(--green); font-size: 9px; font-weight: 750; text-decoration: none; white-space: nowrap; }
 .section-heading > a:hover { text-decoration: underline; }
 .section-note { color: var(--muted); font-size: 8px; font-weight: 700; }
+.section-action { min-height: 28px; padding: 0 11px; border: 1px solid rgba(36,89,73,.28); border-radius: 8px; background: var(--green-soft); color: var(--green); cursor: pointer; font-size: 9px; font-weight: 800; }
+.section-action:hover { border-color: var(--green); }
+.section-action:disabled { opacity: .45; cursor: not-allowed; }
+
+.focus-panel { grid-column: 1 / -1; background: linear-gradient(125deg, #fff, #fbf7ed); }
+.focus-heading-copy { display: flex; align-items: baseline; gap: 9px; }
+.focus-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+.focus-card { min-width: 0; min-height: 100px; display: grid; align-content: start; gap: 7px; padding: 11px; border: 1px solid #dedbcf; border-radius: 11px; background: rgba(255,255,255,.82); cursor: pointer; text-align: left; transition: border-color .18s ease, transform .18s ease; }
+.focus-card:hover { border-color: var(--orange); transform: translateY(-1px); }
+.focus-number { color: var(--orange); font: 750 10px/1 Inter, "Segoe UI", sans-serif; }
+.focus-card strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; font-size: 11px; line-height: 1.45; }
+.focus-card small { display: -webkit-box; overflow: hidden; color: var(--muted); -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 8px; line-height: 1.45; }
+.focus-empty { grid-column: 1 / -1; min-height: 82px; display: grid; place-items: center; align-content: center; color: var(--muted); text-align: center; }
+.focus-empty span { color: var(--orange); font-size: 17px; }
+.focus-empty p { margin: 4px 0; font-size: 9px; }
+.focus-empty a { color: var(--green); font-size: 8px; font-weight: 750; text-decoration: none; }
+
+.focus-modal { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 14px; }
+.focus-modal-backdrop { position: absolute; inset: 0; width: 100%; border: 0; background: rgba(24,31,27,.52); cursor: default; }
+.focus-dialog { position: relative; width: min(760px, 100%); max-height: min(820px, calc(100vh - 28px)); overflow: auto; padding: 18px; border: 1px solid rgba(49,70,58,.2); border-radius: 15px; background: var(--paper); box-shadow: 0 22px 70px rgba(19,29,23,.28); }
+.focus-dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 12px; }
+.focus-dialog-header h2 { margin: 0; font: 750 20px/1.2 Inter, "Segoe UI", sans-serif; }
+.focus-dialog-header p { margin: 5px 0 0; color: var(--muted); font-size: 9px; }
+.focus-close { width: 31px; height: 31px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); cursor: pointer; font-size: 18px; line-height: 1; }
+.focus-message { margin: 0 0 9px; padding: 8px 10px; border-radius: 8px; background: var(--green-soft); color: var(--green); font-size: 9px; font-weight: 750; }
+.focus-message.error { background: #f5e1e0; color: #9f3f39; }
+.focus-manage-list { display: grid; gap: 8px; }
+.focus-loading { min-height: 130px; display: grid; place-items: center; align-content: center; gap: 8px; color: var(--muted); }
+.focus-loading p { margin: 0; font-size: 9px; }
+.focus-editor { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: end; gap: 9px; padding: 10px; border: 1px solid #dedfd8; border-radius: 11px; background: var(--surface); }
+.focus-editor.archived { background: #eeeeea; opacity: .84; }
+.focus-editor-top { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; min-height: 24px; }
+.focus-status { padding: 4px 7px; border-radius: 999px; font-size: 7px; font-weight: 850; }
+.focus-status.active { background: var(--orange-soft); color: #9a4b25; }
+.focus-status.archived { background: #dedfda; color: var(--muted); }
+.focus-order-actions { display: flex; gap: 4px; }
+.focus-order-actions button { width: 28px; height: 25px; border: 1px solid var(--line); border-radius: 7px; background: #fff; cursor: pointer; font-size: 11px; }
+.focus-order-actions button:disabled { opacity: .3; cursor: not-allowed; }
+.focus-editor label { display: grid; gap: 4px; min-width: 0; }
+.focus-editor label > span { color: var(--muted); font-size: 8px; font-weight: 750; }
+.focus-editor input, .focus-editor textarea { width: 100%; border: 1px solid #d5d7d0; border-radius: 8px; background: #fff; padding: 8px 9px; font: 10px/1.45 Inter, "Segoe UI", "Yu Gothic UI", sans-serif; resize: vertical; }
+.focus-editor input:focus, .focus-editor textarea:focus { outline: 2px solid rgba(36,89,73,.2); border-color: var(--green); }
+.focus-editor-actions { display: grid; gap: 5px; }
+.focus-editor-actions button { min-height: 31px; padding: 0 10px; border-radius: 8px; cursor: pointer; font-size: 8px; font-weight: 800; white-space: nowrap; }
+.focus-save { border: 0; background: var(--green); color: #fff; }
+.focus-toggle { border: 1px solid var(--line); background: #fff; color: var(--muted); }
+.focus-add-link { display: inline-block; margin-top: 13px; color: var(--green); font-size: 9px; font-weight: 800; text-decoration: none; }
 
 .record-list { display: grid; }
 .record-row { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 49px; border-top: 1px solid #e7e7e1; }
@@ -185,6 +233,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 @media (max-width: 900px) {
   .metric-grid { grid-template-columns: repeat(3, 1fr); }
   .content-grid { grid-template-columns: 1fr 1fr; }
+  .focus-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .wants-panel { grid-column: 1 / -1; }
   .want-list { grid-template-columns: repeat(3, 1fr); }
 }
@@ -212,6 +261,16 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
   .metric strong { margin: 3px 0 0; font-size: 16px; }
   .metric small { display: none; }
   .content-grid { grid-template-columns: 1fr; gap: 6px; padding-bottom: 7px; }
+  .focus-list { grid-template-columns: 1fr; gap: 5px; }
+  .focus-card { min-height: 0; grid-template-columns: 28px minmax(0, 1fr); align-items: start; gap: 5px 7px; padding: 9px; }
+  .focus-card strong { -webkit-line-clamp: 2; }
+  .focus-card small { grid-column: 2; }
+  .focus-heading-copy { gap: 6px; }
+  .focus-dialog { max-height: calc(100vh - 14px); padding: 13px; border-radius: 12px; }
+  .focus-dialog-header h2 { font-size: 18px; }
+  .focus-editor { grid-template-columns: 1fr; align-items: stretch; }
+  .focus-editor-top { grid-column: auto; }
+  .focus-editor-actions { grid-template-columns: 1fr 1fr; }
   .wants-panel { grid-column: auto; }
   .panel { padding: 10px; border-radius: 11px; }
   .section-heading { min-height: 22px; margin-bottom: 5px; }

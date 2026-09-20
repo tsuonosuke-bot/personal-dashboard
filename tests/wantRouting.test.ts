@@ -98,6 +98,47 @@ test("Writingへの振り分けを内部登録し、確認済みの対象IDを�
   }
 });
 
+test("Focusが5件なら元Wantを残したまま上限エラーを返す", async () => {
+  const originalFetch = globalThis.fetch;
+  const focusRouteRow = routeRow({
+    intent: "keep",
+    destination: "focus",
+    title: "大切なことを忘れない",
+    detail: "毎日見返す",
+  });
+  let failedRouteRecorded = false;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/wants")) return Response.json([{ id: 10 }]);
+    if (url.pathname.endsWith("/want_routes") && init?.method === "POST") return Response.json([focusRouteRow]);
+    if (url.pathname.endsWith("/want_routes") && init?.method === "PATCH") {
+      failedRouteRecorded = true;
+      return Response.json([routeRow({ ...focusRouteRow, status: "failed", error_code: "FOCUS_LIMIT_REACHED" })]);
+    }
+    if (url.pathname.endsWith("/want_routes")) return Response.json([]);
+    if (url.pathname.endsWith("/focus_items")) {
+      return Response.json({ code: "P0001", message: "FOCUS_ACTIVE_LIMIT" }, { status: 400 });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  try {
+    const response = await routeEndpoint({
+      request: request(body({
+        intent: "keep",
+        destination: "focus",
+        title: "大切なことを忘れない",
+        detail: "毎日見返す",
+      })),
+      env,
+    });
+    assert.equal(response.status, 409);
+    assert.deepEqual(await response.json(), { error: "表示できるFocusは5件までです。先に1件を表示解除してください。" });
+    assert.equal(failedRouteRecorded, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("Google Calendarは明示確認後に予定を作成し、再取得した正本を保存する", async () => {
   const originalFetch = globalThis.fetch;
   const requests: Array<{ url: URL; init?: RequestInit }> = [];

@@ -69,6 +69,14 @@
         </div>
 
         <div id="hubContent" class="content-grid" hidden>
+          <section class="panel focus-panel" aria-labelledby="focusTitle">
+            <div class="section-heading">
+              <div class="focus-heading-copy"><h2 id="focusTitle">Focus</h2><span class="section-note">今、意識する5つまで</span></div>
+              <button class="section-action" id="manageFocusButton" type="button">管理</button>
+            </div>
+            <div id="focusList" class="focus-list"></div>
+          </section>
+
           <section class="panel wants-panel" aria-labelledby="wantsTitle">
             <div class="section-heading">
               <h2 id="wantsTitle">Active Wants</h2>
@@ -102,6 +110,19 @@
           </section>
         </div>
       </main>
+    </div>
+
+    <div class="focus-modal" id="focusModal" hidden>
+      <button class="focus-modal-backdrop" id="focusModalBackdrop" type="button" aria-label="Focus管理を閉じる"></button>
+      <section class="focus-dialog" role="dialog" aria-modal="true" aria-labelledby="focusDialogTitle">
+        <header class="focus-dialog-header">
+          <div><h2 id="focusDialogTitle">Focusを管理</h2><p>表示は5件まで。追加はCompassのWantから行います。</p></div>
+          <button class="focus-close" id="closeFocusButton" type="button" aria-label="閉じる">×</button>
+        </header>
+        <p class="focus-message" id="focusMessage" role="status" hidden></p>
+        <div class="focus-manage-list" id="focusManageList"></div>
+        <a class="focus-add-link" href="/compass/">CompassでWantをFocusに振り分ける →</a>
+      </section>
     </div>
     <script src="/hub.js" type="module"></script>
   </body>

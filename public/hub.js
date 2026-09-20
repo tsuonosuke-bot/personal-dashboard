@@ -3,10 +3,13 @@ const ids = [
   "compassLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
   "spendMetricLink", "reviewMetricLink", "reviewStartLink", "currentMonthSpend", "spendComparison", "dueKnowledge",
   "weakKnowledge", "pendingInbox", "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
-  "retryButton", "hubContent", "wantList", "expenseList", "knowledgeList", "journalList", "allWantsLink", "allExpensesLink", "allKnowledgeLink",
+  "retryButton", "hubContent", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
+  "focusMessage", "focusManageList", "wantList", "expenseList", "knowledgeList", "journalList", "allWantsLink", "allExpensesLink", "allKnowledgeLink",
 ];
 
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
+let focusItems = [];
+let focusReturnTarget = null;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -147,6 +150,147 @@ function renderWants(items, url, available = true) {
   `).join("");
 }
 
+function renderFocus(items, available = true) {
+  els.manageFocusButton.disabled = !available;
+  if (!available) {
+    els.focusList.innerHTML = empty("Focusを取得できませんでした");
+    return;
+  }
+  if (!items.length) {
+    els.focusList.innerHTML = `<div class="focus-empty"><span>◇</span><p>今のFocusはまだありません</p><a href="/compass/">Wantから追加する →</a></div>`;
+    return;
+  }
+  els.focusList.innerHTML = items.slice(0, 5).map((item, index) => `
+    <button class="focus-card" type="button" data-focus-open="${item.id}" aria-label="${escapeHtml(item.content)}を編集">
+      <span class="focus-number">${String(index + 1).padStart(2, "0")}</span>
+      <strong>${escapeHtml(item.content)}</strong>
+      ${item.note ? `<small>${escapeHtml(item.note)}</small>` : ""}
+    </button>
+  `).join("");
+}
+
+function setFocusMessage(message = "", isError = false) {
+  els.focusMessage.hidden = !message;
+  els.focusMessage.className = `focus-message${isError ? " error" : ""}`;
+  els.focusMessage.textContent = message;
+}
+
+function focusSnapshot(item) {
+  return {
+    content: item.content,
+    note: item.note,
+    status: item.status,
+    sortOrder: item.sortOrder,
+  };
+}
+
+function renderFocusManagement() {
+  if (!focusItems.length) {
+    els.focusManageList.innerHTML = empty("Focusはまだありません");
+    return;
+  }
+  const activeItems = focusItems.filter((item) => item.status === "active");
+  els.focusManageList.innerHTML = focusItems.map((item) => {
+    const activeIndex = activeItems.findIndex((active) => active.id === item.id);
+    const active = item.status === "active";
+    return `<form class="focus-editor${active ? "" : " archived"}" data-focus-id="${item.id}">
+      <div class="focus-editor-top">
+        <span class="focus-status ${active ? "active" : "archived"}">${active ? `表示中 ${activeIndex + 1}/${activeItems.length}` : "表示解除中"}</span>
+        ${active ? `<div class="focus-order-actions">
+          <button type="button" data-focus-action="up" ${activeIndex === 0 ? "disabled" : ""} aria-label="上へ移動">↑</button>
+          <button type="button" data-focus-action="down" ${activeIndex === activeItems.length - 1 ? "disabled" : ""} aria-label="下へ移動">↓</button>
+        </div>` : ""}
+      </div>
+      <label><span>言葉</span><input name="content" maxlength="240" required value="${escapeHtml(item.content)}"></label>
+      <label><span>補足</span><textarea name="note" maxlength="2000" rows="2" placeholder="なぜ残したいか（任意）">${escapeHtml(item.note || "")}</textarea></label>
+      <div class="focus-editor-actions">
+        <button class="focus-save" type="submit">保存</button>
+        <button class="focus-toggle" type="button" data-focus-action="${active ? "archive" : "activate"}">${active ? "表示から外す" : "再び表示"}</button>
+      </div>
+    </form>`;
+  }).join("");
+}
+
+async function focusApi(action, body) {
+  const response = await fetch("/api/focus", {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": action,
+    },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Focusを更新できませんでした。");
+  return payload;
+}
+
+async function loadFocusManagement(successMessage = "") {
+  els.focusManageList.innerHTML = `<div class="focus-loading"><span class="spinner"></span><p>Focusを読み込んでいます</p></div>`;
+  const response = await fetch("/api/focus", { headers: { Accept: "application/json" }, cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Focusを読み込めませんでした。");
+  focusItems = Array.isArray(payload.items) ? payload.items : [];
+  renderFocusManagement();
+  renderFocus(focusItems.filter((item) => item.status === "active"), true);
+  setFocusMessage(successMessage);
+}
+
+async function openFocusModal(selectedId = null) {
+  focusReturnTarget = document.activeElement;
+  els.focusModal.hidden = false;
+  document.body.classList.add("modal-open");
+  setFocusMessage();
+  try {
+    await loadFocusManagement();
+    const selected = selectedId ? els.focusManageList.querySelector(`[data-focus-id="${selectedId}"] input`) : null;
+    (selected || els.closeFocusButton).focus();
+  } catch (error) {
+    els.focusManageList.innerHTML = empty("Focusを読み込めませんでした");
+    setFocusMessage(error instanceof Error ? error.message : "Focusを読み込めませんでした。", true);
+    els.closeFocusButton.focus();
+  }
+}
+
+function closeFocusModal() {
+  els.focusModal.hidden = true;
+  document.body.classList.remove("modal-open");
+  if (focusReturnTarget instanceof HTMLElement) focusReturnTarget.focus();
+  focusReturnTarget = null;
+}
+
+function formValues(form) {
+  return {
+    content: form.elements.content.value,
+    note: form.elements.note.value.trim() || null,
+  };
+}
+
+async function saveFocusForm(form, nextStatus) {
+  const id = Number(form.dataset.focusId);
+  const item = focusItems.find((candidate) => candidate.id === id);
+  if (!item) throw new Error("Focusの最新状態を確認できませんでした。");
+  const values = formValues(form);
+  await focusApi("focus-update", {
+    id,
+    content: values.content,
+    note: values.note,
+    status: nextStatus || item.status,
+    original: focusSnapshot(item),
+  });
+}
+
+async function reorderFocus(itemId, direction) {
+  const originalIds = focusItems.filter((item) => item.status === "active").map((item) => item.id);
+  const index = originalIds.indexOf(itemId);
+  const destination = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || destination < 0 || destination >= originalIds.length) return;
+  const ids = [...originalIds];
+  [ids[index], ids[destination]] = [ids[destination], ids[index]];
+  await focusApi("focus-reorder", { ids, originalIds });
+}
+
 function moodLabel(value) {
   return ({ "-2": "かなり低い", "-1": "低い", "0": "普通", "1": "良い", "2": "とても良い" })[String(value)] || "記録なし";
 }
@@ -223,9 +367,10 @@ async function loadHub() {
     const response = await fetch("/api/hub", { headers: { Accept: "application/json" }, cache: "no-store" });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error?.message || "データを読み込めませんでした。");
-    const availability = payload.availability || { inbox: true, wants: true, expenses: true, knowledge: true, journal: true, habits: true };
+    const availability = payload.availability || { inbox: true, wants: true, focus: true, expenses: true, knowledge: true, journal: true, habits: true };
     renderNavigation(payload.navigation);
     renderSummary(payload.summary);
+    renderFocus(payload.focus || [], availability.focus);
     renderWants(payload.wants, payload.navigation.compass, availability.wants);
     renderExpenses(payload.recentExpenses, availability.expenses);
     renderKnowledge(payload.knowledge, payload.navigation.knowledge, availability.knowledge);
@@ -245,5 +390,50 @@ async function loadHub() {
 
 els.refreshButton.addEventListener("click", loadHub);
 els.retryButton.addEventListener("click", loadHub);
+els.manageFocusButton.addEventListener("click", () => openFocusModal());
+els.focusList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-focus-open]");
+  if (button) openFocusModal(Number(button.dataset.focusOpen));
+});
+els.closeFocusButton.addEventListener("click", closeFocusModal);
+els.focusModalBackdrop.addEventListener("click", closeFocusModal);
+els.focusManageList.addEventListener("submit", async (event) => {
+  const form = event.target.closest(".focus-editor");
+  if (!form) return;
+  event.preventDefault();
+  setFocusMessage();
+  form.querySelectorAll("button, input, textarea").forEach((control) => { control.disabled = true; });
+  try {
+    await saveFocusForm(form);
+    await loadFocusManagement("保存しました。");
+  } catch (error) {
+    setFocusMessage(error instanceof Error ? error.message : "Focusを更新できませんでした。", true);
+    form.querySelectorAll("button, input, textarea").forEach((control) => { control.disabled = false; });
+  }
+});
+els.focusManageList.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-focus-action]");
+  const form = button?.closest(".focus-editor");
+  if (!button || !form) return;
+  const action = button.dataset.focusAction;
+  const id = Number(form.dataset.focusId);
+  setFocusMessage();
+  button.disabled = true;
+  try {
+    if (action === "up" || action === "down") {
+      await reorderFocus(id, action);
+      await loadFocusManagement("並び順を更新しました。");
+    } else {
+      await saveFocusForm(form, action === "activate" ? "active" : "archived");
+      await loadFocusManagement(action === "activate" ? "Focusに再表示しました。" : "表示から外しました。");
+    }
+  } catch (error) {
+    setFocusMessage(error instanceof Error ? error.message : "Focusを更新できませんでした。", true);
+    button.disabled = false;
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !els.focusModal.hidden) closeFocusModal();
+});
 setClock();
 loadHub();
