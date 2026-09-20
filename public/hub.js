@@ -68,8 +68,8 @@ function renderNavigation(navigation) {
 
 function renderSummary(summary) {
   els.currentMonthSpend.textContent = formatYen(summary.currentMonthSpend);
-  els.dueKnowledge.textContent = Number.isFinite(summary.remainingKnowledgeToday)
-    ? `${summary.remainingKnowledgeToday} / ${summary.todayKnowledgeTotal}`
+  els.dueKnowledge.textContent = Number.isFinite(summary.completedKnowledgeToday)
+    ? `${summary.completedKnowledgeToday} / ${summary.todayKnowledgeTotal}`
     : "—";
   els.pendingInbox.textContent = formatCount(summary.pendingInbox);
   els.weakKnowledge.textContent = Number.isFinite(summary.overdueKnowledge)
