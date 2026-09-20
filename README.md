@@ -25,6 +25,7 @@ Browser
 ```
 
 - 初期状態は静的ファイルとAPIを含む全リクエストをBasic認証で保護
+- Google OAuthの説明・プライバシー・利用条件ページだけは、Googleの外部向け本番アプリ要件を満たすため読取専用で公開
 - `AUTH_MODE=access` ではCloudflare Access JWTの署名・issuer・audienceを検証
 - `DASHBOARD_PASSWORD` 未設定時は503でフェイルクローズ
 - Supabase URLとsecret keyはPages Functionsだけが参照
@@ -145,6 +146,12 @@ PreviewとProductionの両方に、次の環境変数を設定します。
    - Preview: `https://want-triage-preview.personal-dashboard-7md.pages.dev/api/google-calendar-callback`
 4. Preview / Productionそれぞれへ上記3つのGoogle環境変数を設定し、再デプロイします。
 5. CompassでCalendarの振り分けを開き、「Google Calendarを接続」から一度だけ同意します。
+
+外部向けOAuthアプリを「本番」にする場合、次の静的ページだけを認証なしで公開します。Dashboard、API、OAuth開始・callbackは従来どおり認証で保護されます。
+
+- アプリ説明: `https://personal-dashboard-7md.pages.dev/oauth/`
+- プライバシーポリシー: `https://personal-dashboard-7md.pages.dev/oauth/privacy/`
+- 利用条件: `https://personal-dashboard-7md.pages.dev/oauth/terms/`
 
 要求するGoogle scopeは予定の読取・作成・更新に限定した `https://www.googleapis.com/auth/calendar.events` です。予定は `primary` カレンダーへ `Asia/Tokyo` で作成し、作成直後に再取得してIDとリンクを確認します。日時変更・削除はGoogle Calendarを正本とし、初版ではDashboardからの更新同期は行いません。
 

@@ -13,20 +13,41 @@ interface MiddlewareContext {
 }
 
 const REALM = 'Basic realm="compass-dashboard", charset="UTF-8"';
+const PUBLIC_OAUTH_PATHS = new Set([
+  "/oauth",
+  "/oauth/",
+  "/oauth/privacy",
+  "/oauth/privacy/",
+  "/oauth/terms",
+  "/oauth/terms/",
+  "/oauth.css",
+]);
 
-function withPrivacyHeaders(response: Response): Response {
+function securityHeaders(response: Response): Response {
   const secured = new Response(response.body, response);
-  secured.headers.set("Cache-Control", "private, no-store");
   secured.headers.set(
     "Content-Security-Policy",
     "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   );
   secured.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   secured.headers.set("Referrer-Policy", "no-referrer");
-  secured.headers.set("Vary", "Authorization, Cf-Access-Jwt-Assertion, Cookie");
   secured.headers.set("X-Content-Type-Options", "nosniff");
   secured.headers.set("X-Frame-Options", "DENY");
+  return secured;
+}
+
+function withPrivacyHeaders(response: Response): Response {
+  const secured = securityHeaders(response);
+  secured.headers.set("Cache-Control", "private, no-store");
+  secured.headers.set("Vary", "Authorization, Cf-Access-Jwt-Assertion, Cookie");
   secured.headers.set("X-Robots-Tag", "noindex, nofollow");
+  return secured;
+}
+
+function withPublicHeaders(response: Response): Response {
+  const secured = securityHeaders(response);
+  secured.headers.set("Cache-Control", "public, max-age=300");
+  secured.headers.set("X-Robots-Tag", "index, follow");
   return secured;
 }
 
@@ -50,6 +71,11 @@ function safeEqual(left: string, right: string): boolean {
 }
 
 export const onRequest = async (context: MiddlewareContext): Promise<Response> => {
+  const requestUrl = new URL(context.request.url);
+  if ((context.request.method === "GET" || context.request.method === "HEAD") && PUBLIC_OAUTH_PATHS.has(requestUrl.pathname)) {
+    return withPublicHeaders(await context.next());
+  }
+
   const authMode = context.env.AUTH_MODE?.trim().toLowerCase() || "basic";
   if (authMode === "access") {
     const access = await validateAccess(context.request, context.env);

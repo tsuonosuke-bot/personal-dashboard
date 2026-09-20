@@ -14,6 +14,35 @@ test("Basic auth fails closed when the password is missing", async () => {
   assert.equal(response.headers.get("Cache-Control"), "private, no-store");
 });
 
+test("OAuth disclosure pages are public but do not open any other route", async () => {
+  for (const path of ["/oauth/", "/oauth/privacy/", "/oauth/terms/", "/oauth.css"]) {
+    const response = await onRequest({
+      request: new Request(`https://compass.example${path}`),
+      env: {},
+      next: async () => new Response("public disclosure"),
+    });
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), "public disclosure");
+    assert.equal(response.headers.get("Cache-Control"), "public, max-age=300");
+    assert.equal(response.headers.get("X-Robots-Tag"), "index, follow");
+    assert.equal(response.headers.get("X-Frame-Options"), "DENY");
+  }
+
+  const privateLookalike = await onRequest({
+    request: new Request("https://compass.example/oauth/private"),
+    env: {},
+    next: async () => new Response("must stay private"),
+  });
+  assert.equal(privateLookalike.status, 503);
+
+  const publicPost = await onRequest({
+    request: new Request("https://compass.example/oauth/privacy/", { method: "POST" }),
+    env: {},
+    next: async () => new Response("must stay private"),
+  });
+  assert.equal(publicPost.status, 503);
+});
+
 test("Basic auth protects static assets and APIs with privacy headers", async () => {
   const env = { DASHBOARD_USER: "owner", DASHBOARD_PASSWORD: "long-password" };
   const denied = await onRequest({ request: request(), env, next: async () => new Response("private") });
