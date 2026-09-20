@@ -4,10 +4,11 @@ import test from "node:test";
 
 test("quiz view can be opened from and closed back to the URL", async () => {
   const source = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
-  assert.match(source, /parseDashboardRoute\(window\.location\.href\)\.kind === "quiz"/);
-  assert.match(source, /replaceRoute\(open \? \{ kind: "quiz" \} : \{ kind: "dashboard" \}\)/);
+  assert.match(source, /initialRoute\.kind === "quiz"/);
+  assert.match(source, /initialRoute\.kind === "quiz" \? initialRoute\.mode : "custom"/);
+  assert.match(source, /replaceRoute\(open \? \{ kind: "quiz", mode \} : \{ kind: "dashboard" \}\)/);
   assert.match(source, /onExit=\{\(\) => setQuizOpen\(false\)\}/);
-  assert.match(source, /onRecorded=\{reload\}/);
+  assert.match(source, /onRecorded=\{reloadAfterReview\}/);
 });
 
 test("knowledge details follow direct URLs, history, and safe fallbacks", async () => {

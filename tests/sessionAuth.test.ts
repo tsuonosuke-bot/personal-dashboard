@@ -52,15 +52,28 @@ test("Hub handoff opens a validated knowledge record after creating a session", 
   }
 });
 
+test("Hub handoff preserves the daily queue destination", async () => {
+  const { originalFetch } = mockNonceConsumption([true]);
+  try {
+    const handoffUrl = await createHandoffUrl(new URL("https://knowledge.example/?view=quiz&mode=daily"), env);
+    assert.ok(handoffUrl);
+    const accepted = await acceptHandoff(new Request(handoffUrl), env);
+    assert.equal(accepted?.headers.get("Location"), "/?view=quiz&mode=daily");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("Handoff destination only accepts one known same-site parameter", () => {
   const knowledgeId = "123e4567-e89b-42d3-a456-426614174000";
   assert.equal(acceptedDestination(`/?knowledge=${knowledgeId}`), `/?knowledge=${knowledgeId}`);
+  assert.equal(acceptedDestination("/?view=quiz&mode=daily"), "/?view=quiz&mode=daily");
+  assert.equal(acceptedDestination("/?view=quiz&mode=custom"), "/");
   assert.equal(acceptedDestination("/?knowledge=not-a-uuid"), "/");
   assert.equal(acceptedDestination(`/?knowledge=${knowledgeId}&view=quiz`), "/");
   assert.equal(acceptedDestination("//attacker.example/"), "/");
   assert.equal(acceptedDestination("https://attacker.example/"), "/");
 });
-
 test("Hub handoff falls back to the dashboard for an unknown destination", async () => {
   const { originalFetch } = mockNonceConsumption([true]);
   try {

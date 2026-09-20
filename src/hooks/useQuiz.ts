@@ -33,11 +33,12 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
     categories: string[],
     limit: number,
     format: QuizFormatRequest,
+    mode: "daily" | "custom" = "custom",
   ) => {
     setStage("loading");
     setError(null);
     try {
-      const { items, reason, early: isEarly } = await startQuiz(categories, limit, format);
+      const { items, reason, early: isEarly } = await startQuiz(categories, limit, format, mode);
       if (items.length === 0) {
         setEmptyReason(reason);
         setStage("empty");

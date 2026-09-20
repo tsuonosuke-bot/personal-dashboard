@@ -23,8 +23,9 @@ npm run dev:pages
 `http://localhost:8788` で起動する。単体の `npm run dev` はUI開発用で、
 Viteだけを起動するため `/api/*` は利用できない。
 
-`/?view=quiz` で復習クイズの設定画面を直接開ける。Personal Hubの
-「復習を開始」ショートカットは、SSO引き継ぎ後にこのURLへ遷移する。
+`/?view=quiz` で任意条件の復習クイズ設定を、`/?view=quiz&mode=daily` で
+当日の固定復習キューを直接開始できる。Personal Hubの「今日の復習」は、
+SSO引き継ぎ後に日次キューへ遷移する。
 
 `.dev.vars` はGit管理外。実際のキーやパスワードをコミットしないこと。
 
@@ -37,7 +38,7 @@ Viteだけを起動するため `/api/*` は利用できない。
 | `AUTH_MODE` | 任意 | `basic`（既定）または `access` |
 | `TEAM_DOMAIN` | Access時 | `https://<team>.cloudflareaccess.com` |
 | `POLICY_AUD` | Access時 | Access Application Audience tag |
-| `HUB_SERVICE_TOKEN` | Hub連携時 | Hubからナレッジ一覧GETだけを許可する共有secret |
+| `HUB_SERVICE_TOKEN` | Hub連携時 | Hubからナレッジ一覧と日次キュー状態のGETだけを許可する共有secret |
 | `SSO_SHARED_SECRET` | Hub連携時 | Hubからの署名付き認証引き継ぎを検証する共有secret |
 | `QUIZ_SIGNING_SECRET` | クイズ時 | 出題内容を採点まで改ざん不能に保つ32文字以上の署名secret |
 | `SESSION_TTL_DAYS` | 任意 | 引き継いだセッションの日数。既定30 |
@@ -169,7 +170,7 @@ CSPは外部のスクリプトとスタイルを禁止し、rechartsに必要な
 `AUTH_MODE=access` ではCloudflare Access JWTの署名・issuer・audienceを検証する。
 Personal Hub、家計簿、ナレッジを同じAccess applicationで保護すると、1回のログインで3画面を移動できる。
 
-Basic認証を継続する場合も、3サイトへ同じ `SSO_SHARED_SECRET` を設定すれば、Hubからの署名付き引き継ぎで対象ホストに固定したHttpOnlyセッションを作成できる。`HUB_SERVICE_TOKEN` は `GET /api/knowledge` のみに使え、POST/PATCHや他のAPIは認証を迂回できない。
+Basic認証を継続する場合も、3サイトへ同じ `SSO_SHARED_SECRET` を設定すれば、Hubからの署名付き引き継ぎで対象ホストに固定したHttpOnlyセッションを作成できる。`HUB_SERVICE_TOKEN` は `GET /api/knowledge` と `GET /api/review/queue` のみに使え、POST/PATCHや他のAPIは認証を迂回できない。
 引き継ぎトークンのnonceはSupabaseで1回だけ消費されるため、同じURLの再利用は403になる。
 
 ### DBマイグレーション
@@ -178,7 +179,10 @@ Basic認証を継続する場合も、3サイトへ同じ `SSO_SHARED_SECRET` �
 `20260920080000_version_quiz_functions.sql` は従来本番だけに存在したクイズ関数の基準版、
 `20260920090000_review_fixes.sql` は編集競合、同日二重記録、項目別の直近メモ、SSOリプレイを
 修正する。`20260920100000_knowledge_priority.sql` は優先度列、標準間隔列、優先度による日付再計算と
-出題順を追加する。適用後は新しい列・トリガー・関数定義と実行権限を確認する。
+出題順を追加する。`20260920120000_daily_review_queue.sql` はJST日付ごとの固定上限キューと、
+優先度・期限超過日数・正答率による決定的な選定、回復配分のプレビュー／明示適用を追加する。
+回復プレビューは読み取り専用で、画面上の確認操作までは既存の復習期限を変更しない。
+適用後は新しい列・トリガー・関数定義と実行権限を確認する。
 
 ## 既存のブラウザ直接接続からの移行
 

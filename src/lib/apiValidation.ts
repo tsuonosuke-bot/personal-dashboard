@@ -1,6 +1,6 @@
 import type {
-  Knowledge, KnowledgePriority, Mastery, QuizEmptyReason, QuizFormat, QuizGradeResult, QuizLog,
-  QuizQuestion, QuizStart, QuizVerdict,
+  DailyReviewStatus, Knowledge, KnowledgePriority, Mastery, QuizEmptyReason, QuizFormat,
+  QuizGradeResult, QuizLog, QuizQuestion, QuizStart, QuizVerdict, RecoveryPreview,
 } from "../types";
 
 interface PageEnvelope {
@@ -154,6 +154,62 @@ export function parseQuizStartResponse(value: unknown): QuizStart {
     reason: (reason as QuizEmptyReason | undefined) ?? null,
     early: value.early === true,
   };
+}
+
+function nonNegativeInteger(record: Record<string, unknown>, field: string, entity: string): number {
+  const value = numberValue(record, field, entity);
+  if (!Number.isSafeInteger(value) || value < 0) return fail(entity, field);
+  return value;
+}
+
+export function parseDailyReviewStatus(value: unknown): DailyReviewStatus {
+  const entity = "日次復習キュー";
+  if (!isRecord(value)) return fail(entity);
+  const result = {
+    review_on: stringValue(value, "review_on", entity),
+    limit: nonNegativeInteger(value, "limit", entity),
+    total: nonNegativeInteger(value, "total", entity),
+    completed: nonNegativeInteger(value, "completed", entity),
+    remaining: nonNegativeInteger(value, "remaining", entity),
+    due_total: nonNegativeInteger(value, "due_total", entity),
+    overdue_total: nonNegativeInteger(value, "overdue_total", entity),
+  };
+  if (result.limit < 1 || result.limit > 30 || result.completed + result.remaining !== result.total) {
+    return fail(entity);
+  }
+  return result;
+}
+
+export function parseRecoveryPreview(value: unknown): RecoveryPreview {
+  const entity = "回復プレビュー";
+  if (!isRecord(value) || !Array.isArray(value.days) || !Array.isArray(value.sample)) return fail(entity);
+  const total = nonNegativeInteger(value, "total", entity);
+  const dailyLimit = nonNegativeInteger(value, "daily_limit", entity);
+  const from = nullableStringValue(value, "from", entity);
+  const through = nullableStringValue(value, "through", entity);
+  const token = stringValue(value, "token", entity);
+  if (dailyLimit < 1 || dailyLimit > 30 || (total > 0 && token.length < 20) || (total === 0 && token !== "")) {
+    return fail(entity);
+  }
+  const days = value.days.map((item) => {
+    if (!isRecord(item)) return fail(entity, "days");
+    return { date: stringValue(item, "date", entity), count: nonNegativeInteger(item, "count", entity) };
+  });
+  const sample = value.sample.map((item) => {
+    if (!isRecord(item)) return fail(entity, "sample");
+    const priority = stringValue(item, "priority", entity);
+    if (!PRIORITY_VALUES.has(priority as KnowledgePriority)) return fail(entity, "priority");
+    return {
+      id: stringValue(item, "id", entity),
+      title: stringValue(item, "title", entity),
+      priority: priority as KnowledgePriority,
+      accuracy: nullableNumberValue(item, "accuracy", entity),
+      overdue_days: nonNegativeInteger(item, "overdue_days", entity),
+      current_next_review_on: stringValue(item, "current_next_review_on", entity),
+      scheduled_on: stringValue(item, "scheduled_on", entity),
+    };
+  });
+  return { total, daily_limit: dailyLimit, from, through, days, sample, token };
 }
 
 export function parseQuizGradeResult(value: unknown): QuizGradeResult {

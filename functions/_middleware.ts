@@ -86,7 +86,8 @@ export const onRequest = async (context: MiddlewareContext): Promise<Response> =
   const requestUrl = new URL(request.url);
   const hubToken = request.headers.get("X-Hub-Service") || "";
   const expectedHubToken = env.HUB_SERVICE_TOKEN?.trim() || "";
-  if (request.method === "GET" && requestUrl.pathname === "/api/knowledge"
+  if (request.method === "GET"
+    && (requestUrl.pathname === "/api/knowledge" || requestUrl.pathname === "/api/review/queue")
     && expectedHubToken.length >= 32 && safeEqual(hubToken, expectedHubToken)) {
     return withPrivacyHeaders(await next());
   }

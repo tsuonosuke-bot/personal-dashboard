@@ -1,11 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_QUIZ_FORMAT, DEFAULT_QUIZ_LIMIT, QUIZ_FORMAT_OPTIONS, QUIZ_LIMIT_OPTIONS, useQuiz,
 } from "../hooks/useQuiz";
 import { PRIORITY_INTERVAL_HINTS, PRIORITY_ORDER } from "../constants";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import type {
-  Knowledge, KnowledgePriority, QuizFormatRequest, QuizGradeResult, QuizLog, QuizQuestion,
+  DailyReviewStatus, Knowledge, KnowledgePriority, QuizFormatRequest, QuizGradeResult, QuizLog,
+  QuizQuestion,
 } from "../types";
 
 /** 形式ごとに、どこまで書けばよいかを入力欄のプレースホルダで伝える。 */
@@ -27,6 +28,8 @@ interface Props {
   quizLog: QuizLog[];
   onExit: () => void;
   onRecorded: () => void | Promise<void>;
+  autoStartDaily?: boolean;
+  dailyStatus: DailyReviewStatus | null;
   onPriorityChange: (
     id: string,
     expectedVersion: number,
@@ -42,7 +45,7 @@ type PriorityFeedback = {
 };
 
 export function QuizView({
-  knowledge, quizLog, onExit, onRecorded, onPriorityChange,
+  knowledge, quizLog, onExit, onRecorded, onPriorityChange, autoStartDaily = false, dailyStatus,
 }: Props) {
   const quiz = useQuiz(onRecorded);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -50,12 +53,19 @@ export function QuizView({
   const [format, setFormat] = useState<QuizFormatRequest>(DEFAULT_QUIZ_FORMAT);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [priorityFeedback, setPriorityFeedback] = useState<PriorityFeedback | null>(null);
+  const autoStarted = useRef(false);
 
   const categories = useMemo(
     () => [...new Set(knowledge.map((item) => item.category))].sort(),
     [knowledge],
   );
   const detail = knowledge.find((item) => item.id === detailId) ?? null;
+
+  useEffect(() => {
+    if (!autoStartDaily || autoStarted.current || quiz.stage !== "setup") return;
+    autoStarted.current = true;
+    void quiz.start([], dailyStatus?.limit ?? DEFAULT_QUIZ_LIMIT, DEFAULT_QUIZ_FORMAT, "daily");
+  }, [autoStartDaily, dailyStatus?.limit, quiz]);
 
   const toggleCategory = (category: string) => {
     setSelectedCategories((prev) => prev.includes(category)
@@ -96,7 +106,25 @@ export function QuizView({
 
         {quiz.stage === "setup" && (
           <div className="quiz-setup card">
-            <p>出題するカテゴリ・問題数・形式を選んでください。</p>
+            <div className="daily-quiz-start">
+              <div>
+                <strong>今日の復習キュー</strong>
+                <span>
+                  {dailyStatus
+                    ? `${dailyStatus.completed}/${dailyStatus.total}件完了・残り${dailyStatus.remaining}件`
+                    : "今日の上限内で優先順に出題"}
+                </span>
+              </div>
+              <button
+                className="primary-button"
+                disabled={dailyStatus?.remaining === 0}
+                onClick={() => void quiz.start([], dailyStatus?.limit ?? DEFAULT_QUIZ_LIMIT, format, "daily")}
+              >
+                今日の復習を開始
+              </button>
+            </div>
+            <div className="quiz-divider"><span>カスタム出題</span></div>
+            <p>カテゴリ・問題数・形式を指定して出題できます。</p>
             <div className="quiz-category-select" role="group" aria-label="出題カテゴリ">
               <button
                 aria-pressed={selectedCategories.length === 0}
@@ -140,7 +168,7 @@ export function QuizView({
             </p>
             <button
               className="primary-button quiz-start-button"
-              onClick={() => void quiz.start(selectedCategories, limit, format)}
+              onClick={() => void quiz.start(selectedCategories, limit, format, "custom")}
             >
               出題する
             </button>
@@ -153,7 +181,7 @@ export function QuizView({
           <div className="quiz-setup card">
             <p>
               {quiz.emptyReason === "done_today"
-                ? "本日の出題は終わっています。選んだカテゴリは全問採点済みです。"
+                ? "本日の復習キューは完了しています。"
                 : "選んだカテゴリに出題できるナレッジがありません。"}
             </p>
             <button className="primary-button" onClick={resetQuiz}>戻る</button>
