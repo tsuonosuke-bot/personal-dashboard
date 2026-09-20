@@ -1,7 +1,7 @@
 const state = { data: null, editing: null, saving: false };
 
 const ids = [
-  "sourceBadge", "refreshButton", "dateLabel", "addHabitButton", "completedToday", "remainingToday", "activeHabits",
+  "sourceBadge", "refreshButton", "addHabitButton", "completedToday", "remainingToday", "activeHabits",
   "loadingState", "errorState", "errorMessage", "retryButton", "habitContent", "todayList", "weekLabel", "weeklyList",
   "historyTable", "manageList", "habitModal", "modalTitle", "modalClose", "habitForm", "habitName", "habitPurpose",
   "habitCadence", "statusField", "habitStatus", "formError", "cancelButton", "saveButton", "toast",
@@ -107,8 +107,7 @@ function bindContentActions() {
 }
 
 function render() {
-  const { summary, habits, today } = state.data;
-  els.dateLabel.textContent = formatDay(today, true);
+  const { summary, habits } = state.data;
   els.completedToday.textContent = summary.completedToday;
   els.remainingToday.textContent = summary.remainingToday;
   els.activeHabits.textContent = summary.active;

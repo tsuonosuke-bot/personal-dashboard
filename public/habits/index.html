@@ -14,17 +14,13 @@
         <a class="brand" href="/" aria-label="Personal Hubへ戻る"><span class="brand-mark">H</span><span><b>Habits</b><small>小さな実施記録</small></span></a>
         <div class="topbar-actions">
           <a class="hub-link" href="/">← Hub</a>
+          <button class="primary-button topbar-add" id="addHabitButton" type="button"><span aria-hidden="true">＋</span><b>習慣を追加</b></button>
           <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
           <button class="icon-button" id="refreshButton" type="button" aria-label="再読み込み" title="再読み込み">↻</button>
         </div>
       </header>
 
       <main>
-        <section class="page-heading">
-          <div><p id="dateLabel">今日</p><h1>続けたいことを、軽く残す</h1></div>
-          <button class="primary-button" id="addHabitButton" type="button">＋ 習慣を追加</button>
-        </section>
-
         <section class="summary-grid" aria-label="Habitサマリー">
           <div class="summary-card"><span>今日できた</span><strong id="completedToday">—</strong><small>実施記録</small></div>
           <div class="summary-card accent"><span>今日・今週の残り</span><strong id="remainingToday">—</strong><small>自由頻度は除く</small></div>

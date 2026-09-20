@@ -135,6 +135,8 @@ test("Habit画面は今日・今週・7日履歴とモバイル操作を備え�
   assert.match(html, /id="todayList"/);
   assert.match(html, /id="weeklyList"/);
   assert.match(html, /id="historyTable"/);
+  assert.match(html, /class="primary-button topbar-add" id="addHabitButton"/);
+  assert.doesNotMatch(html, /続けたいことを、軽く残す|id="dateLabel"|class="page-heading"/);
   assert.match(script, /X-Dashboard-Action": "habit-log"/);
   assert.match(script, /original: \{ updatedAt: editing\.updatedAt \}/);
   assert.match(css, /@media \(max-width: 620px\)/);
