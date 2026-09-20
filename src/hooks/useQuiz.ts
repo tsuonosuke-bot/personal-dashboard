@@ -56,7 +56,11 @@ export function useQuiz() {
     setStage("grading");
     setError(null);
     try {
-      const payload = questions.map((q) => ({ id: q.id, answer: answers[q.id] ?? "" }));
+      const payload = questions.map((q) => ({
+        id: q.id,
+        question: q.question,
+        answer: answers[q.id] ?? "",
+      }));
       const graded = await gradeQuiz(payload);
       setResults(graded);
       setStage("results");

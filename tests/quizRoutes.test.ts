@@ -239,6 +239,7 @@ test("quiz/start は同一オリジン・専用ヘッダーを要求する", asy
 test("quiz/grade は採点結果をrecord_answers_batchで一括記録し、次回復習日を返す", async () => {
   const originalFetch = globalThis.fetch;
   const seenBatchBodies: unknown[] = [];
+  const seenGradePrompts: string[] = [];
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
@@ -250,6 +251,7 @@ test("quiz/grade は採点結果をrecord_answers_batchで一括記録し、次�
     if (url.includes("/rest/v1/rpc/jst_today")) return Response.json("2026-09-19");
     if (url.includes("/rest/v1/quiz_log")) return Response.json([]);
     if (url.includes("api.anthropic.com")) {
+      seenGradePrompts.push(String(init?.body));
       return anthropicToolResponse("submit_grades", {
         grades: [
           { id: ID_1, quality: 5, correct_answer: "模範解答1", explanation: "よくできました", note: "完璧に回答した" },
@@ -269,8 +271,8 @@ test("quiz/grade は採点結果をrecord_answers_batchで一括記録し、次�
   try {
     const response = await gradeRoute({
       request: quizPost("/api/quiz/grade", [
-        { id: ID_1, answer: "完璧な回答" },
-        { id: ID_2, answer: "わからない" },
+        { id: ID_1, question: "出題した問題文1", answer: "完璧な回答" },
+        { id: ID_2, question: "出題した問題文2", answer: "わからない" },
       ]),
       env,
     });
@@ -291,6 +293,10 @@ test("quiz/grade は採点結果をrecord_answers_batchで一括記録し、次�
     assert.equal(batch.p_answers.length, 2);
     assert.equal(batch.p_answers[0].format, "一問一答");
     assert.equal(batch.p_answers[1].note, "用語を思い出せなかった");
+    // 採点は「この問いに答えられたか」で行うため、出題した問題文をAIに渡す。
+    assert.equal(seenGradePrompts.length, 1);
+    assert.match(seenGradePrompts[0], /出題した問題文1/);
+    assert.match(seenGradePrompts[0], /出題した問題文2/);
   } finally {
     globalThis.fetch = originalFetch;
   }

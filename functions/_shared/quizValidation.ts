@@ -5,6 +5,7 @@ export const MIN_QUIZ_LIMIT = 1;
 export const MAX_QUIZ_LIMIT = 30;
 export const DEFAULT_QUIZ_LIMIT = 15;
 export const MAX_ANSWER_CHARS = 2_000;
+export const MAX_QUESTION_CHARS = 2_000;
 export const MAX_QUIZ_CATEGORIES = 50;
 export const MAX_CATEGORY_CHARS = 100;
 
@@ -24,6 +25,8 @@ export interface StartRequestInput {
 export interface GradeAnswerInput {
   id: string;
   answer: string;
+  /** 実際に出題した問題文。採点を「この問いに答えられたか」に限定するために送り返す。 */
+  question: string;
 }
 
 type JsonResult =
@@ -125,7 +128,12 @@ export function validateGradeRequest(
     if (typeof answer !== "string" || answer.length > MAX_ANSWER_CHARS) {
       return { ok: false, error: `回答は${MAX_ANSWER_CHARS}文字以内の文字列で入力してください。` };
     }
-    result.push({ id, answer: answer.trim() });
+    // 出題直後の画面から送られる想定だが、欠けていても採点自体は続けられるようにする。
+    const question = "question" in entry ? entry.question : "";
+    if (typeof question !== "string" || question.length > MAX_QUESTION_CHARS) {
+      return { ok: false, error: `問題文は${MAX_QUESTION_CHARS}文字以内の文字列で送信してください。` };
+    }
+    result.push({ id, answer: answer.trim(), question: question.trim() });
   }
   return { ok: true, value: result };
 }

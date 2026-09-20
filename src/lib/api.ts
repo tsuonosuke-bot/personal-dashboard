@@ -118,7 +118,7 @@ export async function startQuiz(categories: string[], limit: number): Promise<Qu
 }
 
 export async function gradeQuiz(
-  answers: { id: string; answer: string }[],
+  answers: { id: string; question: string; answer: string }[],
 ): Promise<QuizGradeResult[]> {
   const data = await postQuiz("/api/quiz/grade", answers);
   return parseQuizGradeResponse(data);

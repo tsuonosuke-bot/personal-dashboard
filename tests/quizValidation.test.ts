@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   MAX_ANSWER_CHARS,
+  MAX_QUESTION_CHARS,
   MAX_QUIZ_LIMIT,
   QUIZ_ACTION_HEADER,
   readQuizJsonBody,
@@ -52,13 +53,28 @@ test("出題要求のcategories/limitを検証し、既定値を補う", () => {
   assert.equal(validateStartRequest({ limit: 1.5 }).ok, false);
 });
 
-test("採点要求のid/answerを検証し、重複IDを拒否する", () => {
+test("採点要求のid/answer/questionを検証し、重複IDを拒否する", () => {
   const id1 = "123e4567-e89b-42d3-a456-426614174000";
   const id2 = "223e4567-e89b-42d3-a456-426614174000";
   assert.deepEqual(
-    validateGradeRequest([{ id: id1, answer: " ok " }, { id: id2, answer: "" }]),
-    { ok: true, value: [{ id: id1, answer: "ok" }, { id: id2, answer: "" }] },
+    validateGradeRequest([
+      { id: id1, answer: " ok ", question: " 問題文 " },
+      { id: id2, answer: "" },
+    ]),
+    {
+      ok: true,
+      value: [
+        { id: id1, answer: "ok", question: "問題文" },
+        // questionが欠けていても採点は続けられる。
+        { id: id2, answer: "", question: "" },
+      ],
+    },
   );
+  assert.equal(
+    validateGradeRequest([{ id: id1, answer: "x", question: "x".repeat(MAX_QUESTION_CHARS + 1) }]).ok,
+    false,
+  );
+  assert.equal(validateGradeRequest([{ id: id1, answer: "x", question: 1 }]).ok, false);
   assert.equal(validateGradeRequest([]).ok, false);
   assert.equal(validateGradeRequest([{ id: "not-a-uuid", answer: "x" }]).ok, false);
   assert.equal(validateGradeRequest([{ id: id1, answer: "x" }, { id: id1, answer: "y" }]).ok, false);
