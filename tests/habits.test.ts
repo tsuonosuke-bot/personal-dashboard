@@ -38,7 +38,7 @@ test("毎日・平日・毎週・自由頻度を穏やかな達成判定へ正�
   const dashboard = normalizeHabits([
     { id: 1, name: "毎日の習慣", cadence: "daily", status: "active", started_on: "2026-09-01", updated_at: "2026-09-20T00:00:00Z" },
     { id: 2, name: "平日の習慣", cadence: "weekdays", status: "active", started_on: "2026-09-01", updated_at: "2026-09-20T00:00:00Z" },
-    { id: 3, name: "週の習慣", cadence: "weekly", status: "active", started_on: "2026-09-01", updated_at: "2026-09-20T00:00:00Z" },
+    { id: 3, name: "週の習慣", cadence: "weekly", status: "active", started_on: "2026-09-01", updated_at: "2026-09-20T00:00:00.123456+00:00" },
     { id: 4, name: "自由な習慣", cadence: "flexible", status: "active", started_on: "2026-09-01", updated_at: "2026-09-20T00:00:00Z" },
     { id: 5, name: "休止中", cadence: "daily", status: "paused", started_on: "2026-09-01", updated_at: "2026-09-20T00:00:00Z" },
   ], [
@@ -50,6 +50,7 @@ test("毎日・平日・毎週・自由頻度を穏やかな達成判定へ正�
   assert.deepEqual(dashboard.summary, { total: 5, active: 4, completedToday: 1, remainingToday: 1 });
   assert.equal(dashboard.habits.find((habit) => habit.id === 2)?.eligibleToday, false);
   assert.equal(dashboard.habits.find((habit) => habit.id === 3)?.completedThisWeek, true);
+  assert.equal(dashboard.habits.find((habit) => habit.id === 3)?.updatedAt, "2026-09-20T00:00:00.123456+00:00");
   assert.equal(dashboard.habits.find((habit) => habit.id === 4)?.completedToday, true);
 });
 
@@ -102,6 +103,33 @@ test("Habit更新はupdated_atを条件にして競合を検知する", async ()
     assert.equal(response.status, 409);
     assert.equal(new URL(seenUrl).searchParams.get("updated_at"), "eq.2026-09-20T01:00:00.000Z");
     assert.deepEqual(await response.json(), { error: "このHabitは別の画面で更新されています。再読み込みしてからやり直してください。" });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Habit更新はPostgreSQLのマイクロ秒精度を競合条件まで保持する", async () => {
+  const originalFetch = globalThis.fetch;
+  let seenUrl = "";
+  const updatedAt = "2026-09-20T01:00:00.123456+00:00";
+  globalThis.fetch = async (input) => {
+    seenUrl = String(input);
+    return Response.json([{ id: 8, name: "読書する", cadence: "daily", status: "paused", updated_at: "2026-09-20T02:00:00.000Z" }]);
+  };
+  try {
+    const response = await habitsRoute({
+      request: mutationRequest("PATCH", "habit-update", {
+        id: 8,
+        name: "読書する",
+        purpose: null,
+        cadence: "daily",
+        status: "paused",
+        original: { updatedAt },
+      }),
+      env,
+    });
+    assert.equal(response.status, 200);
+    assert.equal(new URL(seenUrl).searchParams.get("updated_at"), `eq.${updatedAt}`);
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -84,8 +84,11 @@ function plainDate(value: unknown): string | null {
 }
 
 function isoDate(value: unknown): string | null {
-  if (typeof value !== "string" || Number.isNaN(Date.parse(value))) return null;
-  return new Date(value).toISOString();
+  if (typeof value !== "string"
+    || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)
+    || Number.isNaN(Date.parse(value))) return null;
+  // Keep PostgreSQL's fractional-second precision intact for optimistic locking.
+  return value;
 }
 
 function connection(env: DashboardEnv): Connection {
@@ -337,10 +340,11 @@ export async function readHabitUpdateInput(request: Request): Promise<Validation
   const fields = validateHabitFields(parsed.value);
   if (!fields.ok) return fields;
   const original = parsed.value.original;
+  const originalUpdatedAt = isPlainObject(original) ? isoDate(original.updatedAt) : null;
   if (!Number.isSafeInteger(parsed.value.id) || Number(parsed.value.id) <= 0
     || typeof parsed.value.status !== "string" || !STATUSES.has(parsed.value.status)
     || !isPlainObject(original) || !hasOnlyKeys(original, ["updatedAt"])
-    || typeof original.updatedAt !== "string" || Number.isNaN(Date.parse(original.updatedAt))) {
+    || !originalUpdatedAt) {
     return { ok: false, status: 400, error: "編集内容の形式が正しくありません。" };
   }
   return {
@@ -349,7 +353,7 @@ export async function readHabitUpdateInput(request: Request): Promise<Validation
       id: Number(parsed.value.id),
       ...fields.value,
       status: parsed.value.status as HabitStatus,
-      original: { updatedAt: new Date(original.updatedAt).toISOString() },
+      original: { updatedAt: originalUpdatedAt },
     },
   };
 }
