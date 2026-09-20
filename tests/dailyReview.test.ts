@@ -135,6 +135,17 @@ test("DB migration fixes the queue for the day and ranks by priority, overdue da
   assert.match(sql, /set next_review_on = a\.scheduled_on/);
 });
 
+test("reference counts and recovery use the same active review-date rules as the dashboard", async () => {
+  const sql = await readFile(
+    new URL("../supabase/migrations/20260920130000_daily_review_reference_counts.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(sql, /k\.archived = false and k\.next_review_on <= v_today/);
+  assert.match(sql, /k\.archived = false and k\.next_review_on < v_today/);
+  assert.doesNotMatch(sql, /k\.mastery <> '定着'/);
+  assert.doesNotMatch(sql, /k\.times_asked > 0\s+and k\.next_review_on < v_today/);
+});
+
 test("日次キューと回復UIは主要件数、進捗、プレビュー、明示更新を表示する", async () => {
   const source = await readFile(new URL("../src/components/DailyReviewPanel.tsx", import.meta.url), "utf8");
   assert.match(source, /今日の復習キュー/);
