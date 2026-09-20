@@ -11,6 +11,7 @@ export default defineConfig({
       input: {
         hub: resolve(import.meta.dirname, "public/index.html"),
         compass: resolve(import.meta.dirname, "public/compass/index.html"),
+        habits: resolve(import.meta.dirname, "public/habits/index.html"),
         oauth: resolve(import.meta.dirname, "public/oauth/index.html"),
         oauthPrivacy: resolve(import.meta.dirname, "public/oauth/privacy/index.html"),
         oauthTerms: resolve(import.meta.dirname, "public/oauth/terms/index.html"),

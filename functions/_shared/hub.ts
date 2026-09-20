@@ -1,4 +1,5 @@
 import type { DashboardEnv } from "./dashboard.ts";
+import { loadHabits } from "./habits.ts";
 
 export interface HubEnv extends DashboardEnv {
   HUB_SERVICE_TOKEN?: string;
@@ -10,6 +11,7 @@ export interface HubAvailability {
   expenses: boolean;
   knowledge: boolean;
   journal: boolean;
+  habits?: boolean;
 }
 
 type TableName = "idea_inbox" | "wants" | "expenses" | "knowledge" | "daily_journal";
@@ -85,7 +87,16 @@ const FULL_AVAILABILITY: HubAvailability = {
   expenses: true,
   knowledge: true,
   journal: true,
+  habits: true,
 };
+
+interface HabitOverview {
+  summary: {
+    active: number;
+    completedToday: number;
+    remainingToday: number;
+  };
+}
 
 export class HubError extends Error {
   code: string;
@@ -383,6 +394,7 @@ export function normalizeHub(
   now = new Date(),
   availability: HubAvailability = FULL_AVAILABILITY,
   journalMoments: JournalMoment[] = emptyJournalMoments(now),
+  habitOverview: HabitOverview | null = null,
 ) {
   const { today, year, month } = jstDateParts(now);
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -426,6 +438,7 @@ export function normalizeHub(
       financial: "/go/financial",
       knowledge: "/go/knowledge",
       knowledgeReview: "/go/knowledge?view=quiz",
+      habits: "/habits/",
     },
     summary: {
       currentMonthSpend: availability.expenses ? currentSpend : null,
@@ -434,6 +447,9 @@ export function normalizeHub(
       dueKnowledge: availability.knowledge ? knowledge.dueCount : null,
       weakKnowledge: availability.knowledge ? knowledge.weakCount : null,
       activeWants: availability.wants ? activeWants.length : null,
+      activeHabits: availability.habits !== false ? habitOverview?.summary.active ?? 0 : null,
+      completedHabitsToday: availability.habits !== false ? habitOverview?.summary.completedToday ?? 0 : null,
+      remainingHabitsToday: availability.habits !== false ? habitOverview?.summary.remainingToday ?? 0 : null,
     },
     recentExpenses: expenses
       .sort((left, right) => (right.transactionDate || "").localeCompare(left.transactionDate || "") || (right.id ?? 0) - (left.id ?? 0))
@@ -452,20 +468,22 @@ export function normalizeHub(
 export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
-  const [inbox, wants, expenses, knowledge, journal] = await Promise.allSettled([
+  const [inbox, wants, expenses, knowledge, journal, habits] = await Promise.allSettled([
     fetchRows(env, { table: "idea_inbox", select: "status" }) as Promise<InboxRow[]>,
     fetchRows(env, { table: "wants", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<WantRow[]>,
     fetchDashboardRows(env, financialUrl, "/api/expenses") as Promise<ExpenseRow[]>,
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,
     loadJournalMoments(env, now),
+    loadHabits(env, now),
   ] as const);
-  const results = { inbox, wants, expenses, knowledge, journal };
+  const results = { inbox, wants, expenses, knowledge, journal, habits };
   const availability: HubAvailability = {
     inbox: inbox.status === "fulfilled",
     wants: wants.status === "fulfilled",
     expenses: expenses.status === "fulfilled",
     knowledge: knowledge.status === "fulfilled",
     journal: journal.status === "fulfilled",
+    habits: habits.status === "fulfilled",
   };
   for (const [name, result] of Object.entries(results)) {
     if (result.status === "rejected") {
@@ -484,6 +502,7 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     now,
     availability,
     journal.status === "fulfilled" ? journal.value : emptyJournalMoments(now),
+    habits.status === "fulfilled" ? habits.value : null,
   );
 }
 

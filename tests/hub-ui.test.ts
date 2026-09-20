@@ -11,9 +11,11 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.doesNotMatch(html, /class="hero"|DAILY OVERVIEW|TODAY AT A GLANCE/);
   assert.doesNotMatch(script, /おはようございます|こんにちは。|おつかれさまです/);
   assert.match(html, /id="compassLink"/);
+  assert.match(html, /id="habitsLink"/);
   assert.match(html, /id="financialLink"/);
   assert.match(html, /id="knowledgeLink"/);
   assert.match(html, /id="reviewStartLink"/);
+  assert.match(html, /id="habitMetricLink"/);
   assert.match(html, /class="metric-grid"/);
   assert.match(html, /id="wantList"/);
   assert.match(html, /id="allWantsLink"/);
@@ -29,10 +31,11 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.doesNotMatch(`${html}\n${script}`, /再訪日|再訪期限/);
 });
 
-test("mobile Hub retains three navigation choices in one row", async () => {
+test("Hub adds Habits as a fourth compact navigation choice", async () => {
   const css = await readFile(new URL("../public/hub.css", import.meta.url), "utf8");
 
   assert.match(css, /@media \(max-width: 620px\)/);
+  assert.match(css, /\.dashboard-grid \{ display: grid; grid-template-columns: repeat\(4, 1fr\);/);
   assert.match(css, /\.dashboard-grid \{ gap: 5px; \}/);
   assert.match(css, /\.dashboard-card \{ min-height: 88px;/);
   assert.match(css, /\.metric-grid \{ grid-template-columns: 1fr 1fr;/);

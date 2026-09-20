@@ -58,7 +58,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .context-strip strong { color: var(--green); font-size: 10px; }
 .context-strip small { font-size: 9px; }
 
-.dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+.dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
 .dashboard-card {
   --accent: var(--green);
   --soft: var(--green-soft);
@@ -78,6 +78,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .dashboard-card:hover { transform: translateY(-2px); border-color: var(--accent); }
 .finance-card { --accent: var(--blue); --soft: var(--blue-soft); }
 .knowledge-card { --accent: var(--violet); --soft: var(--violet-soft); }
+.habits-card { --accent: var(--green); --soft: var(--green-soft); }
 .card-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--soft); color: var(--accent); font: 600 15px/1 Georgia, serif; }
 .dashboard-card div { min-width: 0; }
 .dashboard-card h2 { margin: 0 0 6px; font: 700 19px/1.05 Inter, "Segoe UI", sans-serif; }
@@ -85,7 +86,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .card-arrow { color: var(--accent); font-size: 14px; }
 
 .snapshot { padding: 9px 0; }
-.metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+.metric-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
 .metric { min-height: 72px; display: block; padding: 11px 12px; border: 1px solid rgba(49,70,58,.11); border-radius: 11px; background: rgba(255,254,250,.72); text-decoration: none; transition: border-color .18s ease, background .18s ease; }
 .metric:hover { border-color: rgba(36,89,73,.45); background: var(--surface); }
 .metric span, .metric strong, .metric small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -96,6 +97,9 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .review-shortcut:hover { border-color: var(--violet); background: #f2eff8; }
 .review-shortcut span, .review-shortcut small { color: var(--violet); }
 .review-shortcut strong { color: #4f406f; font-size: 15px; }
+.habit-shortcut { border-color: rgba(36,89,73,.22); background: var(--green-soft); }
+.habit-shortcut:hover { border-color: var(--green); background: #edf6f1; }
+.habit-shortcut span, .habit-shortcut small, .habit-shortcut strong { color: var(--green); }
 
 .state-card { min-height: 150px; display: grid; place-items: center; align-content: center; margin: 3px 0 12px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,254,250,.75); color: var(--muted); }
 .state-card p { margin: 10px 0 0; font-size: 10px; }
@@ -177,6 +181,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 900px) {
+  .metric-grid { grid-template-columns: repeat(3, 1fr); }
   .content-grid { grid-template-columns: 1fr 1fr; }
   .wants-panel { grid-column: 1 / -1; }
   .want-list { grid-template-columns: repeat(3, 1fr); }

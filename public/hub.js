@@ -1,8 +1,8 @@
 const ids = [
   "sourceBadge", "refreshButton", "dateLabel", "updatedLabel",
-  "compassLink", "financialLink", "knowledgeLink", "compassMeta", "financialMeta", "knowledgeMeta",
+  "compassLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
   "spendMetricLink", "reviewMetricLink", "reviewStartLink", "currentMonthSpend", "spendComparison", "dueKnowledge",
-  "weakKnowledge", "pendingInbox", "loadingState", "errorState", "errorMessage",
+  "weakKnowledge", "pendingInbox", "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
   "retryButton", "hubContent", "wantList", "expenseList", "knowledgeList", "journalList", "allWantsLink", "allExpensesLink", "allKnowledgeLink",
 ];
 
@@ -53,9 +53,11 @@ function renderNavigation(navigation) {
   els.compassLink.href = navigation.compass;
   els.financialLink.href = navigation.financial;
   els.knowledgeLink.href = navigation.knowledge;
+  els.habitsLink.href = navigation.habits;
   els.spendMetricLink.href = navigation.financial;
   els.reviewMetricLink.href = navigation.knowledge;
   els.reviewStartLink.href = navigation.knowledgeReview;
+  els.habitMetricLink.href = navigation.habits;
   els.allWantsLink.href = navigation.compass;
   els.allExpensesLink.href = navigation.financial;
   els.allKnowledgeLink.href = navigation.knowledge;
@@ -69,6 +71,11 @@ function renderSummary(summary) {
   els.compassMeta.textContent = `未整理 ${formatCount(summary.pendingInbox)} · Wants ${formatCount(summary.activeWants)}`;
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
   els.knowledgeMeta.textContent = Number.isFinite(summary.dueKnowledge) ? `期限 ${summary.dueKnowledge}` : "取得できません";
+  els.habitsMeta.textContent = Number.isFinite(summary.remainingHabitsToday) ? `残り ${summary.remainingHabitsToday}件` : "取得できません";
+  els.remainingHabits.textContent = formatCount(summary.remainingHabitsToday);
+  els.habitProgress.textContent = Number.isFinite(summary.completedHabitsToday)
+    ? `${summary.completedHabitsToday}件を今日記録`
+    : "取得できません";
   if (summary.currentMonthSpend === null || summary.previousMonthSpend === null) {
     els.spendComparison.textContent = "取得できません";
   } else if (summary.previousMonthSpend > 0) {
@@ -216,7 +223,7 @@ async function loadHub() {
     const response = await fetch("/api/hub", { headers: { Accept: "application/json" }, cache: "no-store" });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error?.message || "データを読み込めませんでした。");
-    const availability = payload.availability || { inbox: true, wants: true, expenses: true, knowledge: true, journal: true };
+    const availability = payload.availability || { inbox: true, wants: true, expenses: true, knowledge: true, journal: true, habits: true };
     renderNavigation(payload.navigation);
     renderSummary(payload.summary);
     renderWants(payload.wants, payload.navigation.compass, availability.wants);

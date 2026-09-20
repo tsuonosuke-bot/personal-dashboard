@@ -1,6 +1,6 @@
 # Personal Hub
 
-家計簿、ナレッジ、Compass（Inbox / Wants）、Journalの振り返りを束ねる個人用Hubです。ルートに全体サマリーを表示し、既存のCompass画面は `/compass/` で利用できます。
+家計簿、ナレッジ、Compass（Inbox / Wants）、Habits、Journalの振り返りを束ねる個人用Hubです。ルートに全体サマリーを表示し、Compassは `/compass/`、Habitsは `/habits/` で利用できます。
 
 - Production: https://personal-dashboard-7md.pages.dev/
 
@@ -16,6 +16,8 @@ Browser
           ├─ /api/want-routes (POST)
           ├─ /api/want-suggestions (POST)
           ├─ /api/google-calendar-* (OAuth / status)
+          ├─ /api/habits (GET / POST / PATCH)
+          ├─ /api/habit-logs (PATCH)
           ├─ SUPABASE_SECRET_KEY (Cloudflare environment only)
           │   └─ Supabase REST API
           ├─ ANTHROPIC_API_KEY (Cloudflare environment only)
@@ -40,7 +42,7 @@ Browser
 
 ## Hubの機能
 
-- Compass、家計簿、ナレッジへの入口
+- Compass、Habits、家計簿、ナレッジへの入口
 - 今月支出、復習期限、未整理Inboxのスナップショット
 - Knowledge Dashboardの復習開始画面へのショートカット
 - 新しいActive Wantsを最大3件表示
@@ -49,6 +51,17 @@ Browser
 - 1か月前・半年前・1年前の各基準日以前で最も近い `daily_journal` を表示
 - Journalの要約・感情・気分・タグとNotion原文リンクを読み取り専用で表示
 - 一部の接続先が失敗しても、取得できたセクションは表示を継続
+
+## Habitsの機能
+
+- Habit画面からの直接登録と、Wantから振り分けたHabitの一元表示
+- 毎日・平日・毎週・頻度を固定しない、の4種類
+- 毎週は月曜から日曜の間に1回で達成。曜日は固定しない
+- 今日の実施記録を1タップで追加・取消
+- 今日、今週、直近7日間の実施状況を表示
+- 有効・休止・アーカイブの切り替え。休止後も過去の履歴を保持
+- `updated_at` を使った編集競合の検知と、同日・同週の重複記録防止
+- 未実施を罰則や連続日数として扱わず、自由頻度は残件数から除外
 
 ## Compassの機能
 
@@ -93,6 +106,8 @@ npm run dev:pages
 初回導入時は、アプリのデプロイより先に `supabase/migrations/202609200001_want_triage.sql` を対象のSupabaseへ適用します。既存の `wants` を着想の正本として残し、振り分け結果だけを `want_routes` に追加します。
 
 Google Calendar連携を有効にする場合は、続けて `supabase/migrations/202609200002_google_calendar.sql` を適用します。更新トークンはPages FunctionでAES-GCM暗号化してから `integration_connections` に保存し、ブラウザ・Claude・APIレスポンスには返しません。
+
+Habit MVPを有効にする場合は、続けて `supabase/migrations/202609200003_habits_mvp.sql` を適用します。これにより直接登録、開始日、日次・週次の冪等な記録キーが追加されます。
 
 - `writing_topics`: 掘り下げたいエッセイ候補
 - `habits` / `habit_logs`: 習慣の定義と実施記録

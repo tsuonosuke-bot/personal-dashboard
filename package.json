@@ -10,7 +10,7 @@
     "dev:pages": "npm run build && wrangler pages dev dist --port 4183",
     "typecheck": "tsc --noEmit",
     "test": "node --test --test-isolation=none tests/*.test.ts",
-    "check": "node --check public/app.js && node --check public/hub.js && npm run typecheck"
+    "check": "node --check public/app.js && node --check public/hub.js && node --check public/habits.js && npm run typecheck"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

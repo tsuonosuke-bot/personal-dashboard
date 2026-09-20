@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#eff4ef" />
+    <title>Habits — Personal Dashboard</title>
+    <link rel="stylesheet" href="/habits.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Personal Hubへ戻る"><span class="brand-mark">H</span><span><b>Habits</b><small>小さな実施記録</small></span></a>
+        <div class="topbar-actions">
+          <a class="hub-link" href="/">← Hub</a>
+          <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
+          <button class="icon-button" id="refreshButton" type="button" aria-label="再読み込み" title="再読み込み">↻</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="page-heading">
+          <div><p id="dateLabel">今日</p><h1>続けたいことを、軽く残す</h1></div>
+          <button class="primary-button" id="addHabitButton" type="button">＋ 習慣を追加</button>
+        </section>
+
+        <section class="summary-grid" aria-label="Habitサマリー">
+          <div class="summary-card"><span>今日できた</span><strong id="completedToday">—</strong><small>実施記録</small></div>
+          <div class="summary-card accent"><span>今日・今週の残り</span><strong id="remainingToday">—</strong><small>自由頻度は除く</small></div>
+          <div class="summary-card"><span>継続中</span><strong id="activeHabits">—</strong><small>有効なHabit</small></div>
+        </section>
+
+        <div class="state-card" id="loadingState" role="status"><span class="spinner"></span><p>Habitを読み込んでいます</p></div>
+        <div class="state-card error-state" id="errorState" role="alert" hidden><h2>Habitを読み込めませんでした</h2><p id="errorMessage"></p><button id="retryButton" type="button">再試行</button></div>
+
+        <div id="habitContent" hidden>
+          <section class="panel" aria-labelledby="todayTitle">
+            <div class="section-heading"><div><p>TODAY</p><h2 id="todayTitle">今日</h2></div><small>タップすると記録・取消できます</small></div>
+            <div class="habit-list" id="todayList"></div>
+          </section>
+
+          <section class="panel weekly-panel" aria-labelledby="weeklyTitle">
+            <div class="section-heading"><div><p>THIS WEEK</p><h2 id="weeklyTitle">今週</h2></div><small id="weekLabel"></small></div>
+            <div class="habit-list" id="weeklyList"></div>
+          </section>
+
+          <section class="panel history-panel" aria-labelledby="historyTitle">
+            <div class="section-heading"><div><p>LAST 7 DAYS</p><h2 id="historyTitle">直近7日間</h2></div><small>✓ は実施済み</small></div>
+            <div class="history-wrap" id="historyTable"></div>
+          </section>
+
+          <section class="panel manage-panel" aria-labelledby="manageTitle">
+            <div class="section-heading"><div><p>MANAGE</p><h2 id="manageTitle">休止・アーカイブ</h2></div><small>履歴は保持されます</small></div>
+            <div class="manage-list" id="manageList"></div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="habitModal" hidden>
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-head"><div><p>HABIT</p><h2 id="modalTitle">習慣を追加</h2></div><button id="modalClose" type="button" aria-label="閉じる">×</button></div>
+        <form id="habitForm">
+          <label><span>習慣名 <b>必須</b></span><input id="habitName" maxlength="240" required placeholder="例：Pomeraで書く" /></label>
+          <label><span>目的・続けたい理由</span><textarea id="habitPurpose" maxlength="2000" rows="4" placeholder="空欄でも登録できます"></textarea></label>
+          <label><span>頻度</span><select id="habitCadence"><option value="daily">毎日</option><option value="weekdays">平日</option><option value="weekly">毎週</option><option value="flexible">頻度を固定しない</option></select></label>
+          <label id="statusField" hidden><span>状態</span><select id="habitStatus"><option value="active">有効</option><option value="paused">休止</option><option value="archived">アーカイブ</option></select></label>
+          <p class="form-error" id="formError" role="alert" hidden></p>
+          <div class="form-actions"><button class="secondary-button" id="cancelButton" type="button">キャンセル</button><button class="primary-button" id="saveButton" type="submit">登録する</button></div>
+        </form>
+      </section>
+    </div>
+    <div class="toast" id="toast" role="status" hidden></div>
+    <script src="/habits.js" type="module"></script>
+  </body>
+</html>

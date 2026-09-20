@@ -34,10 +34,11 @@ test("dashboard summary and future navigation are normalized", () => {
   });
   assert.equal(dashboard.wants[0].routes.length, 1);
   assert.equal(dashboard.wants[1].routes[0].status, "failed");
-  assert.equal(dashboard.navigation[0].url, "/");
-  assert.equal(dashboard.navigation[2].url, "/go/knowledge");
-  assert.equal(dashboard.navigation[3].url, "/go/financial");
-  assert.equal(dashboard.navigation[4].url, "http://127.0.0.1:4173/");
+  assert.equal(dashboard.navigation.find((item) => item.id === "hub")?.url, "/");
+  assert.equal(dashboard.navigation.find((item) => item.id === "habits")?.url, "/habits/");
+  assert.equal(dashboard.navigation.find((item) => item.id === "knowledge")?.url, "/go/knowledge");
+  assert.equal(dashboard.navigation.find((item) => item.id === "financial")?.url, "/go/financial");
+  assert.equal(dashboard.navigation.find((item) => item.id === "task-board")?.url, "http://127.0.0.1:4173/");
 });
 
 test("dashboard route sends the secret key only in server-side headers", async () => {
