@@ -35,9 +35,9 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(script, /renderWants\(payload\.wants, payload\.navigation\.compass, availability\.wants, payload\.summary\)/);
   assert.match(script, /compassUntriaged/);
   assert.match(script, /最古 \$\{summary\.oldestUntriagedDays\}日/);
-  assert.match(script, /振り分け状況を取得不可/);
-  assert.match(script, /Active Wantはありません（すべて完了）/);
-  assert.match(script, /item\.triageState === "untriaged"/);
+  assert.match(script, /Wantsを取得不可/);
+  assert.match(script, /未整理のWantはありません/);
+  assert.match(script, /want-triage untriaged">未整理/);
   assert.match(script, /escapeHtml\(item\.url \|\| url\)/);
   assert.match(script, /renderFocus\(payload\.focus \|\| \[\], availability\.focus\)/);
   assert.match(script, /`\$\{summary\.completedKnowledgeToday\} \/ \$\{summary\.todayKnowledgeTotal\}`/);
@@ -104,7 +104,7 @@ test("Compass previews every route and requires explicit confirmation for Google
     readFile(new URL("../public/app.js", import.meta.url), "utf8"),
   ]);
 
-  assert.match(html, /id="untriagedWants"/);
+  assert.match(html, /id="completedWants"/);
   assert.match(script, /id="triageWantButton"/);
   assert.match(script, /function renderTriageStart\(item\)/);
   assert.match(script, /function renderRoutePreview\(item, plan\)/);
@@ -117,6 +117,8 @@ test("Compass previews every route and requires explicit confirmation for Google
   assert.match(script, /Google Calendarを再接続/);
   assert.match(script, /href="\/api\/google-calendar-connect"/);
   assert.match(script, /calendar: plan\.calendar \|\| null/);
+  assert.match(script, /元のWantも完了します/);
+  assert.doesNotMatch(script, /元のWantは自動で完了にしません/);
 });
 
 test("Compass keeps Google Calendar reconnection available from the main screen", async () => {

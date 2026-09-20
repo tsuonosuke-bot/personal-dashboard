@@ -11,7 +11,7 @@ test("dashboard summary and future navigation are normalized", () => {
       { id: 2, content: "Inbox B", status: "done", result: "moved", created_at: "2026-09-13T00:00:00Z" },
     ],
     [
-      { id: 10, content: "Want A", status: "active", revisit_on: today, created_at: "2026-09-13T00:00:00Z" },
+      { id: 10, content: "Want A", status: "completed", revisit_on: today, created_at: "2026-09-13T00:00:00Z" },
       { id: 11, content: "Want B", status: "active", revisit_on: "2099-01-01", created_at: "2026-09-13T00:00:00Z" },
     ],
     {
@@ -28,9 +28,10 @@ test("dashboard summary and future navigation are normalized", () => {
     inboxTotal: 2,
     pendingInbox: 1,
     wantsTotal: 2,
-    activeWants: 2,
+    activeWants: 1,
     untriagedWants: 1,
-    dueForReview: 1,
+    completedWants: 1,
+    dueForReview: 0,
   });
   assert.equal(dashboard.wants[0].routes.length, 1);
   assert.equal(dashboard.wants[1].routes[0].status, "failed");

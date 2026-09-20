@@ -9,7 +9,6 @@ export interface HubEnv extends DashboardEnv {
 export interface HubAvailability {
   inbox: boolean;
   wants: boolean;
-  wantRoutes?: boolean;
   focus: boolean;
   expenses: boolean;
   knowledge: boolean;
@@ -17,11 +16,10 @@ export interface HubAvailability {
   habits?: boolean;
 }
 
-type TableName = "idea_inbox" | "wants" | "want_routes" | "focus_items" | "expenses" | "knowledge" | "daily_journal";
+type TableName = "idea_inbox" | "wants" | "focus_items" | "expenses" | "knowledge" | "daily_journal";
 
 interface InboxRow { status?: unknown }
 interface WantRow { id?: unknown; content?: unknown; status?: unknown; created_at?: unknown }
-interface WantRouteRow { want_id?: unknown; status?: unknown }
 interface ExpenseRow {
   id?: unknown;
   transaction_date?: unknown;
@@ -97,7 +95,6 @@ const DEFAULT_KNOWLEDGE_URL = "https://knowledge-dashboard-27t.pages.dev/";
 const FULL_AVAILABILITY: HubAvailability = {
   inbox: true,
   wants: true,
-  wantRoutes: true,
   focus: true,
   expenses: true,
   knowledge: true,
@@ -458,7 +455,6 @@ export function normalizeHub(
   habitOverview: HabitOverview | null = null,
   focusRows: FocusRow[] = [],
   reviewStatus: KnowledgeReviewStatus | null = null,
-  wantRouteRows: WantRouteRow[] = [],
 ) {
   const { today, year, month } = jstDateParts(now);
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -476,29 +472,16 @@ export function normalizeHub(
   });
   const activeWants = wants
     .filter((want) => want.status === "active")
-    .sort((left, right) => (right.createdAt || "").localeCompare(left.createdAt || "") || (right.id ?? 0) - (left.id ?? 0));
-  const routesAvailable = availability.wants && availability.wantRoutes !== false;
-  const routedWantIds = new Set(
-    wantRouteRows
-      .filter((route) => ["planned", "created"].includes(text(route.status).toLowerCase()))
-      .map((route) => integer(route.want_id))
-      .filter((id): id is number => id !== null && id > 0),
-  );
-  const withTriage = activeWants.map((want) => {
-    const createdDate = jstPlainDate(want.createdAt);
-    return {
-      ...want,
-      triageState: routesAvailable ? (want.id !== null && routedWantIds.has(want.id) ? "routed" : "untriaged") : "unknown",
-      ageDays: createdDate ? Math.max(0, daysBetween(createdDate, today)) : null,
-    };
-  });
-  const untriagedWants = withTriage
-    .filter((want) => want.triageState === "untriaged")
+    .map((want) => {
+      const createdDate = jstPlainDate(want.createdAt);
+      return {
+        ...want,
+        triageState: "untriaged",
+        ageDays: createdDate ? Math.max(0, daysBetween(createdDate, today)) : null,
+      };
+    })
     .sort((left, right) => (left.createdAt || "9999").localeCompare(right.createdAt || "9999") || (left.id ?? 0) - (right.id ?? 0));
-  const routedActiveWants = withTriage.filter((want) => want.triageState === "routed");
-  const selectedWants = routesAvailable
-    ? (untriagedWants.length ? untriagedWants : routedActiveWants).slice(0, 3)
-    : withTriage.slice(0, 3);
+  const selectedWants = activeWants.slice(0, 3);
   const focus = normalizeFocusRows(focusRows)
     .filter((item) => item.status === "active")
     .slice(0, FOCUS_LIMIT);
@@ -554,9 +537,8 @@ export function normalizeHub(
         : null,
       weakKnowledge: availability.knowledge ? knowledge.weakCount : null,
       activeWants: availability.wants ? activeWants.length : null,
-      untriagedWants: routesAvailable ? untriagedWants.length : null,
-      routedActiveWants: routesAvailable ? routedActiveWants.length : null,
-      oldestUntriagedDays: routesAvailable && untriagedWants.length ? untriagedWants[0].ageDays : null,
+      untriagedWants: availability.wants ? activeWants.length : null,
+      oldestUntriagedDays: availability.wants && activeWants.length ? activeWants[0].ageDays : null,
       activeHabits: availability.habits !== false ? habitOverview?.summary.active ?? 0 : null,
       completedHabitsToday: availability.habits !== false ? habitOverview?.summary.completedToday ?? 0 : null,
       remainingHabitsToday: availability.habits !== false ? habitOverview?.summary.remainingToday ?? 0 : null,
@@ -571,9 +553,7 @@ export function normalizeHub(
     journalMoments,
     selection: {
       knowledge: "苦手を最大2件、復習期限、新規ナレッジの順で重複を除いて選定",
-      wants: routesAvailable
-        ? "未振り分けActive Wantsを古い順で最大3件、なければ振り分け済みActive Wantsを表示"
-        : "振り分け状況を取得できないため、作成日時の新しいActive Wantsから最大3件を表示",
+      wants: "未整理のActive Wantsを古い順で最大3件表示",
       focus: "手動で選んだActive Focusを並び順どおり最大5件表示",
       journal: "各基準日以前で最も近いdaily_journalを選定",
     },
@@ -583,10 +563,9 @@ export function normalizeHub(
 export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
-  const [inbox, wants, wantRoutes, focus, expenses, knowledge, reviewStatus, journal, habits] = await Promise.allSettled([
+  const [inbox, wants, focus, expenses, knowledge, reviewStatus, journal, habits] = await Promise.allSettled([
     fetchRows(env, { table: "idea_inbox", select: "status" }) as Promise<InboxRow[]>,
     fetchRows(env, { table: "wants", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<WantRow[]>,
-    fetchRows(env, { table: "want_routes", select: "want_id,status" }) as Promise<WantRouteRow[]>,
     fetchFocusRows(env),
     fetchDashboardRows(env, financialUrl, "/api/expenses") as Promise<ExpenseRow[]>,
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,
@@ -594,11 +573,10 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     loadJournalMoments(env, now),
     loadHabits(env, now),
   ] as const);
-  const results = { inbox, wants, wantRoutes, focus, expenses, knowledge, reviewStatus, journal, habits };
+  const results = { inbox, wants, focus, expenses, knowledge, reviewStatus, journal, habits };
   const availability: HubAvailability = {
     inbox: inbox.status === "fulfilled",
     wants: wants.status === "fulfilled",
-    wantRoutes: wantRoutes.status === "fulfilled",
     focus: focus.status === "fulfilled",
     expenses: expenses.status === "fulfilled",
     knowledge: knowledge.status === "fulfilled" && reviewStatus.status === "fulfilled",
@@ -625,7 +603,6 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     habits.status === "fulfilled" ? habits.value : null,
     focus.status === "fulfilled" ? focus.value : [],
     reviewStatus.status === "fulfilled" ? reviewStatus.value : null,
-    wantRoutes.status === "fulfilled" ? wantRoutes.value : [],
   );
 }
 

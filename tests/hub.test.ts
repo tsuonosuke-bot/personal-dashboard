@@ -33,7 +33,6 @@ test("hub combines sources and prioritizes the oldest untriaged Active Wants", (
   assert.equal(hub.summary.weakKnowledge, 1);
   assert.equal(hub.summary.activeWants, 2);
   assert.equal(hub.summary.untriagedWants, 2);
-  assert.equal(hub.summary.routedActiveWants, 0);
   assert.equal(hub.summary.oldestUntriagedDays, 13);
   assert.equal(hub.navigation.knowledgeReview, "/go/knowledge?view=quiz&mode=daily");
   assert.equal(hub.navigation.compassUntriaged, "/compass/?view=wants&filter=untriaged");
@@ -66,33 +65,19 @@ test("Wants preview keeps the three oldest untriaged Active Wants", () => {
   assert.deepEqual(first, second);
 });
 
-test("Wants preview falls back to routed Active Wants only when all are triaged", () => {
+test("Wants preview treats every Active Want as requiring organization", () => {
   const wants = Array.from({ length: 7 }, (_, index) => ({
     id: index + 1,
     content: `Want ${index + 1}`,
-    status: "active",
+    status: index === 3 ? "completed" : "active",
     created_at: `2026-09-${String(index + 1).padStart(2, "0")}T00:00:00Z`,
   }));
-  const routes = wants.map((want) => ({ want_id: want.id, status: "created" }));
-  const hub = normalizeHub([], wants, [], [], {}, now, undefined, undefined, null, [], null, routes);
-  assert.equal(hub.summary.untriagedWants, 0);
-  assert.equal(hub.summary.routedActiveWants, 7);
-  assert.equal(hub.summary.oldestUntriagedDays, null);
-  assert.deepEqual(hub.wants.map((item) => item.id), [7, 6, 5]);
-  assert.ok(hub.wants.every((item) => item.triageState === "routed"));
-});
-
-test("Wants preview counts failed routes as still untriaged", () => {
-  const wants = [
-    { id: 1, content: "Old", status: "active", created_at: "2026-09-01T00:00:00Z" },
-    { id: 2, content: "Middle", status: "active", created_at: "2026-09-05T00:00:00Z" },
-    { id: 3, content: "New", status: "active", created_at: "2026-09-10T00:00:00Z" },
-  ];
-  const routes = [{ want_id: 1, status: "failed" }, { want_id: 2, status: "planned" }];
-  const hub = normalizeHub([], wants, [], [], {}, now, undefined, undefined, null, [], null, routes);
-  assert.equal(hub.summary.untriagedWants, 2);
-  assert.equal(hub.summary.routedActiveWants, 1);
-  assert.deepEqual(hub.wants.map((item) => item.id), [1, 3]);
+  const hub = normalizeHub([], wants, [], [], {}, now);
+  assert.equal(hub.summary.activeWants, 6);
+  assert.equal(hub.summary.untriagedWants, 6);
+  assert.equal(hub.summary.oldestUntriagedDays, 13);
+  assert.deepEqual(hub.wants.map((item) => item.id), [1, 2, 3]);
+  assert.ok(hub.wants.every((item) => item.triageState === "untriaged"));
 });
 
 test("Focus preview keeps active items in board order and caps the Hub at five", () => {
@@ -226,8 +211,8 @@ test("hub route keeps the Supabase secret in server-side headers", async () => {
     });
     const body = await response.text();
     assert.equal(response.status, 200);
-    assert.equal(requests.length, 12);
-    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 9);
+    assert.equal(requests.length, 11);
+    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 8);
     assert.equal(requests.filter((entry) => entry.headers["X-Hub-Service"] === "hub-service-token-that-is-at-least-32-characters").length, 3);
     assert.equal(requests.filter((entry) => entry.url.includes("/daily_journal?")).length, 3);
     assert.ok(requests.every((entry) => !entry.url.includes("secret")));
@@ -318,11 +303,12 @@ test("invalid Focus data stays isolated from the other Hub sections", async () =
   }
 });
 
-test("want route failure keeps Active Wants visible but marks triage summaries unavailable", async () => {
+test("Hub does not depend on want_routes after successful routing auto-completes Wants", async () => {
   const originalFetch = globalThis.fetch;
+  const requests: string[] = [];
   globalThis.fetch = async (input) => {
     const url = String(input);
-    if (url.includes("/want_routes?")) return Response.json({ error: "offline" }, { status: 503 });
+    requests.push(url);
     if (url.includes("/wants?")) return Response.json([
       { id: 1, content: "Still visible", status: "active", created_at: "2026-09-01T00:00:00Z" },
     ]);
@@ -335,14 +321,13 @@ test("want route failure keeps Active Wants visible but marks triage summaries u
       SUPABASE_SECRET_KEY: "server-secret",
       HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
     }, now);
-    assert.equal(hub.source.state, "partial");
+    assert.equal(hub.source.state, "live");
     assert.equal(hub.availability.wants, true);
-    assert.equal(hub.availability.wantRoutes, false);
     assert.equal(hub.summary.activeWants, 1);
-    assert.equal(hub.summary.untriagedWants, null);
-    assert.equal(hub.summary.routedActiveWants, null);
-    assert.equal(hub.wants[0].triageState, "unknown");
-    assert.deepEqual(hub.source.unavailable, ["wantRoutes"]);
+    assert.equal(hub.summary.untriagedWants, 1);
+    assert.equal(hub.wants[0].triageState, "untriaged");
+    assert.ok(!requests.some((url) => url.includes("/want_routes?")));
+    assert.deepEqual(hub.source.unavailable, []);
   } finally {
     globalThis.fetch = originalFetch;
   }

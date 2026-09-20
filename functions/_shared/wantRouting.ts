@@ -103,6 +103,12 @@ interface SupabaseConnection {
   key: string;
 }
 
+interface StoredWant {
+  id: number;
+  content: string;
+  status: string;
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -314,18 +320,68 @@ export async function readWantRouteInput(request: Request): Promise<ValidationRe
   };
 }
 
-async function verifyWant(connectionInfo: SupabaseConnection, input: WantRouteInput): Promise<void> {
+async function readWant(connectionInfo: SupabaseConnection, input: WantRouteInput): Promise<StoredWant> {
   const endpoint = restEndpoint(connectionInfo, "wants");
-  endpoint.searchParams.set("select", "id");
+  endpoint.searchParams.set("select", "id,content,status");
   endpoint.searchParams.set("id", `eq.${input.wantId}`);
   endpoint.searchParams.set("content", `eq.${input.original.content}`);
-  endpoint.searchParams.set("status", "eq.active");
   endpoint.searchParams.set("limit", "1");
   const response = await supabaseFetch(connectionInfo, endpoint);
   if (!response.ok) throw responseError(response, "wants");
   const rows: unknown = await response.json();
   if (!Array.isArray(rows)) throw new DashboardError("SUPABASE_RESPONSE_INVALID", "wants returned invalid data.");
   if (rows.length !== 1) throw new DashboardError("WANT_UPDATE_CONFLICT", "Want changed before routing.", 409);
+  const row = rows[0];
+  if (!isPlainObject(row) || Number(row.id) !== input.wantId || row.content !== input.original.content || typeof row.status !== "string") {
+    throw new DashboardError("SUPABASE_RESPONSE_INVALID", "wants returned invalid data.");
+  }
+  return { id: input.wantId, content: input.original.content, status: row.status };
+}
+
+async function completeWant(
+  connectionInfo: SupabaseConnection,
+  input: WantRouteInput,
+  current: StoredWant,
+): Promise<void> {
+  if (current.status === "completed") return;
+  if (current.status !== "active") {
+    throw new DashboardError("WANT_AUTO_CLOSE_FAILED", "Want is no longer active after routing.", 409);
+  }
+
+  const endpoint = restEndpoint(connectionInfo, "wants");
+  endpoint.searchParams.set("select", "id,content,status");
+  endpoint.searchParams.set("id", `eq.${input.wantId}`);
+  endpoint.searchParams.set("content", `eq.${input.original.content}`);
+  endpoint.searchParams.set("status", "eq.active");
+  let response: Response;
+  try {
+    response = await supabaseFetch(connectionInfo, endpoint, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify({ status: "completed" }),
+    });
+  } catch {
+    throw new DashboardError("WANT_AUTO_CLOSE_FAILED", "Could not complete Want after routing.");
+  }
+  if (!response.ok) {
+    throw new DashboardError("WANT_AUTO_CLOSE_FAILED", `wants returned ${response.status} after routing.`, response.status >= 500 ? 502 : 409);
+  }
+  const rows: unknown = await response.json();
+  if (!Array.isArray(rows)) {
+    throw new DashboardError("WANT_AUTO_CLOSE_FAILED", "wants returned invalid data after routing.");
+  }
+  if (rows.length === 1 && isPlainObject(rows[0]) && Number(rows[0].id) === input.wantId && rows[0].status === "completed") return;
+  if (rows.length > 1) {
+    throw new DashboardError("WANT_AUTO_CLOSE_FAILED", "wants updated an unexpected number of rows after routing.");
+  }
+
+  try {
+    const latest = await readWant(connectionInfo, input);
+    if (latest.status === "completed") return;
+  } catch {
+    // Report the routing-specific failure below so the user knows the target may already exist.
+  }
+  throw new DashboardError("WANT_AUTO_CLOSE_FAILED", "Want changed before automatic completion.", 409);
 }
 
 const routeSelect = "id,want_id,intent,destination,status,title,detail,cadence,target_id,target_url,error_code,destination_data,idempotency_key,created_at,updated_at";
@@ -444,19 +500,31 @@ async function createInternalTarget(
 
 export async function routeWant(env: DashboardEnv, input: WantRouteInput): Promise<StoredRoute> {
   const connectionInfo = connection(env);
-  await verifyWant(connectionInfo, input);
-
   const adapter = WANT_ROUTE_ADAPTERS[input.destination];
   if (!adapter) throw new DashboardError("WANT_ROUTE_INVALID", "Destination adapter is missing.", 400);
 
   const existing = await findRoute(connectionInfo, input.idempotencyKey);
-  let route: StoredRoute;
   if (existing) {
     if (existing.wantId !== input.wantId || existing.intent !== input.intent || existing.destination !== input.destination ||
         existing.title !== input.title || existing.detail !== input.detail || existing.cadence !== input.cadence ||
         JSON.stringify(existing.calendar) !== JSON.stringify(input.calendar)) {
       throw new DashboardError("WANT_ROUTE_CONFLICT", "Idempotency key belongs to another route.", 409);
     }
+  }
+
+  const want = await readWant(connectionInfo, input);
+  if (want.status === "completed") {
+    if (existing && (existing.status === "created" || (adapter.mode === "planned" && existing.status === "planned"))) {
+      return existing;
+    }
+    throw new DashboardError("WANT_UPDATE_CONFLICT", "Completed Want does not match a finished route.", 409);
+  }
+  if (want.status !== "active") {
+    throw new DashboardError("WANT_UPDATE_CONFLICT", "Want changed before routing.", 409);
+  }
+
+  let route: StoredRoute;
+  if (existing) {
     route = existing;
   } else {
     if (adapter.mode === "external" && adapter.provider === "google_calendar") {
@@ -465,8 +533,14 @@ export async function routeWant(env: DashboardEnv, input: WantRouteInput): Promi
     route = await insertRoute(connectionInfo, input);
   }
 
-  if (adapter.mode === "planned") return route;
-  if (route.status === "created") return route;
+  if (adapter.mode === "planned") {
+    await completeWant(connectionInfo, input, want);
+    return route;
+  }
+  if (route.status === "created") {
+    await completeWant(connectionInfo, input, want);
+    return route;
+  }
   if (route.status === "cancelled") throw new DashboardError("WANT_ROUTE_CONFLICT", "Cancelled route cannot be retried.", 409);
   if (adapter.mode === "external" && adapter.provider === "google_calendar") {
     await assertGoogleCalendarConnected(env);
@@ -485,7 +559,7 @@ export async function routeWant(env: DashboardEnv, input: WantRouteInput): Promi
           schedule: input.calendar!,
         })
       : await createInternalTarget(connectionInfo, route, input);
-    return await updateRoute(connectionInfo, route, {
+    route = await updateRoute(connectionInfo, route, {
       status: "created",
       target_id: target.targetId,
       target_url: target.targetUrl,
@@ -500,4 +574,7 @@ export async function routeWant(env: DashboardEnv, input: WantRouteInput): Promi
     }
     throw failure;
   }
+
+  await completeWant(connectionInfo, input, want);
+  return route;
 }

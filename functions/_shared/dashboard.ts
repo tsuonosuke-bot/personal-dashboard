@@ -209,6 +209,9 @@ export function normalizeDashboard(
     routes: routesByWant.get(integer(row.id) ?? -1) || [],
   }));
 
+  const activeWants = wants.filter((item) => item.status === "active");
+  const completedWants = wants.filter((item) => item.status === "completed");
+
   return {
     app: { appId: "personal-dashboard", version: "1.0.0", mode: "read-write" },
     source: { system: "supabase", state: "live", fetchedAt: new Date().toISOString() },
@@ -225,8 +228,9 @@ export function normalizeDashboard(
       inboxTotal: inbox.length,
       pendingInbox: inbox.filter((item) => item.status === "pending").length,
       wantsTotal: wants.length,
-      activeWants: wants.filter((item) => item.status === "active").length,
-      untriagedWants: wants.filter((item) => item.status === "active" && !item.routes.some((route) => route.status === "planned" || route.status === "created")).length,
+      activeWants: activeWants.length,
+      untriagedWants: activeWants.length,
+      completedWants: completedWants.length,
       dueForReview: wants.filter((item) => item.status === "active" && item.revisitOn !== null && item.revisitOn <= today).length,
     },
     inbox,
@@ -256,6 +260,7 @@ export function publicError(error: unknown) {
     INBOX_UPDATE_CONFLICT: "このInboxは別の画面で更新されています。再読み込みしてからやり直してください。",
     WANT_UPDATE_CONFLICT: "このWantは別の画面で更新されています。再読み込みしてからやり直してください。",
     WANT_ROUTE_CONFLICT: "この振り分けは別の画面で変更されています。再読み込みしてからやり直してください。",
+    WANT_AUTO_CLOSE_FAILED: "振り分けは保存されましたが、元のWantを自動で完了にできませんでした。再読み込みして振り分け履歴を確認し、もう一度確定してください。",
     WANT_ROUTE_INVALID: "この振り分け先は現在利用できません。",
     WANT_ROUTE_FAILED: "振り分け先への登録を完了できませんでした。元のWantは変更していません。",
     HABIT_UPDATE_CONFLICT: "このHabitは別の画面で更新されています。再読み込みしてからやり直してください。",

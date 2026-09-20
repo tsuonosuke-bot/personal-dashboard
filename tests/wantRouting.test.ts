@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { encryptGoogleCalendarRefreshToken } from "../functions/_shared/googleCalendar.ts";
 import { onRequest as routeEndpoint } from "../functions/api/want-routes.ts";
@@ -12,6 +13,17 @@ const env = {
 };
 
 const idempotencyKey = "a1b2c3d4-1234-4abc-8def-1234567890ab";
+const sourceWantContent = "AIと思考力について考えたい";
+
+function wantRow(status = "active") {
+  return { id: 10, content: sourceWantContent, status };
+}
+
+function wantResponse(init?: RequestInit, currentStatus = "active") {
+  return init?.method === "PATCH"
+    ? Response.json([wantRow("completed")])
+    : Response.json([wantRow(currentStatus)]);
+}
 
 function request(body: unknown, headers: Record<string, string> = {}) {
   return new Request("https://dashboard.example/api/want-routes", {
@@ -35,7 +47,7 @@ function body(overrides: Record<string, unknown> = {}) {
     detail: "AIは思考力を高めるのか",
     cadence: null,
     idempotencyKey,
-    original: { content: "AIと思考力について考えたい", status: "active" },
+    original: { content: sourceWantContent, status: "active" },
     ...overrides,
   };
 }
@@ -67,7 +79,7 @@ test("Writingへの振り分けを内部登録し、確認済みの対象IDを�
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
     requests.push({ url, init });
-    if (url.pathname.endsWith("/wants")) return Response.json([{ id: 10 }]);
+    if (url.pathname.endsWith("/wants")) return wantResponse(init);
     if (url.pathname.endsWith("/want_routes") && init?.method === "POST") return Response.json([routeRow()]);
     if (url.pathname.endsWith("/want_routes") && init?.method === "PATCH") {
       return Response.json([routeRow({ status: "created", target_id: "71", target_url: "/writing/?id=71" })]);
@@ -83,6 +95,10 @@ test("Writingへの振り分けを内部登録し、確認済みの対象IDを�
     assert.equal(payload.status, "created");
     assert.equal(payload.targetId, "71");
     assert.equal(payload.targetUrl, "/writing/?id=71");
+    const completion = requests.find((entry) => entry.url.pathname.endsWith("/wants") && entry.init?.method === "PATCH");
+    assert.ok(completion);
+    assert.equal(completion.url.searchParams.get("status"), "eq.active");
+    assert.deepEqual(JSON.parse(String(completion.init?.body)), { status: "completed" });
     const writing = requests.find((entry) => entry.url.pathname.endsWith("/writing_topics"));
     assert.ok(writing);
     assert.deepEqual(JSON.parse(String(writing.init?.body)), {
@@ -99,6 +115,42 @@ test("Writingへの振り分けを内部登録し、確認済みの対象IDを�
   }
 });
 
+test("未接続の外部振り分けは計画保存後に元Wantを完了する", async () => {
+  const originalFetch = globalThis.fetch;
+  let wantCompleted = false;
+  const planned = routeRow({ intent: "act", destination: "github", title: "Issueにする", detail: null });
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/want_routes") && !init?.method) return Response.json([]);
+    if (url.pathname.endsWith("/wants")) {
+      if (init?.method === "PATCH") wantCompleted = true;
+      return wantResponse(init);
+    }
+    if (url.pathname.endsWith("/want_routes") && init?.method === "POST") return Response.json([planned]);
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  try {
+    const response = await routeEndpoint({
+      request: request(body({ intent: "act", destination: "github", title: "Issueにする", detail: null })),
+      env,
+    });
+    assert.equal(response.status, 202);
+    assert.equal((await response.json()).status, "planned");
+    assert.equal(wantCompleted, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("migrationは成功した振り分けを自動完了し、既存データも整合する", async () => {
+  const sql = await readFile(new URL("../supabase/migrations/202609200005_auto_complete_routed_wants.sql", import.meta.url), "utf8");
+  assert.match(sql, /create trigger complete_want_after_route/i);
+  assert.match(sql, /new\.status = 'created'/i);
+  assert.match(sql, /new\.status = 'planned'.*new\.destination in \('github', 'knowledge', 'journal'\)/is);
+  assert.match(sql, /route\.status in \('planned', 'created'\)/i);
+  assert.match(sql, /set status = 'completed'/i);
+});
+
 test("Focusが5件なら元Wantを残したまま上限エラーを返す", async () => {
   const originalFetch = globalThis.fetch;
   const focusRouteRow = routeRow({
@@ -108,9 +160,13 @@ test("Focusが5件なら元Wantを残したまま上限エラーを返す", asyn
     detail: "毎日見返す",
   });
   let failedRouteRecorded = false;
+  let wantCompleted = false;
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
-    if (url.pathname.endsWith("/wants")) return Response.json([{ id: 10 }]);
+    if (url.pathname.endsWith("/wants")) {
+      if (init?.method === "PATCH") wantCompleted = true;
+      return wantResponse(init);
+    }
     if (url.pathname.endsWith("/want_routes") && init?.method === "POST") return Response.json([focusRouteRow]);
     if (url.pathname.endsWith("/want_routes") && init?.method === "PATCH") {
       failedRouteRecorded = true;
@@ -135,6 +191,7 @@ test("Focusが5件なら元Wantを残したまま上限エラーを返す", asyn
     assert.equal(response.status, 409);
     assert.deepEqual(await response.json(), { error: "表示できるFocusは5件までです。先に1件を表示解除してください。" });
     assert.equal(failedRouteRecorded, true);
+    assert.equal(wantCompleted, false);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -157,7 +214,7 @@ test("Google Calendarは明示確認後に予定を作成し、再取得した�
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
     requests.push({ url, init });
-    if (url.pathname.endsWith("/wants")) return Response.json([{ id: 10 }]);
+    if (url.pathname.endsWith("/wants")) return wantResponse(init);
     if (url.pathname.endsWith("/integration_connections")) {
       return Response.json([{ provider: "google_calendar", encrypted_credentials: encrypted, scope: "https://www.googleapis.com/auth/calendar.events", connected_at: "2026-09-20T00:00:00Z" }]);
     }
@@ -249,7 +306,7 @@ test("Google Calendarは初回作成後の確認失敗から同じ処理IDで安
   let calendarInsertCount = 0;
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
-    if (url.pathname.endsWith("/wants")) return Response.json([{ id: 10 }]);
+    if (url.pathname.endsWith("/wants")) return wantResponse(init);
     if (url.pathname.endsWith("/integration_connections")) {
       return Response.json([{ provider: "google_calendar", encrypted_credentials: encrypted, scope: "https://www.googleapis.com/auth/calendar.events", connected_at: "2026-09-20T00:00:00Z" }]);
     }
@@ -291,12 +348,12 @@ test("Google Calendarは初回作成後の確認失敗から同じ処理IDで安
   }
 });
 
-test("同じ処理IDは既存の振り分けを返して二重登録しない", async () => {
+test("同じ処理IDは完了済みWantの既存振り分けを返して二重登録しない", async () => {
   const originalFetch = globalThis.fetch;
   let routeReads = 0;
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
-    if (url.pathname.endsWith("/wants")) return Response.json([{ id: 10 }]);
+    if (url.pathname.endsWith("/wants")) return wantResponse(init, "completed");
     if (url.pathname.endsWith("/want_routes") && !init?.method) {
       routeReads += 1;
       return Response.json([routeRow({ status: "created", target_id: "71" })]);
@@ -313,11 +370,45 @@ test("同じ処理IDは既存の振り分けを返して二重登録しない", 
   }
 });
 
+test("振り分け済みで自動完了だけ失敗した場合は同じ処理IDで完了処理だけを再試行する", async () => {
+  const originalFetch = globalThis.fetch;
+  let completionAttempts = 0;
+  let canonicalWrites = 0;
+  const existing = routeRow({ status: "created", target_id: "71", target_url: "/writing/?id=71" });
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/want_routes") && !init?.method) return Response.json([existing]);
+    if (url.pathname.endsWith("/wants") && init?.method === "PATCH") {
+      completionAttempts += 1;
+      return completionAttempts === 1 ? Response.json([]) : Response.json([wantRow("completed")]);
+    }
+    if (url.pathname.endsWith("/wants")) return Response.json([wantRow("active")]);
+    if (url.pathname.endsWith("/writing_topics") || (url.pathname.endsWith("/want_routes") && init?.method)) {
+      canonicalWrites += 1;
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  try {
+    const first = await routeEndpoint({ request: request(body()), env });
+    assert.equal(first.status, 409);
+    assert.deepEqual(await first.json(), {
+      error: "振り分けは保存されましたが、元のWantを自動で完了にできませんでした。再読み込みして振り分け履歴を確認し、もう一度確定してください。",
+    });
+    const retry = await routeEndpoint({ request: request(body()), env });
+    assert.equal(retry.status, 201);
+    assert.equal((await retry.json()).targetId, "71");
+    assert.equal(completionAttempts, 2);
+    assert.equal(canonicalWrites, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("同じ処理IDでも内容が異なる振り分けは競合として拒否する", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
-    if (url.pathname.endsWith("/wants")) return Response.json([{ id: 10 }]);
+    if (url.pathname.endsWith("/wants")) return wantResponse(init);
     if (url.pathname.endsWith("/want_routes") && !init?.method) {
       return Response.json([routeRow({ detail: "すでに保存した内容" })]);
     }
@@ -337,7 +428,7 @@ test("途中でfailedになった内部振り分けは同じ処理IDで安全に
   let patchCount = 0;
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
-    if (url.pathname.endsWith("/wants")) return Response.json([{ id: 10 }]);
+    if (url.pathname.endsWith("/wants")) return wantResponse(init);
     if (url.pathname.endsWith("/want_routes") && !init?.method) {
       return Response.json([routeRow({ status: "failed", error_code: "WANT_ROUTE_FAILED" })]);
     }

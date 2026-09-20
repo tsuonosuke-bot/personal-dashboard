@@ -74,19 +74,16 @@ function renderSummary(summary) {
     : "—";
   els.untriagedWants.textContent = formatCount(summary.untriagedWants);
   if (!Number.isFinite(summary.untriagedWants)) {
-    els.oldestUntriaged.textContent = "振り分け状況を取得不可";
-    els.wantsMeta.textContent = `Active ${formatCount(summary.activeWants)} · 振り分け状況を取得不可`;
+    els.oldestUntriaged.textContent = "Wantsを取得不可";
+    els.wantsMeta.textContent = "Wantsを取得できません";
   } else if (summary.untriagedWants > 0) {
     els.oldestUntriaged.textContent = Number.isFinite(summary.oldestUntriagedDays)
       ? `最古 ${summary.oldestUntriagedDays}日`
       : "最古の登録日は不明";
-    els.wantsMeta.textContent = `Active ${summary.activeWants}件 · 未振り分け ${summary.untriagedWants}件 · 振り分け済み ${summary.routedActiveWants}件`;
-  } else if (summary.activeWants === 0) {
-    els.oldestUntriaged.textContent = "すべて完了";
-    els.wantsMeta.textContent = "Active Wantなし";
+    els.wantsMeta.textContent = `未整理 ${summary.activeWants}件`;
   } else {
-    els.oldestUntriaged.textContent = "未振り分けなし";
-    els.wantsMeta.textContent = `Active ${summary.activeWants}件 · 未振り分け 0件 · 振り分け済み ${summary.routedActiveWants}件`;
+    els.oldestUntriaged.textContent = "すべて完了";
+    els.wantsMeta.textContent = "未整理のWantなし";
   }
   els.allWantsLink.href = summary.untriagedWants > 0
     ? (hubNavigation.compassUntriaged || "/compass/?view=wants&filter=untriaged")
@@ -95,7 +92,7 @@ function renderSummary(summary) {
     ? `期限超過 ${summary.overdueKnowledge}件 · 完了 ${summary.completedKnowledgeToday}件`
     : "取得できません";
   els.compassMeta.textContent = Number.isFinite(summary.untriagedWants)
-    ? `Inbox ${formatCount(summary.pendingInbox)} · 未振り分け ${formatCount(summary.untriagedWants)}`
+    ? `Inbox ${formatCount(summary.pendingInbox)} · 未整理 ${formatCount(summary.untriagedWants)}`
     : `Inbox ${formatCount(summary.pendingInbox)} · Wants ${formatCount(summary.activeWants)}`;
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
   els.knowledgeMeta.textContent = Number.isFinite(summary.remainingKnowledgeToday)
@@ -157,17 +154,15 @@ function renderWants(items, url, available = true, summary = {}) {
     return;
   }
   if (!items.length) {
-    els.wantList.innerHTML = empty(summary.activeWants === 0 ? "Active Wantはありません（すべて完了）" : "表示するWantはありません");
+    els.wantList.innerHTML = empty(summary.activeWants === 0 ? "未整理のWantはありません" : "表示するWantはありません");
     return;
   }
   els.wantList.innerHTML = items.map((item, index) => {
-    const triage = item.triageState === "untriaged" ? "未振り分け"
-      : item.triageState === "routed" ? "振り分け済み" : "状況不明";
     const age = Number.isFinite(item.ageDays) ? ` · ${item.ageDays}日経過` : "";
     return `
     <a class="want-card" href="${escapeHtml(item.url || url)}">
       <span>${String(index + 1).padStart(2, "0")}</span>
-      <div><span class="want-triage ${escapeHtml(item.triageState)}">${triage}</span><strong>${escapeHtml(item.content)}</strong><small>${escapeHtml(formatDate(item.createdAt))} 登録${age}</small></div>
+      <div><span class="want-triage untriaged">未整理</span><strong>${escapeHtml(item.content)}</strong><small>${escapeHtml(formatDate(item.createdAt))} 登録${age}</small></div>
       <b aria-hidden="true">→</b>
     </a>
   `; }).join("");

@@ -45,11 +45,11 @@ Browser
 ## Hubの機能
 
 - Compass、Writing、Habits、家計簿、ナレッジへの入口
-- 今日の復習進捗と開始導線、期限超過、未振り分けWantsのスナップショット
+- 今日の復習進捗と開始導線、期限超過、未整理Wantsのスナップショット
 - Knowledge Dashboardの当日固定キューを直接開始するショートカット
-- 未振り分けActive Wantsの件数と最古の滞留日数を表示
-- 未振り分けを古い順で最大3件表示し、0件の時だけ振り分け済みActive Wantsへ切り替え
-- 未振り分け件数と一覧からCompassの絞り込み表示へ直接移動
+- 未整理のActive Wantsの件数と最古の滞留日数を表示
+- 未整理のActive Wantsを古い順で最大3件表示
+- 未整理件数と一覧からCompassの絞り込み表示へ直接移動
 - Wantから選んだFocusを最大5件、指定順で固定表示
 - Focusの言葉・補足の編集、表示解除／再表示、並び替え
 - 直近5件の家計簿レコード
@@ -81,22 +81,23 @@ Browser
 ## Compassの機能
 
 - Inbox総数・未整理件数
-- Active Wants
+- 未整理のActive Wants
 - Inbox / Wantsの切り替え
 - Inboxの新規登録
 - Inboxの本文・ステータス・整理結果を編集
 - Wantsの本文・ステータスを編集
-- 未振り分けWantを1件ずつ「行動する・継続する・掘り下げる・残す・見送る」で整理
+- 未整理Wantを1件ずつ「行動する・継続する・掘り下げる・残す・見送る」で整理
 - 「AIに整理案を聞く」を押した時だけ、分類・登録先・下書きの提案を取得
 - AIから確認質問がある場合は、回答後に明示的に再提案を依頼
 - 振り分け内容をプレビューし、確定後に `want_routes` へ履歴を保存
 - Writing・Habits・Focus・アーカイブはPersonal Dashboard内へ登録
 - Google Calendarは接続状態と日時を確認し、明示的な「Google Calendarに登録」でメインカレンダーへ作成
 - GitHub・Knowledge DB・Journalは未送信の計画として保存（接続は別途合意後）
-- 一つのWantから複数の振り分けを作成可能。振り分け成功後も元Wantは自動完了しない
+- 振り分けの登録または計画保存に成功すると、元Wantを自動的に `completed` へ更新
+- 振り分け先への登録に失敗した場合は元Wantを `active` のまま残し、同じ処理IDで安全に再試行
 - InboxからWantを追加すると元のInboxを処理済み（処理結果: Wantsに登録）にする
 - 検索、ステータス絞り込み、詳細ドロワー、再読込
-- `/compass/?view=wants&filter=untriaged` で未振り分けActive Wantsへ直接移動
+- `/compass/?view=wants&filter=untriaged` で未整理のActive Wantsへ直接移動（既存URLとの互換名）
 - `/api/health` による接続状態確認
 - Hub、Knowledge DB、Financialへのダッシュボードスイッチャー
 
@@ -127,12 +128,14 @@ Habit MVPを有効にする場合は、続けて `supabase/migrations/2026092000
 
 Focus管理を有効にする場合は `supabase/migrations/202609200004_focus_board.sql` も適用します。Active FocusはDBトリガーで5件までに制限し、並び替えは現在の順序を確認してから1トランザクションで更新します。
 
+整理済みWantの自動完了を有効にする場合は、`supabase/migrations/202609200005_auto_complete_routed_wants.sql` まで適用します。既存の `planned` / `created` 振り分けがあるActive Wantを一度だけ `completed` に整合し、以後は成功した振り分けから同じ状態遷移を保証します。
+
 - `writing_topics`: 掘り下げたいエッセイ候補
 - `habits` / `habit_logs`: 習慣の定義と実施記録
 - `focus_items`: 継続して意識したい言葉
 - `want_routes`: 上記および外部正本への振り分け履歴
 
-Google Calendarだけ外部正本への登録処理を実装しています。GitHub・Knowledge DB・Journalの `planned` は「送信済み」を意味しません。元Wantとの競合検知と処理IDによる二重登録防止を行い、登録に失敗しても元Wantの状態は変更しません。
+Google Calendarだけ外部正本への登録処理を実装しています。GitHub・Knowledge DB・Journalの `planned` は「送信済み」を意味しませんが、振り分け方針は確定済みのため元Wantは完了します。元Wantとの競合検知と処理IDによる二重登録防止を行い、登録に失敗した場合だけ元WantをActiveのまま残します。振り分け成功後にWantの完了更新だけが失敗した場合も、同じ処理IDの再試行では正本を重複作成せず完了処理だけを再開します。
 
 Focusの新規登録はCompassでWantを「残す → Focus」に明示確定した時だけ行います。HubではActive Focusを最大5件表示し、管理画面から編集、表示解除／再表示、並び替えができます。表示解除しても元Wantと振り分け履歴は残ります。
 

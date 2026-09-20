@@ -13,7 +13,7 @@ const state = {
 
 const els = Object.fromEntries([
   "sourceBadge", "refreshButton",
-  "pendingInbox", "inboxTotal", "activeWants", "untriagedWants",
+  "pendingInbox", "inboxTotal", "activeWants", "completedWants",
   "inboxTabCount", "wantsTabCount", "listTitle", "searchInput",
   "statusFilter", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher", "dashboardNav",
@@ -23,7 +23,7 @@ const els = Object.fromEntries([
 
 const viewMeta = {
   inbox: { title: "Inbox", singular: "Inbox", empty: "Inboxはすべて整理されています" },
-  wants: { title: "Wants", singular: "Want", empty: "Wantsはまだありません" },
+  wants: { title: "Wants", singular: "Want", empty: "該当するWantsはありません" },
 };
 
 const defaultStatusByView = {
@@ -195,7 +195,7 @@ function currentItems() {
   let items = state.data[state.view] || [];
   if (state.status) items = items.filter((item) => item.status === state.status);
   if (state.view === "wants" && state.metricFilter === "untriaged") {
-    items = items.filter((item) => item.status === "active" && !(item.routes || []).some((route) => route.status === "planned" || route.status === "created"));
+    items = items.filter((item) => item.status === "active");
   }
   const needle = state.search.trim().toLocaleLowerCase("ja");
   if (needle) {
@@ -209,7 +209,7 @@ function updateStatusOptions() {
   const items = state.data?.[state.view] || [];
   const statuses = [...new Set(items.map((item) => item.status))].sort();
   els.statusFilter.innerHTML = '<option value="">すべてのステータス</option>'
-    + statuses.map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(status)}</option>`).join("");
+    + statuses.map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(statusLabel(status))}</option>`).join("");
   els.statusFilter.value = state.status;
 }
 
@@ -218,7 +218,7 @@ function renderSummary() {
   els.pendingInbox.textContent = summary.pendingInbox;
   els.inboxTotal.textContent = summary.inboxTotal;
   els.activeWants.textContent = summary.activeWants;
-  els.untriagedWants.textContent = summary.untriagedWants;
+  els.completedWants.textContent = summary.completedWants;
 }
 
 function renderCurrentTabCount(items) {
@@ -241,7 +241,7 @@ function renderNavigation(items) {
 }
 
 function statusLabel(status) {
-  return ({ pending: "未整理", done: "整理済み", skipped: "対象外", active: "進行中", completed: "完了", dropped: "見送り", closed: "完了" })[status] || status;
+  return ({ pending: "未整理", done: "整理済み", skipped: "対象外", active: "未整理", completed: "整理済み", dropped: "見送り", closed: "完了" })[status] || status;
 }
 
 function canCloseItem(item, view) {
@@ -590,7 +590,7 @@ function renderRoutePreview(item, plan) {
       ${plan.cadence ? `<div><span>頻度</span><strong>${escapeHtml(cadenceLabels[plan.cadence])}</strong></div>` : ""}
       ${plan.calendar ? `<div><span>予定日時</span><strong>${escapeHtml(formatCalendarSchedule(plan.calendar))}</strong><small>メインカレンダー · Asia/Tokyo</small></div>` : ""}
     </div>
-    <p class="flow-note">${plan.destination === "calendar" ? "登録するとGoogle Calendarへ予定を作成し、再取得して確認します。元のWantは自動で完了にしません。" : destinationMeta.internal ? "確定するとPersonal Dashboard内の管理先へ登録します。元のWantは自動で完了にしません。" : "確定しても外部システムには送信しません。接続方法の合意後に、この計画から登録します。"}</p>
+    <p class="flow-note">${plan.destination === "calendar" ? "登録するとGoogle Calendarへ予定を作成し、確認後に元のWantも完了します。" : destinationMeta.internal ? "確定するとPersonal Dashboard内の管理先へ登録し、元のWantも完了します。" : "確定すると振り分け計画を保存し、元のWantも完了します。外部システムへの送信は、接続方法の合意後に別途行います。"}</p>
     <p class="form-error" id="routeSaveError" role="alert" hidden></p>
     <div class="drawer-actions"><button class="secondary-action" id="editRoutePlan" type="button">修正する</button><button class="primary-action" id="confirmRoutePlan" type="button">${plan.destination === "calendar" ? "Google Calendarに登録" : "振り分けを確定"}</button></div>`;
   document.getElementById("editRoutePlan").addEventListener("click", () => renderRouteForm(item, plan.intent, plan.destination, plan));
@@ -636,8 +636,8 @@ async function saveWantRoute(item, plan) {
       return;
     }
     showToast(plan.destination === "calendar" && payload.status === "created"
-      ? "Google Calendarへ予定を登録しました。"
-      : payload.status === "created" ? "振り分け先へ登録しました。" : "振り分け計画を保存しました。外部への登録はまだ行っていません。");
+      ? "Google Calendarへ予定を登録し、Wantを完了しました。"
+      : payload.status === "created" ? "振り分け先へ登録し、Wantを完了しました。" : "振り分け計画を保存し、Wantを完了しました。外部への登録はまだ行っていません。");
   } catch (error) {
     errorElement.textContent = error instanceof Error ? error.message : "振り分けを保存できませんでした。";
     errorElement.hidden = false;
@@ -1146,7 +1146,7 @@ function setView(view, filter = defaultStatusByView[view], sync = true) {
   hideDrawer();
   state.view = view;
   state.metricFilter = filter;
-  state.status = filter === "untriaged" ? "active" : filter === "pending" || filter === "active" ? filter : "";
+  state.status = filter === "untriaged" ? "active" : filter || "";
   updateStatusOptions();
   renderList();
   if (sync) syncCompassRoute(view, null, "push", filter === "untriaged" ? filter : null);
