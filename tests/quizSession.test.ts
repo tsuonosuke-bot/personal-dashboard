@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { issueQuizToken, verifyQuizToken } from "../functions/_shared/quizSession.ts";
+import {
+  issueQuizToken,
+  verifyQuizChoiceAnswer,
+  verifyQuizToken,
+} from "../functions/_shared/quizSession.ts";
 
 const env = {
   QUIZ_SIGNING_SECRET: "quiz-signing-secret-that-is-longer-than-thirty-two-characters",
@@ -11,14 +15,35 @@ const item = {
   question: "署名された問題",
   format: "四択" as const,
   choices: ["正解", "誤答A", "誤答B", "誤答C"],
+  correctChoice: "正解",
 };
 
-test("クイズトークンは問題文・形式・選択肢を署名して復元する", async () => {
+test("クイズトークンは正解を漏らさず署名し、四択回答をサーバー側で照合する", async () => {
   const issued = await issueQuizToken(item, request, env, Date.UTC(2026, 8, 20));
   assert.equal(issued.ok, true);
   if (!issued.ok) return;
+  const payload = JSON.parse(Buffer.from(issued.token.split(".")[0], "base64url").toString("utf8"));
+  assert.equal("correctChoice" in payload, false);
+  assert.match(payload.correctChoiceProof, /^[A-Za-z0-9_-]{43}$/);
   const verified = await verifyQuizToken(issued.token, request, env, Date.UTC(2026, 8, 20));
-  assert.deepEqual(verified, { ok: true, value: item });
+  assert.equal(verified.ok, true);
+  if (!verified.ok) return;
+  assert.deepEqual(
+    {
+      id: verified.value.id,
+      question: verified.value.question,
+      format: verified.value.format,
+      choices: verified.value.choices,
+    },
+    {
+      id: item.id,
+      question: item.question,
+      format: item.format,
+      choices: item.choices,
+    },
+  );
+  assert.equal(await verifyQuizChoiceAnswer(verified.value, "正解", env), true);
+  assert.equal(await verifyQuizChoiceAnswer(verified.value, "誤答A", env), false);
 });
 
 test("改ざん・別ホスト・期限切れのクイズトークンを拒否する", async () => {

@@ -19,6 +19,7 @@ import {
   type QuizFormat,
 } from "../../_shared/quizValidation.ts";
 import {
+  verifyQuizChoiceAnswer,
   verifyQuizToken,
   type QuizSigningEnv,
 } from "../../_shared/quizSession.ts";
@@ -108,6 +109,10 @@ const SYSTEM_PROMPT = `あなたはナレッジDBの復習クイズの採点者�
 ## 形式ごとの上乗せ
 
 - **四択**: 選ぶだけなので当て勘が混じる。正解でも最高4とし、5は付けない。誤答は0か1。
+  choicesとuser_answerに加えてchoice_is_correctが渡される。choice_is_correctは出題時の正解を
+  サーバーが暗号学的に照合した確定値なので、trueなら必ず4、falseなら0か1にする。
+  trueの回答に対して、選択肢の文言をなぞっただけ、説明がない、要約できていない、などを理由に
+  不正解または部分正解にしない。四択は正しい選択肢を選ぶこと自体が回答である。
 - **記述説明**: 結論が合っていても、理由・使い分けに触れていなければ3止まり。
   用語の言い換えだけで中身がない回答は2以下。
 - **産出**: 意味が通っているかを最優先で見る。英語なら文法の細かい誤りは4、
@@ -141,6 +146,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     question: string;
     format: QuizFormat;
     choices: string[] | null;
+    correctChoiceProof: string | null;
   }[];
   const seenIds = new Set<string>();
   for (const submitted of validated.value) {
@@ -178,6 +184,16 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   }
   const factById = new Map(facts.map((f) => [f.id, f]));
 
+  const choiceCorrectById = new Map<string, boolean | null>();
+  for (const answer of answers) {
+    choiceCorrectById.set(
+      answer.id,
+      answer.format === "四択"
+        ? await verifyQuizChoiceAnswer(answer, answer.answer, context.env)
+        : null,
+    );
+  }
+
   const userText = JSON.stringify(answers.map((a) => {
     const fact = factById.get(a.id)!;
     return {
@@ -188,7 +204,9 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       category: fact.category,
       tags: fact.tags,
       format: a.format,
+      choices: a.choices,
       user_answer: a.answer,
+      choice_is_correct: choiceCorrectById.get(a.id) ?? null,
     };
   }));
 
@@ -248,15 +266,32 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       || typeof explanation !== "string" || !explanation.trim() || explanation.length > 8_000
       || typeof note !== "string"
     ) continue;
-    const trustedFormat = answers.find((answer) => answer.id === id)!.format;
-    const boundedQuality = trustedFormat === "四択" ? Math.min(quality, 4) : quality;
+    const trustedAnswer = answers.find((answer) => answer.id === id)!;
+    const choiceIsCorrect = choiceCorrectById.get(id) ?? null;
+    let boundedQuality = trustedAnswer.format === "四択" ? Math.min(quality, 4) : quality;
+    let normalizedExplanation = explanation.trim();
+    let normalizedNote = note.trim().slice(0, 2_000);
+    if (trustedAnswer.format === "四択" && choiceIsCorrect === true) {
+      // 出題時に確定した正解との照合をClaudeの評価より優先し、誤判定をDBへ記録させない。
+      boundedQuality = 4;
+      if (quality < 3) {
+        normalizedExplanation = `正しい選択肢「${trustedAnswer.answer}」を選べています。`;
+        normalizedNote = `「${trustedAnswer.answer}」を選択し、正解した。`;
+      }
+    } else if (trustedAnswer.format === "四択" && choiceIsCorrect === false) {
+      boundedQuality = Math.min(quality, 1);
+      if (quality >= 3) {
+        normalizedExplanation = `選択した「${trustedAnswer.answer}」は正解選択肢ではありません。正答を確認してください。`;
+        normalizedNote = `「${trustedAnswer.answer}」を選択したが、不正解だった。`;
+      }
+    }
     gradeById.set(id, {
       id,
       quality: boundedQuality,
       verdict: verdictForQuality(boundedQuality),
       correctAnswer: correct_answer.trim(),
-      explanation: explanation.trim(),
-      note: note.trim().slice(0, 2_000),
+      explanation: normalizedExplanation,
+      note: normalizedNote,
     });
   }
   for (const id of ids) {
