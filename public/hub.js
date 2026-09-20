@@ -1,9 +1,9 @@
 const ids = [
   "sourceBadge", "refreshButton", "dateLabel", "updatedLabel",
   "compassLink", "financialLink", "knowledgeLink", "compassMeta", "financialMeta", "knowledgeMeta",
-  "spendMetricLink", "reviewMetricLink", "currentMonthSpend", "spendComparison", "dueKnowledge",
+  "spendMetricLink", "reviewMetricLink", "reviewStartLink", "currentMonthSpend", "spendComparison", "dueKnowledge",
   "weakKnowledge", "pendingInbox", "loadingState", "errorState", "errorMessage",
-  "retryButton", "hubContent", "expenseList", "knowledgeList", "allExpensesLink", "allKnowledgeLink",
+  "retryButton", "hubContent", "wantList", "expenseList", "knowledgeList", "allWantsLink", "allExpensesLink", "allKnowledgeLink",
 ];
 
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
@@ -18,11 +18,16 @@ function escapeHtml(value) {
 }
 
 function formatYen(value) {
+  if (value === null || value === undefined) return "—";
   return new Intl.NumberFormat("ja-JP", {
     style: "currency",
     currency: "JPY",
     maximumFractionDigits: 0,
   }).format(Number(value) || 0);
+}
+
+function formatCount(value) {
+  return Number.isFinite(value) ? `${value}件` : "—";
 }
 
 function formatDate(value, includeTime = false) {
@@ -50,19 +55,23 @@ function renderNavigation(navigation) {
   els.knowledgeLink.href = navigation.knowledge;
   els.spendMetricLink.href = navigation.financial;
   els.reviewMetricLink.href = navigation.knowledge;
+  els.reviewStartLink.href = navigation.knowledgeReview;
+  els.allWantsLink.href = navigation.compass;
   els.allExpensesLink.href = navigation.financial;
   els.allKnowledgeLink.href = navigation.knowledge;
 }
 
 function renderSummary(summary) {
   els.currentMonthSpend.textContent = formatYen(summary.currentMonthSpend);
-  els.dueKnowledge.textContent = `${summary.dueKnowledge}件`;
-  els.pendingInbox.textContent = `${summary.pendingInbox}件`;
-  els.weakKnowledge.textContent = `苦手候補 ${summary.weakKnowledge}件`;
-  els.compassMeta.textContent = `未整理 ${summary.pendingInbox}`;
+  els.dueKnowledge.textContent = formatCount(summary.dueKnowledge);
+  els.pendingInbox.textContent = formatCount(summary.pendingInbox);
+  els.weakKnowledge.textContent = Number.isFinite(summary.weakKnowledge) ? `苦手候補 ${summary.weakKnowledge}件` : "取得できません";
+  els.compassMeta.textContent = `未整理 ${formatCount(summary.pendingInbox)} · Wants ${formatCount(summary.activeWants)}`;
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
-  els.knowledgeMeta.textContent = `期限 ${summary.dueKnowledge}`;
-  if (summary.previousMonthSpend > 0) {
+  els.knowledgeMeta.textContent = Number.isFinite(summary.dueKnowledge) ? `期限 ${summary.dueKnowledge}` : "取得できません";
+  if (summary.currentMonthSpend === null || summary.previousMonthSpend === null) {
+    els.spendComparison.textContent = "取得できません";
+  } else if (summary.previousMonthSpend > 0) {
     const difference = summary.currentMonthSpend - summary.previousMonthSpend;
     els.spendComparison.textContent = `前月比 ${difference >= 0 ? "+" : ""}${formatYen(difference)}`;
   } else {
@@ -70,7 +79,11 @@ function renderSummary(summary) {
   }
 }
 
-function renderExpenses(items) {
+function renderExpenses(items, available = true) {
+  if (!available) {
+    els.expenseList.innerHTML = empty("家計簿を取得できませんでした");
+    return;
+  }
   if (!items.length) {
     els.expenseList.innerHTML = empty("家計簿レコードはまだありません");
     return;
@@ -90,7 +103,11 @@ function knowledgeReason(item) {
   return { label: "新規", className: "new", detail: item.createdAt ? formatDate(item.createdAt) : item.mastery };
 }
 
-function renderKnowledge(items, url) {
+function renderKnowledge(items, url, available = true) {
+  if (!available) {
+    els.knowledgeList.innerHTML = empty("ナレッジを取得できませんでした");
+    return;
+  }
   if (!items.length) {
     els.knowledgeList.innerHTML = empty("表示するナレッジはまだありません");
     return;
@@ -105,10 +122,29 @@ function renderKnowledge(items, url) {
   }).join("");
 }
 
+function renderWants(items, url, available = true) {
+  if (!available) {
+    els.wantList.innerHTML = empty("Wantsを取得できませんでした");
+    return;
+  }
+  if (!items.length) {
+    els.wantList.innerHTML = empty("Active Wantはありません");
+    return;
+  }
+  els.wantList.innerHTML = items.map((item, index) => `
+    <a class="want-card" href="${escapeHtml(url)}">
+      <span>${String(index + 1).padStart(2, "0")}</span>
+      <div><strong>${escapeHtml(item.content)}</strong><small>${escapeHtml(formatDate(item.createdAt))} 登録</small></div>
+      <b aria-hidden="true">→</b>
+    </a>
+  `).join("");
+}
+
 function setSource(source, hasError = false) {
-  els.sourceBadge.className = `source-badge ${hasError ? "error" : "live"}`;
-  els.sourceBadge.querySelector("span").textContent = hasError ? "接続エラー" : "SUPABASE LIVE";
-  if (!hasError) els.updatedLabel.textContent = `${formatDate(source.fetchedAt, true)} 更新`;
+  const partial = !hasError && source?.state === "partial";
+  els.sourceBadge.className = `source-badge ${hasError ? "error" : partial ? "partial" : "live"}`;
+  els.sourceBadge.querySelector("span").textContent = hasError ? "接続エラー" : partial ? "一部取得不可" : "LIVE";
+  if (!hasError) els.updatedLabel.textContent = `${formatDate(source.fetchedAt, true)} 更新${partial ? " · 一部取得不可" : ""}`;
 }
 
 async function loadHub() {
@@ -120,10 +156,12 @@ async function loadHub() {
     const response = await fetch("/api/hub", { headers: { Accept: "application/json" }, cache: "no-store" });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error?.message || "データを読み込めませんでした。");
+    const availability = payload.availability || { inbox: true, wants: true, expenses: true, knowledge: true };
     renderNavigation(payload.navigation);
     renderSummary(payload.summary);
-    renderExpenses(payload.recentExpenses);
-    renderKnowledge(payload.knowledge, payload.navigation.knowledge);
+    renderWants(payload.wants, payload.navigation.compass, availability.wants);
+    renderExpenses(payload.recentExpenses, availability.expenses);
+    renderKnowledge(payload.knowledge, payload.navigation.knowledge, availability.knowledge);
     setSource(payload.source);
     els.loadingState.hidden = true;
     els.hubContent.hidden = false;

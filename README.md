@@ -22,7 +22,7 @@ Browser
 - `DASHBOARD_PASSWORD` 未設定時は503でフェイルクローズ
 - Supabase URLとsecret keyはPages Functionsだけが参照
 - 新形式のSupabase secret keyはサーバーから `apikey` ヘッダーだけで送信
-- ブラウザは同一オリジンの `/api/dashboard` と `/api/inbox` だけを呼び出す
+- ブラウザは同一オリジンの `/api/dashboard`、`/api/inbox`、`/api/wants` だけを呼び出す
 - APIレスポンス、URL、Viteバンドルへsecret keyを含めない
 - `Cache-Control: private, no-store`、CSP、`X-Frame-Options: DENY`、`X-Robots-Tag` を適用
 - Inbox登録は同一オリジン・専用ヘッダー・入力文字数を検証し、`pending` として保存
@@ -31,16 +31,17 @@ Browser
 ## Hubの機能
 
 - Compass、家計簿、ナレッジへの入口
-- 今月支出、復習期限、未整理Inbox、再訪日が来たWantsのスナップショット
+- 今月支出、復習期限、未整理Inboxのスナップショット
+- Knowledge Dashboardの復習開始画面へのショートカット
+- 新しいActive Wantsを最大3件表示
 - 直近5件の家計簿レコード
 - 苦手を最大2件、復習期限、新規を混ぜたナレッジ候補
-- 再訪日が来たActive Wantsを、JST日付に基づく日替わり順で3件表示
+- 一部の接続先が失敗しても、取得できたセクションは表示を継続
 
 ## Compassの機能
 
 - Inbox総数・未整理件数
 - Active Wants
-- 再訪日が来たWants
 - Inbox / Wantsの切り替え
 - Inboxの新規登録
 - Inboxの本文・ステータス・整理結果を編集
@@ -108,5 +109,7 @@ WindowsでNodeのテスト分離プロセスが制限される環境を考慮し
 ## 1回の認証で3画面を使う
 
 `AUTH_MODE=basic` のままでも、3サイトへ同じ `SSO_SHARED_SECRET` を設定すると、Hubでの認証成功時に30日間のHttpOnlyセッションを作り、詳細サイトへは60秒だけ有効な署名付き引き継ぎURLで移動します。URLは移動直後に除去され、署名は対象ホストに固定されます。
+
+`AUTH_MODE=access` または `SSO_SHARED_SECRET` 未設定時は、各ダッシュボード自身の認証に委ねる安全な直接遷移へフォールバックします。
 
 より標準化されたSSOへ移行する場合はCloudflare Accessも利用できます。3ホストを同じAccess applicationとAllow policyで保護し、各Pages環境の `AUTH_MODE=access`、`TEAM_DOMAIN`、`POLICY_AUD` を設定します。設定が欠けた場合は503、不正JWTは403でフェイルクローズします。

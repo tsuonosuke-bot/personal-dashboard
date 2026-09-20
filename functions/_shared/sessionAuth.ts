@@ -130,6 +130,8 @@ export async function createHandoffUrl(target: URL, env: SessionEnv): Promise<UR
   const token = await signPayload(payload, value);
   const redirect = new URL("/auth/handoff", target.origin);
   redirect.searchParams.set("token", token);
+  const destination = `${target.pathname}${target.search}${target.hash}`;
+  if (destination !== "/") redirect.searchParams.set("next", destination);
   return redirect;
 }
 

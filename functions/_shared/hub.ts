@@ -4,10 +4,17 @@ export interface HubEnv extends DashboardEnv {
   HUB_SERVICE_TOKEN?: string;
 }
 
+export interface HubAvailability {
+  inbox: boolean;
+  wants: boolean;
+  expenses: boolean;
+  knowledge: boolean;
+}
+
 type TableName = "idea_inbox" | "wants" | "expenses" | "knowledge";
 
 interface InboxRow { status?: unknown }
-interface WantRow { id?: unknown; content?: unknown; status?: unknown; revisit_on?: unknown; created_at?: unknown }
+interface WantRow { id?: unknown; content?: unknown; status?: unknown; created_at?: unknown }
 interface ExpenseRow {
   id?: unknown;
   transaction_date?: unknown;
@@ -40,6 +47,12 @@ interface QueryDefinition {
 const PAGE_SIZE = 1_000;
 const DEFAULT_FINANCIAL_URL = "https://financial-dashboard-9q8.pages.dev/";
 const DEFAULT_KNOWLEDGE_URL = "https://knowledge-dashboard-27t.pages.dev/";
+const FULL_AVAILABILITY: HubAvailability = {
+  inbox: true,
+  wants: true,
+  expenses: true,
+  knowledge: true,
+};
 
 export class HubError extends Error {
   code: string;
@@ -173,16 +186,6 @@ function monthKey(value: string | null): string {
   return value?.slice(0, 7) || "";
 }
 
-function dailyRank(seed: string, id: number | null): number {
-  const input = `${seed}:${id ?? "unknown"}`;
-  let hash = 2166136261;
-  for (let index = 0; index < input.length; index += 1) {
-    hash ^= input.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
 function normalizeKnowledge(rows: KnowledgeRow[], today: string) {
   const items = rows
     .filter((row) => row.archived !== true)
@@ -240,6 +243,7 @@ export function normalizeHub(
   knowledgeRows: KnowledgeRow[],
   _env: HubEnv = {},
   now = new Date(),
+  availability: HubAvailability = FULL_AVAILABILITY,
 ) {
   const { today, year, month } = jstDateParts(now);
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -249,12 +253,11 @@ export function normalizeHub(
     id: integer(row.id),
     content: text(row.content) || "内容なし",
     status: text(row.status).toLowerCase(),
-    revisitOn: typeof row.revisit_on === "string" ? row.revisit_on : null,
     createdAt: date(row.created_at),
   }));
-  const wantsDueForReview = wants
-    .filter((want) => want.status === "active" && want.revisitOn !== null && want.revisitOn <= today)
-    .sort((left, right) => dailyRank(today, left.id) - dailyRank(today, right.id));
+  const activeWants = wants
+    .filter((want) => want.status === "active")
+    .sort((left, right) => (right.createdAt || "").localeCompare(left.createdAt || "") || (right.id ?? 0) - (left.id ?? 0));
   const expenses = expenseRows.map((row) => ({
     id: integer(row.id),
     transactionDate: typeof row.transaction_date === "string" ? row.transaction_date : null,
@@ -271,31 +274,36 @@ export function normalizeHub(
     .filter((item) => monthKey(item.transactionDate) === previousMonth && item.amount > 0 && !item.category.startsWith("80_"))
     .reduce((sum, item) => sum + item.amount, 0);
   const knowledge = normalizeKnowledge(knowledgeRows, today);
+  const unavailable = (Object.entries(availability) as Array<[keyof HubAvailability, boolean]>)
+    .filter(([, available]) => !available)
+    .map(([name]) => name);
 
   return {
     app: { appId: "personal-hub", version: "1.0.0", mode: "read-only" },
-    source: { system: "supabase", state: "live", fetchedAt: now.toISOString() },
+    source: { system: "personal-hub", state: unavailable.length ? "partial" : "live", fetchedAt: now.toISOString(), unavailable },
+    availability,
     navigation: {
       compass: "/compass/",
       financial: "/go/financial",
       knowledge: "/go/knowledge",
+      knowledgeReview: "/go/knowledge?view=quiz",
     },
     summary: {
-      currentMonthSpend: currentSpend,
-      previousMonthSpend: previousSpend,
-      pendingInbox: inboxRows.filter((row) => text(row.status).toLowerCase() === "pending").length,
-      dueKnowledge: knowledge.dueCount,
-      weakKnowledge: knowledge.weakCount,
-      wantsDueForReview: wantsDueForReview.length,
+      currentMonthSpend: availability.expenses ? currentSpend : null,
+      previousMonthSpend: availability.expenses ? previousSpend : null,
+      pendingInbox: availability.inbox ? inboxRows.filter((row) => text(row.status).toLowerCase() === "pending").length : null,
+      dueKnowledge: availability.knowledge ? knowledge.dueCount : null,
+      weakKnowledge: availability.knowledge ? knowledge.weakCount : null,
+      activeWants: availability.wants ? activeWants.length : null,
     },
     recentExpenses: expenses
       .sort((left, right) => (right.transactionDate || "").localeCompare(left.transactionDate || "") || (right.id ?? 0) - (left.id ?? 0))
       .slice(0, 5),
     knowledge: knowledge.items,
-    wants: wantsDueForReview.slice(0, 3),
+    wants: activeWants.slice(0, 3),
     selection: {
       knowledge: "苦手を最大2件、復習期限、新規ナレッジの順で重複を除いて選定",
-      wants: `再訪日が来たActive Wantsから${today}の日替わり順で選定`,
+      wants: "作成日時の新しいActive Wantsから最大3件を選定",
     },
   };
 }
@@ -303,13 +311,36 @@ export function normalizeHub(
 export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
-  const [inbox, wants, expenses, knowledge] = await Promise.all([
+  const [inbox, wants, expenses, knowledge] = await Promise.allSettled([
     fetchRows(env, { table: "idea_inbox", select: "status" }) as Promise<InboxRow[]>,
-    fetchRows(env, { table: "wants", select: "id,content,status,revisit_on,created_at", order: "created_at.desc,id.desc" }) as Promise<WantRow[]>,
+    fetchRows(env, { table: "wants", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<WantRow[]>,
     fetchDashboardRows(env, financialUrl, "/api/expenses") as Promise<ExpenseRow[]>,
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,
-  ]);
-  return normalizeHub(inbox, wants, expenses, knowledge, env, now);
+  ] as const);
+  const results = { inbox, wants, expenses, knowledge };
+  const availability: HubAvailability = {
+    inbox: inbox.status === "fulfilled",
+    wants: wants.status === "fulfilled",
+    expenses: expenses.status === "fulfilled",
+    knowledge: knowledge.status === "fulfilled",
+  };
+  for (const [name, result] of Object.entries(results)) {
+    if (result.status === "rejected") {
+      const code = result.reason instanceof HubError ? result.reason.code : "UNKNOWN";
+      console.error(`hub ${name} load failed: ${code}`);
+    }
+  }
+  const rejected = Object.values(results).filter((result) => result.status === "rejected");
+  if (rejected.length === Object.keys(results).length) throw rejected[0].reason;
+  return normalizeHub(
+    inbox.status === "fulfilled" ? inbox.value : [],
+    wants.status === "fulfilled" ? wants.value : [],
+    expenses.status === "fulfilled" ? expenses.value : [],
+    knowledge.status === "fulfilled" ? knowledge.value : [],
+    env,
+    now,
+    availability,
+  );
 }
 
 export function publicHubError(error: unknown) {

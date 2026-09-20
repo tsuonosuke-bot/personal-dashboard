@@ -13,7 +13,15 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(html, /id="compassLink"/);
   assert.match(html, /id="financialLink"/);
   assert.match(html, /id="knowledgeLink"/);
+  assert.match(html, /id="reviewStartLink"/);
   assert.match(html, /class="metric-grid"/);
+  assert.match(html, /id="wantList"/);
+  assert.match(html, /id="allWantsLink"/);
+  assert.match(script, /renderWants\(payload\.wants, payload\.navigation\.compass, availability\.wants\)/);
+  assert.match(script, /reviewStartLink\.href = navigation\.knowledgeReview/);
+  assert.match(script, /一部取得不可/);
+  assert.match(script, /renderExpenses\(payload\.recentExpenses, availability\.expenses\)/);
+  assert.doesNotMatch(`${html}\n${script}`, /再訪日|再訪期限/);
 });
 
 test("mobile Hub retains three navigation choices in one row", async () => {

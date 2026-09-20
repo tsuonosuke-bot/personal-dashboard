@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { onRequest as goRoute } from "../functions/go/[target].ts";
 import { acceptHandoff, createHandoffUrl, hasValidSession } from "../functions/_shared/sessionAuth.ts";
 
 const env = { SSO_SHARED_SECRET: "shared-secret-that-is-longer-than-thirty-two-characters", SESSION_TTL_DAYS: "30" };
@@ -27,7 +28,7 @@ test("handoff rejects tampering and the wrong target host", async () => {
   const handoffUrl = await createHandoffUrl(new URL("https://financial.example/"), env);
   assert.ok(handoffUrl);
   const token = handoffUrl.searchParams.get("token") || "";
-  handoffUrl.searchParams.set("token", `${token.slice(0, -1)}x`);
+  handoffUrl.searchParams.set("token", `${token.startsWith("A") ? "B" : "A"}${token.slice(1)}`);
   assert.equal((await acceptHandoff(new Request(handoffUrl), env))?.status, 403);
 
   const correct = await createHandoffUrl(new URL("https://financial.example/"), env);
@@ -35,4 +36,45 @@ test("handoff rejects tampering and the wrong target host", async () => {
   const wrongHost = new URL(correct);
   wrongHost.host = "knowledge.example";
   assert.equal((await acceptHandoff(new Request(wrongHost), env))?.status, 403);
+});
+
+test("handoff preserves a same-site quiz destination", async () => {
+  const handoffUrl = await createHandoffUrl(new URL("https://knowledge.example/?view=quiz"), env);
+  assert.ok(handoffUrl);
+  assert.equal(handoffUrl.origin, "https://knowledge.example");
+  assert.equal(handoffUrl.pathname, "/auth/handoff");
+  assert.equal(handoffUrl.searchParams.get("next"), "/?view=quiz");
+});
+
+test("Knowledge review shortcut creates a quiz handoff", async () => {
+  const response = await goRoute({
+    request: new Request("https://hub.example/go/knowledge?view=quiz"),
+    env: { ...env, NAV_KNOWLEDGE_URL: "https://knowledge.example/custom/?tenant=owner" },
+    params: { target: "knowledge" },
+  });
+  assert.equal(response.status, 302);
+  const location = new URL(response.headers.get("Location") || "https://invalid.example/");
+  assert.equal(location.origin, "https://knowledge.example");
+  assert.equal(location.pathname, "/auth/handoff");
+  assert.equal(location.searchParams.get("next"), "/?view=quiz");
+});
+
+test("dashboard navigation falls back to the protected target without SSO", async () => {
+  const response = await goRoute({
+    request: new Request("https://hub.example/go/knowledge?view=quiz"),
+    env: { NAV_KNOWLEDGE_URL: "https://knowledge.example/custom/" },
+    params: { target: "knowledge" },
+  });
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("Location"), "https://knowledge.example/?view=quiz");
+});
+
+test("Cloudflare Access navigation skips the Basic-auth handoff", async () => {
+  const response = await goRoute({
+    request: new Request("https://hub.example/go/knowledge?view=quiz"),
+    env: { ...env, AUTH_MODE: "access", NAV_KNOWLEDGE_URL: "https://knowledge.example/" },
+    params: { target: "knowledge" },
+  });
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("Location"), "https://knowledge.example/?view=quiz");
 });

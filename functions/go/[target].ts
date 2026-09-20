@@ -1,6 +1,7 @@
 import { createHandoffUrl, type SessionEnv } from "../_shared/sessionAuth.ts";
 
 interface Env extends SessionEnv {
+  AUTH_MODE?: string;
   NAV_FINANCIAL_URL?: string;
   NAV_KNOWLEDGE_URL?: string;
 }
@@ -24,13 +25,21 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   try {
     target = new URL(String(context.env[definition.env] || definition.fallback));
     if (target.protocol !== "https:") throw new Error("invalid protocol");
+    const requestedView = new URL(context.request.url).searchParams.get("view");
+    if (context.params.target === "knowledge" && requestedView === "quiz") {
+      target.pathname = "/";
+      target.search = "";
+      target.hash = "";
+      target.searchParams.set("view", "quiz");
+    }
   } catch {
     return new Response("Navigation target is invalid.\n", { status: 503 });
   }
-  const handoff = await createHandoffUrl(target, context.env);
-  if (!handoff) return new Response("SSO handoff is not configured.\n", { status: 503 });
+  const useDirectNavigation = context.env.AUTH_MODE?.trim().toLowerCase() === "access";
+  const handoff = useDirectNavigation ? null : await createHandoffUrl(target, context.env);
+  const destination = handoff || target;
   return new Response(null, {
     status: 302,
-    headers: { Location: handoff.toString(), "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
+    headers: { Location: destination.toString(), "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },
   });
 };
