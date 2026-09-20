@@ -38,11 +38,14 @@ test("JSON本文の構文を検証する", async () => {
   assert.deepEqual(malformed, { ok: false, status: 400, error: "JSONの形式が正しくありません。" });
 });
 
-test("出題要求のcategories/limitを検証し、既定値を補う", () => {
-  assert.deepEqual(validateStartRequest({}), { ok: true, value: { categories: [], limit: 15 } });
+test("出題要求のcategories/limit/formatを検証し、既定値を補う", () => {
   assert.deepEqual(
-    validateStartRequest({ categories: ["英語", " 歴史 ", "英語"], limit: 5 }),
-    { ok: true, value: { categories: ["英語", "歴史"], limit: 5 } },
+    validateStartRequest({}),
+    { ok: true, value: { categories: [], limit: 15, format: "おまかせ" } },
+  );
+  assert.deepEqual(
+    validateStartRequest({ categories: ["英語", " 歴史 ", "英語"], limit: 5, format: "四択" }),
+    { ok: true, value: { categories: ["英語", "歴史"], limit: 5, format: "四択" } },
   );
   assert.equal(validateStartRequest({ categories: "英語" }).ok, false);
   assert.equal(validateStartRequest({ categories: [""] }).ok, false);
@@ -51,25 +54,33 @@ test("出題要求のcategories/limitを検証し、既定値を補う", () => {
   assert.equal(validateStartRequest({ limit: 0 }).ok, false);
   assert.equal(validateStartRequest({ limit: MAX_QUIZ_LIMIT + 1 }).ok, false);
   assert.equal(validateStartRequest({ limit: 1.5 }).ok, false);
+  for (const format of ["一問一答", "四択", "記述説明", "産出", "おまかせ"]) {
+    assert.equal(validateStartRequest({ format }).ok, true, format);
+  }
+  assert.equal(validateStartRequest({ format: "ソクラテス式" }).ok, false);
+  assert.equal(validateStartRequest({ format: "穴埋め" }).ok, false);
+  assert.equal(validateStartRequest({ format: 1 }).ok, false);
 });
 
-test("採点要求のid/answer/questionを検証し、重複IDを拒否する", () => {
+test("採点要求のid/answer/format/questionを検証し、重複IDを拒否する", () => {
   const id1 = "123e4567-e89b-42d3-a456-426614174000";
   const id2 = "223e4567-e89b-42d3-a456-426614174000";
+  // formatを送らない古いクライアントは一問一答として扱い、questionが欠けていても採点は続けられる。
   assert.deepEqual(
     validateGradeRequest([
-      { id: id1, answer: " ok ", question: " 問題文 " },
+      { id: id1, answer: " ok ", format: "四択", question: " 問題文 " },
       { id: id2, answer: "" },
     ]),
     {
       ok: true,
       value: [
-        { id: id1, answer: "ok", question: "問題文" },
-        // questionが欠けていても採点は続けられる。
-        { id: id2, answer: "", question: "" },
+        { id: id1, answer: "ok", format: "四択", question: "問題文" },
+        { id: id2, answer: "", format: "一問一答", question: "" },
       ],
     },
   );
+  assert.equal(validateGradeRequest([{ id: id1, answer: "x", format: "おまかせ" }]).ok, false);
+  assert.equal(validateGradeRequest([{ id: id1, answer: "x", format: "穴埋め" }]).ok, false);
   assert.equal(
     validateGradeRequest([{ id: id1, answer: "x", question: "x".repeat(MAX_QUESTION_CHARS + 1) }]).ok,
     false,

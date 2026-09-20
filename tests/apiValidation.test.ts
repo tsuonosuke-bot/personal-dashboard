@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseKnowledge, parsePageEnvelope, parseQuizLog } from "../src/lib/apiValidation.ts";
+import {
+  parseKnowledge, parsePageEnvelope, parseQuizLog, parseQuizStartResponse,
+} from "../src/lib/apiValidation.ts";
 import { getKnowledge } from "../src/lib/api.ts";
 
 function validKnowledge() {
@@ -55,6 +57,19 @@ test("クイズ判定の許可値を検証する", () => {
   };
   assert.deepEqual(parseQuizLog(row), row);
   assert.throws(() => parseQuizLog({ ...row, verdict: "unknown" }), /verdict/);
+});
+
+test("出題の形式と選択肢の食い違いを受理しない", () => {
+  const free = { id: "a", question: "問題", format: "記述説明", choices: null };
+  assert.deepEqual(parseQuizStartResponse({ items: [free] }).items, [free]);
+
+  const choice = { id: "a", question: "問題", format: "四択", choices: ["ア", "イ", "ウ", "エ"] };
+  assert.deepEqual(parseQuizStartResponse({ items: [choice] }).items, [choice]);
+
+  assert.throws(() => parseQuizStartResponse({ items: [{ ...free, format: "ソクラテス式" }] }), /format/);
+  // 四択なのに選択肢がない／四択でないのに選択肢がある、のどちらも通さない。
+  assert.throws(() => parseQuizStartResponse({ items: [{ ...choice, choices: null }] }), /choices/);
+  assert.throws(() => parseQuizStartResponse({ items: [{ ...free, choices: ["ア"] }] }), /choices/);
 });
 
 test("固定上限で切らず、全ページのナレッジを取得する", async () => {

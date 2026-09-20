@@ -50,7 +50,10 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 
 - `verdict` は `正解` / `不正解` / `部分正解` の3種
 - 正答率は `正解` だけを分子とし、`部分正解` は含めない
-- 他: `knowledge_id`, `asked_on`, `quality`, `format`, `note`
+- `format` は `一問一答` / `四択` / `記述説明` / `産出` / `ソクラテス式`。
+  ダッシュボードから出題するのは `ソクラテス式` を除く4種（対話の往復が要るため）。
+  `四択` を許可するCHECK制約の変更は `supabase/allow-choice-quiz-format.sql`
+- 他: `knowledge_id`, `asked_on`, `quality`, `note`
 
 ### DBアクセス
 
@@ -61,12 +64,13 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `PATCH /api/knowledge/:id`: UUIDで特定した1件の編集、アーカイブ、復元
 - `GET /api/quiz-log`: 明示した列を新しい順に制限付きページング
 - `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す。
-  `categories`（登録済みカテゴリ名の配列。空配列は全カテゴリ）と `limit` で絞り込む
+  `categories`（登録済みカテゴリ名の配列。空配列は全カテゴリ）、`limit`、`format` で絞り込む
 - `POST /api/quiz/grade`: `knowledge`/`quiz_log` を読み直して正解を確認し、Claude APIで採点、
   `record_answers_batch` RPCで一括記録
 
-クイズAPIはブラウザにも `knowledge` の列を素で返さない。`start` は `{ id, question }` だけ、
-`grade` は採点後なので `title` と模範解答を返す。
+クイズAPIはブラウザにも `knowledge` の列を素で返さない。`start` は
+`{ id, question, format, choices }` だけ、`grade` は採点後なので `title` と模範解答を返す。
+`choices` は四択のときだけ入り、どれが正解かは返さない（採点時に `knowledge` を読み直して判定する）。
 
 一覧APIの `limit` は1〜1,000、`offset` は0以上に限定し、応答は
 `{ items, total, limit, offset }` とする。ブラウザ側は全ページを取得し、固定件数で
@@ -98,7 +102,13 @@ SM-2の計算は全てDB関数側にあり、Functions側やブラウザ側で�
   渡す。noteは次回出題に効かせるために書かせている
 - 出題順は同じカテゴリが連続しないよう入れ替える。並べ替えるのは順番だけで、`pick_quiz` が
   選んだ問題の差し替えはしない
-- `format` は `一問一答`。スキル側と値を揃えないと `quiz_log` の履歴が形式で分断される
+- 出題形式は `おまかせ` / `一問一答` / `四択` / `記述説明` / `産出` から選ぶ。`おまかせ` は習熟度で
+  問い方を上げる（未学習→四択、学習中→一問一答、習得中・定着→記述説明、語学カテゴリなら産出）。
+  値はスキル側と揃える。揃えないと `quiz_log` の履歴が形式で分断される
+- 四択の選択肢はAIに4件作らせ、サーバー側で並べ替えてから返す。件数・重複・空文字が崩れていたら
+  黙って自由記述に落とさず502にする。採点では当て勘が混じるぶんq値の上限を4に抑える
+- 採点要求の `format` はブラウザの自己申告だが、許可値であることだけ検証すれば足りる
+  （履歴のラベルと採点方針にしか使わず、正解は毎回 `knowledge` から読み直すため）
 - 採点は出題時の問題文もブラウザから送り返し、「この問いに答えられたか」で採点する。
   問題文を渡さないと、空所補充に単語で答えただけで「説明が足りない」と減点される
 - 採点は `correct_answer`（模範解答）と `explanation`（この回答への講評）を分けて出させる

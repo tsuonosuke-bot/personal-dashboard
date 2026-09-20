@@ -62,9 +62,18 @@ export interface KnowledgeDraft {
   next_review_on: string | null;
 }
 
+/** DB の quiz_log.format 制約のうち、ダッシュボードから出題できる形式。 */
+export type QuizFormat = "一問一答" | "四択" | "記述説明" | "産出";
+
+/** 出題時だけ指定できる、項目ごとに習熟度から形式を決めさせる指定。 */
+export type QuizFormatRequest = QuizFormat | "おまかせ";
+
 export interface QuizQuestion {
   id: string;
   question: string;
+  format: QuizFormat;
+  /** 四択のときだけ入る選択肢。他の形式ではnull。 */
+  choices: string[] | null;
 }
 
 export type QuizEmptyReason = "no_knowledge" | "done_today";

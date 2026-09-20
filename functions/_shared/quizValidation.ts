@@ -9,6 +9,21 @@ export const MAX_QUESTION_CHARS = 2_000;
 export const MAX_QUIZ_CATEGORIES = 50;
 export const MAX_CATEGORY_CHARS = 100;
 
+/** quiz_log.format のCHECK制約で許可されている値のうち、ダッシュボードから出題できるもの。 */
+export const QUIZ_FORMATS = ["一問一答", "四択", "記述説明", "産出"] as const;
+export type QuizFormat = (typeof QUIZ_FORMATS)[number];
+
+/** 出題時だけ指定できる、項目ごとに習熟度から形式を選ばせる指定。 */
+export const AUTO_FORMAT = "おまかせ";
+export type QuizFormatRequest = QuizFormat | typeof AUTO_FORMAT;
+
+/** 形式未指定の古いクライアントから来た採点要求に使う既定値。 */
+export const DEFAULT_QUIZ_FORMAT: QuizFormat = "一問一答";
+
+function isQuizFormat(value: unknown): value is QuizFormat {
+  return typeof value === "string" && (QUIZ_FORMATS as readonly string[]).includes(value);
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export interface RequestGuardError {
@@ -20,11 +35,14 @@ export interface StartRequestInput {
   /** 出題対象のカテゴリ。空配列は全カテゴリを意味する。 */
   categories: string[];
   limit: number;
+  /** 出題形式。AUTO_FORMAT なら項目ごとに習熟度から決める。 */
+  format: QuizFormatRequest;
 }
 
 export interface GradeAnswerInput {
   id: string;
   answer: string;
+  format: QuizFormat;
   /** 実際に出題した問題文。採点を「この問いに答えられたか」に限定するために送り返す。 */
   question: string;
 }
@@ -106,7 +124,12 @@ export function validateStartRequest(
     return { ok: false, error: `limitは${MIN_QUIZ_LIMIT}〜${MAX_QUIZ_LIMIT}の整数で指定してください。` };
   }
 
-  return { ok: true, value: { categories, limit: rawLimit } };
+  const rawFormat = "format" in input ? input.format : AUTO_FORMAT;
+  if (rawFormat !== AUTO_FORMAT && !isQuizFormat(rawFormat)) {
+    return { ok: false, error: "出題形式の指定が正しくありません。" };
+  }
+
+  return { ok: true, value: { categories, limit: rawLimit, format: rawFormat } };
 }
 
 export function validateGradeRequest(
@@ -128,12 +151,17 @@ export function validateGradeRequest(
     if (typeof answer !== "string" || answer.length > MAX_ANSWER_CHARS) {
       return { ok: false, error: `回答は${MAX_ANSWER_CHARS}文字以内の文字列で入力してください。` };
     }
+    // 形式はクイズ履歴のラベルと採点方針にしか使わないため、許可値であることだけを確かめる。
+    const rawFormat = "format" in entry ? entry.format : DEFAULT_QUIZ_FORMAT;
+    if (!isQuizFormat(rawFormat)) {
+      return { ok: false, error: "回答の出題形式が正しくありません。" };
+    }
     // 出題直後の画面から送られる想定だが、欠けていても採点自体は続けられるようにする。
     const question = "question" in entry ? entry.question : "";
     if (typeof question !== "string" || question.length > MAX_QUESTION_CHARS) {
       return { ok: false, error: `問題文は${MAX_QUESTION_CHARS}文字以内の文字列で送信してください。` };
     }
-    result.push({ id, answer: answer.trim(), question: question.trim() });
+    result.push({ id, answer: answer.trim(), format: rawFormat, question: question.trim() });
   }
   return { ok: true, value: result };
 }

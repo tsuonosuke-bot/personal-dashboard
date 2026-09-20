@@ -23,9 +23,6 @@ interface FunctionContext {
   env: SupabaseEnv & AnthropicEnv;
 }
 
-/** チャットのknowledge-quizスキルと同じ値を使い、履歴が形式で分断されないようにする。 */
-const QUIZ_FORMAT = "一問一答";
-
 interface KnowledgeFact {
   id: string;
   title: string;
@@ -88,6 +85,15 @@ const SYSTEM_PROMPT = `あなたはナレッジDBの復習クイズの採点者�
 - 核心を外していれば、部分的に合っていても2以下。
 - 無回答、「わからない」「忘れた」は0。
 - question が空のときだけ、タイトルと説明の核心を問われたものとみなして採点する。
+
+## 形式ごとの上乗せ
+
+- **四択**: 選ぶだけなので当て勘が混じる。正解でも最高4とし、5は付けない。誤答は0か1。
+- **記述説明**: 結論が合っていても、理由・使い分けに触れていなければ3止まり。
+  用語の言い換えだけで中身がない回答は2以下。
+- **産出**: 意味が通っているかを最優先で見る。英語なら文法の細かい誤りは4、
+  通じない・意図が変わる誤りは2以下。不自然な言い回しは正解としたうえでexplanationで直す。
+- **一問一答**: 上記の一般基準どおり。
 
 ## 各フィールドの書き方
 
@@ -154,6 +160,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       explanation: fact.explanation ?? "",
       category: fact.category,
       tags: fact.tags,
+      format: a.format,
       user_answer: a.answer,
     };
   }));
@@ -223,13 +230,17 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     if (!gradeById.has(id)) return jsonResponse({ error: "AIが一部の採点結果を生成しませんでした。" }, 502);
   }
 
-  const toRecord = ids.filter((id) => !alreadyLogged.has(id));
+  const toRecord = answers.filter((a) => !alreadyLogged.has(a.id));
   const recordedById = new Map<string, { next_review_on: string | null }>();
   if (toRecord.length > 0) {
-    const batchArgs = toRecord.map((id) => {
-      const grade = gradeById.get(id)!;
+    const batchArgs = toRecord.map((a) => {
+      const grade = gradeById.get(a.id)!;
       return {
-        id, quality: grade.quality, verdict: grade.verdict, note: grade.note, format: QUIZ_FORMAT,
+        id: a.id,
+        quality: grade.quality,
+        verdict: grade.verdict,
+        note: grade.note,
+        format: a.format,
       };
     });
     const recorded = await requestSupabaseFunction(context.env, "record_answers_batch", {

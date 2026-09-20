@@ -71,8 +71,8 @@ test("quiz/start はpick_quizの候補にAI生成の問題文だけを付けて�
     assert.equal(response.status, 200);
     const body = await response.json() as { items: unknown[]; early: boolean };
     assert.deepEqual(body.items, [
-      { id: ID_1, question: "問題1" },
-      { id: ID_2, question: "問題2" },
+      { id: ID_1, question: "問題1", format: "一問一答", choices: null },
+      { id: ID_2, question: "問題2", format: "一問一答", choices: null },
     ]);
     assert.equal(JSON.stringify(body).includes("秘密のタイトル"), false);
     assert.equal(body.early, false);
@@ -236,6 +236,128 @@ test("quiz/start は同一オリジン・専用ヘッダーを要求する", asy
   assert.equal(response.status, 403);
 });
 
+test("quiz/start はおまかせ指定のとき習熟度とカテゴリから形式を割り当てる", async () => {
+  const originalFetch = globalThis.fetch;
+  let sentItems: { id: string; format: string }[] = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json([
+        pickedRow(ID_1, "ビジネス", { mastery: "未学習" }),
+        pickedRow(ID_2, "歴史", { mastery: "習得中" }),
+        pickedRow(ID_3, "英語", { mastery: "定着" }),
+      ]);
+    }
+    if (url.includes("/rest/v1/knowledge")) {
+      return Response.json([{ id: ID_1, tags: [] }, { id: ID_2, tags: [] }, { id: ID_3, tags: [] }]);
+    }
+    if (url.includes("/rest/v1/quiz_log")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      const body = JSON.parse(String(init?.body)) as { messages: { content: string }[] };
+      sentItems = JSON.parse(body.messages[0].content) as { id: string; format: string }[];
+      return anthropicToolResponse("submit_questions", {
+        questions: [
+          { id: ID_1, question: "問題1", choices: ["ア", "イ", "ウ", "エ"] },
+          { id: ID_2, question: "問題2" },
+          { id: ID_3, question: "問題3" },
+        ],
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({
+      request: quizPost("/api/quiz/start", { format: "おまかせ" }),
+      env,
+    });
+    assert.equal(response.status, 200);
+    const formatOf = (id: string) => sentItems.find((item) => item.id === id)?.format;
+    assert.equal(formatOf(ID_1), "四択");
+    assert.equal(formatOf(ID_2), "記述説明");
+    assert.equal(formatOf(ID_3), "産出");
+
+    const body = await response.json() as { items: { id: string; choices: string[] | null }[] };
+    const choiceItem = body.items.find((item) => item.id === ID_1)!;
+    assert.deepEqual([...choiceItem.choices!].sort(), ["ア", "イ", "ウ", "エ"]);
+    // 四択以外に選択肢を持たせない。
+    assert.equal(body.items.find((item) => item.id === ID_2)!.choices, null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start は四択の選択肢がそろわなければ自由記述に落とさず失敗させる", async () => {
+  const originalFetch = globalThis.fetch;
+  let choices: unknown = ["ア", "イ", "ウ"];
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json([pickedRow(ID_1, "ビジネス", { mastery: "未学習" })]);
+    }
+    if (url.includes("/rest/v1/knowledge")) return Response.json([{ id: ID_1, tags: [] }]);
+    if (url.includes("/rest/v1/quiz_log")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      return anthropicToolResponse("submit_questions", {
+        questions: [{ id: ID_1, question: "問題1", choices }],
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    for (const broken of [["ア", "イ", "ウ"], ["ア", "ア", "イ", "ウ"], ["ア", "", "イ", "ウ"], undefined]) {
+      choices = broken;
+      const response = await startRoute({
+        request: quizPost("/api/quiz/start", { format: "四択" }),
+        env,
+      });
+      assert.equal(response.status, 502, JSON.stringify(broken));
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start は形式を明示されたら全問をその形式で出す", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json([
+        pickedRow(ID_1, "ビジネス", { mastery: "未学習" }),
+        pickedRow(ID_2, "英語", { mastery: "定着" }),
+      ]);
+    }
+    if (url.includes("/rest/v1/knowledge")) {
+      return Response.json([{ id: ID_1, tags: [] }, { id: ID_2, tags: [] }]);
+    }
+    if (url.includes("/rest/v1/quiz_log")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      return anthropicToolResponse("submit_questions", {
+        questions: [{ id: ID_1, question: "問題1" }, { id: ID_2, question: "問題2" }],
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({
+      request: quizPost("/api/quiz/start", { format: "記述説明" }),
+      env,
+    });
+    const body = await response.json() as { items: { format: string }[] };
+    assert.deepEqual(body.items.map((item) => item.format), ["記述説明", "記述説明"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start は許可されていない形式を拒否する", async () => {
+  const response = await startRoute({
+    request: quizPost("/api/quiz/start", { format: "ソクラテス式" }),
+    env,
+  });
+  assert.equal(response.status, 400);
+});
+
 test("quiz/grade は採点結果をrecord_answers_batchで一括記録し、次回復習日を返す", async () => {
   const originalFetch = globalThis.fetch;
   const seenBatchBodies: unknown[] = [];
@@ -271,8 +393,8 @@ test("quiz/grade は採点結果をrecord_answers_batchで一括記録し、次�
   try {
     const response = await gradeRoute({
       request: quizPost("/api/quiz/grade", [
-        { id: ID_1, question: "出題した問題文1", answer: "完璧な回答" },
-        { id: ID_2, question: "出題した問題文2", answer: "わからない" },
+        { id: ID_1, question: "出題した問題文1", answer: "完璧な回答", format: "産出" },
+        { id: ID_2, question: "出題した問題文2", answer: "わからない", format: "四択" },
       ]),
       env,
     });
@@ -291,7 +413,8 @@ test("quiz/grade は採点結果をrecord_answers_batchで一括記録し、次�
     assert.equal(seenBatchBodies.length, 1);
     const batch = seenBatchBodies[0] as { p_answers: { id: string; format: string; note: string }[] };
     assert.equal(batch.p_answers.length, 2);
-    assert.equal(batch.p_answers[0].format, "一問一答");
+    assert.equal(batch.p_answers[0].format, "産出");
+    assert.equal(batch.p_answers[1].format, "四択");
     assert.equal(batch.p_answers[1].note, "用語を思い出せなかった");
     // 採点は「この問いに答えられたか」で行うため、出題した問題文をAIに渡す。
     assert.equal(seenGradePrompts.length, 1);

@@ -13,9 +13,12 @@ import {
   type AnthropicEnv,
 } from "../../_shared/anthropicClient.ts";
 import {
+  AUTO_FORMAT,
   readQuizJsonBody,
   validateQuizRequest,
   validateStartRequest,
+  type QuizFormat,
+  type QuizFormatRequest,
 } from "../../_shared/quizValidation.ts";
 
 interface FunctionContext {
@@ -26,6 +29,33 @@ interface FunctionContext {
 /** 1件あたり直近何回分のつまずきメモを出題の参考に渡すか。 */
 const NOTES_PER_ITEM = 2;
 const NOTE_FETCH_LIMIT = 200;
+
+/** 四択の選択肢数。DBにもUIにも持たせず、ここだけを基準にする。 */
+const CHOICE_COUNT = 4;
+
+interface QuizItem {
+  id: string;
+  question: string;
+  format: QuizFormat;
+  /** 四択のときだけ入る選択肢。他の形式ではnull。 */
+  choices: string[] | null;
+}
+
+/** AIの選択肢を受け取れる形に正規化する。件数・重複・空文字のどれかが崩れていたら不採用。 */
+function normalizeChoices(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const trimmed: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string") return null;
+    const text = entry.trim();
+    if (!text || trimmed.includes(text)) return null;
+    trimmed.push(text);
+  }
+  return trimmed.length === CHOICE_COUNT ? trimmed : null;
+}
+
+/** 「使わせる」問い方が成立する、語学系のカテゴリ。 */
+const PRODUCTION_CATEGORIES = new Set(["英語", "単語"]);
 
 interface PickedItem {
   id: string;
@@ -44,6 +74,27 @@ function isPickedItem(value: unknown): value is PickedItem {
     && (record.explanation === null || typeof record.explanation === "string")
     && typeof record.category === "string" && typeof record.mastery === "string"
     && typeof record.times_asked === "number" && typeof record.pool === "string";
+}
+
+/**
+ * おまかせ指定のとき、習熟度に合わせて問い方を上げる（再認→想起→説明→産出）。
+ * 形式を明示されたときはその形式をそのまま使う。
+ */
+function resolveFormat(item: PickedItem, requested: QuizFormatRequest): QuizFormat {
+  if (requested !== AUTO_FORMAT) return requested;
+  if (item.mastery === "未学習") return "四択";
+  if (item.mastery === "学習中") return "一問一答";
+  return PRODUCTION_CATEGORIES.has(item.category) ? "産出" : "記述説明";
+}
+
+/** 正解の位置が偏らないよう選択肢を並べ替える。AIの出力順をそのまま見せない。 */
+function shuffle(values: string[]): string[] {
+  const result = [...values];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
 }
 
 /** 同じカテゴリが連続しないよう出題順だけ入れ替える。DBが選んだ問題の差し替えはしない。 */
@@ -83,14 +134,31 @@ const SYSTEM_PROMPT = `あなたはナレッジDBの復習クイズの出題者�
   - 名言 / 哲学 / 気づき / 脳科学: 誰の言葉か、何を主張しているか、何が示唆されるかを問う
 - 例: title「1453 コンスタンティノープル陥落」→「1453年に起きた、ビザンツ帝国の終焉を決定づけた
   出来事は？」
-- 一問一答として答えられる粒度にする。「〜について説明してください」だけの漠然とした問題文にしない。
 - past_notes（前回の回答でどこを外したか）があれば、そこを突く問題文にする。
 - times_asked が 0 の項目は初出題。ひねらず、核心をまっすぐ問う。
+
+## 出題形式
+
+項目ごとの format に従って問い方を変える。
+
+- 一問一答: 選択肢なしで、答えを一語〜一文で言わせる。答えられる粒度にし、
+  「〜について説明してください」だけの漠然とした問題文にしない。
+- 四択: 問い方は一問一答と同じで、choices を必ず${CHOICE_COUNT}件付ける。正解1件と、紛らわしい誤答3件。
+  誤答は同じカテゴリ・同じ粒度・同じくらいの長さで作る（長い選択肢が正解という癖をつけない）。
+  「すべて正しい」「該当なし」は使わない。選択肢の文面に正解の根拠を書かない。
+  並び順はこちらで入れ替えるので、正解の位置は気にしなくてよい。
+- 記述説明: 「なぜそうなるか」「何と何をどう使い分けるか」を2〜4文で説明させる。
+  用語の言い換えで終わらず、理解していないと書けないことを問う。
+- 産出: 覚えた知識を使わせる。英語なら日本語の意味や使う場面を示して英語で書かせる、
+  それ以外なら具体例や適用場面を自分の言葉で作らせる。答えの語句は問題文に出さない。
+
+choices は四択の項目にだけ付ける。他の形式では省略する。
 
 ## 禁止事項
 
 - title の語句をそのまま問題文に含めない（答えがバレる）。
 - explanation の例文をそのまま引用しない。答えの語句を含む場合は「＿＿＿」で伏せる。
+- 四択の choices には当然ながら正解が入る。禁止しているのは question に答えを書くことだけ。
 
 ## 出力前の自己チェック
 
@@ -109,7 +177,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const validated = validateStartRequest(json.value);
   if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
 
-  const { categories, limit } = validated.value;
+  const { categories, limit, format } = validated.value;
   const picked = await requestSupabaseFunction(context.env, "pick_quiz", {
     p_include: categories.length > 0 ? categories : null,
     p_exclude: null,
@@ -170,6 +238,8 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     notesById.set(knowledge_id, history);
   }
 
+  const formatById = new Map(items.map((item) => [item.id, resolveFormat(item, format)]));
+
   const userText = JSON.stringify(items.map((item) => ({
     id: item.id,
     title: item.title,
@@ -178,6 +248,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     tags: tagsById.get(item.id) ?? [],
     mastery: item.mastery,
     times_asked: item.times_asked,
+    format: formatById.get(item.id),
     past_notes: notesById.get(item.id) ?? [],
   })));
 
@@ -199,6 +270,11 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
               properties: {
                 id: { type: "string" },
                 question: { type: "string" },
+                choices: {
+                  type: "array",
+                  description: "四択の項目にだけ付ける選択肢",
+                  items: { type: "string" },
+                },
               },
               required: ["id", "question"],
             },
@@ -215,23 +291,33 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     return jsonResponse({ error: "AIの応答形式が正しくありません。" }, 502);
   }
 
-  const byId = new Map<string, string>();
+  const byId = new Map<string, { question: string; choices: string[] | null }>();
   for (const entry of questions) {
     if (typeof entry !== "object" || entry === null) continue;
-    const { id, question } = entry as Record<string, unknown>;
+    const { id, question, choices } = entry as Record<string, unknown>;
     if (typeof id !== "string" || typeof question !== "string") continue;
     const trimmed = question.trim();
     if (!trimmed) continue;
-    byId.set(id, trimmed);
+    byId.set(id, { question: trimmed, choices: normalizeChoices(choices) });
   }
 
-  const responseItems: { id: string; question: string }[] = [];
+  const responseItems: QuizItem[] = [];
   for (const item of items) {
-    const question = byId.get(item.id);
-    if (!question) {
+    const generatedItem = byId.get(item.id);
+    const itemFormat = formatById.get(item.id)!;
+    if (!generatedItem) {
       return jsonResponse({ error: "AIが一部の問題を生成しませんでした。" }, 502);
     }
-    responseItems.push({ id: item.id, question });
+    // 四択は選択肢がそろって初めて成立するので、欠けていたら黙って自由記述にはしない。
+    if (itemFormat === "四択" && !generatedItem.choices) {
+      return jsonResponse({ error: "AIが一部の選択肢を生成しませんでした。" }, 502);
+    }
+    responseItems.push({
+      id: item.id,
+      question: generatedItem.question,
+      format: itemFormat,
+      choices: itemFormat === "四択" ? shuffle(generatedItem.choices!) : null,
+    });
   }
 
   return jsonResponse({

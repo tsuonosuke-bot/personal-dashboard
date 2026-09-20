@@ -1,7 +1,17 @@
 import { useMemo, useState } from "react";
-import { DEFAULT_QUIZ_LIMIT, QUIZ_LIMIT_OPTIONS, useQuiz } from "../hooks/useQuiz";
+import {
+  DEFAULT_QUIZ_FORMAT, DEFAULT_QUIZ_LIMIT, QUIZ_FORMAT_OPTIONS, QUIZ_LIMIT_OPTIONS, useQuiz,
+} from "../hooks/useQuiz";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
-import type { Knowledge, QuizLog } from "../types";
+import type { Knowledge, QuizFormatRequest, QuizLog, QuizQuestion } from "../types";
+
+/** 形式ごとに、どこまで書けばよいかを入力欄のプレースホルダで伝える。 */
+const ANSWER_PLACEHOLDER: Record<string, string> = {
+  一問一答: "回答を入力",
+  四択: "回答を入力",
+  記述説明: "理由や使い分けまで含めて説明する",
+  産出: "覚えた知識を実際に使って書く",
+};
 
 const VERDICT_CLASS: Record<string, string> = {
   正解: "quiz-verdict-ok",
@@ -19,6 +29,7 @@ export function QuizView({ knowledge, quizLog, onExit }: Props) {
   const quiz = useQuiz();
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [limit, setLimit] = useState<number>(DEFAULT_QUIZ_LIMIT);
+  const [format, setFormat] = useState<QuizFormatRequest>(DEFAULT_QUIZ_FORMAT);
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const categories = useMemo(
@@ -45,7 +56,7 @@ export function QuizView({ knowledge, quizLog, onExit }: Props) {
 
         {quiz.stage === "setup" && (
           <div className="quiz-setup card">
-            <p>出題するカテゴリと問題数を選んでください。</p>
+            <p>出題するカテゴリ・問題数・形式を選んでください。</p>
             <div className="quiz-category-select" role="group" aria-label="出題カテゴリ">
               <button
                 aria-pressed={selectedCategories.length === 0}
@@ -73,9 +84,23 @@ export function QuizView({ knowledge, quizLog, onExit }: Props) {
                 ))}
               </select>
             </label>
+            <label className="quiz-limit-select">
+              出題形式
+              <select
+                value={format}
+                onChange={(event) => setFormat(event.target.value as QuizFormatRequest)}
+              >
+                {QUIZ_FORMAT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <p className="quiz-format-hint muted">
+              {QUIZ_FORMAT_OPTIONS.find((option) => option.value === format)?.hint}
+            </p>
             <button
               className="primary-button quiz-start-button"
-              onClick={() => void quiz.start(selectedCategories, limit)}
+              onClick={() => void quiz.start(selectedCategories, limit, format)}
             >
               出題する
             </button>
@@ -99,12 +124,13 @@ export function QuizView({ knowledge, quizLog, onExit }: Props) {
           <p className="quiz-early-note">本日期限の分はないので、復習日が近い順に出します。</p>
         )}
 
-        {quiz.stage === "quiz" && (
+        {quiz.stage === "quiz" && quiz.questions[quiz.index] && (
           <QuizQuestionCard
+            key={quiz.questions[quiz.index].id}
             index={quiz.index}
             total={quiz.questions.length}
-            question={quiz.questions[quiz.index]?.question ?? ""}
-            answer={quiz.answers[quiz.questions[quiz.index]?.id ?? ""] ?? ""}
+            question={quiz.questions[quiz.index]}
+            answer={quiz.answers[quiz.questions[quiz.index].id] ?? ""}
             onAnswer={quiz.answerCurrent}
             onBack={quiz.goBack}
             onNext={quiz.goNext}
@@ -126,6 +152,7 @@ export function QuizView({ knowledge, quizLog, onExit }: Props) {
                     <div className="quiz-result-head">
                       <span className={`badge ${VERDICT_CLASS[result.verdict] ?? ""}`}>{result.verdict}</span>
                       <span className="quiz-result-q">q{result.quality}</span>
+                      <span className="quiz-result-format">{question.format}</span>
                       {!result.recorded && <span className="muted">（本日分は記録済み）</span>}
                     </div>
                     <p className="quiz-result-question">{question.question}</p>
@@ -177,7 +204,7 @@ function QuizQuestionCard({
 }: {
   index: number;
   total: number;
-  question: string;
+  question: QuizQuestion;
   answer: string;
   onAnswer: (text: string) => void;
   onBack: () => void;
@@ -187,16 +214,39 @@ function QuizQuestionCard({
 }) {
   return (
     <div className="quiz-question card">
-      <p className="quiz-progress">{index + 1} / {total}</p>
-      <p className="quiz-question-text">{question}</p>
-      <textarea
-        className="quiz-answer-input"
-        rows={5}
-        value={answer}
-        placeholder="回答を入力"
-        autoFocus
-        onChange={(event) => onAnswer(event.target.value)}
-      />
+      <p className="quiz-progress">
+        {index + 1} / {total}
+        <span className="quiz-question-format">{question.format}</span>
+      </p>
+      <p className="quiz-question-text">{question.question}</p>
+      {question.choices ? (
+        <div className="quiz-choices" role="radiogroup" aria-label="選択肢">
+          {question.choices.map((choice) => (
+            <label
+              key={choice}
+              className={`quiz-choice${answer === choice ? " selected" : ""}`}
+            >
+              <input
+                type="radio"
+                name={`choice-${question.id}`}
+                value={choice}
+                checked={answer === choice}
+                onChange={() => onAnswer(choice)}
+              />
+              <span>{choice}</span>
+            </label>
+          ))}
+        </div>
+      ) : (
+        <textarea
+          className="quiz-answer-input"
+          rows={question.format === "一問一答" ? 3 : 6}
+          value={answer}
+          placeholder={ANSWER_PLACEHOLDER[question.format]}
+          autoFocus
+          onChange={(event) => onAnswer(event.target.value)}
+        />
+      )}
       <div className="quiz-question-actions">
         <button onClick={onBack} disabled={index === 0}>← 前へ</button>
         {isLast ? (

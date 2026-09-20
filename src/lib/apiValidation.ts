@@ -1,5 +1,5 @@
 import type {
-  Knowledge, Mastery, QuizEmptyReason, QuizGradeResult, QuizLog,
+  Knowledge, Mastery, QuizEmptyReason, QuizFormat, QuizGradeResult, QuizLog,
   QuizQuestion, QuizStart, QuizVerdict,
 } from "../types";
 
@@ -12,6 +12,7 @@ interface PageEnvelope {
 
 const MASTERY_VALUES = new Set<Mastery>(["未学習", "学習中", "習得中", "定着"]);
 const VERDICT_VALUES = new Set<QuizVerdict>(["正解", "不正解", "部分正解"]);
+const QUIZ_FORMAT_VALUES = new Set<QuizFormat>(["一問一答", "四択", "記述説明", "産出"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -111,9 +112,20 @@ export function parseKnowledge(value: unknown): Knowledge {
 export function parseQuizQuestion(value: unknown): QuizQuestion {
   const entity = "出題";
   if (!isRecord(value)) return fail(entity);
+  const format = stringValue(value, "format", entity);
+  if (!QUIZ_FORMAT_VALUES.has(format as QuizFormat)) return fail(entity, "format");
+  const choices = value.choices === null || value.choices === undefined
+    ? null
+    : stringArrayValue(value, "choices", entity);
+  // 四択は選択肢がないと回答できないため、形式と選択肢の食い違いを通さない。
+  if ((format === "四択") !== (choices !== null && choices.length > 0)) {
+    return fail(entity, "choices");
+  }
   return {
     id: stringValue(value, "id", entity),
     question: stringValue(value, "question", entity),
+    format: format as QuizFormat,
+    choices,
   };
 }
 
