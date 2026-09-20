@@ -32,7 +32,7 @@ test("hub combines finance, knowledge, inbox, and recent Active Wants", () => {
   assert.equal(hub.summary.dueKnowledge, 1);
   assert.equal(hub.summary.weakKnowledge, 1);
   assert.equal(hub.summary.activeWants, 2);
-  assert.equal(hub.navigation.knowledgeReview, "/go/knowledge?view=quiz");
+  assert.equal(hub.navigation.knowledgeReview, "/go/knowledge?view=quiz&mode=daily");
   assert.deepEqual(hub.wants.map((item) => item.id), [2, 1]);
   assert.deepEqual(hub.wants.map((item) => item.url), [
     "/compass/?view=wants&id=2",
@@ -191,9 +191,9 @@ test("hub route keeps the Supabase secret in server-side headers", async () => {
     });
     const body = await response.text();
     assert.equal(response.status, 200);
-    assert.equal(requests.length, 10);
+    assert.equal(requests.length, 11);
     assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 8);
-    assert.equal(requests.filter((entry) => entry.headers["X-Hub-Service"] === "hub-service-token-that-is-at-least-32-characters").length, 2);
+    assert.equal(requests.filter((entry) => entry.headers["X-Hub-Service"] === "hub-service-token-that-is-at-least-32-characters").length, 3);
     assert.equal(requests.filter((entry) => entry.url.includes("/daily_journal?")).length, 3);
     assert.ok(requests.every((entry) => !entry.url.includes("secret")));
     assert.doesNotMatch(body, /server-secret|hub-service-token/);

@@ -32,12 +32,16 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     if (target.protocol !== "https:") throw new Error("invalid protocol");
     const requestUrl = new URL(context.request.url);
     const requestedView = requestUrl.searchParams.get("view");
+    const requestedMode = requestUrl.searchParams.get("mode");
     const requestedKnowledge = requestUrl.searchParams.get("knowledge");
     if (context.params.target === "knowledge" && (requestedView === "quiz" || isUuid(requestedKnowledge))) {
       target.pathname = "/";
       target.search = "";
       target.hash = "";
-      if (requestedView === "quiz") target.searchParams.set("view", "quiz");
+      if (requestedView === "quiz") {
+        target.searchParams.set("view", "quiz");
+        if (requestedMode === "daily") target.searchParams.set("mode", "daily");
+      }
       else if (requestedKnowledge) target.searchParams.set("knowledge", requestedKnowledge);
     }
   } catch {
