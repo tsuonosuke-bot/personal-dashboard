@@ -68,12 +68,18 @@ function renderNavigation(navigation) {
 
 function renderSummary(summary) {
   els.currentMonthSpend.textContent = formatYen(summary.currentMonthSpend);
-  els.dueKnowledge.textContent = formatCount(summary.dueKnowledge);
+  els.dueKnowledge.textContent = Number.isFinite(summary.remainingKnowledgeToday)
+    ? `${summary.remainingKnowledgeToday} / ${summary.todayKnowledgeTotal}`
+    : "—";
   els.pendingInbox.textContent = formatCount(summary.pendingInbox);
-  els.weakKnowledge.textContent = Number.isFinite(summary.weakKnowledge) ? `苦手候補 ${summary.weakKnowledge}件` : "取得できません";
+  els.weakKnowledge.textContent = Number.isFinite(summary.overdueKnowledge)
+    ? `期限超過 ${summary.overdueKnowledge}件 · 完了 ${summary.completedKnowledgeToday}件`
+    : "取得できません";
   els.compassMeta.textContent = `未整理 ${formatCount(summary.pendingInbox)} · Wants ${formatCount(summary.activeWants)}`;
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
-  els.knowledgeMeta.textContent = Number.isFinite(summary.dueKnowledge) ? `期限 ${summary.dueKnowledge}` : "取得できません";
+  els.knowledgeMeta.textContent = Number.isFinite(summary.remainingKnowledgeToday)
+    ? `今日 残り${summary.remainingKnowledgeToday}件`
+    : "取得できません";
   els.habitsMeta.textContent = Number.isFinite(summary.remainingHabitsToday) ? `残り ${summary.remainingHabitsToday}件` : "取得できません";
   els.remainingHabits.textContent = formatCount(summary.remainingHabitsToday);
   els.habitProgress.textContent = Number.isFinite(summary.completedHabitsToday)

@@ -41,6 +41,15 @@ interface KnowledgeRow {
   created_at?: unknown;
   archived?: unknown;
 }
+interface KnowledgeReviewStatus {
+  review_on?: unknown;
+  limit?: unknown;
+  total?: unknown;
+  completed?: unknown;
+  remaining?: unknown;
+  due_total?: unknown;
+  overdue_total?: unknown;
+}
 interface DailyJournalRow {
   entry_date?: unknown;
   summary?: unknown;
@@ -256,6 +265,25 @@ async function fetchDashboardRows(env: HubEnv, baseUrl: string, path: string): P
   return rows;
 }
 
+async function fetchDashboardJson(env: HubEnv, baseUrl: string, path: string): Promise<unknown> {
+  const token = env.HUB_SERVICE_TOKEN?.trim();
+  if (!token || token.length < 32) throw new HubError("HUB_SERVICE_NOT_CONFIGURED", "Hub service token is not configured.", 503);
+  const endpoint = new URL(path, baseUrl);
+  let response: Response;
+  try {
+    response = await fetch(endpoint, { headers: { Accept: "application/json", "X-Hub-Service": token } });
+  } catch {
+    throw new HubError("HUB_SERVICE_UNAVAILABLE", `Could not reach ${endpoint.host}.`);
+  }
+  if (!response.ok) {
+    const code = response.status === 401 || response.status === 403
+      ? "HUB_SERVICE_ACCESS_DENIED"
+      : "HUB_SERVICE_REQUEST_FAILED";
+    throw new HubError(code, `${endpoint.host} returned ${response.status}.`);
+  }
+  return response.json();
+}
+
 async function fetchLatestJournal(env: HubEnv, targetDate: string): Promise<DailyJournalRow | null> {
   const { url, key } = connection(env);
   const endpoint = new URL("/rest/v1/daily_journal", url);
@@ -419,6 +447,7 @@ export function normalizeHub(
   journalMoments: JournalMoment[] = emptyJournalMoments(now),
   habitOverview: HabitOverview | null = null,
   focusRows: FocusRow[] = [],
+  reviewStatus: KnowledgeReviewStatus | null = null,
 ) {
   const { today, year, month } = jstDateParts(now);
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -468,7 +497,7 @@ export function normalizeHub(
       compass: "/compass/",
       financial: "/go/financial",
       knowledge: "/go/knowledge",
-      knowledgeReview: "/go/knowledge?view=quiz",
+      knowledgeReview: "/go/knowledge?view=quiz&mode=daily",
       habits: "/habits/",
     },
     summary: {
@@ -476,6 +505,18 @@ export function normalizeHub(
       previousMonthSpend: availability.expenses ? previousSpend : null,
       pendingInbox: availability.inbox ? inboxRows.filter((row) => text(row.status).toLowerCase() === "pending").length : null,
       dueKnowledge: availability.knowledge ? knowledge.dueCount : null,
+      todayKnowledgeTotal: availability.knowledge
+        ? integer(reviewStatus?.total) ?? knowledge.dueCount
+        : null,
+      completedKnowledgeToday: availability.knowledge
+        ? integer(reviewStatus?.completed) ?? 0
+        : null,
+      remainingKnowledgeToday: availability.knowledge
+        ? integer(reviewStatus?.remaining) ?? knowledge.dueCount
+        : null,
+      overdueKnowledge: availability.knowledge
+        ? integer(reviewStatus?.overdue_total) ?? knowledge.dueCount
+        : null,
       weakKnowledge: availability.knowledge ? knowledge.weakCount : null,
       activeWants: availability.wants ? activeWants.length : null,
       activeHabits: availability.habits !== false ? habitOverview?.summary.active ?? 0 : null,
@@ -502,22 +543,23 @@ export function normalizeHub(
 export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
-  const [inbox, wants, focus, expenses, knowledge, journal, habits] = await Promise.allSettled([
+  const [inbox, wants, focus, expenses, knowledge, reviewStatus, journal, habits] = await Promise.allSettled([
     fetchRows(env, { table: "idea_inbox", select: "status" }) as Promise<InboxRow[]>,
     fetchRows(env, { table: "wants", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<WantRow[]>,
     fetchFocusRows(env),
     fetchDashboardRows(env, financialUrl, "/api/expenses") as Promise<ExpenseRow[]>,
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,
+    fetchDashboardJson(env, knowledgeUrl, "/api/review/queue?limit=15") as Promise<KnowledgeReviewStatus>,
     loadJournalMoments(env, now),
     loadHabits(env, now),
   ] as const);
-  const results = { inbox, wants, focus, expenses, knowledge, journal, habits };
+  const results = { inbox, wants, focus, expenses, knowledge, reviewStatus, journal, habits };
   const availability: HubAvailability = {
     inbox: inbox.status === "fulfilled",
     wants: wants.status === "fulfilled",
     focus: focus.status === "fulfilled",
     expenses: expenses.status === "fulfilled",
-    knowledge: knowledge.status === "fulfilled",
+    knowledge: knowledge.status === "fulfilled" && reviewStatus.status === "fulfilled",
     journal: journal.status === "fulfilled",
     habits: habits.status === "fulfilled",
   };
@@ -540,6 +582,7 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     journal.status === "fulfilled" ? journal.value : emptyJournalMoments(now),
     habits.status === "fulfilled" ? habits.value : null,
     focus.status === "fulfilled" ? focus.value : [],
+    reviewStatus.status === "fulfilled" ? reviewStatus.value : null,
   );
 }
 

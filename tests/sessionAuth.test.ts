@@ -83,6 +83,16 @@ test("Knowledge card shortcut ignores an invalid record identifier", async () =>
   assert.equal(response.headers.get("Location"), "https://knowledge.example/");
 });
 
+test("Knowledge review shortcut preserves daily queue mode", async () => {
+  const response = await goRoute({
+    request: new Request("https://hub.example/go/knowledge?view=quiz&mode=daily"),
+    env: { ...env, NAV_KNOWLEDGE_URL: "https://knowledge.example/" },
+    params: { target: "knowledge" },
+  });
+  const location = new URL(response.headers.get("Location") || "https://invalid.example/");
+  assert.equal(location.searchParams.get("next"), "/?view=quiz&mode=daily");
+});
+
 test("dashboard navigation falls back to the protected target without SSO", async () => {
   const response = await goRoute({
     request: new Request("https://hub.example/go/knowledge?view=quiz"),
