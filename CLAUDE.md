@@ -44,7 +44,11 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - `id` はuuid文字列
 - `mastery` は `未学習` / `学習中` / `習得中` / `定着` の4種。この語彙を変えない
 - 他: `title`, `explanation`, `category`, `tags`, `accuracy`,
-  `next_review_on`, `archived`, `created_at`, `content_version`
+  `next_review_on`, `archived`, `created_at`, `content_version`, `priority`, `base_interval_days`
+- `priority` は `最高` / `高` / `中` / `低` / `最低`。従来間隔を維持する既定値は `高`。
+  SM-2の従来間隔に対して最高=約0.5倍、高=1倍、中=約1.5倍、低=約2倍、
+  最低=約3倍（最大365日）で次回復習日を決める
+- `base_interval_days` は優先度適用前の間隔。倍率の累積を避ける内部列で、ブラウザへは返さない
 - 通常一覧は `archived = false`、アーカイブ一覧は `archived = true` が対象
 
 ### `quiz_log`
@@ -82,7 +86,7 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 
 ### 復習クイズのDB関数
 
-SM-2の計算は全てDB関数側にあり、Functions側やブラウザ側で再実装しない。
+SM-2と優先度による間隔調整の計算は全てDB関数側にあり、Functions側やブラウザ側で再実装しない。
 
 - `pick_quiz(p_include, p_exclude, p_limit, p_include_mastered=false)`: 出題候補を返す
 - `record_answer(p_knowledge_id, p_quality, p_verdict, p_note, p_format)`: 採点1件を

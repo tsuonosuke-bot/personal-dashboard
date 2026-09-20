@@ -1,5 +1,5 @@
 import type {
-  Knowledge, Mastery, QuizEmptyReason, QuizFormat, QuizGradeResult, QuizLog,
+  Knowledge, KnowledgePriority, Mastery, QuizEmptyReason, QuizFormat, QuizGradeResult, QuizLog,
   QuizQuestion, QuizStart, QuizVerdict,
 } from "../types";
 
@@ -11,6 +11,7 @@ interface PageEnvelope {
 }
 
 const MASTERY_VALUES = new Set<Mastery>(["未学習", "学習中", "習得中", "定着"]);
+const PRIORITY_VALUES = new Set<KnowledgePriority>(["最高", "高", "中", "低", "最低"]);
 const VERDICT_VALUES = new Set<QuizVerdict>(["正解", "不正解", "部分正解"]);
 const QUIZ_FORMAT_VALUES = new Set<QuizFormat>(["一問一答", "四択", "記述説明", "産出"]);
 
@@ -85,6 +86,8 @@ export function parseKnowledge(value: unknown): Knowledge {
   if (!isRecord(value)) return fail(entity);
   const mastery = stringValue(value, "mastery", entity);
   if (!MASTERY_VALUES.has(mastery as Mastery)) return fail(entity, "mastery");
+  const priority = stringValue(value, "priority", entity);
+  if (!PRIORITY_VALUES.has(priority as KnowledgePriority)) return fail(entity, "priority");
   if (typeof value.archived !== "boolean") return fail(entity, "archived");
   const contentVersion = numberValue(value, "content_version", entity);
   if (!Number.isSafeInteger(contentVersion) || contentVersion < 1) return fail(entity, "content_version");
@@ -95,6 +98,7 @@ export function parseKnowledge(value: unknown): Knowledge {
     source_note: nullableStringValue(value, "source_note", entity),
     category: stringValue(value, "category", entity),
     mastery: mastery as Mastery,
+    priority: priority as KnowledgePriority,
     ef: numberValue(value, "ef", entity),
     reps: numberValue(value, "reps", entity),
     interval_days: numberValue(value, "interval_days", entity),

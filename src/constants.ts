@@ -1,8 +1,17 @@
-import type { Mastery } from "./types";
+import type { KnowledgePriority, Mastery } from "./types";
 
 export const ALL = "すべて";
 
 export const MASTERY_ORDER: Mastery[] = ["未学習", "学習中", "習得中", "定着"];
+export const PRIORITY_ORDER: KnowledgePriority[] = ["最高", "高", "中", "低", "最低"];
+
+export const PRIORITY_INTERVAL_HINTS: Record<KnowledgePriority, string> = {
+  最高: "現在の標準の約1/2の間隔",
+  高: "現在の標準間隔",
+  中: "現在の標準の約1.5倍の間隔",
+  低: "現在の標準の約2倍の間隔",
+  最低: "現在の標準の約3倍の間隔",
+};
 
 export const MASTERY_COLORS: Record<Mastery, string> = {
   未学習: "#f87171",

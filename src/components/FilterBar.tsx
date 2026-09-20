@@ -1,4 +1,4 @@
-import { ALL, MASTERY_ORDER } from "../constants";
+import { ALL, MASTERY_ORDER, PRIORITY_ORDER } from "../constants";
 import type { Filters } from "../types";
 
 interface Props {
@@ -25,6 +25,12 @@ export function FilterBar({ filters, categories, resultCount, onChange }: Props)
       <select value={filters.mastery} onChange={(e) => onChange({ mastery: e.target.value })}>
         {[ALL, ...MASTERY_ORDER].map((m) => (
           <option key={m} value={m}>{m}</option>
+        ))}
+      </select>
+      <select aria-label="優先度" value={filters.priority} onChange={(e) => onChange({ priority: e.target.value })}>
+        <option value={ALL}>優先度: すべて</option>
+        {PRIORITY_ORDER.map((priority) => (
+          <option key={priority} value={priority}>優先度: {priority}</option>
         ))}
       </select>
       <select

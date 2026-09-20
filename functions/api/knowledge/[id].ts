@@ -18,7 +18,7 @@ interface FunctionContext {
 }
 
 const SELECT_COLUMNS =
-  "id,title,explanation,source_note,category,mastery,ef,reps,interval_days,times_asked,times_correct,learned_on,last_asked_on,next_review_on,archived,created_at,accuracy,tags,mastery_streak,content_version";
+  "id,title,explanation,source_note,category,mastery,priority,ef,reps,interval_days,times_asked,times_correct,learned_on,last_asked_on,next_review_on,archived,created_at,accuracy,tags,mastery_streak,content_version";
 
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
   if (context.request.method !== "PATCH") return methodNotAllowed("PATCH");

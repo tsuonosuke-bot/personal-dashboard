@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
-import { MASTERY_ORDER } from "../constants";
+import { MASTERY_ORDER, PRIORITY_INTERVAL_HINTS, PRIORITY_ORDER } from "../constants";
 import { useModalDialog } from "../hooks/useModalDialog";
-import type { Knowledge, KnowledgeDraft, Mastery } from "../types";
+import type { Knowledge, KnowledgeDraft, KnowledgePriority, Mastery } from "../types";
 
 interface Props {
   knowledge: Knowledge | null;
@@ -20,6 +20,7 @@ export function KnowledgeFormModal({
   const [title, setTitle] = useState(knowledge?.title ?? "");
   const [category, setCategory] = useState(knowledge?.category ?? "");
   const [mastery, setMastery] = useState<Mastery>(knowledge?.mastery ?? "未学習");
+  const [priority, setPriority] = useState<KnowledgePriority>(knowledge?.priority ?? "高");
   const [explanation, setExplanation] = useState(knowledge?.explanation ?? "");
   const [sourceNote, setSourceNote] = useState(knowledge?.source_note ?? "");
   const [tags, setTags] = useState((knowledge?.tags ?? []).join(", "));
@@ -33,6 +34,7 @@ export function KnowledgeFormModal({
       title,
       category,
       mastery,
+      priority,
       explanation: explanation.trim() || null,
       source_note: sourceNote.trim() || null,
       tags: parsedTags,
@@ -62,10 +64,21 @@ export function KnowledgeFormModal({
               <datalist id={categoryListId}>{categories.map((value) => <option key={value} value={value} />)}</datalist>
             </label>
             <label className="field">
+              <span>優先度</span>
+              <select value={priority} onChange={(event) => setPriority(event.target.value as KnowledgePriority)}>
+                {PRIORITY_ORDER.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+              <small className="field-hint">{PRIORITY_INTERVAL_HINTS[priority]}で復習します。</small>
+            </label>
+            <label className="field">
               <span>習熟度</span>
               <select value={mastery} onChange={(event) => setMastery(event.target.value as Mastery)}>
                 {MASTERY_ORDER.map((value) => <option key={value} value={value}>{value}</option>)}
               </select>
+            </label>
+            <label className="field">
+              <span>次回復習日</span>
+              <input type="date" value={nextReviewOn} onChange={(event) => setNextReviewOn(event.target.value)} />
             </label>
             <label className="field full-field">
               <span>説明</span>
@@ -75,13 +88,9 @@ export function KnowledgeFormModal({
               <span>出典メモ</span>
               <textarea rows={3} maxLength={5_000} value={sourceNote} onChange={(event) => setSourceNote(event.target.value)} />
             </label>
-            <label className="field">
+            <label className="field full-field">
               <span>タグ</span>
               <input maxLength={1_500} placeholder="カンマ区切り" value={tags} onChange={(event) => setTags(event.target.value)} />
-            </label>
-            <label className="field">
-              <span>次回復習日</span>
-              <input type="date" value={nextReviewOn} onChange={(event) => setNextReviewOn(event.target.value)} />
             </label>
           </div>
           {error && <div className="form-error" role="alert">{error}</div>}

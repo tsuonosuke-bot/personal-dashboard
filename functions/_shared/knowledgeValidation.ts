@@ -3,6 +3,8 @@ export const MAX_REQUEST_CHARS = 25_000;
 
 export const MASTERY_VALUES = ["未学習", "学習中", "習得中", "定着"] as const;
 type MasteryValue = (typeof MASTERY_VALUES)[number];
+export const PRIORITY_VALUES = ["最高", "高", "中", "低", "最低"] as const;
+type PriorityValue = (typeof PRIORITY_VALUES)[number];
 
 export interface KnowledgeWriteInput {
   title?: string;
@@ -10,6 +12,7 @@ export interface KnowledgeWriteInput {
   source_note?: string | null;
   category?: string;
   mastery?: MasteryValue;
+  priority?: PriorityValue;
   tags?: string[];
   next_review_on?: string | null;
   archived?: boolean;
@@ -34,7 +37,7 @@ export interface RequestGuardError {
 
 const EDITABLE_KEYS = new Set([
   "title", "explanation", "source_note", "category", "mastery",
-  "tags", "next_review_on", "archived",
+  "priority", "tags", "next_review_on", "archived",
 ]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -166,6 +169,12 @@ export function validateKnowledgeInput(
       return { ok: false, error: "習熟度が正しくありません。" };
     }
     result.mastery = input.mastery as MasteryValue;
+  }
+  if ("priority" in input) {
+    if (typeof input.priority !== "string" || !(PRIORITY_VALUES as readonly string[]).includes(input.priority)) {
+      return { ok: false, error: "優先度が正しくありません。" };
+    }
+    result.priority = input.priority as PriorityValue;
   }
   if ("tags" in input) {
     if (!Array.isArray(input.tags) || input.tags.length > 30) {

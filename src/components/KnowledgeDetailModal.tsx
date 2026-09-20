@@ -39,6 +39,7 @@ export function KnowledgeDetailModal({
         <div className="detail-body">
           <div className="detail-status">
             <span className={`mastery-pill mastery-${knowledge.mastery}`}>{knowledge.mastery}</span>
+            <span className={`badge priority-${knowledge.priority}`}>優先度 {knowledge.priority}</span>
             {knowledge.tags.map((tag) => <span className="tag" key={tag}>#{tag}</span>)}
           </div>
           <div className="content-block">
