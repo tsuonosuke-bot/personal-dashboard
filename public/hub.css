@@ -15,6 +15,8 @@
   --violet-soft: #ebe7f4;
   --rust: #9a4d2e;
   --rust-soft: #f3e1d7;
+  --plum: #7a3f62;
+  --plum-soft: #f2e4ec;
   font-family: Inter, "Segoe UI", "Yu Gothic UI", Meiryo, sans-serif;
 }
 
@@ -79,7 +81,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
   transition: border-color .18s ease, transform .18s ease;
 }
 .dashboard-card:hover { transform: translateY(-2px); border-color: var(--accent); }
-.writing-card { --accent: var(--orange); --soft: var(--orange-soft); }
+.writing-card { --accent: var(--plum); --soft: var(--plum-soft); }
 .finance-card { --accent: var(--blue); --soft: var(--blue-soft); }
 .knowledge-card { --accent: var(--violet); --soft: var(--violet-soft); }
 .habits-card { --accent: var(--rust); --soft: var(--rust-soft); }

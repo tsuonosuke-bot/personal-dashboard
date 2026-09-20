@@ -31,5 +31,9 @@ test("Writing page manages themes separately from completed work", async () => {
   assert.doesNotMatch(script, /notesInput|nextReviewInput|draftUrlInput/);
   assert.match(script, /window\.addEventListener\("popstate"/);
   assert.match(script, /指定されたWritingテーマを開けません/);
+  assert.match(css, /--accent: #7a3f62/);
+  assert.match(css, /\.brand span \{[^}]*background: var\(--accent\)/);
+  assert.match(css, /\.topic-status\.drafting \{ background: var\(--accent-soft\); color: var\(--accent\); \}/);
+  assert.doesNotMatch(css, /--green: #245949/);
   assert.match(css, /@media \(max-width: 760px\)/);
 });

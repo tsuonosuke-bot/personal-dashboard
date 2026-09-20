@@ -57,6 +57,7 @@ test("Hub keeps five primary destinations readable on desktop and mobile", async
 
   assert.match(css, /@media \(max-width: 620px\)/);
   assert.match(css, /\.dashboard-grid \{ display: grid; grid-template-columns: repeat\(5, 1fr\);/);
+  assert.match(css, /\.writing-card \{ --accent: var\(--plum\); --soft: var\(--plum-soft\); \}/);
   assert.match(css, /\.dashboard-grid \{ grid-template-columns: repeat\(3, 1fr\); gap: 5px; \}/);
   assert.match(css, /\.dashboard-card \{ min-height: 88px;/);
   assert.match(css, /\.metric-grid \{ grid-template-columns: 1fr 1fr;/);
