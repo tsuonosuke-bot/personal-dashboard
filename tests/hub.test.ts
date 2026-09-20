@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeHub } from "../functions/_shared/hub.ts";
+import { journalTargets, loadHub, normalizeHub, normalizeJournalMoment } from "../functions/_shared/hub.ts";
 import { onRequest as hubRoute } from "../functions/api/hub.ts";
 
 const now = new Date("2026-09-14T03:00:00.000Z");
@@ -59,7 +59,7 @@ test("unavailable sections use null summaries instead of misleading zeroes", () 
     [],
     {},
     now,
-    { inbox: true, wants: true, expenses: false, knowledge: false },
+    { inbox: true, wants: true, expenses: false, knowledge: false, journal: true },
   );
   assert.equal(hub.source.state, "partial");
   assert.deepEqual(hub.source.unavailable, ["expenses", "knowledge"]);
@@ -67,6 +67,69 @@ test("unavailable sections use null summaries instead of misleading zeroes", () 
   assert.equal(hub.summary.dueKnowledge, null);
   assert.equal(hub.summary.pendingInbox, 1);
   assert.equal(hub.summary.activeWants, 1);
+});
+
+test("Journal target dates use JST calendar subtraction and clamp month ends", () => {
+  const targets = journalTargets(new Date("2024-03-31T03:00:00.000Z"));
+  assert.deepEqual(targets.map((target) => target.targetDate), ["2024-02-29", "2023-09-30", "2023-03-31"]);
+  assert.deepEqual(targets.map((target) => target.label), ["1か月前", "半年前", "1年前"]);
+  const afterJstMidnight = journalTargets(new Date("2026-09-19T15:30:00.000Z"));
+  assert.deepEqual(afterJstMidnight.map((target) => target.targetDate), ["2026-08-20", "2026-03-20", "2025-09-20"]);
+});
+
+test("Journal uses the closest past entry and exposes safe Notion links", () => {
+  const target = { key: "oneMonth" as const, label: "1か月前", targetDate: "2026-08-31" };
+  const moment = normalizeJournalMoment(target, {
+    entry_date: "2026-08-28",
+    summary: "振り返りの要約",
+    emotion_summary: "落ち着いていた",
+    mood: 1,
+    emotions: ["安心"],
+    themes: ["家族"],
+    entities: ["Notion"],
+    categories: ["日常"],
+    source_pages: ["12345678-1234-1234-1234-1234567890ab", "invalid", "123456781234123412341234567890ab"],
+  });
+  assert.equal(moment.entry?.entryDate, "2026-08-28");
+  assert.equal(moment.entry?.daysBeforeTarget, 3);
+  assert.equal(moment.entry?.mood, 1);
+  assert.deepEqual(moment.entry?.entities, ["Notion"]);
+  assert.deepEqual(moment.entry?.sourcePageUrls, ["https://app.notion.com/123456781234123412341234567890ab"]);
+
+  const future = normalizeJournalMoment(target, { entry_date: "2026-09-01", summary: "未来" });
+  assert.equal(future.entry, null);
+  assert.equal(normalizeJournalMoment(target, null).entry, null);
+});
+
+test("Journal queries each target with a past-only descending lookup", async () => {
+  const originalFetch = globalThis.fetch;
+  const journalRequests: URL[] = [];
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/daily_journal")) {
+      journalRequests.push(url);
+      const targetDate = url.searchParams.get("entry_date")?.replace("lte.", "") || "";
+      const entryDate = targetDate === "2026-08-14" ? "2026-08-10" : targetDate;
+      return Response.json([{ entry_date: entryDate, summary: `Journal ${targetDate}`, emotions: [], themes: [], categories: [], source_pages: [] }]);
+    }
+    return url.hostname.includes("pages.dev")
+      ? Response.json({ items: [], total: 0, limit: 1000, offset: 0 })
+      : Response.json([]);
+  };
+  try {
+    const hub = await loadHub({
+      SUPABASE_URL: "https://compass.supabase.co",
+      SUPABASE_SECRET_KEY: "server-secret",
+      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
+    }, now);
+    assert.equal(journalRequests.length, 3);
+    assert.deepEqual(journalRequests.map((url) => url.searchParams.get("entry_date")), ["lte.2026-08-14", "lte.2026-03-14", "lte.2025-09-14"]);
+    assert.ok(journalRequests.every((url) => url.searchParams.get("order") === "entry_date.desc" && url.searchParams.get("limit") === "1"));
+    assert.deepEqual(hub.journalMoments.map((item) => item.entry?.entryDate), ["2026-08-10", "2026-03-14", "2025-09-14"]);
+    assert.equal(hub.journalMoments[0].entry?.daysBeforeTarget, 4);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("hub route keeps the Supabase secret in server-side headers", async () => {
@@ -89,9 +152,10 @@ test("hub route keeps the Supabase secret in server-side headers", async () => {
     });
     const body = await response.text();
     assert.equal(response.status, 200);
-    assert.equal(requests.length, 4);
-    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 2);
+    assert.equal(requests.length, 7);
+    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 5);
     assert.equal(requests.filter((entry) => entry.headers["X-Hub-Service"] === "hub-service-token-that-is-at-least-32-characters").length, 2);
+    assert.equal(requests.filter((entry) => entry.url.includes("/daily_journal?")).length, 3);
     assert.ok(requests.every((entry) => !entry.url.includes("secret")));
     assert.doesNotMatch(body, /server-secret|hub-service-token/);
   } finally {
@@ -127,6 +191,31 @@ test("hub route keeps successful sections when one upstream is unavailable", asy
     assert.equal(body.availability.knowledge, true);
     assert.equal(body.summary.currentMonthSpend, null);
     assert.equal(body.summary.dueKnowledge, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Journal failure stays isolated from the other Hub sections", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/daily_journal?")) return Response.json({ error: "offline" }, { status: 503 });
+    if (url.includes("pages.dev")) return Response.json({ items: [], total: 0, limit: 1000, offset: 0 });
+    return Response.json([]);
+  };
+  try {
+    const hub = await loadHub({
+      SUPABASE_URL: "https://compass.supabase.co",
+      SUPABASE_SECRET_KEY: "server-secret",
+      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
+    }, now);
+    assert.equal(hub.source.state, "partial");
+    assert.equal(hub.availability.journal, false);
+    assert.equal(hub.availability.wants, true);
+    assert.equal(hub.availability.expenses, true);
+    assert.equal(hub.availability.knowledge, true);
+    assert.deepEqual(hub.source.unavailable, ["journal"]);
   } finally {
     globalThis.fetch = originalFetch;
   }

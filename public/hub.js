@@ -3,7 +3,7 @@ const ids = [
   "compassLink", "financialLink", "knowledgeLink", "compassMeta", "financialMeta", "knowledgeMeta",
   "spendMetricLink", "reviewMetricLink", "reviewStartLink", "currentMonthSpend", "spendComparison", "dueKnowledge",
   "weakKnowledge", "pendingInbox", "loadingState", "errorState", "errorMessage",
-  "retryButton", "hubContent", "wantList", "expenseList", "knowledgeList", "allWantsLink", "allExpensesLink", "allKnowledgeLink",
+  "retryButton", "hubContent", "wantList", "expenseList", "knowledgeList", "journalList", "allWantsLink", "allExpensesLink", "allKnowledgeLink",
 ];
 
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
@@ -140,6 +140,66 @@ function renderWants(items, url, available = true) {
   `).join("");
 }
 
+function moodLabel(value) {
+  return ({ "-2": "かなり低い", "-1": "低い", "0": "普通", "1": "良い", "2": "とても良い" })[String(value)] || "記録なし";
+}
+
+function renderJournalTags(entry) {
+  const tags = [
+    ...(entry.themes || []).map((value) => ({ kind: "テーマ", value })),
+    ...(entry.emotions || []).map((value) => ({ kind: "感情", value })),
+    ...(entry.entities || []).map((value) => ({ kind: "関連", value })),
+    ...(entry.categories || []).map((value) => ({ kind: "分類", value })),
+  ];
+  if (!tags.length) return "";
+  return `<div class="journal-tags">${tags.map((tag) => `<span title="${escapeHtml(tag.kind)}">${escapeHtml(tag.value)}</span>`).join("")}</div>`;
+}
+
+function renderJournal(items, available = true) {
+  if (!available) {
+    els.journalList.innerHTML = empty("Journalを取得できませんでした");
+    return;
+  }
+  if (!items?.length) {
+    els.journalList.innerHTML = empty("表示する基準日がありません");
+    return;
+  }
+  els.journalList.innerHTML = items.map((item) => {
+    if (!item.entry) {
+      return `<article class="journal-card journal-empty">
+        <div class="journal-period"><strong>${escapeHtml(item.label)}</strong><small>基準日 ${escapeHtml(formatDate(item.targetDate))}</small></div>
+        <p>この基準日以前のJournalはありません</p>
+      </article>`;
+    }
+    const entry = item.entry;
+    const difference = entry.daysBeforeTarget === 0 ? "基準日と一致" : `基準日の${entry.daysBeforeTarget}日前`;
+    const emotion = entry.emotionSummary
+      ? `<div class="journal-detail-row"><dt>感情</dt><dd>${escapeHtml(entry.emotionSummary)}</dd></div>`
+      : "";
+    const sourcePageUrls = entry.sourcePageUrls || [];
+    const sources = sourcePageUrls.length
+      ? `<div class="journal-sources">${sourcePageUrls.map((url, index) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Notion原文${sourcePageUrls.length > 1 ? ` ${index + 1}` : ""} ↗</a>`).join("")}</div>`
+      : `<p class="journal-no-source">Notion原文リンクなし</p>`;
+    return `<details class="journal-card">
+      <summary>
+        <span class="journal-period"><strong>${escapeHtml(item.label)}</strong><small>基準日 ${escapeHtml(formatDate(item.targetDate))}</small></span>
+        <span class="journal-actual"><b>${escapeHtml(formatDate(entry.entryDate))}</b><small>${escapeHtml(difference)}</small></span>
+        <span class="journal-excerpt">${escapeHtml(entry.summary)}</span>
+        <span class="journal-toggle" aria-hidden="true">＋</span>
+      </summary>
+      <div class="journal-detail">
+        <dl>
+          <div class="journal-detail-row"><dt>要約</dt><dd>${escapeHtml(entry.summary)}</dd></div>
+          ${emotion}
+          <div class="journal-detail-row"><dt>気分</dt><dd>${escapeHtml(moodLabel(entry.mood))}</dd></div>
+        </dl>
+        ${renderJournalTags(entry)}
+        ${sources}
+      </div>
+    </details>`;
+  }).join("");
+}
+
 function setSource(source, hasError = false) {
   const partial = !hasError && source?.state === "partial";
   els.sourceBadge.className = `source-badge ${hasError ? "error" : partial ? "partial" : "live"}`;
@@ -156,12 +216,13 @@ async function loadHub() {
     const response = await fetch("/api/hub", { headers: { Accept: "application/json" }, cache: "no-store" });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error?.message || "データを読み込めませんでした。");
-    const availability = payload.availability || { inbox: true, wants: true, expenses: true, knowledge: true };
+    const availability = payload.availability || { inbox: true, wants: true, expenses: true, knowledge: true, journal: true };
     renderNavigation(payload.navigation);
     renderSummary(payload.summary);
     renderWants(payload.wants, payload.navigation.compass, availability.wants);
     renderExpenses(payload.recentExpenses, availability.expenses);
     renderKnowledge(payload.knowledge, payload.navigation.knowledge, availability.knowledge);
+    renderJournal(payload.journalMoments, availability.journal);
     setSource(payload.source);
     els.loadingState.hidden = true;
     els.hubContent.hidden = false;

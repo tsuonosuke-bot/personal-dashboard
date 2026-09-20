@@ -17,7 +17,12 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(html, /class="metric-grid"/);
   assert.match(html, /id="wantList"/);
   assert.match(html, /id="allWantsLink"/);
+  assert.match(html, /id="journalList"/);
+  assert.match(html, /過去のJournal/);
+  assert.match(html, /読み取り専用/);
   assert.match(script, /renderWants\(payload\.wants, payload\.navigation\.compass, availability\.wants\)/);
+  assert.match(script, /renderJournal\(payload\.journalMoments, availability\.journal\)/);
+  assert.match(script, /target="_blank" rel="noopener noreferrer"/);
   assert.match(script, /reviewStartLink\.href = navigation\.knowledgeReview/);
   assert.match(script, /一部取得不可/);
   assert.match(script, /renderExpenses\(payload\.recentExpenses, availability\.expenses\)/);
@@ -31,6 +36,7 @@ test("mobile Hub retains three navigation choices in one row", async () => {
   assert.match(css, /\.dashboard-grid \{ gap: 5px; \}/);
   assert.match(css, /\.dashboard-card \{ min-height: 88px;/);
   assert.match(css, /\.metric-grid \{ grid-template-columns: 1fr 1fr;/);
+  assert.match(css, /\.journal-list \{ grid-template-columns: 1fr; \}/);
 });
 
 test("Compass exposes a real Inbox create menu", async () => {

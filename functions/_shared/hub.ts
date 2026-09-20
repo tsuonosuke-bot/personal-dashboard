@@ -9,9 +9,10 @@ export interface HubAvailability {
   wants: boolean;
   expenses: boolean;
   knowledge: boolean;
+  journal: boolean;
 }
 
-type TableName = "idea_inbox" | "wants" | "expenses" | "knowledge";
+type TableName = "idea_inbox" | "wants" | "expenses" | "knowledge" | "daily_journal";
 
 interface InboxRow { status?: unknown }
 interface WantRow { id?: unknown; content?: unknown; status?: unknown; created_at?: unknown }
@@ -36,6 +37,37 @@ interface KnowledgeRow {
   created_at?: unknown;
   archived?: unknown;
 }
+interface DailyJournalRow {
+  entry_date?: unknown;
+  summary?: unknown;
+  emotion_summary?: unknown;
+  mood?: unknown;
+  emotions?: unknown;
+  themes?: unknown;
+  entities?: unknown;
+  categories?: unknown;
+  source_pages?: unknown;
+}
+
+export type JournalMomentKey = "oneMonth" | "sixMonths" | "oneYear";
+
+export interface JournalMoment {
+  key: JournalMomentKey;
+  label: string;
+  targetDate: string;
+  entry: null | {
+    entryDate: string;
+    daysBeforeTarget: number;
+    summary: string;
+    emotionSummary: string | null;
+    mood: number | null;
+    emotions: string[];
+    themes: string[];
+    entities: string[];
+    categories: string[];
+    sourcePageUrls: string[];
+  };
+}
 
 interface QueryDefinition {
   table: TableName;
@@ -52,6 +84,7 @@ const FULL_AVAILABILITY: HubAvailability = {
   wants: true,
   expenses: true,
   knowledge: true,
+  journal: true,
 };
 
 export class HubError extends Error {
@@ -82,6 +115,28 @@ function integer(value: unknown): number | null {
 function date(value: unknown): string | null {
   if (typeof value !== "string" || Number.isNaN(Date.parse(value))) return null;
   return value;
+}
+
+function plainDate(value: unknown): string | null {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value ? null : value;
+}
+
+function textArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim())
+    : [];
+}
+
+function sourcePageUrls(value: unknown): string[] {
+  const seen = new Set<string>();
+  return textArray(value).flatMap((pageId) => {
+    const compact = pageId.replace(/-/g, "").toLowerCase();
+    if (!/^[0-9a-f]{32}$/.test(compact) || seen.has(compact)) return [];
+    seen.add(compact);
+    return [`https://app.notion.com/${compact}`];
+  });
 }
 
 function safeUrl(value: string | undefined, fallback: string): string {
@@ -173,13 +228,96 @@ async function fetchDashboardRows(env: HubEnv, baseUrl: string, path: string): P
   return rows;
 }
 
+async function fetchLatestJournal(env: HubEnv, targetDate: string): Promise<DailyJournalRow | null> {
+  const { url, key } = connection(env);
+  const endpoint = new URL("/rest/v1/daily_journal", url);
+  endpoint.searchParams.set(
+    "select",
+    "entry_date,summary,emotion_summary,mood,emotions,themes,entities,categories,source_pages",
+  );
+  endpoint.searchParams.set("entry_date", `lte.${targetDate}`);
+  endpoint.searchParams.set("order", "entry_date.desc");
+  endpoint.searchParams.set("limit", "1");
+  let response: Response;
+  try {
+    response = await fetch(endpoint, { headers: { Accept: "application/json", apikey: key } });
+  } catch {
+    throw new HubError("SUPABASE_UNAVAILABLE", "Could not reach daily_journal.");
+  }
+  if (!response.ok) {
+    const code = response.status === 401 || response.status === 403
+      ? "SUPABASE_ACCESS_DENIED"
+      : "SUPABASE_REQUEST_FAILED";
+    throw new HubError(code, `daily_journal returned ${response.status}.`);
+  }
+  const rows: unknown = await response.json();
+  if (!Array.isArray(rows)) throw new HubError("SUPABASE_RESPONSE_INVALID", "daily_journal returned invalid data.");
+  return (rows[0] as DailyJournalRow | undefined) ?? null;
+}
+
+async function loadJournalMoments(env: HubEnv, now: Date): Promise<JournalMoment[]> {
+  const targets = journalTargets(now);
+  const rows = await Promise.all(targets.map((target) => fetchLatestJournal(env, target.targetDate)));
+  return targets.map((target, index) => normalizeJournalMoment(target, rows[index]));
+}
+
 function jstDateParts(now: Date) {
   const shifted = new Date(now.getTime() + 9 * 60 * 60 * 1_000);
   return {
     today: shifted.toISOString().slice(0, 10),
     year: shifted.getUTCFullYear(),
     month: shifted.getUTCMonth(),
+    day: shifted.getUTCDate(),
   };
+}
+
+function subtractCalendarMonths(year: number, month: number, day: number, months: number): string {
+  const monthStart = new Date(Date.UTC(year, month - months, 1));
+  const targetYear = monthStart.getUTCFullYear();
+  const targetMonth = monthStart.getUTCMonth();
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(targetYear, targetMonth, Math.min(day, lastDay))).toISOString().slice(0, 10);
+}
+
+export function journalTargets(now = new Date()): Array<Omit<JournalMoment, "entry">> {
+  const { year, month, day } = jstDateParts(now);
+  return [
+    { key: "oneMonth", label: "1か月前", targetDate: subtractCalendarMonths(year, month, day, 1) },
+    { key: "sixMonths", label: "半年前", targetDate: subtractCalendarMonths(year, month, day, 6) },
+    { key: "oneYear", label: "1年前", targetDate: subtractCalendarMonths(year, month, day, 12) },
+  ];
+}
+
+function daysBetween(earlier: string, later: string): number {
+  return Math.round((Date.parse(`${later}T00:00:00.000Z`) - Date.parse(`${earlier}T00:00:00.000Z`)) / 86_400_000);
+}
+
+export function normalizeJournalMoment(
+  target: Omit<JournalMoment, "entry">,
+  row: DailyJournalRow | null,
+): JournalMoment {
+  const entryDate = plainDate(row?.entry_date);
+  if (!row || !entryDate || entryDate > target.targetDate) return { ...target, entry: null };
+  const mood = integer(row.mood);
+  return {
+    ...target,
+    entry: {
+      entryDate,
+      daysBeforeTarget: daysBetween(entryDate, target.targetDate),
+      summary: text(row.summary) || "要約なし",
+      emotionSummary: text(row.emotion_summary) || null,
+      mood: mood !== null && mood >= -2 && mood <= 2 ? mood : null,
+      emotions: textArray(row.emotions),
+      themes: textArray(row.themes),
+      entities: textArray(row.entities),
+      categories: textArray(row.categories),
+      sourcePageUrls: sourcePageUrls(row.source_pages),
+    },
+  };
+}
+
+function emptyJournalMoments(now: Date): JournalMoment[] {
+  return journalTargets(now).map((target) => ({ ...target, entry: null }));
 }
 
 function monthKey(value: string | null): string {
@@ -244,6 +382,7 @@ export function normalizeHub(
   _env: HubEnv = {},
   now = new Date(),
   availability: HubAvailability = FULL_AVAILABILITY,
+  journalMoments: JournalMoment[] = emptyJournalMoments(now),
 ) {
   const { today, year, month } = jstDateParts(now);
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -301,9 +440,11 @@ export function normalizeHub(
       .slice(0, 5),
     knowledge: knowledge.items,
     wants: activeWants.slice(0, 3),
+    journalMoments,
     selection: {
       knowledge: "苦手を最大2件、復習期限、新規ナレッジの順で重複を除いて選定",
       wants: "作成日時の新しいActive Wantsから最大3件を選定",
+      journal: "各基準日以前で最も近いdaily_journalを選定",
     },
   };
 }
@@ -311,18 +452,20 @@ export function normalizeHub(
 export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
-  const [inbox, wants, expenses, knowledge] = await Promise.allSettled([
+  const [inbox, wants, expenses, knowledge, journal] = await Promise.allSettled([
     fetchRows(env, { table: "idea_inbox", select: "status" }) as Promise<InboxRow[]>,
     fetchRows(env, { table: "wants", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<WantRow[]>,
     fetchDashboardRows(env, financialUrl, "/api/expenses") as Promise<ExpenseRow[]>,
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,
+    loadJournalMoments(env, now),
   ] as const);
-  const results = { inbox, wants, expenses, knowledge };
+  const results = { inbox, wants, expenses, knowledge, journal };
   const availability: HubAvailability = {
     inbox: inbox.status === "fulfilled",
     wants: wants.status === "fulfilled",
     expenses: expenses.status === "fulfilled",
     knowledge: knowledge.status === "fulfilled",
+    journal: journal.status === "fulfilled",
   };
   for (const [name, result] of Object.entries(results)) {
     if (result.status === "rejected") {
@@ -340,6 +483,7 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     env,
     now,
     availability,
+    journal.status === "fulfilled" ? journal.value : emptyJournalMoments(now),
   );
 }
 

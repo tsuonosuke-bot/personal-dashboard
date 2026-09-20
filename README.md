@@ -1,6 +1,6 @@
 # Personal Hub
 
-家計簿、ナレッジ、Compass（Inbox / Wants）を束ねる個人用Hubです。ルートに全体サマリーを表示し、既存のCompass画面は `/compass/` で利用できます。
+家計簿、ナレッジ、Compass（Inbox / Wants）、Journalの振り返りを束ねる個人用Hubです。ルートに全体サマリーを表示し、既存のCompass画面は `/compass/` で利用できます。
 
 - Production: https://personal-dashboard-7md.pages.dev/
 
@@ -36,6 +36,8 @@ Browser
 - 新しいActive Wantsを最大3件表示
 - 直近5件の家計簿レコード
 - 苦手を最大2件、復習期限、新規を混ぜたナレッジ候補
+- 1か月前・半年前・1年前の各基準日以前で最も近い `daily_journal` を表示
+- Journalの要約・感情・気分・タグとNotion原文リンクを読み取り専用で表示
 - 一部の接続先が失敗しても、取得できたセクションは表示を継続
 
 ## Compassの機能
