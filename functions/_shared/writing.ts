@@ -4,13 +4,14 @@ const PAGE_SIZE = 1_000;
 const MAX_REQUEST_CHARS = 20_000;
 const MAX_TITLE_CHARS = 240;
 const MAX_QUESTION_CHARS = 2_000;
-const MAX_NOTES_CHARS = 10_000;
-const WRITING_SELECT = "id,source_route_id,source_want_id,title,question,notes,status,draft_url,next_review_on,created_at,updated_at";
+const WRITING_SELECT = "id,source_route_id,source_want_id,title,question,status,created_at,updated_at";
 
 export const WRITING_STATUSES = [
   "candidate", "researching", "outlining", "drafting", "completed", "on_hold", "archived",
 ] as const;
 export type WritingStatus = (typeof WRITING_STATUSES)[number];
+export const WRITING_WORKFLOW_STATUSES = ["candidate", "drafting", "completed"] as const;
+export type WritingWorkflowStatus = (typeof WRITING_WORKFLOW_STATUSES)[number];
 
 interface WritingRow {
   id?: unknown;
@@ -18,10 +19,7 @@ interface WritingRow {
   source_want_id?: unknown;
   title?: unknown;
   question?: unknown;
-  notes?: unknown;
   status?: unknown;
-  draft_url?: unknown;
-  next_review_on?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
 }
@@ -32,10 +30,7 @@ export interface WritingTopic {
   sourceWantId: number;
   title: string;
   question: string | null;
-  notes: string | null;
   status: WritingStatus;
-  draftUrl: string | null;
-  nextReviewOn: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -44,10 +39,7 @@ export interface WritingUpdateInput {
   id: number;
   title: string;
   question: string | null;
-  notes: string | null;
-  status: WritingStatus;
-  draftUrl: string | null;
-  nextReviewOn: string | null;
+  status: WritingWorkflowStatus;
   originalUpdatedAt: string;
 }
 
@@ -73,24 +65,12 @@ function isoDate(value: unknown): string | null {
   return new Date(value).toISOString();
 }
 
-function plainDate(value: unknown): string | null {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value ? null : value;
-}
-
-function storedDraftUrl(value: unknown): string | null {
-  if (typeof value !== "string" || !value.trim()) return null;
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "https:" ? parsed.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
 function isWritingStatus(value: unknown): value is WritingStatus {
   return typeof value === "string" && (WRITING_STATUSES as readonly string[]).includes(value);
+}
+
+function isWritingWorkflowStatus(value: unknown): value is WritingWorkflowStatus {
+  return typeof value === "string" && (WRITING_WORKFLOW_STATUSES as readonly string[]).includes(value);
 }
 
 function connection(env: DashboardEnv): { url: URL; key: string } {
@@ -145,10 +125,7 @@ function normalizeWritingTopic(row: WritingRow): WritingTopic {
     sourceWantId,
     title: row.title,
     question: typeof row.question === "string" && row.question.length > 0 ? row.question : null,
-    notes: typeof row.notes === "string" && row.notes.length > 0 ? row.notes : null,
     status: row.status,
-    draftUrl: storedDraftUrl(row.draft_url),
-    nextReviewOn: plainDate(row.next_review_on),
     createdAt,
     updatedAt,
   };
@@ -185,11 +162,9 @@ export async function loadWriting(env: DashboardEnv) {
     items: sorted,
     summary: {
       active: sorted.filter((item) => !["completed", "archived"].includes(item.status)).length,
-      candidate: sorted.filter((item) => item.status === "candidate" || item.status === "researching").length,
-      outlining: sorted.filter((item) => item.status === "outlining").length,
+      ideas: sorted.filter((item) => ["candidate", "researching", "outlining", "on_hold"].includes(item.status)).length,
       drafting: sorted.filter((item) => item.status === "drafting").length,
-      completed: sorted.filter((item) => item.status === "completed").length,
-      archived: sorted.filter((item) => item.status === "archived").length,
+      completed: sorted.filter((item) => ["completed", "archived"].includes(item.status)).length,
     },
   };
 }
@@ -223,17 +198,6 @@ function nullableText(value: unknown, max: number): string | null | undefined {
   return trimmed || null;
 }
 
-function validDraftUrl(value: unknown): string | null | undefined {
-  const normalized = nullableText(value, 2_000);
-  if (normalized === undefined || normalized === null) return normalized;
-  try {
-    const parsed = new URL(normalized);
-    return parsed.protocol === "https:" ? parsed.toString() : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 export async function readWritingUpdateInput(request: Request): Promise<ValidationResult<WritingUpdateInput>> {
   let raw: string;
   try {
@@ -248,30 +212,24 @@ export async function readWritingUpdateInput(request: Request): Promise<Validati
   } catch {
     return { ok: false, status: 400, error: "JSONの形式が正しくありません。" };
   }
-  const keys = ["id", "title", "question", "notes", "status", "draftUrl", "nextReviewOn", "originalUpdatedAt"];
+  const keys = ["id", "title", "question", "status", "originalUpdatedAt"];
   if (!isPlainObject(parsed) || !hasOnlyKeys(parsed, keys)) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
   const id = positiveInteger(parsed.id);
   const title = typeof parsed.title === "string" ? parsed.title.trim() : "";
   const question = nullableText(parsed.question, MAX_QUESTION_CHARS);
-  const notes = nullableText(parsed.notes, MAX_NOTES_CHARS);
-  const draftUrl = validDraftUrl(parsed.draftUrl);
-  const nextReviewOn = parsed.nextReviewOn === null ? null : plainDate(parsed.nextReviewOn);
   const originalUpdatedAt = isoDate(parsed.originalUpdatedAt);
   if (!id) return { ok: false, status: 400, error: "Writing IDが正しくありません。" };
   if (!title || title.length > MAX_TITLE_CHARS) {
     return { ok: false, status: 400, error: `タイトルは1〜${MAX_TITLE_CHARS}文字で入力してください。` };
   }
   if (question === undefined) return { ok: false, status: 400, error: `論点は${MAX_QUESTION_CHARS}文字以内で入力してください。` };
-  if (notes === undefined) return { ok: false, status: 400, error: `メモは${MAX_NOTES_CHARS}文字以内で入力してください。` };
-  if (!isWritingStatus(parsed.status)) return { ok: false, status: 400, error: "ステータスが正しくありません。" };
-  if (draftUrl === undefined) return { ok: false, status: 400, error: "下書きURLはHTTPSのURLを入力してください。" };
-  if (parsed.nextReviewOn !== null && nextReviewOn === null) return { ok: false, status: 400, error: "見直し日が正しくありません。" };
+  if (!isWritingWorkflowStatus(parsed.status)) return { ok: false, status: 400, error: "ステータスが正しくありません。" };
   if (!originalUpdatedAt) return { ok: false, status: 400, error: "編集前の更新日時が正しくありません。" };
   return {
     ok: true,
-    value: { id, title, question, notes, status: parsed.status, draftUrl, nextReviewOn, originalUpdatedAt },
+    value: { id, title, question, status: parsed.status, originalUpdatedAt },
   };
 }
 
@@ -287,10 +245,7 @@ export async function updateWritingTopic(env: DashboardEnv, input: WritingUpdate
     body: JSON.stringify({
       title: input.title,
       question: input.question,
-      notes: input.notes,
       status: input.status,
-      draft_url: input.draftUrl,
-      next_review_on: input.nextReviewOn,
       updated_at: new Date().toISOString(),
     }),
   });

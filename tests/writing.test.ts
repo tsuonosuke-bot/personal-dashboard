@@ -18,10 +18,7 @@ function row(overrides: Record<string, unknown> = {}) {
     source_want_id: 27,
     title: "AIと思考について書く",
     question: "AIは思考を深めるのか",
-    notes: "事例を集める",
     status: "candidate",
-    draft_url: null,
-    next_review_on: "2026-09-30",
     created_at: "2026-09-19T00:00:00.000Z",
     updated_at: "2026-09-20T00:00:00.000Z",
     ...overrides,
@@ -46,10 +43,7 @@ function validInput(overrides: Record<string, unknown> = {}) {
     id: 7,
     title: "AIと思考について書く",
     question: "AIは思考を深めるのか",
-    notes: "事例を集める",
-    status: "outlining",
-    draftUrl: "https://docs.example/draft",
-    nextReviewOn: "2026-09-30",
+    status: "drafting",
     originalUpdatedAt: "2026-09-20T00:00:00.000Z",
     ...overrides,
   };
@@ -63,7 +57,6 @@ test("Writing rows preserve their Want relationship and sort by latest update", 
   assert.deepEqual(items.map((item) => item.id), [8, 7]);
   assert.equal(items[0].sourceWantId, 28);
   assert.equal(items[0].status, "completed");
-  assert.equal(normalizeWritingRows([row({ draft_url: "javascript:alert(1)" })])[0].draftUrl, null);
   assert.throws(() => normalizeWritingRows([row({ status: "unknown" })]), /invalid data/);
 });
 
@@ -81,7 +74,7 @@ test("Writing GET keeps the Supabase secret in server-side headers and summarize
   try {
     const payload = await loadWriting(env);
     assert.equal(payload.items.length, 3);
-    assert.deepEqual(payload.summary, { active: 2, candidate: 2, outlining: 0, drafting: 0, completed: 1, archived: 0 });
+    assert.deepEqual(payload.summary, { active: 2, ideas: 2, drafting: 0, completed: 1 });
     assert.equal(requests.length, 1);
     assert.equal(requests[0].headers.apikey, "server-secret");
     assert.doesNotMatch(requests[0].url, /server-secret/);
@@ -101,13 +94,12 @@ test("Writing PATCH validates all editable fields", async () => {
   const valid = await readWritingUpdateInput(mutationRequest(validInput()));
   assert.equal(valid.ok, true);
   if (valid.ok) {
-    assert.equal(valid.value.draftUrl, "https://docs.example/draft");
-    assert.equal(valid.value.status, "outlining");
+    assert.equal(valid.value.status, "drafting");
   }
+  const legacyStatus = await readWritingUpdateInput(mutationRequest(validInput({ status: "outlining" })));
+  assert.equal(legacyStatus.ok, false);
   const invalidStatus = await readWritingUpdateInput(mutationRequest(validInput({ status: "published" })));
   assert.equal(invalidStatus.ok, false);
-  const insecureUrl = await readWritingUpdateInput(mutationRequest(validInput({ draftUrl: "http://docs.example/draft" })));
-  assert.equal(insecureUrl.ok, false);
   const extraField = await readWritingUpdateInput(mutationRequest({ ...validInput(), extra: true }));
   assert.equal(extraField.ok, false);
 });
@@ -117,7 +109,7 @@ test("Writing update uses id and updated_at for a conflict-safe write", async ()
   const requests: Array<{ url: URL; init?: RequestInit }> = [];
   globalThis.fetch = async (input, init) => {
     requests.push({ url: new URL(String(input)), init });
-    return Response.json([row({ status: "outlining", draft_url: "https://docs.example/draft" })]);
+    return Response.json([row({ status: "drafting" })]);
   };
   try {
     const parsed = await readWritingUpdateInput(mutationRequest(validInput()));
@@ -125,13 +117,13 @@ test("Writing update uses id and updated_at for a conflict-safe write", async ()
     if (!parsed.ok) return;
     const item = await updateWritingTopic(env, parsed.value);
     const captured = requests[0];
-    assert.equal(item.status, "outlining");
+    assert.equal(item.status, "drafting");
     assert.equal(captured.url.searchParams.get("id"), "eq.7");
     assert.equal(captured.url.searchParams.get("updated_at"), "eq.2026-09-20T00:00:00.000Z");
     assert.equal(captured.init?.method, "PATCH");
     const body = JSON.parse(String(captured.init?.body));
     assert.equal(body.title, validInput().title);
-    assert.equal(body.draft_url, "https://docs.example/draft");
+    assert.deepEqual(Object.keys(body).sort(), ["question", "status", "title", "updated_at"]);
     assert.match(body.updated_at, /^\d{4}-\d{2}-\d{2}T/);
   } finally {
     globalThis.fetch = originalFetch;
@@ -158,7 +150,7 @@ test("Writing update reports an optimistic conflict instead of overwriting", asy
 test("Writing API supports GET and PATCH and rejects other methods", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (_input, init) => init?.method === "PATCH"
-    ? Response.json([row({ status: "outlining" })])
+    ? Response.json([row({ status: "drafting" })])
     : Response.json([row()]);
   try {
     const getResponse = await writingRoute({ request: new Request("https://hub.example/api/writing"), env });
@@ -166,7 +158,7 @@ test("Writing API supports GET and PATCH and rejects other methods", async () =>
     assert.equal((await getResponse.json()).items.length, 1);
     const patchResponse = await writingRoute({ request: mutationRequest(validInput()), env });
     assert.equal(patchResponse.status, 200);
-    assert.equal((await patchResponse.json()).item.status, "outlining");
+    assert.equal((await patchResponse.json()).item.status, "drafting");
     const deleteResponse = await writingRoute({ request: new Request("https://hub.example/api/writing", { method: "DELETE" }), env });
     assert.equal(deleteResponse.status, 405);
     assert.equal(deleteResponse.headers.get("Allow"), "GET, PATCH");

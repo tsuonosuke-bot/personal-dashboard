@@ -25,7 +25,7 @@ main { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding-bottom: 28
 .page-heading h1 { margin: 5px 0 4px; font: 750 32px/1.05 Inter, "Segoe UI", sans-serif; letter-spacing: -.03em; }
 .page-heading p { margin: 0; color: var(--muted); font-size: 10px; }
 .primary-link { padding: 10px 13px; border-radius: 9px; background: var(--green); color: #fff; font-size: 9px; font-weight: 800; text-decoration: none; }
-.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+.summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
 .summary-grid button { min-height: 82px; display: grid; align-content: center; justify-items: start; padding: 12px; border: 1px solid rgba(49,70,58,.12); border-radius: 11px; background: var(--surface); cursor: pointer; text-align: left; }
 .summary-grid button:hover { border-color: var(--green); }
 .summary-grid span { color: var(--muted); font-size: 8px; font-weight: 800; }
@@ -58,11 +58,9 @@ main { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding-bottom: 28
 .topic-open { width: 100%; min-height: 154px; display: grid; align-content: start; justify-items: start; gap: 7px; padding: 11px; border: 0; background: transparent; cursor: pointer; text-align: left; }
 .topic-open:hover { background: #fafbf7; }
 .topic-status { padding: 4px 6px; border-radius: 999px; font-size: 7px; font-weight: 850; }
-.topic-status.candidate, .topic-status.researching { background: var(--orange-soft); color: var(--orange); }
-.topic-status.outlining { background: var(--blue-soft); color: var(--blue); }
+.topic-status.candidate { background: var(--orange-soft); color: var(--orange); }
 .topic-status.drafting { background: var(--violet-soft); color: var(--violet); }
 .topic-status.completed { background: var(--green-soft); color: var(--green); }
-.topic-status.on-hold, .topic-status.archived { background: #e8e8e4; color: var(--muted); }
 .topic-card h3 { display: -webkit-box; overflow: hidden; margin: 0; -webkit-box-orient: vertical; -webkit-line-clamp: 3; font-size: 12px; line-height: 1.45; }
 .topic-card p { display: -webkit-box; overflow: hidden; margin: 0; color: var(--muted); -webkit-box-orient: vertical; -webkit-line-clamp: 3; font-size: 9px; line-height: 1.5; }
 .topic-updated { margin-top: auto; color: #9a9f9b; font-size: 7px; }
@@ -83,7 +81,6 @@ main { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding-bottom: 28
 .editor-source { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 8px; background: var(--green-soft); font-size: 8px; }
 .editor-source span { color: var(--muted); font-weight: 750; }
 .editor-source a { color: var(--green); font-weight: 800; text-decoration: none; }
-.editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 .form-error { margin: 0; padding: 8px 10px; border-radius: 8px; background: #f5e1e0; color: #9f3f39; font-size: 9px; }
 .editor-actions { display: flex; justify-content: flex-end; gap: 7px; }
 .editor-actions button { min-height: 34px; padding: 0 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer; font-size: 9px; font-weight: 800; }
@@ -108,6 +105,5 @@ main { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding-bottom: 28
   .topic-list { grid-template-columns: 1fr; }
   .topic-open { min-height: 120px; }
   .editor { max-height: calc(100vh - 14px); padding: 13px; }
-  .editor-grid { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }

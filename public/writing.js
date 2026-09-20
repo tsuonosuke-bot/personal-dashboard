@@ -1,21 +1,23 @@
 const statusMeta = {
   candidate: { label: "アイデア", className: "candidate" },
-  researching: { label: "調査中", className: "researching" },
-  outlining: { label: "構成中", className: "outlining" },
-  drafting: { label: "執筆中", className: "drafting" },
-  completed: { label: "完成", className: "completed" },
-  on_hold: { label: "保留", className: "on-hold" },
-  archived: { label: "アーカイブ", className: "archived" },
+  drafting: { label: "Pomeraで執筆中", className: "drafting" },
+  completed: { label: "書き上げ", className: "completed" },
 };
+
+function workflowStatus(status) {
+  if (["completed", "archived"].includes(status)) return "completed";
+  if (status === "drafting") return "drafting";
+  return "candidate";
+}
 
 const state = { items: [], view: "active", status: "", search: "", selectedId: null };
 const els = Object.fromEntries([
-  "refreshButton", "candidateCount", "outliningCount", "draftingCount", "completedCount",
-  "activeTabCount", "completedTabCount", "archivedTabCount", "sourceBadge", "boardTitle",
+  "refreshButton", "candidateCount", "draftingCount", "completedCount",
+  "activeTabCount", "completedTabCount", "sourceBadge", "boardTitle",
   "searchInput", "statusFilter", "clearFilters", "resultCount", "loadingState", "errorState",
   "errorMessage", "retryButton", "topicList", "editorModal", "editorBackdrop", "editorClose",
   "editorKicker", "editorTitle", "editorForm", "sourceWantLink", "titleInput", "questionInput",
-  "notesInput", "editorStatus", "nextReviewInput", "draftUrlInput", "formError", "editorCancel",
+  "editorStatus", "formError", "editorCancel",
   "saveButton", "toast",
 ].map((id) => [id, document.getElementById(id)]));
 
@@ -59,58 +61,46 @@ function routePath(id = null) {
 
 function summary() {
   return {
-    active: state.items.filter((item) => !["completed", "archived"].includes(item.status)).length,
-    candidate: state.items.filter((item) => item.status === "candidate" || item.status === "researching").length,
-    outlining: state.items.filter((item) => item.status === "outlining").length,
-    drafting: state.items.filter((item) => item.status === "drafting").length,
-    completed: state.items.filter((item) => item.status === "completed").length,
-    archived: state.items.filter((item) => item.status === "archived").length,
+    active: state.items.filter((item) => workflowStatus(item.status) !== "completed").length,
+    candidate: state.items.filter((item) => workflowStatus(item.status) === "candidate").length,
+    drafting: state.items.filter((item) => workflowStatus(item.status) === "drafting").length,
+    completed: state.items.filter((item) => workflowStatus(item.status) === "completed").length,
   };
 }
 
 function renderSummary() {
   const counts = summary();
   els.candidateCount.textContent = counts.candidate;
-  els.outliningCount.textContent = counts.outlining;
   els.draftingCount.textContent = counts.drafting;
   els.completedCount.textContent = counts.completed;
   els.activeTabCount.textContent = counts.active;
   els.completedTabCount.textContent = counts.completed;
-  els.archivedTabCount.textContent = counts.archived;
 }
 
 function itemsForView() {
   let items = state.items.filter((item) => {
-    if (state.view === "active") return !["completed", "archived"].includes(item.status);
-    return item.status === state.view;
+    if (state.view === "active") return workflowStatus(item.status) !== "completed";
+    return workflowStatus(item.status) === "completed";
   });
-  if (state.status === "ideas") items = items.filter((item) => ["candidate", "researching"].includes(item.status));
-  else if (state.status) items = items.filter((item) => item.status === state.status);
+  if (state.status) items = items.filter((item) => workflowStatus(item.status) === state.status);
   const needle = state.search.trim().toLocaleLowerCase("ja");
   if (needle) {
-    items = items.filter((item) => [item.title, item.question, item.notes]
+    items = items.filter((item) => [item.title, item.question]
       .filter(Boolean).some((value) => value.toLocaleLowerCase("ja").includes(needle)));
   }
   return items;
 }
 
 function renderStatusOptions() {
-  const statuses = state.view === "active"
-    ? Object.keys(statusMeta).filter((status) => !["completed", "archived"].includes(status))
-    : [state.view];
+  const statuses = state.view === "active" ? ["candidate", "drafting"] : ["completed"];
   els.statusFilter.innerHTML = '<option value="">すべて</option>'
-    + (state.view === "active" ? '<option value="ideas">アイデア・調査中</option>' : '')
     + statuses.map((status) => `<option value="${status}">${escapeHtml(statusMeta[status].label)}</option>`).join("");
-  const allowed = state.view === "active" ? ["ideas", ...statuses] : statuses;
-  if (!allowed.includes(state.status)) state.status = "";
+  if (!statuses.includes(state.status)) state.status = "";
   els.statusFilter.value = state.status;
 }
 
 function cardMarkup(item) {
-  const status = statusMeta[item.status] || { label: item.status, className: "unknown" };
-  const draft = item.draftUrl
-    ? `<a class="draft-link" href="${escapeHtml(item.draftUrl)}" target="_blank" rel="noopener noreferrer">下書きを開く ↗</a>`
-    : "";
+  const status = statusMeta[workflowStatus(item.status)];
   return `<article class="topic-card">
     <button class="topic-open" type="button" data-topic-id="${item.id}">
       <span class="topic-status ${status.className}">${escapeHtml(status.label)}</span>
@@ -118,7 +108,7 @@ function cardMarkup(item) {
       <p>${escapeHtml(item.question || "論点はまだありません")}</p>
       <span class="topic-updated">${escapeHtml(formatDate(item.updatedAt, true))} 更新</span>
     </button>
-    <footer><a href="/compass/?view=wants&id=${item.sourceWantId}">元Want #${item.sourceWantId}</a>${draft}</footer>
+    <footer><a href="/compass/?view=wants&id=${item.sourceWantId}">元Want #${item.sourceWantId}</a></footer>
   </article>`;
 }
 
@@ -126,7 +116,7 @@ function renderList() {
   renderSummary();
   renderStatusOptions();
   const items = itemsForView();
-  els.boardTitle.textContent = state.view === "active" ? "進行中のテーマ" : state.view === "completed" ? "完成したテーマ" : "保管したテーマ";
+  els.boardTitle.textContent = state.view === "active" ? "Pomeraで書くテーマ" : "書き上げたテーマ";
   els.resultCount.textContent = `${items.length}件を表示`;
   els.clearFilters.hidden = !(state.search || state.status);
   document.querySelectorAll("[data-view]").forEach((tab) => {
@@ -135,9 +125,7 @@ function renderList() {
     tab.setAttribute("aria-selected", String(active));
   });
   if (!items.length) {
-    const message = state.view === "completed" ? "完成したテーマはまだありません"
-      : state.view === "archived" ? "保管したテーマはありません"
-      : "進行中のWritingテーマはありません";
+    const message = state.view === "completed" ? "書き上げたテーマはまだありません" : "Pomeraで書くテーマはありません";
     els.topicList.innerHTML = `<div class="empty"><span>✎</span><h3>${message}</h3><p>CompassでWantをWritingへ振り分けると、ここに追加されます。</p><a href="/compass/?view=wants">Compassを開く →</a></div>`;
   } else {
     els.topicList.innerHTML = items.map(cardMarkup).join("");
@@ -160,10 +148,7 @@ function showEditor(item) {
   els.sourceWantLink.textContent = `Want #${item.sourceWantId}を確認 →`;
   els.titleInput.value = item.title;
   els.questionInput.value = item.question || "";
-  els.notesInput.value = item.notes || "";
-  els.editorStatus.value = item.status;
-  els.nextReviewInput.value = item.nextReviewOn || "";
-  els.draftUrlInput.value = item.draftUrl || "";
+  els.editorStatus.value = workflowStatus(item.status);
   els.formError.hidden = true;
   els.editorModal.hidden = false;
   document.body.style.overflow = "hidden";
@@ -254,10 +239,7 @@ async function saveTopic(event) {
         id: item.id,
         title: els.titleInput.value,
         question: els.questionInput.value || null,
-        notes: els.notesInput.value || null,
         status: els.editorStatus.value,
-        draftUrl: els.draftUrlInput.value || null,
-        nextReviewOn: els.nextReviewInput.value || null,
         originalUpdatedAt: item.updatedAt,
       }),
     });
