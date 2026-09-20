@@ -9,7 +9,7 @@ const state = {
 
 const els = Object.fromEntries([
   "sourceBadge", "refreshButton",
-  "pendingInbox", "inboxTotal", "activeWants", "dueForReview",
+  "pendingInbox", "inboxTotal", "activeWants",
   "inboxTabCount", "wantsTabCount", "listTitle", "searchInput",
   "statusFilter", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher", "dashboardNav",
@@ -106,18 +106,10 @@ function setSource(source, error = false) {
   els.sourceBadge.lastChild.textContent = demo ? "DEMO DATA" : "SUPABASE LIVE";
 }
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function currentItems() {
   if (!state.data) return [];
   let items = state.data[state.view] || [];
   if (state.status) items = items.filter((item) => item.status === state.status);
-  if (state.metricFilter === "due-review") {
-    const today = todayIso();
-    items = items.filter((item) => item.revisitOn !== null && item.revisitOn <= today);
-  }
   const needle = state.search.trim().toLocaleLowerCase("ja");
   if (needle) {
     items = items.filter((item) => [item.content, item.result, item.note]
@@ -139,7 +131,6 @@ function renderSummary() {
   els.pendingInbox.textContent = summary.pendingInbox;
   els.inboxTotal.textContent = summary.inboxTotal;
   els.activeWants.textContent = summary.activeWants;
-  els.dueForReview.textContent = summary.dueForReview;
 }
 
 function renderCurrentTabCount(items) {
@@ -170,15 +161,10 @@ function canCloseItem(item, view) {
 }
 
 function cardMarkup(item) {
-  let revisitInfo = "";
-  if (state.view === "wants" && item.revisitOn) {
-    const due = item.revisitOn <= todayIso();
-    revisitInfo = `<span class="revisit-tag ${due ? "due" : ""}">再訪 ${escapeHtml(formatDate(item.revisitOn))}</span>`;
-  }
   return `<button class="item-card" type="button" data-id="${item.id}">
     <div class="item-top"><span class="item-id">${viewMeta[state.view].singular.toUpperCase()} · ${item.id ?? "?"}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(statusLabel(item.status))}</span></div>
     <h3>${escapeHtml(item.content || "内容なし")}</h3>
-    <div class="item-footer"><span>${formatDate(item.createdAt)}</span>${revisitInfo}</div>
+    <div class="item-footer"><span>${formatDate(item.createdAt)}</span></div>
   </button>`;
 }
 
@@ -218,9 +204,7 @@ function renderDrawerItem(item, view) {
       <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
   }
   if (view === "wants") {
-    body += `<div class="detail-section"><span>再訪</span>${item.revisitOn
-      ? `<div class="revisit-note"><b>次回 ${escapeHtml(formatDate(item.revisitOn))}</b><small>寝かせ直し ${item.revisitCount}回</small></div>`
-      : '<p>再訪日は設定されていません。</p>'}${item.note ? `<p>${escapeHtml(item.note)}</p>` : ""}</div>
+    body += `<div class="detail-section">${item.note ? `<p>${escapeHtml(item.note)}</p>` : ""}</div>
       <div class="drawer-actions">
         <button class="secondary-action" id="editWantButton" type="button">Wantを編集</button>
         ${canCloseItem(item, view) ? '<button class="close-action" id="closeItemButton" type="button">Wantをクローズ</button>' : ""}

@@ -2,8 +2,8 @@ const ids = [
   "sourceBadge", "refreshButton", "dateLabel", "updatedLabel",
   "compassLink", "financialLink", "knowledgeLink", "compassMeta", "financialMeta", "knowledgeMeta",
   "spendMetricLink", "reviewMetricLink", "currentMonthSpend", "spendComparison", "dueKnowledge",
-  "weakKnowledge", "pendingInbox", "wantsDueForReview", "loadingState", "errorState", "errorMessage",
-  "retryButton", "hubContent", "expenseList", "knowledgeList", "wantList", "allExpensesLink", "allKnowledgeLink",
+  "weakKnowledge", "pendingInbox", "loadingState", "errorState", "errorMessage",
+  "retryButton", "hubContent", "expenseList", "knowledgeList", "allExpensesLink", "allKnowledgeLink",
 ];
 
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
@@ -58,9 +58,8 @@ function renderSummary(summary) {
   els.currentMonthSpend.textContent = formatYen(summary.currentMonthSpend);
   els.dueKnowledge.textContent = `${summary.dueKnowledge}件`;
   els.pendingInbox.textContent = `${summary.pendingInbox}件`;
-  els.wantsDueForReview.textContent = `${summary.wantsDueForReview}件`;
   els.weakKnowledge.textContent = `苦手候補 ${summary.weakKnowledge}件`;
-  els.compassMeta.textContent = `未整理 ${summary.pendingInbox} · 再訪 ${summary.wantsDueForReview}`;
+  els.compassMeta.textContent = `未整理 ${summary.pendingInbox}`;
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
   els.knowledgeMeta.textContent = `期限 ${summary.dueKnowledge}`;
   if (summary.previousMonthSpend > 0) {
@@ -106,20 +105,6 @@ function renderKnowledge(items, url) {
   }).join("");
 }
 
-function renderWants(items) {
-  if (!items.length) {
-    els.wantList.innerHTML = empty("再訪日が来たActive Wantはありません");
-    return;
-  }
-  els.wantList.innerHTML = items.map((item, index) => `
-    <a class="want-card" href="/compass/">
-      <span>${String(index + 1).padStart(2, "0")}</span>
-      <div><strong>${escapeHtml(item.content)}</strong><small>再訪日が来ています</small></div>
-      <b aria-hidden="true">→</b>
-    </a>
-  `).join("");
-}
-
 function setSource(source, hasError = false) {
   els.sourceBadge.className = `source-badge ${hasError ? "error" : "live"}`;
   els.sourceBadge.querySelector("span").textContent = hasError ? "接続エラー" : "SUPABASE LIVE";
@@ -139,7 +124,6 @@ async function loadHub() {
     renderSummary(payload.summary);
     renderExpenses(payload.recentExpenses);
     renderKnowledge(payload.knowledge, payload.navigation.knowledge);
-    renderWants(payload.wants);
     setSource(payload.source);
     els.loadingState.hidden = true;
     els.hubContent.hidden = false;
