@@ -85,6 +85,8 @@ test("Compass previews every route and requires explicit confirmation for Google
   assert.match(script, /id="routeCalendarDate"/);
   assert.match(script, /Google Calendarに登録/);
   assert.match(script, /fetch\("\/api\/google-calendar-status"/);
+  assert.match(script, /Google Calendarを再接続/);
+  assert.match(script, /href="\/api\/google-calendar-connect"/);
   assert.match(script, /calendar: plan\.calendar \|\| null/);
 });
 

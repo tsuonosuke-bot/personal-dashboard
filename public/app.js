@@ -167,7 +167,7 @@ async function refreshGoogleCalendarConnection(statusElement, submitButton) {
       return;
     }
     statusElement.className = "integration-status connected";
-    statusElement.textContent = "接続済み · メインカレンダー · Asia/Tokyo";
+    statusElement.innerHTML = '<span>接続済み · メインカレンダー · Asia/Tokyo</span><a href="/api/google-calendar-connect">Google Calendarを再接続</a>';
     submitButton.disabled = false;
   } catch (error) {
     state.calendarConnection = null;
