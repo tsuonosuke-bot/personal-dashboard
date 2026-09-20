@@ -6,6 +6,7 @@ import {
   type CalendarSchedule,
 } from "./googleCalendar.ts";
 import { WANT_ROUTE_ADAPTERS } from "./wantRouteAdapters.ts";
+import { supabaseHeaders } from "./supabaseAuth.ts";
 
 const MAX_REQUEST_CHARS = 8_000;
 const MAX_TITLE_CHARS = 240;
@@ -140,11 +141,10 @@ async function supabaseFetch(
   try {
     return await fetch(endpoint, {
       ...init,
-      headers: {
-        Accept: "application/json",
-        apikey: connectionInfo.key,
-        ...(init.headers || {}),
-      },
+      headers: supabaseHeaders(
+        connectionInfo.key,
+        (init.headers || {}) as Record<string, string>,
+      ),
     });
   } catch {
     throw new DashboardError("SUPABASE_UNAVAILABLE", "Could not reach Supabase.");

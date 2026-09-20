@@ -1,4 +1,5 @@
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
+import { supabaseHeaders } from "./supabaseAuth.ts";
 
 export const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 export const GOOGLE_CALENDAR_TIME_ZONE = "Asia/Tokyo";
@@ -126,11 +127,7 @@ async function supabaseFetch(env: DashboardEnv, endpoint: URL, init: RequestInit
   try {
     return await fetch(endpoint, {
       ...init,
-      headers: {
-        Accept: "application/json",
-        apikey: key,
-        ...(init.headers || {}),
-      },
+      headers: supabaseHeaders(key, (init.headers || {}) as Record<string, string>),
     });
   } catch {
     throw new DashboardError("SUPABASE_UNAVAILABLE", "Could not reach integration connections.");

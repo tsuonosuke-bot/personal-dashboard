@@ -1,4 +1,5 @@
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
+import { supabaseHeaders } from "./supabaseAuth.ts";
 
 export const HABIT_CADENCES = ["daily", "weekdays", "weekly", "flexible"] as const;
 export const HABIT_STATUSES = ["active", "paused", "archived"] as const;
@@ -102,7 +103,7 @@ function connection(env: DashboardEnv): Connection {
 }
 
 function headers(info: Connection, extra: Record<string, string> = {}): Record<string, string> {
-  return { Accept: "application/json", apikey: info.key, ...extra };
+  return supabaseHeaders(info.key, extra);
 }
 
 function responseError(response: Response, table: string): DashboardError {
