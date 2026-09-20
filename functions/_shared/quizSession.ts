@@ -11,16 +11,27 @@ export interface SignedQuizItem {
   choices: string[] | null;
 }
 
+export interface QuizTokenIssueItem extends SignedQuizItem {
+  /** 四択のときだけ入る。トークンには平文では保存せず、HMACの照合情報に変換する。 */
+  correctChoice: string | null;
+}
+
+export interface VerifiedQuizItem extends SignedQuizItem {
+  /** 旧トークンには存在しないためnullを許容する。 */
+  correctChoiceProof: string | null;
+}
+
 interface QuizTokenPayload extends SignedQuizItem {
   v: 1;
   typ: "quiz-item";
   aud: string;
   exp: number;
   nonce: string;
+  correctChoiceProof?: string | null;
 }
 
 type TokenResult =
-  | { ok: true; value: SignedQuizItem }
+  | { ok: true; value: VerifiedQuizItem }
   | { ok: false; status: 400 | 503; error: string };
 
 const TOKEN_TTL_SECONDS = 2 * 60 * 60;
@@ -63,6 +74,15 @@ function signedBytes(encodedPayload: string): Uint8Array {
   return encoder.encode(`knowledge-dashboard-quiz-v1.${encodedPayload}`);
 }
 
+function choiceProofBytes(item: SignedQuizItem, choice: string): Uint8Array {
+  return encoder.encode(JSON.stringify([
+    "knowledge-dashboard-quiz-choice-v1",
+    item.id,
+    item.question,
+    choice,
+  ]));
+}
+
 function randomNonce(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
@@ -90,6 +110,13 @@ function parsePayload(value: unknown, audience: string, now: number): QuizTokenP
     || typeof payload.question !== "string" || !payload.question.trim() || payload.question.length > 2_000
     || !(["一問一答", "四択", "記述説明", "産出"] as unknown[]).includes(payload.format)
     || !validChoices(payload.choices, payload.format as QuizFormat)
+    || (
+      payload.correctChoiceProof !== undefined
+      && payload.correctChoiceProof !== null
+      && (typeof payload.correctChoiceProof !== "string"
+        || !/^[A-Za-z0-9_-]{43}$/.test(payload.correctChoiceProof))
+    )
+    || (payload.format !== "四択" && payload.correctChoiceProof != null)
   ) {
     return null;
   }
@@ -97,7 +124,7 @@ function parsePayload(value: unknown, audience: string, now: number): QuizTokenP
 }
 
 export async function issueQuizToken(
-  item: SignedQuizItem,
+  item: QuizTokenIssueItem,
   request: Request,
   env: QuizSigningEnv,
   now = Date.now(),
@@ -106,13 +133,33 @@ export async function issueQuizToken(
   if (!secret) {
     return { ok: false, status: 503, error: "サーバーのクイズ署名設定が未完了です。" };
   }
+  if (
+    (item.format === "四択" && (!item.correctChoice || !item.choices?.includes(item.correctChoice)))
+    || (item.format !== "四択" && item.correctChoice !== null)
+  ) {
+    return { ok: false, status: 503, error: "サーバーが正解選択肢を安全に保持できませんでした。" };
+  }
+  const signedItem: SignedQuizItem = {
+    id: item.id,
+    question: item.question,
+    format: item.format,
+    choices: item.choices,
+  };
+  const correctChoiceProof = item.format === "四択"
+    ? toBase64Url(new Uint8Array(await crypto.subtle.sign(
+      "HMAC",
+      await hmacKey(secret),
+      choiceProofBytes(signedItem, item.correctChoice!) as unknown as BufferSource,
+    )))
+    : null;
   const payload: QuizTokenPayload = {
-    ...item,
+    ...signedItem,
     v: 1,
     typ: "quiz-item",
     aud: new URL(request.url).host,
     exp: Math.floor(now / 1_000) + TOKEN_TTL_SECONDS,
     nonce: randomNonce(),
+    correctChoiceProof,
   };
   const encoded = toBase64Url(encoder.encode(JSON.stringify(payload)));
   const signature = await crypto.subtle.sign(
@@ -159,9 +206,31 @@ export async function verifyQuizToken(
         question: parsed.question,
         format: parsed.format,
         choices: parsed.choices,
+        correctChoiceProof: parsed.correctChoiceProof ?? null,
       },
     };
   } catch {
     return { ok: false, status: 400, error: "クイズトークンが正しくありません。" };
   }
+}
+
+/**
+ * 出題時に確定した正解選択肢と回答を照合する。正解そのものはトークンへ保存しない。
+ * nullは旧トークンなど、サーバー側の確定判定を利用できない場合を表す。
+ */
+export async function verifyQuizChoiceAnswer(
+  item: VerifiedQuizItem,
+  answer: string,
+  env: QuizSigningEnv,
+): Promise<boolean | null> {
+  if (item.format !== "四択" || !item.correctChoiceProof) return null;
+  const secret = signingSecret(env);
+  const proof = fromBase64Url(item.correctChoiceProof);
+  if (!secret || !proof) return null;
+  return crypto.subtle.verify(
+    "HMAC",
+    await hmacKey(secret),
+    proof as unknown as BufferSource,
+    choiceProofBytes(item, answer) as unknown as BufferSource,
+  );
 }

@@ -45,9 +45,15 @@ function pickedRow(id: string, category: string, overrides: Record<string, unkno
   };
 }
 
-async function signedAnswer(item: SignedQuizItem, answer: string) {
+async function signedAnswer(
+  item: SignedQuizItem & { correctChoice?: string | null },
+  answer: string,
+) {
   const request = quizPost("/api/quiz/grade", []);
-  const signed = await issueQuizToken(item, request, env);
+  const signed = await issueQuizToken({
+    ...item,
+    correctChoice: item.format === "四択" ? item.correctChoice ?? null : null,
+  }, request, env);
   assert.equal(signed.ok, true);
   if (!signed.ok) throw new Error(signed.error);
   return { token: signed.token, answer };
@@ -484,7 +490,13 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
       return anthropicToolResponse("submit_grades", {
         grades: [
           { id: ID_1, quality: 5, correct_answer: "模範解答1", explanation: "よくできました", note: "完璧に回答した" },
-          { id: ID_2, quality: 5, correct_answer: "模範解答2", explanation: "正解", note: "正答を選んだ" },
+          {
+            id: ID_2,
+            quality: 0,
+            correct_answer: "模範解答2",
+            explanation: "選択肢の言葉をなぞっただけなので不正解",
+            note: "正解を選んだが誤って不正解判定した",
+          },
         ],
       });
     }
@@ -508,6 +520,7 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
           question: "出題した問題文2",
           format: "四択",
           choices: ["正解2", "誤答A", "誤答B", "誤答C"],
+          correctChoice: "正解2",
         }, "正解2"),
       ]),
       env,
@@ -522,7 +535,7 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
       },
       {
         id: ID_2, title: "正解2", verdict: "正解", quality: 4, correct_answer: "模範解答2",
-        explanation: "正解", priority: "高", content_version: 9,
+        explanation: "正しい選択肢「正解2」を選べています。", priority: "高", content_version: 9,
         next_review_on: "2026-10-01", recorded: true,
       },
     ]);
@@ -532,11 +545,13 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
     assert.equal(batch.p_answers[0].format, "産出");
     assert.equal(batch.p_answers[1].format, "四択");
     assert.equal((batch.p_answers[1] as { quality: number }).quality, 4);
-    assert.equal(batch.p_answers[1].note, "正答を選んだ");
+    assert.equal(batch.p_answers[1].note, "「正解2」を選択し、正解した。");
     // 採点は「この問いに答えられたか」で行うため、出題した問題文をAIに渡す。
     assert.equal(seenGradePrompts.length, 1);
     assert.match(seenGradePrompts[0], /出題した問題文1/);
     assert.match(seenGradePrompts[0], /出題した問題文2/);
+    assert.match(seenGradePrompts[0], /正解2/);
+    assert.match(seenGradePrompts[0], /choice_is_correct\\\":true/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -604,6 +619,7 @@ test("quiz/grade は改ざんされた問題と四択の選択肢外回答を拒
     question: "問題",
     format: "四択",
     choices: ["正解", "誤答A", "誤答B", "誤答C"],
+    correctChoice: "正解",
   }, "正解");
   const replacement = signed.token.at(-1) === "a" ? "b" : "a";
   const tampered = await gradeRoute({

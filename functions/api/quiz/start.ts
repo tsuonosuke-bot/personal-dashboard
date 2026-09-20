@@ -47,8 +47,13 @@ interface QuizItem {
   token: string;
 }
 
-/** AIの選択肢を受け取れる形に正規化する。件数・重複・空文字のどれかが崩れていたら不採用。 */
-function normalizeChoices(value: unknown, correctChoice: unknown): string[] | null {
+interface ChoiceSet {
+  choices: string[];
+  correctChoice: string;
+}
+
+/** AIの選択肢と正解を受け取れる形に正規化する。件数・重複・空文字のどれかが崩れていたら不採用。 */
+function normalizeChoiceSet(value: unknown, correctChoice: unknown): ChoiceSet | null {
   if (!Array.isArray(value)) return null;
   const trimmed: string[] = [];
   for (const entry of value) {
@@ -58,7 +63,10 @@ function normalizeChoices(value: unknown, correctChoice: unknown): string[] | nu
     trimmed.push(text);
   }
   if (trimmed.length !== CHOICE_COUNT || typeof correctChoice !== "string") return null;
-  return trimmed.includes(correctChoice.trim()) ? trimmed : null;
+  const normalizedCorrectChoice = correctChoice.trim();
+  return trimmed.includes(normalizedCorrectChoice)
+    ? { choices: trimmed, correctChoice: normalizedCorrectChoice }
+    : null;
 }
 
 /** 「使わせる」問い方が成立する、語学系のカテゴリ。 */
@@ -270,7 +278,10 @@ async function generateQuestions(
   notesById: Map<string, { asked_on: string; verdict: string; note: string }[]>,
   isRetry: boolean,
 ): Promise<
-  | { ok: true; byId: Map<string, { question: string; choices: string[] | null }> }
+  | {
+    ok: true;
+    byId: Map<string, { question: string; choices: string[] | null; correctChoice: string | null }>;
+  }
   | { ok: false; response: Response }
 > {
   const generated = await callAnthropicTool(env, {
@@ -287,14 +298,24 @@ async function generateQuestions(
     return { ok: false, response: jsonResponse({ error: "AIの応答形式が正しくありません。" }, 502) };
   }
 
-  const byId = new Map<string, { question: string; choices: string[] | null }>();
+  const byId = new Map<
+    string,
+    { question: string; choices: string[] | null; correctChoice: string | null }
+  >();
   for (const entry of questions as QuestionToolInput[]) {
     if (typeof entry !== "object" || entry === null) continue;
     const { id, question, choices, correct_choice } = entry;
     if (typeof id !== "string" || typeof question !== "string") continue;
     const trimmed = question.trim();
     if (!trimmed || trimmed.length > MAX_QUESTION_CHARS) continue;
-    byId.set(id, { question: trimmed, choices: normalizeChoices(choices, correct_choice) });
+    const choiceSet = formatById.get(id) === "四択"
+      ? normalizeChoiceSet(choices, correct_choice)
+      : null;
+    byId.set(id, {
+      question: trimmed,
+      choices: choiceSet?.choices ?? null,
+      correctChoice: choiceSet?.correctChoice ?? null,
+    });
   }
   return { ok: true, byId };
 }
@@ -424,6 +445,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       question: generatedItem.question,
       format: itemFormat,
       choices,
+      correctChoice: generatedItem.correctChoice,
     }, context.request, context.env);
     if (!signed.ok) return jsonResponse({ error: signed.error }, signed.status);
     responseItems.push({
