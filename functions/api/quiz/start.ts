@@ -167,6 +167,109 @@ choices は四択の項目にだけ付ける。他の形式では省略する。
 
 与えられたid一つにつき、questionsに必ず1件、同じidで出力する。`;
 
+/** 1件でも選択肢が崩れたときに、その項目だけをもう一度生成させる。 */
+const RETRY_SYSTEM_SUFFIX = `
+
+## 再生成の注意
+
+これは一部の項目だけの再生成依頼です。前回、choicesが次のいずれかで不採用になりました。
+- 件数が${CHOICE_COUNT}件ちょうどでなかった
+- 同じ文言が重複していた
+- 空文字が含まれていた
+今回は必ず条件を満たすchoicesを付けること。`;
+
+interface QuestionToolInput {
+  id: string;
+  question: string;
+  choices?: unknown;
+}
+
+const QUESTION_TOOL = {
+  name: "submit_questions",
+  description: "生成した問題文を送信する",
+  input_schema: {
+    type: "object",
+    properties: {
+      questions: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            question: { type: "string" },
+            choices: {
+              type: "array",
+              description: "四択の項目にだけ付ける選択肢。ちょうど4件、重複・空文字なし",
+              items: { type: "string" },
+              minItems: CHOICE_COUNT,
+              maxItems: CHOICE_COUNT,
+            },
+          },
+          required: ["id", "question"],
+        },
+      },
+    },
+    required: ["questions"],
+  },
+};
+
+function buildUserText(
+  items: PickedItem[],
+  formatById: Map<string, QuizFormat>,
+  tagsById: Map<string, string[]>,
+  notesById: Map<string, { asked_on: string; verdict: string; note: string }[]>,
+): string {
+  return JSON.stringify(items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    explanation: item.explanation ?? "",
+    category: item.category,
+    tags: tagsById.get(item.id) ?? [],
+    mastery: item.mastery,
+    times_asked: item.times_asked,
+    format: formatById.get(item.id),
+    past_notes: notesById.get(item.id) ?? [],
+  })));
+}
+
+/** AIを1回呼んで問題文と（四択なら）選択肢を取り出す。選択肢の妥当性チェックは呼び出し側で行う。 */
+async function generateQuestions(
+  env: AnthropicEnv,
+  items: PickedItem[],
+  formatById: Map<string, QuizFormat>,
+  tagsById: Map<string, string[]>,
+  notesById: Map<string, { asked_on: string; verdict: string; note: string }[]>,
+  isRetry: boolean,
+): Promise<
+  | { ok: true; byId: Map<string, { question: string; choices: string[] | null }> }
+  | { ok: false; response: Response }
+> {
+  const generated = await callAnthropicTool(env, {
+    model: QUIZ_MODEL,
+    system: isRetry ? SYSTEM_PROMPT + RETRY_SYSTEM_SUFFIX : SYSTEM_PROMPT,
+    userText: buildUserText(items, formatById, tagsById, notesById),
+    maxTokens: QUIZ_MAX_TOKENS,
+    tool: QUESTION_TOOL,
+  });
+  if (!generated.ok) return { ok: false, response: jsonResponse({ error: generated.error }, generated.status) };
+
+  const questions = (generated.input as { questions?: unknown })?.questions;
+  if (!Array.isArray(questions)) {
+    return { ok: false, response: jsonResponse({ error: "AIの応答形式が正しくありません。" }, 502) };
+  }
+
+  const byId = new Map<string, { question: string; choices: string[] | null }>();
+  for (const entry of questions as QuestionToolInput[]) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const { id, question, choices } = entry;
+    if (typeof id !== "string" || typeof question !== "string") continue;
+    const trimmed = question.trim();
+    if (!trimmed) continue;
+    byId.set(id, { question: trimmed, choices: normalizeChoices(choices) });
+  }
+  return { ok: true, byId };
+}
+
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
   if (context.request.method !== "POST") return methodNotAllowed("POST");
 
@@ -240,65 +343,24 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
 
   const formatById = new Map(items.map((item) => [item.id, resolveFormat(item, format)]));
 
-  const userText = JSON.stringify(items.map((item) => ({
-    id: item.id,
-    title: item.title,
-    explanation: item.explanation ?? "",
-    category: item.category,
-    tags: tagsById.get(item.id) ?? [],
-    mastery: item.mastery,
-    times_asked: item.times_asked,
-    format: formatById.get(item.id),
-    past_notes: notesById.get(item.id) ?? [],
-  })));
+  const first = await generateQuestions(context.env, items, formatById, tagsById, notesById, false);
+  if (!first.ok) return first.response;
+  const byId = first.byId;
 
-  const generated = await callAnthropicTool(context.env, {
-    model: QUIZ_MODEL,
-    system: SYSTEM_PROMPT,
-    userText,
-    maxTokens: QUIZ_MAX_TOKENS,
-    tool: {
-      name: "submit_questions",
-      description: "生成した問題文を送信する",
-      input_schema: {
-        type: "object",
-        properties: {
-          questions: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                id: { type: "string" },
-                question: { type: "string" },
-                choices: {
-                  type: "array",
-                  description: "四択の項目にだけ付ける選択肢",
-                  items: { type: "string" },
-                },
-              },
-              required: ["id", "question"],
-            },
-          },
-        },
-        required: ["questions"],
-      },
-    },
-  });
-  if (!generated.ok) return jsonResponse({ error: generated.error }, generated.status);
+  // 項目ごとに、問題文があり（四択なら選択肢も揃って）初めて成立とみなす。
+  const isGenerated = (item: PickedItem): boolean => {
+    const generatedItem = byId.get(item.id);
+    if (!generatedItem) return false;
+    return formatById.get(item.id) !== "四択" || generatedItem.choices !== null;
+  };
 
-  const questions = (generated.input as { questions?: unknown })?.questions;
-  if (!Array.isArray(questions)) {
-    return jsonResponse({ error: "AIの応答形式が正しくありません。" }, 502);
-  }
-
-  const byId = new Map<string, { question: string; choices: string[] | null }>();
-  for (const entry of questions) {
-    if (typeof entry !== "object" || entry === null) continue;
-    const { id, question, choices } = entry as Record<string, unknown>;
-    if (typeof id !== "string" || typeof question !== "string") continue;
-    const trimmed = question.trim();
-    if (!trimmed) continue;
-    byId.set(id, { question: trimmed, choices: normalizeChoices(choices) });
+  // AIの出力は確率的なので、崩れた項目だけをもう一度まとめて生成し直す。
+  // それでも崩れていたら、黙って自由記述に落とさず失敗させる。
+  const needsRetry = items.filter((item) => !isGenerated(item));
+  if (needsRetry.length > 0) {
+    const retry = await generateQuestions(context.env, needsRetry, formatById, tagsById, notesById, true);
+    if (!retry.ok) return retry.response;
+    for (const [id, entry] of retry.byId) byId.set(id, entry);
   }
 
   const responseItems: QuizItem[] = [];

@@ -286,6 +286,62 @@ test("quiz/start はおまかせ指定のとき習熟度とカテゴリから形
   }
 });
 
+test("quiz/start は選択肢が崩れた項目だけをもう一度生成し直して救う", async () => {
+  const originalFetch = globalThis.fetch;
+  let anthropicCalls = 0;
+  const retryRequestIds: string[][] = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json([
+        pickedRow(ID_1, "ビジネス", { mastery: "未学習" }),
+        pickedRow(ID_2, "歴史", { mastery: "未学習" }),
+      ]);
+    }
+    if (url.includes("/rest/v1/knowledge")) {
+      return Response.json([{ id: ID_1, tags: [] }, { id: ID_2, tags: [] }]);
+    }
+    if (url.includes("/rest/v1/quiz_log")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      anthropicCalls++;
+      const body = JSON.parse(String(init?.body)) as { messages: { content: string }[] };
+      const sentIds = (JSON.parse(body.messages[0].content) as { id: string }[]).map((i) => i.id);
+      if (anthropicCalls === 1) {
+        // 1回目はID_1の選択肢が3件しかなく不採用、ID_2は正常。
+        return anthropicToolResponse("submit_questions", {
+          questions: [
+            { id: ID_1, question: "問題1", choices: ["ア", "イ", "ウ"] },
+            { id: ID_2, question: "問題2", choices: ["A", "B", "C", "D"] },
+          ],
+        });
+      }
+      // 2回目（再生成）はID_1だけが送られてくるはず。
+      retryRequestIds.push(sentIds);
+      return anthropicToolResponse("submit_questions", {
+        questions: [{ id: ID_1, question: "問題1（再生成）", choices: ["カ", "キ", "ク", "ケ"] }],
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({
+      request: quizPost("/api/quiz/start", { format: "四択" }),
+      env,
+    });
+    assert.equal(response.status, 200);
+    assert.equal(anthropicCalls, 2);
+    assert.deepEqual(retryRequestIds, [[ID_1]]);
+    const body = await response.json() as { items: { id: string; question: string; choices: string[] | null }[] };
+    const item1 = body.items.find((item) => item.id === ID_1)!;
+    const item2 = body.items.find((item) => item.id === ID_2)!;
+    assert.equal(item1.question, "問題1（再生成）");
+    assert.deepEqual([...item1.choices!].sort(), ["カ", "キ", "ク", "ケ"]);
+    assert.deepEqual([...item2.choices!].sort(), ["A", "B", "C", "D"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("quiz/start は四択の選択肢がそろわなければ自由記述に落とさず失敗させる", async () => {
   const originalFetch = globalThis.fetch;
   let choices: unknown = ["ア", "イ", "ウ"];
