@@ -69,6 +69,35 @@ test("Compass edits Wants through a dedicated API", async () => {
   assert.match(script, /actionHeader: "want-update"/);
 });
 
+test("Compass triages Wants with a preview and keeps external destinations planned", async () => {
+  const [html, script] = await Promise.all([
+    readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(html, /id="untriagedWants"/);
+  assert.match(script, /id="triageWantButton"/);
+  assert.match(script, /function renderTriageStart\(item\)/);
+  assert.match(script, /function renderRoutePreview\(item, plan\)/);
+  assert.match(script, /fetch\("\/api\/want-routes"/);
+  assert.match(script, /X-Dashboard-Action": "want-route-create"/);
+  assert.match(script, /外部へ送信せず、登録計画だけを保存/);
+});
+
+test("Compass asks AI only on explicit action and sends suggestions through human review", async () => {
+  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+
+  assert.match(script, /id="askAiTriageButton"/);
+  assert.match(script, /askAiTriageButton"\)\.addEventListener\("click", \(\) => requestAiTriage\(item\)\)/);
+  assert.match(script, /押した時だけ、Want本文をClaude APIへ送信/);
+  assert.match(script, /fetch\("\/api\/want-suggestions"/);
+  assert.match(script, /X-Dashboard-Action": "want-ai-suggest"/);
+  assert.match(script, /回答をもとに再提案/);
+  assert.match(script, /この案を使う/);
+  assert.match(script, /renderRouteForm\(item, suggestion\.intent, suggestion\.destination, suggestion\)/);
+  assert.match(script, /これは未保存の案です/);
+});
+
 test("Compass closes actionable Inbox and Wants with conflict-safe updates", async () => {
   const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
 

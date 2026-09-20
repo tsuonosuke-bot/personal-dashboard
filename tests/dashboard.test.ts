@@ -19,14 +19,21 @@ test("dashboard summary and future navigation are normalized", () => {
       NAV_FINANCIAL_URL: "javascript:alert(1)",
       NAV_TASK_BOARD_URL: "http://127.0.0.1:4173/",
     },
+    [
+      { id: 90, want_id: 10, intent: "explore", destination: "writing", status: "created", title: "Want A", created_at: "2026-09-14T00:00:00Z" },
+      { id: 91, want_id: 11, intent: "continue", destination: "habit", status: "failed", title: "Want B", created_at: "2026-09-14T00:00:00Z" },
+    ],
   );
   assert.deepEqual(dashboard.summary, {
     inboxTotal: 2,
     pendingInbox: 1,
     wantsTotal: 2,
     activeWants: 2,
+    untriagedWants: 1,
     dueForReview: 1,
   });
+  assert.equal(dashboard.wants[0].routes.length, 1);
+  assert.equal(dashboard.wants[1].routes[0].status, "failed");
   assert.equal(dashboard.navigation[0].url, "/");
   assert.equal(dashboard.navigation[2].url, "/go/knowledge");
   assert.equal(dashboard.navigation[3].url, "/go/financial");
@@ -47,7 +54,7 @@ test("dashboard route sends the secret key only in server-side headers", async (
     });
     const body = await response.text();
     assert.equal(response.status, 200);
-    assert.equal(requests.length, 2);
+    assert.equal(requests.length, 3);
     assert.ok(requests.every((entry) => entry.headers.apikey === "secret-server-key"));
     assert.ok(requests.every((entry) => !("Authorization" in entry.headers)));
     assert.ok(requests.every((entry) => !entry.url.includes("secret-server-key")));

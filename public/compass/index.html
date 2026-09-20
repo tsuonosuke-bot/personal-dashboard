@@ -29,7 +29,8 @@
       <main>
         <section class="metrics" aria-label="サマリー">
           <button class="metric metric-inbox" type="button" data-view="inbox" data-filter="pending"><span class="metric-icon">↘</span><span class="metric-label">未整理のInbox</span><strong id="pendingInbox">—</strong><small><span id="inboxTotal">—</span>件のうち</small></button>
-          <button class="metric metric-wants" type="button" data-view="wants" data-filter="active"><span class="metric-icon">✦</span><span class="metric-label">Active Wants</span><strong id="activeWants">—</strong><small>方向を決めたテーマ</small></button>
+          <button class="metric metric-wants" type="button" data-view="wants" data-filter="active"><span class="metric-icon">✦</span><span class="metric-label">Active Wants</span><strong id="activeWants">—</strong><small>整理中・進行中</small></button>
+          <button class="metric metric-triage" type="button" data-view="wants" data-filter="untriaged"><span class="metric-icon">◇</span><span class="metric-label">未振り分けのWants</span><strong id="untriagedWants">—</strong><small>次の扱いを決める</small></button>
         </section>
 
         <section class="workspace">
@@ -49,7 +50,7 @@
           <div class="card-list" id="cardList" aria-live="polite"><div class="loading"><span></span><p>Supabaseから読み込んでいます</p></div></div>
         </section>
       </main>
-      <footer><span>Compass v0.9</span><span>Supabaseと同期</span></footer>
+      <footer><span>Compass v1.0</span><span>Supabaseと同期</span></footer>
     </div>
 
     <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>

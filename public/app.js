@@ -5,11 +5,12 @@ const state = {
   search: "",
   metricFilter: "",
   drawerItem: null,
+  aiRequestToken: 0,
 };
 
 const els = Object.fromEntries([
   "sourceBadge", "refreshButton",
-  "pendingInbox", "inboxTotal", "activeWants",
+  "pendingInbox", "inboxTotal", "activeWants", "untriagedWants",
   "inboxTabCount", "wantsTabCount", "listTitle", "searchInput",
   "statusFilter", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher", "dashboardNav",
@@ -75,6 +76,40 @@ const createFlowMeta = {
   },
 };
 
+const routeIntentMeta = {
+  act: { label: "行動する", description: "日時を確保する、またはソフトウェアを変更する" },
+  continue: { label: "継続する", description: "繰り返したい行動として管理する" },
+  explore: { label: "掘り下げる", description: "調べる、理解する、文章へ育てる" },
+  keep: { label: "残しておく", description: "意識事項や記録として保存する" },
+  discard: { label: "今回は見送る", description: "理由を残して整理を終える" },
+};
+
+const routeDestinationMeta = {
+  calendar: { label: "Google Calendar", description: "タスク・予定・調査時間の計画を保存", internal: false },
+  github: { label: "GitHub Issue", description: "ソフトウェアの実装候補として保存", internal: false },
+  writing: { label: "Writing", description: "掘り下げたいエッセイ候補として登録", internal: true },
+  habit: { label: "Habits", description: "継続する習慣として登録", internal: true },
+  knowledge: { label: "Knowledge候補", description: "調査・検証後のDB登録候補として保存", internal: false },
+  focus: { label: "Focus", description: "繰り返し意識したい言葉として登録", internal: true },
+  journal: { label: "Journal候補", description: "その日の記録として保存する計画", internal: false },
+  archive: { label: "アーカイブ", description: "外部へ登録せず整理記録だけを残す", internal: true },
+};
+
+const destinationsByIntent = {
+  act: ["calendar", "github"],
+  continue: ["habit"],
+  explore: ["calendar", "knowledge", "writing"],
+  keep: ["focus", "journal", "archive"],
+  discard: ["archive"],
+};
+
+const cadenceLabels = {
+  daily: "毎日",
+  weekdays: "平日",
+  weekly: "毎週",
+  flexible: "頻度を固定しない",
+};
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -110,6 +145,9 @@ function currentItems() {
   if (!state.data) return [];
   let items = state.data[state.view] || [];
   if (state.status) items = items.filter((item) => item.status === state.status);
+  if (state.view === "wants" && state.metricFilter === "untriaged") {
+    items = items.filter((item) => item.status === "active" && !(item.routes || []).some((route) => route.status === "planned" || route.status === "created"));
+  }
   const needle = state.search.trim().toLocaleLowerCase("ja");
   if (needle) {
     items = items.filter((item) => [item.content, item.result, item.note]
@@ -131,6 +169,7 @@ function renderSummary() {
   els.pendingInbox.textContent = summary.pendingInbox;
   els.inboxTotal.textContent = summary.inboxTotal;
   els.activeWants.textContent = summary.activeWants;
+  els.untriagedWants.textContent = summary.untriagedWants;
 }
 
 function renderCurrentTabCount(items) {
@@ -161,10 +200,15 @@ function canCloseItem(item, view) {
 }
 
 function cardMarkup(item) {
+  const routes = state.view === "wants" ? (item.routes || []) : [];
+  const activeRoutes = routes.filter((route) => route.status === "planned" || route.status === "created");
+  const routeSummary = activeRoutes.length > 0
+    ? `<span>${activeRoutes.length}件を振り分け済み</span>`
+    : state.view === "wants" && item.status === "active" ? "<span>未振り分け</span>" : "";
   return `<button class="item-card" type="button" data-id="${item.id}">
     <div class="item-top"><span class="item-id">${viewMeta[state.view].singular.toUpperCase()} · ${item.id ?? "?"}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(statusLabel(item.status))}</span></div>
     <h3>${escapeHtml(item.content || "内容なし")}</h3>
-    <div class="item-footer"><span>${formatDate(item.createdAt)}</span></div>
+    <div class="item-footer"><span>${formatDate(item.createdAt)}</span>${routeSummary}</div>
   </button>`;
 }
 
@@ -204,9 +248,22 @@ function renderDrawerItem(item, view) {
       <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
   }
   if (view === "wants") {
-    body += `<div class="detail-section">${item.note ? `<p>${escapeHtml(item.note)}</p>` : ""}</div>
+    const routes = item.routes || [];
+    const routeMarkup = routes.length > 0
+      ? `<ul class="route-list">${routes.map((route) => {
+          const meta = routeDestinationMeta[route.destination] || { label: route.destination, internal: false };
+          const status = ({ planned: "計画のみ", created: "登録済み", failed: "失敗", cancelled: "取消" })[route.status] || route.status;
+          const target = route.targetUrl
+            ? `<a href="${escapeHtml(route.targetUrl)}" target="_blank" rel="noopener noreferrer">正本を開く</a>`
+            : "";
+          return `<li><div><strong>${escapeHtml(meta.label)}</strong><span class="route-status route-status-${escapeHtml(route.status)}">${escapeHtml(status)}</span></div><p>${escapeHtml(route.title)}</p>${target}</li>`;
+        }).join("")}</ul>`
+      : '<p class="route-empty">まだ振り分けられていません。</p>';
+    body += `${item.note ? `<div class="detail-section"><span>メモ</span><p>${escapeHtml(item.note)}</p></div>` : ""}
+      <div class="detail-section"><span>振り分け履歴</span>${routeMarkup}</div>
       <div class="drawer-actions">
         <button class="secondary-action" id="editWantButton" type="button">Wantを編集</button>
+        ${item.status === "active" ? '<button class="primary-action" id="triageWantButton" type="button">整理する</button>' : ""}
         ${canCloseItem(item, view) ? '<button class="close-action" id="closeItemButton" type="button">Wantをクローズ</button>' : ""}
       </div>
       <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
@@ -215,7 +272,268 @@ function renderDrawerItem(item, view) {
   document.getElementById("editInboxButton")?.addEventListener("click", () => renderInboxEditForm(item));
   document.getElementById("createWantButton")?.addEventListener("click", () => renderCreateFlowForm(item, "inbox"));
   document.getElementById("editWantButton")?.addEventListener("click", () => renderItemEditForm(item, "wants"));
+  document.getElementById("triageWantButton")?.addEventListener("click", () => renderTriageStart(item));
   document.getElementById("closeItemButton")?.addEventListener("click", () => closeItem(item, view));
+}
+
+function renderTriageStart(item) {
+  els.drawerKicker.textContent = `Want · ${item.id}`;
+  els.drawerTitle.textContent = "このWantをどう扱いますか？";
+  els.drawerBody.innerHTML = `<div class="source-context">
+      <span>元のWant</span>
+      <p>${escapeHtml(item.content)}</p>
+    </div>
+    <div class="ai-triage-entry">
+      <button class="ai-triage-button" id="askAiTriageButton" type="button">AIに整理案を聞く</button>
+      <p class="ai-data-note">押した時だけ、Want本文をClaude APIへ送信します。AIは案を作るだけで、外部登録は行いません。</p>
+    </div>
+    <div class="triage-divider"><span>または自分で選ぶ</span></div>
+    <div class="triage-options" id="triageIntentOptions">
+      ${Object.entries(routeIntentMeta).map(([key, meta]) => `<button class="triage-option" type="button" data-intent="${key}"><strong>${escapeHtml(meta.label)}</strong><span>${escapeHtml(meta.description)}</span></button>`).join("")}
+    </div>
+    <div class="drawer-actions"><button class="secondary-action" id="cancelTriage" type="button">戻る</button></div>`;
+  document.getElementById("askAiTriageButton").addEventListener("click", () => requestAiTriage(item));
+  document.querySelectorAll("[data-intent]").forEach((button) => button.addEventListener("click", () => renderDestinationStep(item, button.dataset.intent)));
+  document.getElementById("cancelTriage").addEventListener("click", () => renderDrawerItem(item, "wants"));
+}
+
+async function requestAiTriage(item, answers = null) {
+  const requestToken = ++state.aiRequestToken;
+  els.drawerKicker.textContent = `Want · ${item.id}`;
+  els.drawerTitle.textContent = "AIが整理案を作成中";
+  els.drawerBody.innerHTML = `<div class="source-context">
+      <span>元のWant</span>
+      <p>${escapeHtml(item.content)}</p>
+    </div>
+    <div class="ai-loading" role="status"><span aria-hidden="true"></span><p>内容に合う振り分け先を考えています…</p></div>`;
+  try {
+    const response = await fetch("/api/want-suggestions", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Dashboard-Action": "want-ai-suggest",
+      },
+      body: JSON.stringify({
+        wantId: item.id,
+        content: item.content,
+        answers,
+        original: { content: item.content, status: item.status },
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+    if (!response.ok) throw new Error(message || "AI整理案を取得できませんでした。");
+    if (requestToken !== state.aiRequestToken || state.drawerItem?.id !== item.id || state.drawerItem?.view !== "wants") return;
+    renderAiSuggestion(item, payload);
+  } catch (error) {
+    if (requestToken !== state.aiRequestToken || state.drawerItem?.id !== item.id || state.drawerItem?.view !== "wants") return;
+    els.drawerTitle.textContent = "AI整理案を取得できませんでした";
+    els.drawerBody.innerHTML = `<div class="source-context">
+        <span>元のWant</span>
+        <p>${escapeHtml(item.content)}</p>
+      </div>
+      <p class="form-error" role="alert">${escapeHtml(error instanceof Error ? error.message : "AI整理案を取得できませんでした。")}</p>
+      <p class="ai-data-note">Wantは変更されていません。手動の振り分けはそのまま利用できます。</p>
+      <div class="drawer-actions"><button class="secondary-action" id="manualTriageAfterAiError" type="button">手動で選ぶ</button><button class="primary-action" id="retryAiTriage" type="button">もう一度聞く</button></div>`;
+    document.getElementById("manualTriageAfterAiError").addEventListener("click", () => renderTriageStart(item));
+    document.getElementById("retryAiTriage").addEventListener("click", () => requestAiTriage(item, answers));
+  }
+}
+
+function renderAiSuggestion(item, result) {
+  const suggestions = Array.isArray(result.suggestions) ? result.suggestions : [];
+  const questions = Array.isArray(result.questions) ? result.questions : [];
+  if (suggestions.length === 0) {
+    throw new Error("AI整理案を安全に読み取れませんでした。");
+  }
+  els.drawerKicker.textContent = `Want · ${item.id}`;
+  els.drawerTitle.textContent = "AIからの整理案";
+  els.drawerBody.innerHTML = `<div class="source-context">
+      <span>元のWant</span>
+      <p>${escapeHtml(item.content)}</p>
+    </div>
+    <div class="ai-summary"><span>読み取り</span><p>${escapeHtml(result.summary || "整理案を作成しました。")}</p></div>
+    ${questions.length > 0 ? `<form class="ai-questions" id="aiClarificationForm">
+      <strong>もう少し教えてください</strong>
+      ${questions.map((question, index) => `<label class="form-field" for="aiAnswer${index}"><span>${escapeHtml(question)}</span><textarea id="aiAnswer${index}" name="answer" rows="2" maxlength="320" required></textarea></label>`).join("")}
+      <button class="secondary-action" type="submit">回答をもとに再提案</button>
+    </form>` : ""}
+    <div class="ai-suggestions">
+      ${suggestions.map((suggestion, index) => {
+        const intent = routeIntentMeta[suggestion.intent];
+        const destination = routeDestinationMeta[suggestion.destination];
+        if (!intent || !destination) return "";
+        return `<article class="ai-suggestion-card">
+          <div><span>${escapeHtml(intent.label)} → ${escapeHtml(destination.label)}</span>${suggestion.cadence ? `<small>${escapeHtml(cadenceLabels[suggestion.cadence] || suggestion.cadence)}</small>` : ""}</div>
+          <h3>${escapeHtml(suggestion.title)}</h3>
+          ${suggestion.detail ? `<p>${escapeHtml(suggestion.detail)}</p>` : ""}
+          <p class="ai-suggestion-reason">${escapeHtml(suggestion.reason)}</p>
+          <button class="primary-action" type="button" data-ai-suggestion="${index}">この案を使う</button>
+        </article>`;
+      }).join("")}
+    </div>
+    <p class="ai-data-note">これは未保存の案です。「この案を使う」の後に内容を編集し、確認画面で確定します。</p>
+    <div class="drawer-actions"><button class="secondary-action" id="manualTriageAfterAi" type="button">自分で選ぶ</button><button class="secondary-action" id="askAiAgain" type="button">最初から聞き直す</button></div>`;
+
+  document.getElementById("aiClarificationForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const answerFields = [...event.currentTarget.querySelectorAll('textarea[name="answer"]')];
+    const answers = questions.map((question, index) => `質問${index + 1}: ${question}\n回答${index + 1}: ${answerFields[index].value.trim()}`).join("\n\n");
+    requestAiTriage(item, answers);
+  });
+  els.drawerBody.querySelectorAll("[data-ai-suggestion]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const suggestion = suggestions[Number(button.dataset.aiSuggestion)];
+      if (suggestion) renderRouteForm(item, suggestion.intent, suggestion.destination, suggestion);
+    });
+  });
+  document.getElementById("manualTriageAfterAi").addEventListener("click", () => renderTriageStart(item));
+  document.getElementById("askAiAgain").addEventListener("click", () => requestAiTriage(item));
+}
+
+function renderDestinationStep(item, intent) {
+  const intentMeta = routeIntentMeta[intent];
+  if (!intentMeta) return renderTriageStart(item);
+  els.drawerTitle.textContent = "振り分け先を選ぶ";
+  const destinations = destinationsByIntent[intent] || [];
+  els.drawerBody.innerHTML = `<div class="source-context">
+      <span>${escapeHtml(intentMeta.label)}</span>
+      <p>${escapeHtml(item.content)}</p>
+    </div>
+    <div class="triage-options">
+      ${destinations.map((destination) => {
+        const meta = routeDestinationMeta[destination];
+        return `<button class="triage-option" type="button" data-destination="${destination}"><strong>${escapeHtml(meta.label)}</strong><span>${escapeHtml(meta.description)}</span></button>`;
+      }).join("")}
+    </div>
+    <div class="drawer-actions"><button class="secondary-action" id="backToIntent" type="button">戻る</button></div>`;
+  document.querySelectorAll("[data-destination]").forEach((button) => button.addEventListener("click", () => renderRouteForm(item, intent, button.dataset.destination)));
+  document.getElementById("backToIntent").addEventListener("click", () => renderTriageStart(item));
+}
+
+function renderRouteForm(item, intent, destination, initial = {}) {
+  const destinationMeta = routeDestinationMeta[destination];
+  if (!destinationMeta) return renderDestinationStep(item, intent);
+  const title = initial.title ?? item.content.slice(0, 240);
+  const detail = initial.detail ?? "";
+  const cadence = initial.cadence ?? "daily";
+  const detailLabel = ({
+    calendar: "実行内容・希望日時",
+    github: "背景・完了条件",
+    writing: "問い・掘り下げたいこと",
+    habit: "目的・続けたい理由",
+    knowledge: "調べること・検証条件",
+    focus: "意味・意識したい理由",
+    journal: "残したい背景",
+    archive: "見送る理由・補足",
+  })[destination] || "補足";
+  els.drawerTitle.textContent = destinationMeta.label;
+  els.drawerBody.innerHTML = `<form class="edit-form" id="routeForm">
+    <div class="source-context"><span>元のWant</span><p>${escapeHtml(item.content)}</p></div>
+    ${destinationMeta.internal ? "" : '<p class="route-boundary">この段階では外部へ送信せず、登録計画だけを保存します。</p>'}
+    <label class="form-field" for="routeTitle"><span>タイトル</span><textarea id="routeTitle" name="title" rows="3" maxlength="240" required>${escapeHtml(title)}</textarea><small><b id="routeTitleCount">${title.length}</b> / 240</small></label>
+    <label class="form-field" for="routeDetail"><span>${escapeHtml(detailLabel)} <small>空欄可</small></span><textarea id="routeDetail" name="detail" rows="6" maxlength="2000">${escapeHtml(detail)}</textarea><small><b id="routeDetailCount">${detail.length}</b> / 2000</small></label>
+    ${destination === "habit" ? `<label class="form-field" for="routeCadence"><span>頻度</span><select id="routeCadence" name="cadence">${Object.entries(cadenceLabels).map(([value, label]) => `<option value="${value}" ${cadence === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>` : ""}
+    <p class="form-error" id="routeFormError" role="alert" hidden></p>
+    <div class="drawer-actions"><button class="secondary-action" id="backToDestination" type="button">戻る</button><button class="primary-action" type="submit">確認へ</button></div>
+  </form>`;
+  const form = document.getElementById("routeForm");
+  const titleInput = document.getElementById("routeTitle");
+  const detailInput = document.getElementById("routeDetail");
+  titleInput.addEventListener("input", () => { document.getElementById("routeTitleCount").textContent = titleInput.value.length; });
+  detailInput.addEventListener("input", () => { document.getElementById("routeDetailCount").textContent = detailInput.value.length; });
+  document.getElementById("backToDestination").addEventListener("click", () => renderDestinationStep(item, intent));
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const nextTitle = form.elements.title.value.trim();
+    if (!nextTitle) {
+      const error = document.getElementById("routeFormError");
+      error.textContent = "タイトルを入力してください。";
+      error.hidden = false;
+      form.elements.title.focus();
+      return;
+    }
+    renderRoutePreview(item, {
+      intent,
+      destination,
+      title: nextTitle,
+      detail: form.elements.detail.value.trim(),
+      cadence: destination === "habit" ? form.elements.cadence.value : null,
+      idempotencyKey: crypto.randomUUID(),
+    });
+  });
+  titleInput.focus();
+}
+
+function renderRoutePreview(item, plan) {
+  const intentMeta = routeIntentMeta[plan.intent];
+  const destinationMeta = routeDestinationMeta[plan.destination];
+  els.drawerTitle.textContent = "振り分け内容を確認";
+  els.drawerBody.innerHTML = `<div class="route-preview">
+      <div><span>元のWant</span><p>${escapeHtml(item.content)}</p></div>
+      <div><span>扱い</span><strong>${escapeHtml(intentMeta.label)}</strong></div>
+      <div><span>振り分け先</span><strong>${escapeHtml(destinationMeta.label)}</strong></div>
+      <div><span>タイトル</span><p>${escapeHtml(plan.title)}</p></div>
+      ${plan.detail ? `<div><span>補足</span><p>${escapeHtml(plan.detail)}</p></div>` : ""}
+      ${plan.cadence ? `<div><span>頻度</span><strong>${escapeHtml(cadenceLabels[plan.cadence])}</strong></div>` : ""}
+    </div>
+    <p class="flow-note">${destinationMeta.internal ? "確定するとPersonal Dashboard内の管理先へ登録します。元のWantは自動で完了にしません。" : "確定しても外部システムには送信しません。接続方法の合意後に、この計画から登録します。"}</p>
+    <p class="form-error" id="routeSaveError" role="alert" hidden></p>
+    <div class="drawer-actions"><button class="secondary-action" id="editRoutePlan" type="button">修正する</button><button class="primary-action" id="confirmRoutePlan" type="button">振り分けを確定</button></div>`;
+  document.getElementById("editRoutePlan").addEventListener("click", () => renderRouteForm(item, plan.intent, plan.destination, plan));
+  document.getElementById("confirmRoutePlan").addEventListener("click", () => saveWantRoute(item, plan));
+}
+
+async function saveWantRoute(item, plan) {
+  const submit = document.getElementById("confirmRoutePlan");
+  const edit = document.getElementById("editRoutePlan");
+  const errorElement = document.getElementById("routeSaveError");
+  submit.disabled = true;
+  edit.disabled = true;
+  submit.textContent = "保存中…";
+  errorElement.hidden = true;
+  try {
+    const response = await fetch("/api/want-routes", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Dashboard-Action": "want-route-create",
+      },
+      body: JSON.stringify({
+        wantId: item.id,
+        intent: plan.intent,
+        destination: plan.destination,
+        title: plan.title,
+        detail: plan.detail || null,
+        cadence: plan.cadence,
+        idempotencyKey: plan.idempotencyKey,
+        original: { content: item.content, status: item.status },
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+    if (!response.ok) throw new Error(message || "振り分けを保存できませんでした。");
+    const refreshed = await loadDashboard();
+    if (!refreshed) {
+      errorElement.textContent = "振り分けは保存しましたが、最新状態を再読み込みできませんでした。再読込してください。";
+      errorElement.hidden = false;
+      return;
+    }
+    showToast(payload.status === "created" ? "振り分け先へ登録しました。" : "振り分け計画を保存しました。外部への登録はまだ行っていません。");
+  } catch (error) {
+    errorElement.textContent = error instanceof Error ? error.message : "振り分けを保存できませんでした。";
+    errorElement.hidden = false;
+  } finally {
+    if (submit.isConnected) {
+      submit.disabled = false;
+      edit.disabled = false;
+      submit.textContent = "振り分けを確定";
+    }
+  }
 }
 
 function setCloseItemError(message) {
@@ -610,6 +928,7 @@ async function saveCreateFlow(event, sourceItem, sourceView) {
 function openDrawer(id, view = state.view) {
   const item = (state.data?.[view] || []).find((entry) => entry.id === id);
   if (!item) return;
+  state.aiRequestToken += 1;
   state.drawerItem = { id, view };
   renderDrawerItem(item, view);
   els.drawerBackdrop.hidden = false;
@@ -620,6 +939,7 @@ function openDrawer(id, view = state.view) {
 }
 
 function closeDrawer() {
+  state.aiRequestToken += 1;
   state.drawerItem = null;
   els.drawer.classList.remove("open");
   els.drawer.setAttribute("aria-hidden", "true");
