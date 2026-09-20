@@ -72,7 +72,8 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す。
   `categories`（登録済みカテゴリ名の配列。空配列は全カテゴリ）、`limit`、`format` で絞り込む
 - `POST /api/quiz/grade`: 署名済み出題トークンと`knowledge`を照合してClaude APIで採点し、
-  `record_answers_batch_once` RPCで同日重複を原子的に判定・一括記録
+  `record_answers_batch_once` RPCで同日重複を原子的に判定・一括記録。結果画面で優先度を安全に
+  変更できるよう、記録後の`priority`・`content_version`・`next_review_on`も返す
 
 クイズAPIはブラウザにも `knowledge` の列を素で返さない。`start` は
 `{ id, question, format, choices, token }` だけ、`grade` は採点後なので `title` と模範解答を返す。

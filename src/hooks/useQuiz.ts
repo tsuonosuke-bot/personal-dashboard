@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { gradeQuiz, startQuiz } from "../lib/api";
 import type {
-  QuizEmptyReason, QuizFormatRequest, QuizGradeResult, QuizQuestion,
+  Knowledge, QuizEmptyReason, QuizFormatRequest, QuizGradeResult, QuizQuestion,
 } from "../types";
 
 export const QUIZ_LIMIT_OPTIONS = [5, 10, 15, 20, 30] as const;
@@ -78,13 +78,30 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
       }));
       const graded = await gradeQuiz(payload);
       setResults(graded);
+      // 採点直後の再読込と結果画面からの優先度更新を競合させない。
+      try {
+        await onRecorded?.();
+      } catch {
+        // 再読込側がエラーを表示する。採点自体は確定済みなので結果は表示する。
+      }
       setStage("results");
-      void onRecorded?.();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "採点に失敗しました。");
       setStage("quiz");
     }
   }, [questions, answers, onRecorded]);
+
+  const syncKnowledgeResult = useCallback((updated: Knowledge) => {
+    setResults((current) => current.map((result) => result.id === updated.id
+      ? {
+        ...result,
+        title: updated.title,
+        priority: updated.priority,
+        content_version: updated.content_version,
+        next_review_on: updated.next_review_on,
+      }
+      : result));
+  }, []);
 
   const reset = useCallback(() => {
     setStage("setup");
@@ -99,6 +116,6 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
 
   return {
     stage, questions, answers, index, results, error, emptyReason, early,
-    start, answerCurrent, goNext, goBack, submit, reset,
+    start, answerCurrent, goNext, goBack, submit, reset, syncKnowledgeResult,
   };
 }

@@ -1,5 +1,6 @@
 import {
   jsonResponse,
+  inFilter,
   methodNotAllowed,
   requestSupabaseFunction,
   requestSupabaseRows,
@@ -33,8 +34,17 @@ interface KnowledgeFact {
   explanation: string | null;
   category: string;
   tags: string[];
-  next_review_on: string | null;
   archived: boolean;
+}
+
+const PRIORITIES = new Set(["最高", "高", "中", "低", "最低"]);
+
+interface KnowledgeReviewState {
+  id: string;
+  title: string;
+  priority: "最高" | "高" | "中" | "低" | "最低";
+  content_version: number;
+  next_review_on: string | null;
 }
 
 function isKnowledgeFact(value: unknown): value is KnowledgeFact {
@@ -44,8 +54,20 @@ function isKnowledgeFact(value: unknown): value is KnowledgeFact {
     && (record.explanation === null || typeof record.explanation === "string")
     && typeof record.category === "string"
     && Array.isArray(record.tags) && record.tags.every((tag) => typeof tag === "string")
-    && (record.next_review_on === null || typeof record.next_review_on === "string")
     && typeof record.archived === "boolean";
+}
+
+function isKnowledgeReviewState(value: unknown): value is KnowledgeReviewState {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.id === "string"
+    && typeof record.title === "string"
+    && typeof record.priority === "string"
+    && PRIORITIES.has(record.priority)
+    && typeof record.content_version === "number"
+    && Number.isSafeInteger(record.content_version)
+    && record.content_version >= 1
+    && (record.next_review_on === null || typeof record.next_review_on === "string");
 }
 
 /** q値の基準に従って正誤を機械的に決める。AIの判定に任せずサーバー側でCHECK制約と整合させる。 */
@@ -142,8 +164,8 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const knowledgeResult = await requestSupabaseRows(context.env, {
     table: "knowledge",
     params: new URLSearchParams({
-      id: `in.(${ids.join(",")})`,
-      select: "id,title,explanation,category,tags,next_review_on,archived",
+      id: inFilter(ids),
+      select: "id,title,explanation,category,tags,archived",
     }),
   });
   if (!knowledgeResult.ok) return knowledgeResult.response;
@@ -274,18 +296,38 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     }
   }
 
+  // record_answerで版番号と復習日が変わるため、優先度編集に使う最新状態を読み直す。
+  const reviewStateResult = await requestSupabaseRows(context.env, {
+    table: "knowledge",
+    params: new URLSearchParams({
+      id: inFilter(ids),
+      select: "id,title,priority,content_version,next_review_on",
+    }),
+  });
+  if (!reviewStateResult.ok) return reviewStateResult.response;
+  const reviewStates = reviewStateResult.rows.filter(isKnowledgeReviewState);
+  if (reviewStates.length !== ids.length || reviewStates.length !== reviewStateResult.rows.length) {
+    return jsonResponse({ error: "採点後のナレッジ状態を確認できませんでした。" }, 502);
+  }
+  const reviewStateById = new Map(reviewStates.map((state) => [state.id, state]));
+  if (reviewStateById.size !== ids.length || ids.some((id) => !reviewStateById.has(id))) {
+    return jsonResponse({ error: "採点後のナレッジ状態を完全に確認できませんでした。" }, 502);
+  }
+
   const results = ids.map((id) => {
     const grade = gradeById.get(id)!;
     const recorded = recordedById.get(id);
-    const fact = factById.get(id)!;
+    const state = reviewStateById.get(id)!;
     return {
       id,
-      title: fact.title,
+      title: state.title,
+      priority: state.priority,
+      content_version: state.content_version,
       verdict: grade.verdict,
       quality: grade.quality,
       correct_answer: grade.correctAnswer,
       explanation: grade.explanation,
-      next_review_on: recorded ? recorded.next_review_on : fact.next_review_on,
+      next_review_on: state.next_review_on,
       recorded: recorded?.recorded ?? false,
     };
   });
