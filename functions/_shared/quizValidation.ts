@@ -37,6 +37,8 @@ export interface StartRequestInput {
   limit: number;
   /** 出題形式。AUTO_FORMAT なら項目ごとに習熟度から決める。 */
   format: QuizFormatRequest;
+  /** dailyは当日固定キュー、customは従来のカテゴリ指定出題。 */
+  mode: "daily" | "custom";
 }
 
 export interface GradeAnswerInput {
@@ -126,7 +128,15 @@ export function validateStartRequest(
     return { ok: false, error: "出題形式の指定が正しくありません。" };
   }
 
-  return { ok: true, value: { categories, limit: rawLimit, format: rawFormat } };
+  const rawMode = "mode" in input ? input.mode : "custom";
+  if (rawMode !== "daily" && rawMode !== "custom") {
+    return { ok: false, error: "modeはdailyまたはcustomを指定してください。" };
+  }
+  if (rawMode === "daily" && categories.length > 0) {
+    return { ok: false, error: "今日の復習キューではカテゴリを指定できません。" };
+  }
+
+  return { ok: true, value: { categories, limit: rawLimit, format: rawFormat, mode: rawMode } };
 }
 
 export function validateGradeRequest(

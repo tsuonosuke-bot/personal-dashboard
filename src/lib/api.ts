@@ -1,12 +1,15 @@
 import type {
-  Knowledge, KnowledgeDraft, QuizFormatRequest, QuizGradeResult, QuizLog, QuizStart,
+  DailyReviewStatus, Knowledge, KnowledgeDraft, QuizFormatRequest, QuizGradeResult, QuizLog,
+  QuizStart, RecoveryPreview,
 } from "../types";
 import {
+  parseDailyReviewStatus,
   parseKnowledge,
   parsePageEnvelope,
   parseQuizGradeResponse,
   parseQuizLog,
   parseQuizStartResponse,
+  parseRecoveryPreview,
 } from "./apiValidation.ts";
 
 interface ErrorBody {
@@ -122,8 +125,9 @@ export async function startQuiz(
   categories: string[],
   limit: number,
   format: QuizFormatRequest,
+  mode: "daily" | "custom" = "custom",
 ): Promise<QuizStart> {
-  const data = await postQuiz("/api/quiz/start", { categories, limit, format });
+  const data = await postQuiz("/api/quiz/start", { categories, limit, format, mode });
   return parseQuizStartResponse(data);
 }
 
@@ -132,4 +136,32 @@ export async function gradeQuiz(
 ): Promise<QuizGradeResult[]> {
   const data = await postQuiz("/api/quiz/grade", answers);
   return parseQuizGradeResponse(data);
+}
+
+export async function getDailyReviewStatus(limit = 15): Promise<DailyReviewStatus> {
+  const data = await requestJson(`/api/review/queue?limit=${encodeURIComponent(limit)}`, { method: "GET" });
+  return parseDailyReviewStatus(data);
+}
+
+async function postRecovery(body: unknown): Promise<unknown> {
+  return requestJson("/api/review/recovery", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": "review-recovery",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function previewReviewRecovery(dailyLimit: number): Promise<RecoveryPreview> {
+  return parseRecoveryPreview(await postRecovery({ action: "preview", daily_limit: dailyLimit }));
+}
+
+export async function applyReviewRecovery(token: string): Promise<number> {
+  const data = await postRecovery({ action: "apply", token });
+  if (typeof data !== "object" || data === null || !Number.isSafeInteger((data as { updated?: unknown }).updated)) {
+    throw new Error("回復処理の応答が正しくありません。");
+  }
+  return (data as { updated: number }).updated;
 }

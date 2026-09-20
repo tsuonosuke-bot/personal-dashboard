@@ -93,6 +93,28 @@ button:disabled { opacity: 0.4; cursor: default; }
 .notice .notice-undo { padding: 4px 8px; border: 1px solid #86efac; border-radius: 7px; font-size: 12px; font-weight: 700; }
 .muted { color: #94a3b8; }
 
+.daily-review { margin-bottom: 16px; }
+.daily-review-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.daily-review-head h2 { margin: 3px 0 0; font-size: 18px; }
+.daily-review-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
+.daily-review-metrics > div { padding: 11px 12px; border-radius: 10px; background: #f7f6fa; }
+.daily-review-metrics span, .daily-review-metrics small { display: block; color: #7a879b; font-size: 10px; }
+.daily-review-metrics strong { display: block; margin: 4px 0 2px; font-size: 21px; }
+.daily-progress { height: 8px; margin-top: 12px; overflow: hidden; border-radius: 999px; background: #ece9f2; }
+.daily-progress span { display: block; height: 100%; border-radius: inherit; background: #66558c; transition: width .2s ease; }
+.recovery-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 13px; }
+.recovery-actions p { margin: 0; color: #7a879b; font-size: 12px; }
+.recovery-preview { margin-top: 16px; padding: 16px; border: 1px solid #ded7eb; border-radius: 10px; background: #fbfaff; }
+.recovery-preview h3 { margin-bottom: 5px; font-size: 15px; }
+.recovery-preview > p { margin-bottom: 10px; color: #6b6474; font-size: 12px; }
+.recovery-days { display: flex; flex-wrap: wrap; gap: 6px; max-height: 110px; overflow: auto; }
+.recovery-days span { padding: 4px 8px; border-radius: 999px; background: #eeeaf7; color: #554479; font-size: 11px; }
+.recovery-sample { display: grid; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
+.recovery-sample li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-top: 6px; border-top: 1px solid #ece8f2; font-size: 11px; }
+.recovery-sample strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recovery-sample span { flex: none; color: #7a879b; }
+.recovery-preview-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
 .review-panel { margin: 18px 0; }
 .section-heading { display: flex; justify-content: space-between; align-items: end; margin-bottom: 10px; }
 .section-heading h2 { margin-bottom: 3px; font-size: 16px; }
@@ -180,6 +202,9 @@ button.review-card { display: block; }
   .weak-list { grid-template-columns: 1fr; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .detail-list { grid-template-columns: 1fr; }
+  .daily-review-head, .recovery-actions { align-items: stretch; flex-direction: column; }
+  .daily-review-metrics { grid-template-columns: repeat(2, 1fr); }
+  .recovery-sample li { align-items: flex-start; flex-direction: column; gap: 3px; }
   .pager { justify-content: center; }
   .pager-summary { width: 100%; margin: 0; text-align: center; }
 }
@@ -217,6 +242,11 @@ button.review-card { display: block; }
 .quiz-header h1 { font-size: 19px; margin: 0; }
 .quiz-body { max-width: 640px; margin: 0 auto; padding: 18px 16px 60px; }
 .quiz-setup { display: grid; gap: 16px; text-align: center; }
+.daily-quiz-start { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px; border-radius: 10px; background: #f4f1fa; text-align: left; }
+.daily-quiz-start strong, .daily-quiz-start span { display: block; }
+.daily-quiz-start span { margin-top: 4px; color: #7a879b; font-size: 12px; }
+.quiz-divider { display: flex; align-items: center; gap: 10px; color: #94a3b8; font-size: 11px; }
+.quiz-divider::before, .quiz-divider::after { content: ""; flex: 1; height: 1px; background: #e7e3eb; }
 .quiz-category-select { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .quiz-category-select button.active { background: #66558c; border-color: #66558c; color: #fff; }
 .quiz-limit-select {
@@ -271,6 +301,7 @@ button.review-card { display: block; }
 .quiz-result-actions { display: flex; justify-content: center; gap: 10px; }
 
 @media (max-width: 560px) {
+  .daily-quiz-start { align-items: stretch; flex-direction: column; }
   .quiz-priority-panel { grid-template-columns: 1fr; }
   .quiz-priority-control { justify-content: space-between; }
   .quiz-next-review, .quiz-priority-feedback { grid-column: auto; }

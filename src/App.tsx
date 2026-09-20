@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { ArchivedKnowledgeModal } from "./components/ArchivedKnowledgeModal";
+import { DailyReviewPanel } from "./components/DailyReviewPanel";
 import { FilterBar } from "./components/FilterBar";
 import { KnowledgeTable } from "./components/KnowledgeTable";
 import { KnowledgeDetailModal } from "./components/KnowledgeDetailModal";
@@ -9,6 +10,7 @@ import { ReviewInsights } from "./components/ReviewInsights";
 import { StatsCards } from "./components/StatsCards";
 import { ALL, DEFAULT_PAGE_SIZE } from "./constants";
 import { useFilteredKnowledge } from "./hooks/useFilteredKnowledge";
+import { useDailyReview } from "./hooks/useDailyReview";
 import { useKnowledgeData } from "./hooks/useKnowledgeData";
 import { dashboardRoutePath, parseDashboardRoute } from "./lib/dashboardRoute";
 import type {
@@ -21,11 +23,16 @@ const QuizView = lazy(() => import("./components/QuizView")
   .then((module) => ({ default: module.QuizView })));
 
 export default function App() {
-  const [showQuiz, setShowQuiz] = useState(() => parseDashboardRoute(window.location.href).kind === "quiz");
+  const initialRoute = parseDashboardRoute(window.location.href);
+  const [showQuiz, setShowQuiz] = useState(() => initialRoute.kind === "quiz");
+  const [quizMode, setQuizMode] = useState<"daily" | "custom">(() => (
+    initialRoute.kind === "quiz" ? initialRoute.mode : "custom"
+  ));
   const {
     knowledge, archivedKnowledge, quizLog, loading, error, mutating,
     reload, createKnowledge, updateKnowledge,
   } = useKnowledgeData();
+  const dailyReview = useDailyReview();
   const [filters, setFilters] = useState<Filters>({
     search: "",
     category: ALL,
@@ -62,6 +69,7 @@ export default function App() {
     if (route.kind === "quiz") {
       setSelected(null);
       setArchiveOpen(false);
+      setQuizMode(route.mode);
       setShowQuiz(true);
       return;
     }
@@ -125,9 +133,10 @@ export default function App() {
   const selectReview = (review: ReviewFilter) => updateFilters({ review });
   const selectCategory = (category: string) => updateFilters({ category, review: "all" });
 
-  const setQuizOpen = (open: boolean) => {
-    replaceRoute(open ? { kind: "quiz" } : { kind: "dashboard" });
+  const setQuizOpen = (open: boolean, mode: "daily" | "custom" = "custom") => {
+    replaceRoute(open ? { kind: "quiz", mode } : { kind: "dashboard" });
     setSelected(null);
+    setQuizMode(mode);
     setShowQuiz(open);
   };
 
@@ -149,6 +158,10 @@ export default function App() {
     }
     setSelected(null);
     replaceRoute({ kind: "dashboard" });
+  };
+
+  const reloadAfterReview = async () => {
+    await Promise.all([reload(), dailyReview.refresh()]);
   };
 
   const openNew = () => {
@@ -214,7 +227,9 @@ export default function App() {
           knowledge={knowledge}
           quizLog={quizLog}
           onExit={() => setQuizOpen(false)}
-          onRecorded={reload}
+          autoStartDaily={quizMode === "daily"}
+          dailyStatus={dailyReview.status}
+          onRecorded={reloadAfterReview}
           onPriorityChange={(id: string, expectedVersion: number, priority: KnowledgePriority) => (
             updateKnowledge(id, expectedVersion, { priority })
           )}
@@ -234,7 +249,7 @@ export default function App() {
           </div>
           <div className="head-actions">
             <a className="hub-link" href="https://personal-dashboard-7md.pages.dev/">← Hub</a>
-            <button className="primary-button quiz-nav-button" onClick={() => setQuizOpen(true)}>▶ 復習する</button>
+            <button className="primary-button quiz-nav-button" onClick={() => setQuizOpen(true, "daily")}>▶ 今日の復習</button>
             <button onClick={handleReload} disabled={loading || mutating}>↻ 更新</button>
             <button
               className="archive-button"
@@ -274,6 +289,21 @@ export default function App() {
 
       {!loading && !error && (
         <>
+          <DailyReviewPanel
+            status={dailyReview.status}
+            preview={dailyReview.preview}
+            loading={dailyReview.loading}
+            mutating={dailyReview.mutating}
+            error={dailyReview.error}
+            onStart={() => setQuizOpen(true, "daily")}
+            onPreview={() => { void dailyReview.createPreview(); }}
+            onApply={dailyReview.applyPreview}
+            onCancelPreview={dailyReview.clearPreview}
+            onApplied={(updated) => {
+              setNotice(`${updated}件の復習日を再配分しました。`);
+              void reload();
+            }}
+          />
           <StatsCards knowledge={knowledge} quizLog={quizLog} />
           <ReviewInsights
             knowledge={knowledge}

@@ -309,13 +309,15 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const validated = validateStartRequest(json.value);
   if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
 
-  const { categories, limit, format } = validated.value;
-  const picked = await requestSupabaseFunction(context.env, "pick_quiz", {
-    p_include: categories.length > 0 ? categories : null,
-    p_exclude: null,
-    p_limit: limit,
-    p_include_mastered: false,
-  });
+  const { categories, limit, format, mode } = validated.value;
+  const picked = mode === "daily"
+    ? await requestSupabaseFunction(context.env, "pick_daily_review_queue", { p_limit: limit })
+    : await requestSupabaseFunction(context.env, "pick_quiz", {
+      p_include: categories.length > 0 ? categories : null,
+      p_exclude: null,
+      p_limit: limit,
+      p_include_mastered: false,
+    });
   if (!picked.ok) return picked.response;
   if (!Array.isArray(picked.data)) {
     return jsonResponse({ error: "DBから想定外の応答を受信しました。" }, 502);
@@ -325,6 +327,19 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     return jsonResponse({ error: "DBから想定外の応答を受信しました。" }, 502);
   }
   if (rows.length === 0) {
+    if (mode === "daily") {
+      const status = await requestSupabaseFunction(context.env, "get_daily_review_status", { p_limit: limit });
+      if (!status.ok) return status.response;
+      if (!Array.isArray(status.data) || status.data.length !== 1) {
+        return jsonResponse({ error: "日次復習キューの状態を確認できませんでした。" }, 502);
+      }
+      const row = status.data[0] as Record<string, unknown>;
+      return jsonResponse({
+        items: [],
+        reason: Number(row.queue_total) > 0 ? "done_today" : "no_knowledge",
+        mode,
+      });
+    }
     const empty = await emptyReason(context.env, categories);
     if (!empty.ok) return empty.response;
     return jsonResponse({ items: [], reason: empty.reason });
@@ -424,5 +439,6 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     items: responseItems,
     // プールFは期限前の前倒し出題。画面で一言添えるために知らせる。
     early: items.every((item) => item.pool === "F"),
+    mode,
   });
 };

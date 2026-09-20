@@ -96,6 +96,41 @@ export interface QuizStart {
   early: boolean;
 }
 
+export interface DailyReviewStatus {
+  review_on: string;
+  limit: number;
+  total: number;
+  completed: number;
+  remaining: number;
+  due_total: number;
+  overdue_total: number;
+}
+
+export interface RecoveryPreviewDay {
+  date: string;
+  count: number;
+}
+
+export interface RecoveryPreviewItem {
+  id: string;
+  title: string;
+  priority: KnowledgePriority;
+  accuracy: number | null;
+  overdue_days: number;
+  current_next_review_on: string;
+  scheduled_on: string;
+}
+
+export interface RecoveryPreview {
+  total: number;
+  daily_limit: number;
+  from: string | null;
+  through: string | null;
+  days: RecoveryPreviewDay[];
+  sample: RecoveryPreviewItem[];
+  token: string;
+}
+
 export interface QuizGradeResult {
   id: string;
   title: string;

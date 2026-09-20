@@ -132,10 +132,18 @@ export function acceptedDestination(value: string | null): string {
   }
   if (destination.origin !== "https://knowledge.invalid" || destination.pathname !== "/" || destination.hash) return "/";
   const entries = [...destination.searchParams.entries()];
-  if (entries.length !== 1) return "/";
-  const [[name, parameter]] = entries;
-  if (name === "view" && parameter === "quiz") return "/?view=quiz";
-  if (name === "knowledge" && isUuid(parameter)) return `/?knowledge=${encodeURIComponent(parameter)}`;
+  if (entries.length === 1 && destination.searchParams.get("view") === "quiz") return "/?view=quiz";
+  if (
+    entries.length === 2
+    && destination.searchParams.getAll("view").length === 1
+    && destination.searchParams.getAll("mode").length === 1
+    && destination.searchParams.get("view") === "quiz"
+    && destination.searchParams.get("mode") === "daily"
+  ) return "/?view=quiz&mode=daily";
+  const knowledgeId = destination.searchParams.get("knowledge");
+  if (entries.length === 1 && knowledgeId && isUuid(knowledgeId)) {
+    return `/?knowledge=${encodeURIComponent(knowledgeId)}`;
+  }
   return "/";
 }
 

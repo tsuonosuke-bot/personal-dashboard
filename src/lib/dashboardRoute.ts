@@ -1,6 +1,6 @@
 export type DashboardRoute =
   | { kind: "dashboard" }
-  | { kind: "quiz" }
+  | { kind: "quiz"; mode: "custom" | "daily" }
   | { kind: "knowledge"; knowledgeId: string }
   | { kind: "invalid-knowledge" };
 
@@ -16,7 +16,9 @@ export function isKnowledgeId(value: string): boolean {
 
 export function parseDashboardRoute(value: string | URL): DashboardRoute {
   const url = asUrl(value);
-  if (url.searchParams.get("view") === "quiz") return { kind: "quiz" };
+  if (url.searchParams.get("view") === "quiz") {
+    return { kind: "quiz", mode: url.searchParams.get("mode") === "daily" ? "daily" : "custom" };
+  }
   const knowledgeId = url.searchParams.get("knowledge");
   if (knowledgeId === null) return { kind: "dashboard" };
   return isKnowledgeId(knowledgeId)
@@ -27,8 +29,12 @@ export function parseDashboardRoute(value: string | URL): DashboardRoute {
 export function dashboardRoutePath(value: string | URL, route: DashboardRoute): string {
   const url = asUrl(value);
   url.searchParams.delete("view");
+  url.searchParams.delete("mode");
   url.searchParams.delete("knowledge");
-  if (route.kind === "quiz") url.searchParams.set("view", "quiz");
+  if (route.kind === "quiz") {
+    url.searchParams.set("view", "quiz");
+    if (route.mode === "daily") url.searchParams.set("mode", "daily");
+  }
   if (route.kind === "knowledge") url.searchParams.set("knowledge", route.knowledgeId);
   return `${url.pathname}${url.search}${url.hash}`;
 }
