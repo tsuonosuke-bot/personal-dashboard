@@ -92,7 +92,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .card-arrow { color: var(--accent); font-size: 14px; }
 
 .snapshot { padding: 9px 0; }
-.metric-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; }
+.metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .metric { min-height: 72px; display: block; padding: 11px 12px; border: 1px solid rgba(49,70,58,.11); border-radius: 11px; background: rgba(255,254,250,.72); text-decoration: none; transition: border-color .18s ease, background .18s ease; }
 .metric:hover { border-color: rgba(36,89,73,.45); background: var(--surface); }
 .metric span, .metric strong, .metric small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

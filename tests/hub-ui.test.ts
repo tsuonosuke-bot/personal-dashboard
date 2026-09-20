@@ -14,7 +14,9 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(html, /id="habitsLink"/);
   assert.match(html, /id="financialLink"/);
   assert.match(html, /id="knowledgeLink"/);
-  assert.match(html, /id="reviewStartLink"/);
+  assert.match(html, /id="reviewMetricLink"/);
+  assert.match(html, /今日の復習を開始 →/);
+  assert.doesNotMatch(html, /id="reviewStartLink"|id="spendMetricLink"|id="currentMonthSpend"|id="pendingInbox"/);
   assert.match(html, /id="habitMetricLink"/);
   assert.match(html, /id="untriagedMetricLink"/);
   assert.match(html, /id="oldestUntriaged"/);
@@ -46,7 +48,8 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(script, /表示から外す/);
   assert.match(script, /renderJournal\(payload\.journalMoments, availability\.journal\)/);
   assert.match(script, /target="_blank" rel="noopener noreferrer"/);
-  assert.match(script, /reviewStartLink\.href = navigation\.knowledgeReview/);
+  assert.match(script, /reviewMetricLink\.href = navigation\.knowledgeReview/);
+  assert.doesNotMatch(script, /reviewStartLink|spendMetricLink|spendComparison|els\.currentMonthSpend|els\.pendingInbox/);
   assert.match(script, /一部取得不可/);
   assert.match(script, /renderExpenses\(payload\.recentExpenses, availability\.expenses\)/);
   assert.doesNotMatch(`${html}\n${script}`, /再訪日|再訪期限/);
@@ -61,7 +64,7 @@ test("Hub keeps five primary destinations readable on desktop and mobile", async
   assert.match(css, /\.dashboard-grid \{ grid-template-columns: repeat\(3, 1fr\); gap: 5px; \}/);
   assert.match(css, /\.dashboard-card \{ min-height: 88px;/);
   assert.match(css, /\.metric-grid \{ grid-template-columns: 1fr 1fr;/);
-  assert.match(css, /\.metric-grid \{ display: grid; grid-template-columns: repeat\(6, 1fr\);/);
+  assert.match(css, /\.metric-grid \{ display: grid; grid-template-columns: repeat\(3, 1fr\);/);
   assert.match(css, /\.journal-list \{ grid-template-columns: 1fr; \}/);
 });
 

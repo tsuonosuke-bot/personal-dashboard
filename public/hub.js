@@ -1,8 +1,8 @@
 const ids = [
   "sourceBadge", "refreshButton", "dateLabel", "updatedLabel",
   "compassLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
-  "spendMetricLink", "reviewMetricLink", "reviewStartLink", "currentMonthSpend", "spendComparison", "dueKnowledge",
-  "weakKnowledge", "pendingInbox", "untriagedMetricLink", "untriagedWants", "oldestUntriaged", "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
+  "reviewMetricLink", "dueKnowledge", "weakKnowledge", "untriagedMetricLink", "untriagedWants", "oldestUntriaged",
+  "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
   "retryButton", "hubContent", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
   "focusMessage", "focusManageList", "wantList", "wantsMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "allWantsLink", "allExpensesLink", "allKnowledgeLink",
 ];
@@ -59,9 +59,7 @@ function renderNavigation(navigation) {
   els.financialLink.href = navigation.financial;
   els.knowledgeLink.href = navigation.knowledge;
   els.habitsLink.href = navigation.habits;
-  els.spendMetricLink.href = navigation.financial;
-  els.reviewMetricLink.href = navigation.knowledge;
-  els.reviewStartLink.href = navigation.knowledgeReview;
+  els.reviewMetricLink.href = navigation.knowledgeReview;
   els.habitMetricLink.href = navigation.habits;
   els.untriagedMetricLink.href = navigation.compassUntriaged || "/compass/?view=wants&filter=untriaged";
   els.writingLink.href = navigation.writing || "/writing/";
@@ -71,11 +69,9 @@ function renderNavigation(navigation) {
 }
 
 function renderSummary(summary) {
-  els.currentMonthSpend.textContent = formatYen(summary.currentMonthSpend);
   els.dueKnowledge.textContent = Number.isFinite(summary.completedKnowledgeToday)
     ? `${summary.completedKnowledgeToday} / ${summary.todayKnowledgeTotal}`
     : "—";
-  els.pendingInbox.textContent = formatCount(summary.pendingInbox);
   els.untriagedWants.textContent = formatCount(summary.untriagedWants);
   if (!Number.isFinite(summary.untriagedWants)) {
     els.oldestUntriaged.textContent = "振り分け状況を取得不可";
@@ -110,14 +106,6 @@ function renderSummary(summary) {
   els.habitProgress.textContent = Number.isFinite(summary.completedHabitsToday)
     ? `${summary.completedHabitsToday}件を今日記録`
     : "取得できません";
-  if (summary.currentMonthSpend === null || summary.previousMonthSpend === null) {
-    els.spendComparison.textContent = "取得できません";
-  } else if (summary.previousMonthSpend > 0) {
-    const difference = summary.currentMonthSpend - summary.previousMonthSpend;
-    els.spendComparison.textContent = `前月比 ${difference >= 0 ? "+" : ""}${formatYen(difference)}`;
-  } else {
-    els.spendComparison.textContent = "前月データなし";
-  }
 }
 
 function renderExpenses(items, available = true) {

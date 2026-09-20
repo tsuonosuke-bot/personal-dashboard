@@ -45,7 +45,7 @@ Browser
 ## Hubの機能
 
 - Compass、Writing、Habits、家計簿、ナレッジへの入口
-- 今月支出、今日の復習進捗、期限超過、未整理Inbox、未振り分けWantsのスナップショット
+- 今日の復習進捗と開始導線、期限超過、未振り分けWantsのスナップショット
 - Knowledge Dashboardの当日固定キューを直接開始するショートカット
 - 未振り分けActive Wantsの件数と最古の滞留日数を表示
 - 未振り分けを古い順で最大3件表示し、0件の時だけ振り分け済みActive Wantsへ切り替え
