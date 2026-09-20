@@ -11,6 +11,10 @@ ANTHROPIC_API_KEY=replace-with-an-anthropic-api-key
 ANTHROPIC_MODEL=claude-sonnet-5
 # Multi-workspace keys only:
 # ANTHROPIC_WORKSPACE_ID=wrkspc_replace-me
+GOOGLE_OAUTH_CLIENT_ID=replace-with-google-web-client-id
+GOOGLE_OAUTH_CLIENT_SECRET=replace-with-google-web-client-secret
+# 32 random bytes encoded as base64url (43 characters without padding)
+GOOGLE_TOKEN_ENCRYPTION_KEY=replace-with-32-byte-base64url-key
 HUB_SERVICE_TOKEN=replace-with-a-random-32-byte-secret
 SSO_SHARED_SECRET=replace-with-a-different-random-32-byte-secret
 SESSION_TTL_DAYS=30

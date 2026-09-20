@@ -1,4 +1,10 @@
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
+import {
+  assertGoogleCalendarConnected,
+  createGoogleCalendarEvent,
+  parseCalendarSchedule,
+  type CalendarSchedule,
+} from "./googleCalendar.ts";
 import { WANT_ROUTE_ADAPTERS } from "./wantRouteAdapters.ts";
 
 const MAX_REQUEST_CHARS = 8_000;
@@ -46,6 +52,7 @@ export interface WantRouteInput {
   title: string;
   detail: string | null;
   cadence: HabitCadence | null;
+  calendar: CalendarSchedule | null;
   idempotencyKey: string;
   original: WantSnapshot;
 }
@@ -66,6 +73,7 @@ interface RouteRow {
   target_id?: unknown;
   target_url?: unknown;
   error_code?: unknown;
+  destination_data?: unknown;
   idempotency_key?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
@@ -83,6 +91,7 @@ interface StoredRoute {
   targetId: string | null;
   targetUrl: string | null;
   errorCode: string | null;
+  calendar: CalendarSchedule | null;
   idempotencyKey: string;
   createdAt: string | null;
   updatedAt: string | null;
@@ -171,6 +180,8 @@ function normalizeRoute(row: RouteRow): StoredRoute {
   const cadence = typeof row.cadence === "string" && cadenceSet.has(row.cadence)
     ? row.cadence as HabitCadence
     : null;
+  const destinationData = isPlainObject(row.destination_data) ? row.destination_data : {};
+  const calendar = parseCalendarSchedule(destinationData.calendar);
   if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(wantId) || wantId <= 0 || !intent || !destination || !status) {
     throw new DashboardError("SUPABASE_RESPONSE_INVALID", "want_routes returned invalid data.");
   }
@@ -189,6 +200,7 @@ function normalizeRoute(row: RouteRow): StoredRoute {
     targetId: stringOrNull(row.target_id),
     targetUrl: stringOrNull(row.target_url),
     errorCode: stringOrNull(row.error_code),
+    calendar,
     idempotencyKey: row.idempotency_key,
     createdAt: isoOrNull(row.created_at),
     updatedAt: isoOrNull(row.updated_at),
@@ -230,8 +242,9 @@ export async function readWantRouteInput(request: Request): Promise<ValidationRe
   } catch {
     return { ok: false, status: 400, error: "JSONの形式が正しくありません。" };
   }
-  const keys = ["wantId", "intent", "destination", "title", "detail", "cadence", "idempotencyKey", "original"];
-  if (!isPlainObject(value) || !hasOnlyKeys(value, keys)) {
+  const keys = ["wantId", "intent", "destination", "title", "detail", "cadence", "calendar", "idempotencyKey", "original"];
+  const requiredKeys = ["wantId", "intent", "destination", "title", "detail", "cadence", "idempotencyKey", "original"];
+  if (!isPlainObject(value) || !Object.keys(value).every((key) => keys.includes(key)) || !requiredKeys.every((key) => key in value)) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
   if (!Number.isSafeInteger(value.wantId) || Number(value.wantId) <= 0) {
@@ -270,6 +283,13 @@ export async function readWantRouteInput(request: Request): Promise<ValidationRe
   if (destination !== "habit" && cadence !== null) {
     return { ok: false, status: 400, error: "この振り分け先には習慣の頻度を設定できません。" };
   }
+  const calendar = parseCalendarSchedule(value.calendar);
+  if (destination === "calendar" && !calendar) {
+    return { ok: false, status: 400, error: "Google Calendarへ登録する日付と時間を確認してください。" };
+  }
+  if (destination !== "calendar" && value.calendar !== undefined && value.calendar !== null) {
+    return { ok: false, status: 400, error: "この振り分け先にはCalendar予定を設定できません。" };
+  }
   if (typeof value.idempotencyKey !== "string" || !isUuid(value.idempotencyKey)) {
     return { ok: false, status: 400, error: "処理IDが正しくありません。" };
   }
@@ -287,6 +307,7 @@ export async function readWantRouteInput(request: Request): Promise<ValidationRe
       title,
       detail,
       cadence,
+      calendar,
       idempotencyKey: value.idempotencyKey,
       original: { content: value.original.content, status: "active" },
     },
@@ -307,7 +328,7 @@ async function verifyWant(connectionInfo: SupabaseConnection, input: WantRouteIn
   if (rows.length !== 1) throw new DashboardError("WANT_UPDATE_CONFLICT", "Want changed before routing.", 409);
 }
 
-const routeSelect = "id,want_id,intent,destination,status,title,detail,cadence,target_id,target_url,error_code,idempotency_key,created_at,updated_at";
+const routeSelect = "id,want_id,intent,destination,status,title,detail,cadence,target_id,target_url,error_code,destination_data,idempotency_key,created_at,updated_at";
 
 async function findRoute(connectionInfo: SupabaseConnection, idempotencyKey: string): Promise<StoredRoute | null> {
   const endpoint = restEndpoint(connectionInfo, "want_routes");
@@ -335,6 +356,7 @@ async function insertRoute(connectionInfo: SupabaseConnection, input: WantRouteI
       title: input.title,
       detail: input.detail,
       cadence: input.cadence,
+      destination_data: input.calendar ? { calendar: input.calendar } : {},
       idempotency_key: input.idempotencyKey,
     }),
   });
@@ -375,10 +397,10 @@ async function createInternalTarget(
   connectionInfo: SupabaseConnection,
   route: StoredRoute,
   input: WantRouteInput,
-): Promise<string> {
+): Promise<{ targetId: string; targetUrl: string | null }> {
   const adapter = WANT_ROUTE_ADAPTERS[input.destination];
   if (!adapter) throw new DashboardError("WANT_ROUTE_INVALID", "Destination adapter is missing.", 400);
-  if (adapter.mode === "archive") return `want:${input.wantId}`;
+  if (adapter.mode === "archive") return { targetId: `want:${input.wantId}`, targetUrl: null };
   if (adapter.mode !== "internal") {
     throw new DashboardError("WANT_ROUTE_INVALID", "Destination does not have an internal adapter.", 400);
   }
@@ -407,39 +429,56 @@ async function createInternalTarget(
   if (!Array.isArray(rows) || rows.length !== 1 || !isPlainObject(rows[0]) || !Number.isSafeInteger(Number(rows[0].id))) {
     throw new DashboardError("SUPABASE_RESPONSE_INVALID", `${adapter.table} returned invalid data.`);
   }
-  return String(rows[0].id);
+  return { targetId: String(rows[0].id), targetUrl: null };
 }
 
 export async function routeWant(env: DashboardEnv, input: WantRouteInput): Promise<StoredRoute> {
   const connectionInfo = connection(env);
   await verifyWant(connectionInfo, input);
 
+  const adapter = WANT_ROUTE_ADAPTERS[input.destination];
+  if (!adapter) throw new DashboardError("WANT_ROUTE_INVALID", "Destination adapter is missing.", 400);
+
   const existing = await findRoute(connectionInfo, input.idempotencyKey);
   let route: StoredRoute;
   if (existing) {
     if (existing.wantId !== input.wantId || existing.intent !== input.intent || existing.destination !== input.destination ||
-        existing.title !== input.title || existing.detail !== input.detail || existing.cadence !== input.cadence) {
+        existing.title !== input.title || existing.detail !== input.detail || existing.cadence !== input.cadence ||
+        JSON.stringify(existing.calendar) !== JSON.stringify(input.calendar)) {
       throw new DashboardError("WANT_ROUTE_CONFLICT", "Idempotency key belongs to another route.", 409);
     }
     route = existing;
   } else {
+    if (adapter.mode === "external" && adapter.provider === "google_calendar") {
+      await assertGoogleCalendarConnected(env);
+    }
     route = await insertRoute(connectionInfo, input);
   }
 
-  const adapter = WANT_ROUTE_ADAPTERS[input.destination];
-  if (!adapter) throw new DashboardError("WANT_ROUTE_INVALID", "Destination adapter is missing.", 400);
   if (adapter.mode === "planned") return route;
   if (route.status === "created") return route;
   if (route.status === "cancelled") throw new DashboardError("WANT_ROUTE_CONFLICT", "Cancelled route cannot be retried.", 409);
+  if (adapter.mode === "external" && adapter.provider === "google_calendar") {
+    await assertGoogleCalendarConnected(env);
+  }
   if (route.status === "failed") {
     route = await updateRoute(connectionInfo, route, { status: "planned", error_code: null });
   }
 
   try {
-    const targetId = await createInternalTarget(connectionInfo, route, input);
+    const target = adapter.mode === "external" && adapter.provider === "google_calendar"
+      ? await createGoogleCalendarEvent(env, {
+          wantId: input.wantId,
+          idempotencyKey: input.idempotencyKey,
+          title: input.title,
+          detail: input.detail,
+          schedule: input.calendar!,
+        })
+      : await createInternalTarget(connectionInfo, route, input);
     return await updateRoute(connectionInfo, route, {
       status: "created",
-      target_id: targetId,
+      target_id: target.targetId,
+      target_url: target.targetUrl,
       error_code: null,
     });
   } catch (error) {

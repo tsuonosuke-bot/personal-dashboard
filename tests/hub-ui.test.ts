@@ -69,7 +69,7 @@ test("Compass edits Wants through a dedicated API", async () => {
   assert.match(script, /actionHeader: "want-update"/);
 });
 
-test("Compass triages Wants with a preview and keeps external destinations planned", async () => {
+test("Compass previews every route and requires explicit confirmation for Google Calendar", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
     readFile(new URL("../public/app.js", import.meta.url), "utf8"),
@@ -82,6 +82,10 @@ test("Compass triages Wants with a preview and keeps external destinations plann
   assert.match(script, /fetch\("\/api\/want-routes"/);
   assert.match(script, /X-Dashboard-Action": "want-route-create"/);
   assert.match(script, /外部へ送信せず、登録計画だけを保存/);
+  assert.match(script, /id="routeCalendarDate"/);
+  assert.match(script, /Google Calendarに登録/);
+  assert.match(script, /fetch\("\/api\/google-calendar-status"/);
+  assert.match(script, /calendar: plan\.calendar \|\| null/);
 });
 
 test("Compass asks AI only on explicit action and sends suggestions through human review", async () => {

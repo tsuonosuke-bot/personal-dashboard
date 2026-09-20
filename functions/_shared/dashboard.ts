@@ -4,6 +4,9 @@ export interface DashboardEnv {
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_MODEL?: string;
   ANTHROPIC_WORKSPACE_ID?: string;
+  GOOGLE_OAUTH_CLIENT_ID?: string;
+  GOOGLE_OAUTH_CLIENT_SECRET?: string;
+  GOOGLE_TOKEN_ENCRYPTION_KEY?: string;
   NAV_KNOWLEDGE_URL?: string;
   NAV_FINANCIAL_URL?: string;
   NAV_TASK_BOARD_URL?: string;
@@ -48,6 +51,7 @@ interface WantRouteRow {
   target_id?: unknown;
   target_url?: unknown;
   error_code?: unknown;
+  destination_data?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
 }
@@ -57,7 +61,7 @@ const TABLES: Record<string, TableDefinition> = {
   wants: { name: "wants", select: "id,content,status,type,revisit_on,revisit_count,note,created_at", order: "created_at.desc,id.desc" },
   routes: {
     name: "want_routes",
-    select: "id,want_id,intent,destination,status,title,detail,cadence,target_id,target_url,error_code,created_at,updated_at",
+    select: "id,want_id,intent,destination,status,title,detail,cadence,target_id,target_url,error_code,destination_data,created_at,updated_at",
     order: "created_at.desc,id.desc",
   },
 };
@@ -141,6 +145,10 @@ function plainDate(value: unknown): string | null {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
 }
 
+function plainObject(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
 function safeNavigationUrl(value: string | undefined): string | null {
   if (!value) return null;
   if (value.startsWith("/") && !value.startsWith("//")) return value;
@@ -179,6 +187,7 @@ export function normalizeDashboard(
     targetId: text(row.target_id) || null,
     targetUrl: safeNavigationUrl(text(row.target_url)) || null,
     errorCode: text(row.error_code) || null,
+    destinationData: plainObject(row.destination_data),
     createdAt: isoDate(row.created_at),
     updatedAt: isoDate(row.updated_at),
   })).filter((route) => route.id !== null && route.wantId !== null);
@@ -247,6 +256,17 @@ export function publicError(error: unknown) {
     WANT_ROUTE_CONFLICT: "この振り分けは別の画面で変更されています。再読み込みしてからやり直してください。",
     WANT_ROUTE_INVALID: "この振り分け先は現在利用できません。",
     WANT_ROUTE_FAILED: "振り分け先への登録を完了できませんでした。元のWantは変更していません。",
+    GOOGLE_CALENDAR_NOT_CONFIGURED: "Google Calendar連携のサーバー設定が未完了です。",
+    GOOGLE_CALENDAR_CONFIG_INVALID: "Google Calendar連携のサーバー設定が正しくありません。",
+    GOOGLE_CALENDAR_NOT_CONNECTED: "Google Calendarを接続してから登録してください。",
+    GOOGLE_CALENDAR_RECONNECT_REQUIRED: "Google Calendarとの接続が期限切れです。もう一度接続してください。",
+    GOOGLE_CALENDAR_OAUTH_INVALID: "Google Calendarの接続確認に失敗しました。もう一度接続してください。",
+    GOOGLE_CALENDAR_OAUTH_FAILED: "Google Calendarを接続できませんでした。",
+    GOOGLE_CALENDAR_UNAVAILABLE: "Google Calendarへ接続できませんでした。時間をおいて再試行してください。",
+    GOOGLE_CALENDAR_ACCESS_DENIED: "Google Calendarへの予定作成権限を確認してください。",
+    GOOGLE_CALENDAR_RATE_LIMITED: "Google Calendarの利用上限に達しました。時間をおいて再試行してください。",
+    GOOGLE_CALENDAR_REQUEST_FAILED: "Google Calendarへの登録を完了できませんでした。",
+    GOOGLE_CALENDAR_RESPONSE_INVALID: "Google Calendarで作成結果を確認できませんでした。",
     AI_NOT_CONFIGURED: "AI整理機能のサーバー設定が未完了です。手動で振り分けることはできます。",
     AI_UNAVAILABLE: "AI整理サービスへ接続できませんでした。時間をおいて再試行してください。",
     AI_ACCESS_DENIED: "AI整理機能の認証設定を確認してください。",

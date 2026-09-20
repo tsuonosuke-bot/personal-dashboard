@@ -15,10 +15,13 @@ Browser
           ├─ /api/wants (POST / PATCH)
           ├─ /api/want-routes (POST)
           ├─ /api/want-suggestions (POST)
+          ├─ /api/google-calendar-* (OAuth / status)
           ├─ SUPABASE_SECRET_KEY (Cloudflare environment only)
           │   └─ Supabase REST API
-          └─ ANTHROPIC_API_KEY (Cloudflare environment only)
-              └─ Claude Messages API
+          ├─ ANTHROPIC_API_KEY (Cloudflare environment only)
+          │   └─ Claude Messages API
+          └─ GOOGLE_OAUTH_CLIENT_SECRET / GOOGLE_TOKEN_ENCRYPTION_KEY
+              └─ Google OAuth + Calendar API
 ```
 
 - 初期状態は静的ファイルとAPIを含む全リクエストをBasic認証で保護
@@ -26,7 +29,7 @@ Browser
 - `DASHBOARD_PASSWORD` 未設定時は503でフェイルクローズ
 - Supabase URLとsecret keyはPages Functionsだけが参照
 - 新形式のSupabase secret keyはサーバーから `apikey` ヘッダーだけで送信
-- ブラウザは同一オリジンの `/api/dashboard`、`/api/inbox`、`/api/wants`、`/api/want-routes`、`/api/want-suggestions` だけを呼び出す
+- ブラウザは同一オリジンのPersonal Dashboard APIだけを呼び出す
 - APIレスポンス、URL、Viteバンドルへsecret keyを含めない
 - `Cache-Control: private, no-store`、CSP、`X-Frame-Options: DENY`、`X-Robots-Tag` を適用
 - Inbox登録は同一オリジン・専用ヘッダー・入力文字数を検証し、`pending` として保存
@@ -59,7 +62,8 @@ Browser
 - AIから確認質問がある場合は、回答後に明示的に再提案を依頼
 - 振り分け内容をプレビューし、確定後に `want_routes` へ履歴を保存
 - Writing・Habits・Focus・アーカイブはPersonal Dashboard内へ登録
-- Google Calendar・GitHub・Knowledge DB・Journalは未送信の計画として保存（接続は別途合意後）
+- Google Calendarは接続状態と日時を確認し、明示的な「Google Calendarに登録」でメインカレンダーへ作成
+- GitHub・Knowledge DB・Journalは未送信の計画として保存（接続は別途合意後）
 - 一つのWantから複数の振り分けを作成可能。振り分け成功後も元Wantは自動完了しない
 - InboxからWantを追加すると元のInboxを処理済み（処理結果: Wantsに登録）にする
 - 検索、ステータス絞り込み、詳細ドロワー、再読込
@@ -87,12 +91,14 @@ npm run dev:pages
 
 初回導入時は、アプリのデプロイより先に `supabase/migrations/202609200001_want_triage.sql` を対象のSupabaseへ適用します。既存の `wants` を着想の正本として残し、振り分け結果だけを `want_routes` に追加します。
 
+Google Calendar連携を有効にする場合は、続けて `supabase/migrations/202609200002_google_calendar.sql` を適用します。更新トークンはPages FunctionでAES-GCM暗号化してから `integration_connections` に保存し、ブラウザ・Claude・APIレスポンスには返しません。
+
 - `writing_topics`: 掘り下げたいエッセイ候補
 - `habits` / `habit_logs`: 習慣の定義と実施記録
 - `focus_items`: 継続して意識したい言葉
 - `want_routes`: 上記および外部正本への振り分け履歴
 
-外部正本への登録処理は未実装です。`planned` の振り分けは「送信済み」を意味しません。元Wantとの競合検知と処理IDによる二重登録防止を行い、登録に失敗しても元Wantの状態は変更しません。
+Google Calendarだけ外部正本への登録処理を実装しています。GitHub・Knowledge DB・Journalの `planned` は「送信済み」を意味しません。元Wantとの競合検知と処理IDによる二重登録防止を行い、登録に失敗しても元Wantの状態は変更しません。
 
 AI整理も提案専用です。Want登録時・画面表示時・定期処理では呼び出さず、「AIに整理案を聞く」または確認回答後の「回答をもとに再提案」を押した時だけClaude APIへ送信します。提案は自動保存されず、既存の編集・プレビュー・確定を経て初めて `want_routes` に保存されます。
 
@@ -118,6 +124,9 @@ PreviewとProductionの両方に、次の環境変数を設定します。
 | `ANTHROPIC_API_KEY` | AI整理時 | Pages Functions専用のAnthropic API key |
 | `ANTHROPIC_MODEL` | Optional | Claudeモデル名。既定は `claude-sonnet-5` |
 | `ANTHROPIC_WORKSPACE_ID` | 条件付き | 複数workspaceに属するAPI keyで利用するworkspace ID |
+| `GOOGLE_OAUTH_CLIENT_ID` | Calendar連携時 | Google OAuth Web client ID |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Calendar連携時 | Google OAuth Web client secret |
+| `GOOGLE_TOKEN_ENCRYPTION_KEY` | Calendar連携時 | 更新トークン暗号化用の32-byte base64url鍵 |
 | `HUB_SERVICE_TOKEN` | Required | 家計簿・ナレッジの読取専用APIを呼ぶ共有secret |
 | `SSO_SHARED_SECRET` | Recommended | Hubから各サイトへ認証を引き継ぐ共有secret（32文字以上） |
 | `SESSION_TTL_DAYS` | Optional | 引き継いだセッションの日数。既定30、最大365 |
@@ -125,7 +134,19 @@ PreviewとProductionの両方に、次の環境変数を設定します。
 | `NAV_FINANCIAL_URL` | Optional | FinancialダッシュボードURL |
 | `NAV_TASK_BOARD_URL` | Optional | Task Board URL |
 
-`SUPABASE_SECRET_KEY`、`ANTHROPIC_API_KEY`、`HUB_SERVICE_TOKEN`、`SSO_SHARED_SECRET` はCloudflare側の暗号化されたSecretとして登録し、GitHubやフロントエンド環境変数（`VITE_*`）には登録しません。`ANTHROPIC_MODEL` と必要な場合の `ANTHROPIC_WORKSPACE_ID` は通常のサーバー環境変数として設定できます。Hubは家計簿・ナレッジの各Pages Functionが公開する読取専用APIを呼ぶため、別プロジェクトのSupabaseキーを複製しません。
+`SUPABASE_SECRET_KEY`、`ANTHROPIC_API_KEY`、`GOOGLE_OAUTH_CLIENT_SECRET`、`GOOGLE_TOKEN_ENCRYPTION_KEY`、`HUB_SERVICE_TOKEN`、`SSO_SHARED_SECRET` はCloudflare側の暗号化されたSecretとして登録し、GitHubやフロントエンド環境変数（`VITE_*`）には登録しません。`ANTHROPIC_MODEL`、`GOOGLE_OAUTH_CLIENT_ID`、必要な場合の `ANTHROPIC_WORKSPACE_ID` は通常のサーバー環境変数として設定できます。Hubは家計簿・ナレッジの各Pages Functionが公開する読取専用APIを呼ぶため、別プロジェクトのSupabaseキーを複製しません。
+
+## Google Calendar接続
+
+1. Google CloudでCalendar APIを有効にし、OAuth同意画面を設定します。
+2. 種類「ウェブ アプリケーション」のOAuth clientを作成します。
+3. 承認済みリダイレクトURIへ次を追加します。
+   - Production: `https://personal-dashboard-7md.pages.dev/api/google-calendar-callback`
+   - Preview: `https://want-triage-preview.personal-dashboard-7md.pages.dev/api/google-calendar-callback`
+4. Preview / Productionそれぞれへ上記3つのGoogle環境変数を設定し、再デプロイします。
+5. CompassでCalendarの振り分けを開き、「Google Calendarを接続」から一度だけ同意します。
+
+要求するGoogle scopeは予定の読取・作成・更新に限定した `https://www.googleapis.com/auth/calendar.events` です。予定は `primary` カレンダーへ `Asia/Tokyo` で作成し、作成直後に再取得してIDとリンクを確認します。日時変更・削除はGoogle Calendarを正本とし、初版ではDashboardからの更新同期は行いません。
 
 ## 検証
 

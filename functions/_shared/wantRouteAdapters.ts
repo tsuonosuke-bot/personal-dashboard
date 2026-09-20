@@ -9,6 +9,7 @@ export interface RouteAdapterInput {
 export type RouteAdapterDefinition =
   | { mode: "planned" }
   | { mode: "archive" }
+  | { mode: "external"; provider: "google_calendar" }
   | {
       mode: "internal";
       table: "writing_topics" | "habits" | "focus_items";
@@ -16,7 +17,7 @@ export type RouteAdapterDefinition =
     };
 
 export const WANT_ROUTE_ADAPTERS: Record<string, RouteAdapterDefinition> = {
-  calendar: { mode: "planned" },
+  calendar: { mode: "external", provider: "google_calendar" },
   github: { mode: "planned" },
   knowledge: { mode: "planned" },
   journal: { mode: "planned" },

@@ -6,6 +6,7 @@ const state = {
   metricFilter: "",
   drawerItem: null,
   aiRequestToken: 0,
+  calendarConnection: null,
 };
 
 const els = Object.fromEntries([
@@ -85,7 +86,7 @@ const routeIntentMeta = {
 };
 
 const routeDestinationMeta = {
-  calendar: { label: "Google Calendar", description: "タスク・予定・調査時間の計画を保存", internal: false },
+  calendar: { label: "Google Calendar", description: "タスク・予定・調査時間をメインカレンダーへ登録", internal: false },
   github: { label: "GitHub Issue", description: "ソフトウェアの実装候補として保存", internal: false },
   writing: { label: "Writing", description: "掘り下げたいエッセイ候補として登録", internal: true },
   habit: { label: "Habits", description: "継続する習慣として登録", internal: true },
@@ -127,6 +128,52 @@ function formatDate(value, includeTime = false) {
     ? { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }
     : { year: "numeric", month: "short", day: "numeric" }
   ).format(date);
+}
+
+function calendarSchedule(value) {
+  const schedule = value?.calendar;
+  if (!schedule || schedule.timeZone !== "Asia/Tokyo" || typeof schedule.date !== "string") return null;
+  return schedule;
+}
+
+function formatCalendarSchedule(schedule) {
+  if (!schedule) return "日時未設定";
+  const date = new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "short", day: "numeric", weekday: "short", timeZone: "Asia/Tokyo" })
+    .format(new Date(`${schedule.date}T00:00:00+09:00`));
+  return schedule.allDay ? `${date}（終日）` : `${date} ${schedule.startTime}–${schedule.endTime}`;
+}
+
+async function refreshGoogleCalendarConnection(statusElement, submitButton) {
+  statusElement.className = "integration-status loading";
+  statusElement.textContent = "Google Calendarの接続状態を確認しています…";
+  submitButton.disabled = true;
+  try {
+    const response = await fetch("/api/google-calendar-status", {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => ({}));
+    const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+    if (!response.ok) throw new Error(message || "Google Calendarの接続状態を確認できませんでした。");
+    state.calendarConnection = payload;
+    if (!payload.configured) {
+      statusElement.className = "integration-status error";
+      statusElement.textContent = "Google Calendar連携のサーバー設定が未完了です。";
+      return;
+    }
+    if (!payload.connected) {
+      statusElement.className = "integration-status action";
+      statusElement.innerHTML = '<span>Google Calendarはまだ接続されていません。</span><a href="/api/google-calendar-connect">Google Calendarを接続</a>';
+      return;
+    }
+    statusElement.className = "integration-status connected";
+    statusElement.textContent = "接続済み · メインカレンダー · Asia/Tokyo";
+    submitButton.disabled = false;
+  } catch (error) {
+    state.calendarConnection = null;
+    statusElement.className = "integration-status error";
+    statusElement.textContent = error instanceof Error ? error.message : "Google Calendarの接続状態を確認できませんでした。";
+  }
 }
 
 function setSource(source, error = false) {
@@ -256,7 +303,8 @@ function renderDrawerItem(item, view) {
           const target = route.targetUrl
             ? `<a href="${escapeHtml(route.targetUrl)}" target="_blank" rel="noopener noreferrer">正本を開く</a>`
             : "";
-          return `<li><div><strong>${escapeHtml(meta.label)}</strong><span class="route-status route-status-${escapeHtml(route.status)}">${escapeHtml(status)}</span></div><p>${escapeHtml(route.title)}</p>${target}</li>`;
+          const schedule = route.destination === "calendar" ? calendarSchedule(route.destinationData) : null;
+          return `<li><div><strong>${escapeHtml(meta.label)}</strong><span class="route-status route-status-${escapeHtml(route.status)}">${escapeHtml(status)}</span></div><p>${escapeHtml(route.title)}</p>${schedule ? `<small>${escapeHtml(formatCalendarSchedule(schedule))}</small>` : ""}${target}</li>`;
         }).join("")}</ul>`
       : '<p class="route-empty">まだ振り分けられていません。</p>';
     body += `${item.note ? `<div class="detail-section"><span>メモ</span><p>${escapeHtml(item.note)}</p></div>` : ""}
@@ -419,6 +467,13 @@ function renderRouteForm(item, intent, destination, initial = {}) {
   const title = initial.title ?? item.content.slice(0, 240);
   const detail = initial.detail ?? "";
   const cadence = initial.cadence ?? "daily";
+  const calendar = initial.calendar ?? {
+    allDay: true,
+    date: "",
+    startTime: "09:00",
+    endTime: "09:30",
+    timeZone: "Asia/Tokyo",
+  };
   const detailLabel = ({
     calendar: "実行内容・希望日時",
     github: "背景・完了条件",
@@ -429,21 +484,47 @@ function renderRouteForm(item, intent, destination, initial = {}) {
     journal: "残したい背景",
     archive: "見送る理由・補足",
   })[destination] || "補足";
+  const routeBoundary = destination === "calendar"
+    ? "確認画面の登録ボタンを押すと、Googleのメインカレンダーへ実際に予定を作成します。"
+    : destinationMeta.internal ? "" : "この段階では外部へ送信せず、登録計画だけを保存します。";
+  const calendarFields = destination === "calendar" ? `
+    <div class="integration-status loading" id="calendarConnectionStatus" role="status">Google Calendarの接続状態を確認しています…</div>
+    <label class="form-field" for="routeCalendarDate"><span>日付</span><input id="routeCalendarDate" name="calendarDate" type="date" value="${escapeHtml(calendar.date || "")}" required></label>
+    <label class="calendar-all-day" for="routeCalendarAllDay"><input id="routeCalendarAllDay" name="calendarAllDay" type="checkbox" ${calendar.allDay ? "checked" : ""}><span>終日予定として登録</span></label>
+    <div class="calendar-time-fields" id="calendarTimeFields" ${calendar.allDay ? "hidden" : ""}>
+      <label class="form-field" for="routeCalendarStart"><span>開始</span><input id="routeCalendarStart" name="calendarStart" type="time" value="${escapeHtml(calendar.startTime || "09:00")}"></label>
+      <label class="form-field" for="routeCalendarEnd"><span>終了</span><input id="routeCalendarEnd" name="calendarEnd" type="time" value="${escapeHtml(calendar.endTime || "09:30")}"></label>
+    </div>
+    <p class="calendar-time-zone">タイムゾーン: Asia/Tokyo</p>` : "";
   els.drawerTitle.textContent = destinationMeta.label;
   els.drawerBody.innerHTML = `<form class="edit-form" id="routeForm">
     <div class="source-context"><span>元のWant</span><p>${escapeHtml(item.content)}</p></div>
-    ${destinationMeta.internal ? "" : '<p class="route-boundary">この段階では外部へ送信せず、登録計画だけを保存します。</p>'}
+    ${routeBoundary ? `<p class="route-boundary">${escapeHtml(routeBoundary)}</p>` : ""}
     <label class="form-field" for="routeTitle"><span>タイトル</span><textarea id="routeTitle" name="title" rows="3" maxlength="240" required>${escapeHtml(title)}</textarea><small><b id="routeTitleCount">${title.length}</b> / 240</small></label>
     <label class="form-field" for="routeDetail"><span>${escapeHtml(detailLabel)} <small>空欄可</small></span><textarea id="routeDetail" name="detail" rows="6" maxlength="2000">${escapeHtml(detail)}</textarea><small><b id="routeDetailCount">${detail.length}</b> / 2000</small></label>
+    ${calendarFields}
     ${destination === "habit" ? `<label class="form-field" for="routeCadence"><span>頻度</span><select id="routeCadence" name="cadence">${Object.entries(cadenceLabels).map(([value, label]) => `<option value="${value}" ${cadence === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>` : ""}
     <p class="form-error" id="routeFormError" role="alert" hidden></p>
-    <div class="drawer-actions"><button class="secondary-action" id="backToDestination" type="button">戻る</button><button class="primary-action" type="submit">確認へ</button></div>
+    <div class="drawer-actions"><button class="secondary-action" id="backToDestination" type="button">戻る</button><button class="primary-action" id="routeFormSubmit" type="submit" ${destination === "calendar" ? "disabled" : ""}>確認へ</button></div>
   </form>`;
   const form = document.getElementById("routeForm");
   const titleInput = document.getElementById("routeTitle");
   const detailInput = document.getElementById("routeDetail");
+  const formSubmit = document.getElementById("routeFormSubmit");
   titleInput.addEventListener("input", () => { document.getElementById("routeTitleCount").textContent = titleInput.value.length; });
   detailInput.addEventListener("input", () => { document.getElementById("routeDetailCount").textContent = detailInput.value.length; });
+  if (destination === "calendar") {
+    const allDayInput = document.getElementById("routeCalendarAllDay");
+    const timeFields = document.getElementById("calendarTimeFields");
+    const updateTimeFields = () => {
+      timeFields.hidden = allDayInput.checked;
+      form.elements.calendarStart.required = !allDayInput.checked;
+      form.elements.calendarEnd.required = !allDayInput.checked;
+    };
+    allDayInput.addEventListener("change", updateTimeFields);
+    updateTimeFields();
+    refreshGoogleCalendarConnection(document.getElementById("calendarConnectionStatus"), formSubmit);
+  }
   document.getElementById("backToDestination").addEventListener("click", () => renderDestinationStep(item, intent));
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -455,12 +536,39 @@ function renderRouteForm(item, intent, destination, initial = {}) {
       form.elements.title.focus();
       return;
     }
+    let nextCalendar = null;
+    if (destination === "calendar") {
+      const error = document.getElementById("routeFormError");
+      if (!state.calendarConnection?.connected) {
+        error.textContent = "Google Calendarを接続してから確認へ進んでください。";
+        error.hidden = false;
+        return;
+      }
+      const date = form.elements.calendarDate.value;
+      const allDay = form.elements.calendarAllDay.checked;
+      const startTime = allDay ? null : form.elements.calendarStart.value;
+      const endTime = allDay ? null : form.elements.calendarEnd.value;
+      if (!date) {
+        error.textContent = "Google Calendarへ登録する日付を入力してください。";
+        error.hidden = false;
+        form.elements.calendarDate.focus();
+        return;
+      }
+      if (!allDay && (!startTime || !endTime || endTime <= startTime)) {
+        error.textContent = "終了時刻は開始時刻より後にしてください。";
+        error.hidden = false;
+        form.elements.calendarStart.focus();
+        return;
+      }
+      nextCalendar = { allDay, date, startTime, endTime, timeZone: "Asia/Tokyo" };
+    }
     renderRoutePreview(item, {
       intent,
       destination,
       title: nextTitle,
       detail: form.elements.detail.value.trim(),
       cadence: destination === "habit" ? form.elements.cadence.value : null,
+      calendar: nextCalendar,
       idempotencyKey: crypto.randomUUID(),
     });
   });
@@ -478,10 +586,11 @@ function renderRoutePreview(item, plan) {
       <div><span>タイトル</span><p>${escapeHtml(plan.title)}</p></div>
       ${plan.detail ? `<div><span>補足</span><p>${escapeHtml(plan.detail)}</p></div>` : ""}
       ${plan.cadence ? `<div><span>頻度</span><strong>${escapeHtml(cadenceLabels[plan.cadence])}</strong></div>` : ""}
+      ${plan.calendar ? `<div><span>予定日時</span><strong>${escapeHtml(formatCalendarSchedule(plan.calendar))}</strong><small>メインカレンダー · Asia/Tokyo</small></div>` : ""}
     </div>
-    <p class="flow-note">${destinationMeta.internal ? "確定するとPersonal Dashboard内の管理先へ登録します。元のWantは自動で完了にしません。" : "確定しても外部システムには送信しません。接続方法の合意後に、この計画から登録します。"}</p>
+    <p class="flow-note">${plan.destination === "calendar" ? "登録するとGoogle Calendarへ予定を作成し、再取得して確認します。元のWantは自動で完了にしません。" : destinationMeta.internal ? "確定するとPersonal Dashboard内の管理先へ登録します。元のWantは自動で完了にしません。" : "確定しても外部システムには送信しません。接続方法の合意後に、この計画から登録します。"}</p>
     <p class="form-error" id="routeSaveError" role="alert" hidden></p>
-    <div class="drawer-actions"><button class="secondary-action" id="editRoutePlan" type="button">修正する</button><button class="primary-action" id="confirmRoutePlan" type="button">振り分けを確定</button></div>`;
+    <div class="drawer-actions"><button class="secondary-action" id="editRoutePlan" type="button">修正する</button><button class="primary-action" id="confirmRoutePlan" type="button">${plan.destination === "calendar" ? "Google Calendarに登録" : "振り分けを確定"}</button></div>`;
   document.getElementById("editRoutePlan").addEventListener("click", () => renderRouteForm(item, plan.intent, plan.destination, plan));
   document.getElementById("confirmRoutePlan").addEventListener("click", () => saveWantRoute(item, plan));
 }
@@ -492,7 +601,7 @@ async function saveWantRoute(item, plan) {
   const errorElement = document.getElementById("routeSaveError");
   submit.disabled = true;
   edit.disabled = true;
-  submit.textContent = "保存中…";
+  submit.textContent = plan.destination === "calendar" ? "Calendarへ登録中…" : "保存中…";
   errorElement.hidden = true;
   try {
     const response = await fetch("/api/want-routes", {
@@ -510,6 +619,7 @@ async function saveWantRoute(item, plan) {
         title: plan.title,
         detail: plan.detail || null,
         cadence: plan.cadence,
+        calendar: plan.calendar || null,
         idempotencyKey: plan.idempotencyKey,
         original: { content: item.content, status: item.status },
       }),
@@ -523,7 +633,9 @@ async function saveWantRoute(item, plan) {
       errorElement.hidden = false;
       return;
     }
-    showToast(payload.status === "created" ? "振り分け先へ登録しました。" : "振り分け計画を保存しました。外部への登録はまだ行っていません。");
+    showToast(plan.destination === "calendar" && payload.status === "created"
+      ? "Google Calendarへ予定を登録しました。"
+      : payload.status === "created" ? "振り分け先へ登録しました。" : "振り分け計画を保存しました。外部への登録はまだ行っていません。");
   } catch (error) {
     errorElement.textContent = error instanceof Error ? error.message : "振り分けを保存できませんでした。";
     errorElement.hidden = false;
@@ -531,7 +643,7 @@ async function saveWantRoute(item, plan) {
     if (submit.isConnected) {
       submit.disabled = false;
       edit.disabled = false;
-      submit.textContent = "振り分けを確定";
+      submit.textContent = plan.destination === "calendar" ? "Google Calendarに登録" : "振り分けを確定";
     }
   }
 }
@@ -1065,5 +1177,16 @@ document.addEventListener("click", (event) => {
   if (!els.dashboardSwitcher.contains(event.target)) els.dashboardSwitcher.removeAttribute("open");
 });
 
-loadDashboard();
-if (new URLSearchParams(window.location.search).get("new") === "inbox") setModalOpen(true);
+const initialParameters = new URLSearchParams(window.location.search);
+loadDashboard().then(() => {
+  const calendarResult = initialParameters.get("calendar");
+  if (calendarResult === "connected") showToast("Google Calendarを接続しました。");
+  if (calendarResult === "denied") showToast("Google Calendarの接続はキャンセルされました。");
+  if (calendarResult === "error") showToast("Google Calendarを接続できませんでした。設定を確認してください。");
+  if (calendarResult) {
+    const cleaned = new URL(window.location.href);
+    cleaned.searchParams.delete("calendar");
+    window.history.replaceState(null, "", `${cleaned.pathname}${cleaned.search}${cleaned.hash}`);
+  }
+});
+if (initialParameters.get("new") === "inbox") setModalOpen(true);
