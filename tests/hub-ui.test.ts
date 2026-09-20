@@ -28,6 +28,7 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(script, /renderWants\(payload\.wants, payload\.navigation\.compass, availability\.wants\)/);
   assert.match(script, /escapeHtml\(item\.url \|\| url\)/);
   assert.match(script, /renderFocus\(payload\.focus \|\| \[\], availability\.focus\)/);
+  assert.match(script, /`\$\{summary\.completedKnowledgeToday\} \/ \$\{summary\.todayKnowledgeTotal\}`/);
   assert.match(script, /fetch\("\/api\/focus"/);
   assert.match(script, /"X-Dashboard-Action": action/);
   assert.match(script, /focus-update/);
