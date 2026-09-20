@@ -16,6 +16,9 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(html, /id="knowledgeLink"/);
   assert.match(html, /id="reviewStartLink"/);
   assert.match(html, /id="habitMetricLink"/);
+  assert.match(html, /id="untriagedMetricLink"/);
+  assert.match(html, /id="oldestUntriaged"/);
+  assert.match(html, /id="writingLink"/);
   assert.match(html, /class="metric-grid"/);
   assert.match(html, /id="wantList"/);
   assert.match(html, /id="focusList"/);
@@ -25,7 +28,12 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(html, /id="journalList"/);
   assert.match(html, /過去のJournal/);
   assert.match(html, /読み取り専用/);
-  assert.match(script, /renderWants\(payload\.wants, payload\.navigation\.compass, availability\.wants\)/);
+  assert.match(script, /renderWants\(payload\.wants, payload\.navigation\.compass, availability\.wants, payload\.summary\)/);
+  assert.match(script, /compassUntriaged/);
+  assert.match(script, /最古 \$\{summary\.oldestUntriagedDays\}日/);
+  assert.match(script, /振り分け状況を取得不可/);
+  assert.match(script, /Active Wantはありません（すべて完了）/);
+  assert.match(script, /item\.triageState === "untriaged"/);
   assert.match(script, /escapeHtml\(item\.url \|\| url\)/);
   assert.match(script, /renderFocus\(payload\.focus \|\| \[\], availability\.focus\)/);
   assert.match(script, /`\$\{summary\.completedKnowledgeToday\} \/ \$\{summary\.todayKnowledgeTotal\}`/);
@@ -50,6 +58,7 @@ test("Hub adds Habits as a fourth compact navigation choice", async () => {
   assert.match(css, /\.dashboard-grid \{ gap: 5px; \}/);
   assert.match(css, /\.dashboard-card \{ min-height: 88px;/);
   assert.match(css, /\.metric-grid \{ grid-template-columns: 1fr 1fr;/);
+  assert.match(css, /\.metric-grid \{ display: grid; grid-template-columns: repeat\(6, 1fr\);/);
   assert.match(css, /\.journal-list \{ grid-template-columns: 1fr; \}/);
 });
 

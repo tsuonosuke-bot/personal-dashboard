@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f3f2ed" />
+    <title>Writing — Personal Hub</title>
+    <link rel="stylesheet" href="/writing.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Personal Hubへ戻る"><span aria-hidden="true">W</span><b>Writing</b></a>
+        <nav aria-label="主要ページ">
+          <a href="/">Hub</a><a href="/compass/">Compass</a><a href="/habits/">Habits</a>
+        </nav>
+        <button class="refresh-button" id="refreshButton" type="button">↻ 更新</button>
+      </header>
+
+      <main>
+        <section class="page-heading">
+          <div><span class="eyebrow">ESSAY & REFLECTION</span><h1>Writing</h1><p>着想を、書けるテーマへ育てる</p></div>
+          <a class="primary-link" href="/compass/?view=wants">Compassでテーマを追加 →</a>
+        </section>
+
+        <section class="summary-grid" aria-label="Writingサマリー">
+          <button type="button" data-summary-status="ideas"><span>アイデア</span><strong id="candidateCount">—</strong><small>問いを育てる</small></button>
+          <button type="button" data-summary-status="outlining"><span>構成中</span><strong id="outliningCount">—</strong><small>論点を並べる</small></button>
+          <button type="button" data-summary-status="drafting"><span>執筆中</span><strong id="draftingCount">—</strong><small>下書きを進める</small></button>
+          <button type="button" data-summary-view="completed"><span>完成</span><strong id="completedCount">—</strong><small>完成済みを確認</small></button>
+        </section>
+
+        <section class="writing-board" aria-labelledby="boardTitle">
+          <header class="board-header">
+            <div><span class="eyebrow">TOPICS</span><h2 id="boardTitle">進行中のテーマ</h2></div>
+            <span class="source-badge" id="sourceBadge">接続確認中</span>
+          </header>
+          <div class="tabs" role="tablist" aria-label="表示するWritingテーマ">
+            <button class="active" type="button" role="tab" aria-selected="true" data-view="active">進行中 <b id="activeTabCount">—</b></button>
+            <button type="button" role="tab" aria-selected="false" data-view="completed">完成 <b id="completedTabCount">—</b></button>
+            <button type="button" role="tab" aria-selected="false" data-view="archived">保管 <b id="archivedTabCount">—</b></button>
+          </div>
+          <div class="filters">
+            <label><span>検索</span><input id="searchInput" type="search" placeholder="タイトル・論点・メモ" /></label>
+            <label><span>状態</span><select id="statusFilter"><option value="">すべて</option></select></label>
+            <button id="clearFilters" type="button" hidden>解除</button>
+          </div>
+          <div class="result-line"><span id="resultCount">読み込み中</span><small>作成はCompassでWantを「Writing」に振り分けます</small></div>
+          <div class="state-card" id="loadingState" role="status">Writingテーマを読み込んでいます…</div>
+          <div class="state-card error" id="errorState" role="alert" hidden><strong>読み込めませんでした</strong><p id="errorMessage"></p><button id="retryButton" type="button">再試行</button></div>
+          <div class="topic-list" id="topicList" hidden></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal" id="editorModal" hidden>
+      <button class="modal-backdrop" id="editorBackdrop" type="button" aria-label="編集画面を閉じる"></button>
+      <section class="editor" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+        <header><div><span class="eyebrow" id="editorKicker">WRITING</span><h2 id="editorTitle">テーマを編集</h2></div><button class="icon-button" id="editorClose" type="button" aria-label="閉じる">×</button></header>
+        <form id="editorForm">
+          <div class="editor-source"><span>元のWant</span><a id="sourceWantLink" href="/compass/">確認する →</a></div>
+          <label><span>タイトル</span><textarea id="titleInput" rows="2" maxlength="240" required></textarea></label>
+          <label><span>概要・問い・論点</span><textarea id="questionInput" rows="4" maxlength="2000"></textarea></label>
+          <label><span>構成・メモ</span><textarea id="notesInput" rows="8" maxlength="10000"></textarea></label>
+          <div class="editor-grid">
+            <label><span>状態</span><select id="editorStatus"></select></label>
+            <label><span>次に見直す日</span><input id="nextReviewInput" type="date" /></label>
+          </div>
+          <label><span>下書きURL <small>HTTPSのみ</small></span><input id="draftUrlInput" type="url" inputmode="url" placeholder="https://…" /></label>
+          <p class="form-error" id="formError" role="alert" hidden></p>
+          <div class="editor-actions"><button id="editorCancel" type="button">キャンセル</button><button class="save-button" id="saveButton" type="submit">保存</button></div>
+        </form>
+      </section>
+    </div>
+    <div class="toast" id="toast" role="status" hidden></div>
+    <script src="/writing.js" type="module"></script>
+  </body>
+</html>

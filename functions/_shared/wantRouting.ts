@@ -435,7 +435,11 @@ async function createInternalTarget(
   if (!Array.isArray(rows) || rows.length !== 1 || !isPlainObject(rows[0]) || !Number.isSafeInteger(Number(rows[0].id))) {
     throw new DashboardError("SUPABASE_RESPONSE_INVALID", `${adapter.table} returned invalid data.`);
   }
-  return { targetId: String(rows[0].id), targetUrl: null };
+  const targetId = String(rows[0].id);
+  return {
+    targetId,
+    targetUrl: adapter.table === "writing_topics" ? `/writing/?id=${encodeURIComponent(targetId)}` : null,
+  };
 }
 
 export async function routeWant(env: DashboardEnv, input: WantRouteInput): Promise<StoredRoute> {

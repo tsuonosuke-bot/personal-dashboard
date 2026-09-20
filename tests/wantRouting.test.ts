@@ -70,7 +70,7 @@ test("Writingへの振り分けを内部登録し、確認済みの対象IDを�
     if (url.pathname.endsWith("/wants")) return Response.json([{ id: 10 }]);
     if (url.pathname.endsWith("/want_routes") && init?.method === "POST") return Response.json([routeRow()]);
     if (url.pathname.endsWith("/want_routes") && init?.method === "PATCH") {
-      return Response.json([routeRow({ status: "created", target_id: "71" })]);
+      return Response.json([routeRow({ status: "created", target_id: "71", target_url: "/writing/?id=71" })]);
     }
     if (url.pathname.endsWith("/want_routes")) return Response.json([]);
     if (url.pathname.endsWith("/writing_topics")) return Response.json([{ id: 71 }]);
@@ -82,6 +82,7 @@ test("Writingへの振り分けを内部登録し、確認済みの対象IDを�
     const payload = await response.json();
     assert.equal(payload.status, "created");
     assert.equal(payload.targetId, "71");
+    assert.equal(payload.targetUrl, "/writing/?id=71");
     const writing = requests.find((entry) => entry.url.pathname.endsWith("/writing_topics"));
     assert.ok(writing);
     assert.deepEqual(JSON.parse(String(writing.init?.body)), {

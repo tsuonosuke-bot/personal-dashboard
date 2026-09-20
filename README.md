@@ -1,6 +1,6 @@
 # Personal Hub
 
-家計簿、ナレッジ、Compass（Inbox / Wants）、Habits、Journalの振り返りを束ねる個人用Hubです。ルートに全体サマリーを表示し、Compassは `/compass/`、Habitsは `/habits/` で利用できます。
+家計簿、ナレッジ、Compass（Inbox / Wants）、Writing、Habits、Journalの振り返りを束ねる個人用Hubです。ルートに全体サマリーを表示し、Compassは `/compass/`、Writingは `/writing/`、Habitsは `/habits/` で利用できます。
 
 - Production: https://personal-dashboard-7md.pages.dev/
 
@@ -15,6 +15,7 @@ Browser
           ├─ /api/wants (POST / PATCH)
           ├─ /api/want-routes (POST)
           ├─ /api/focus (GET / PATCH)
+          ├─ /api/writing (GET / PATCH)
           ├─ /api/want-suggestions (POST)
           ├─ /api/google-calendar-* (OAuth / status)
           ├─ /api/habits (GET / POST / PATCH)
@@ -44,9 +45,11 @@ Browser
 ## Hubの機能
 
 - Compass、Habits、家計簿、ナレッジへの入口
-- 今月支出、今日の復習進捗、期限超過、未整理Inboxのスナップショット
+- 今月支出、今日の復習進捗、期限超過、未整理Inbox、未振り分けWantsのスナップショット
 - Knowledge Dashboardの当日固定キューを直接開始するショートカット
-- 新しいActive Wantsを最大3件表示
+- 未振り分けActive Wantsの件数と最古の滞留日数を表示
+- 未振り分けを古い順で最大3件表示し、0件の時だけ振り分け済みActive Wantsへ切り替え
+- 未振り分け件数と一覧からCompassの絞り込み表示へ直接移動
 - Wantから選んだFocusを最大5件、指定順で固定表示
 - Focusの言葉・補足の編集、表示解除／再表示、並び替え
 - 直近5件の家計簿レコード
@@ -66,6 +69,15 @@ Browser
 - `updated_at` を使った編集競合の検知と、同日・同週の重複記録防止
 - 未実施を罰則や連続日数として扱わず、自由頻度は残件数から除外
 
+## Writingの機能
+
+- CompassでWantを「掘り下げる → Writing」に振り分けるとテーマを作成
+- アイデア・調査中・構成中・執筆中・完成・保留・アーカイブの状態管理
+- タイトル、論点・概要、メモ、見直し日、HTTPSの下書きURLを編集
+- 進行中・完成・アーカイブを分け、状態とキーワードで絞り込み
+- 元Wantへのリンクを常に保持し、Writingの直リンクでも編集画面を復元
+- `updated_at` を使って別画面からの上書きを409で防止
+
 ## Compassの機能
 
 - Inbox総数・未整理件数
@@ -84,6 +96,7 @@ Browser
 - 一つのWantから複数の振り分けを作成可能。振り分け成功後も元Wantは自動完了しない
 - InboxからWantを追加すると元のInboxを処理済み（処理結果: Wantsに登録）にする
 - 検索、ステータス絞り込み、詳細ドロワー、再読込
+- `/compass/?view=wants&filter=untriaged` で未振り分けActive Wantsへ直接移動
 - `/api/health` による接続状態確認
 - Hub、Knowledge DB、Financialへのダッシュボードスイッチャー
 

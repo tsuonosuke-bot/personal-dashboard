@@ -2,14 +2,15 @@ const ids = [
   "sourceBadge", "refreshButton", "dateLabel", "updatedLabel",
   "compassLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
   "spendMetricLink", "reviewMetricLink", "reviewStartLink", "currentMonthSpend", "spendComparison", "dueKnowledge",
-  "weakKnowledge", "pendingInbox", "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
+  "weakKnowledge", "pendingInbox", "untriagedMetricLink", "untriagedWants", "oldestUntriaged", "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
   "retryButton", "hubContent", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
-  "focusMessage", "focusManageList", "wantList", "expenseList", "knowledgeList", "journalList", "allWantsLink", "allExpensesLink", "allKnowledgeLink",
+  "focusMessage", "focusManageList", "wantList", "wantsMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "allWantsLink", "allExpensesLink", "allKnowledgeLink",
 ];
 
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
 let focusItems = [];
 let focusReturnTarget = null;
+let hubNavigation = {};
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -53,6 +54,7 @@ function empty(message) {
 }
 
 function renderNavigation(navigation) {
+  hubNavigation = navigation;
   els.compassLink.href = navigation.compass;
   els.financialLink.href = navigation.financial;
   els.knowledgeLink.href = navigation.knowledge;
@@ -61,6 +63,8 @@ function renderNavigation(navigation) {
   els.reviewMetricLink.href = navigation.knowledge;
   els.reviewStartLink.href = navigation.knowledgeReview;
   els.habitMetricLink.href = navigation.habits;
+  els.untriagedMetricLink.href = navigation.compassUntriaged || "/compass/?view=wants&filter=untriaged";
+  els.writingLink.href = navigation.writing || "/writing/";
   els.allWantsLink.href = navigation.compass;
   els.allExpensesLink.href = navigation.financial;
   els.allKnowledgeLink.href = navigation.knowledge;
@@ -72,10 +76,31 @@ function renderSummary(summary) {
     ? `${summary.completedKnowledgeToday} / ${summary.todayKnowledgeTotal}`
     : "—";
   els.pendingInbox.textContent = formatCount(summary.pendingInbox);
+  els.untriagedWants.textContent = formatCount(summary.untriagedWants);
+  if (!Number.isFinite(summary.untriagedWants)) {
+    els.oldestUntriaged.textContent = "振り分け状況を取得不可";
+    els.wantsMeta.textContent = `Active ${formatCount(summary.activeWants)} · 振り分け状況を取得不可`;
+  } else if (summary.untriagedWants > 0) {
+    els.oldestUntriaged.textContent = Number.isFinite(summary.oldestUntriagedDays)
+      ? `最古 ${summary.oldestUntriagedDays}日`
+      : "最古の登録日は不明";
+    els.wantsMeta.textContent = `Active ${summary.activeWants}件 · 未振り分け ${summary.untriagedWants}件 · 振り分け済み ${summary.routedActiveWants}件`;
+  } else if (summary.activeWants === 0) {
+    els.oldestUntriaged.textContent = "すべて完了";
+    els.wantsMeta.textContent = "Active Wantなし";
+  } else {
+    els.oldestUntriaged.textContent = "未振り分けなし";
+    els.wantsMeta.textContent = `Active ${summary.activeWants}件 · 未振り分け 0件 · 振り分け済み ${summary.routedActiveWants}件`;
+  }
+  els.allWantsLink.href = summary.untriagedWants > 0
+    ? (hubNavigation.compassUntriaged || "/compass/?view=wants&filter=untriaged")
+    : `${hubNavigation.compass || "/compass/"}?view=wants`;
   els.weakKnowledge.textContent = Number.isFinite(summary.overdueKnowledge)
     ? `期限超過 ${summary.overdueKnowledge}件 · 完了 ${summary.completedKnowledgeToday}件`
     : "取得できません";
-  els.compassMeta.textContent = `未整理 ${formatCount(summary.pendingInbox)} · Wants ${formatCount(summary.activeWants)}`;
+  els.compassMeta.textContent = Number.isFinite(summary.untriagedWants)
+    ? `Inbox ${formatCount(summary.pendingInbox)} · 未振り分け ${formatCount(summary.untriagedWants)}`
+    : `Inbox ${formatCount(summary.pendingInbox)} · Wants ${formatCount(summary.activeWants)}`;
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
   els.knowledgeMeta.textContent = Number.isFinite(summary.remainingKnowledgeToday)
     ? `今日 残り${summary.remainingKnowledgeToday}件`
@@ -138,22 +163,26 @@ function renderKnowledge(items, url, available = true) {
   }).join("");
 }
 
-function renderWants(items, url, available = true) {
+function renderWants(items, url, available = true, summary = {}) {
   if (!available) {
     els.wantList.innerHTML = empty("Wantsを取得できませんでした");
     return;
   }
   if (!items.length) {
-    els.wantList.innerHTML = empty("Active Wantはありません");
+    els.wantList.innerHTML = empty(summary.activeWants === 0 ? "Active Wantはありません（すべて完了）" : "表示するWantはありません");
     return;
   }
-  els.wantList.innerHTML = items.map((item, index) => `
+  els.wantList.innerHTML = items.map((item, index) => {
+    const triage = item.triageState === "untriaged" ? "未振り分け"
+      : item.triageState === "routed" ? "振り分け済み" : "状況不明";
+    const age = Number.isFinite(item.ageDays) ? ` · ${item.ageDays}日経過` : "";
+    return `
     <a class="want-card" href="${escapeHtml(item.url || url)}">
       <span>${String(index + 1).padStart(2, "0")}</span>
-      <div><strong>${escapeHtml(item.content)}</strong><small>${escapeHtml(formatDate(item.createdAt))} 登録</small></div>
+      <div><span class="want-triage ${escapeHtml(item.triageState)}">${triage}</span><strong>${escapeHtml(item.content)}</strong><small>${escapeHtml(formatDate(item.createdAt))} 登録${age}</small></div>
       <b aria-hidden="true">→</b>
     </a>
-  `).join("");
+  `; }).join("");
 }
 
 function renderFocus(items, available = true) {
@@ -377,7 +406,7 @@ async function loadHub() {
     renderNavigation(payload.navigation);
     renderSummary(payload.summary);
     renderFocus(payload.focus || [], availability.focus);
-    renderWants(payload.wants, payload.navigation.compass, availability.wants);
+    renderWants(payload.wants, payload.navigation.compass, availability.wants, payload.summary);
     renderExpenses(payload.recentExpenses, availability.expenses);
     renderKnowledge(payload.knowledge, payload.navigation.knowledge, availability.knowledge);
     renderJournal(payload.journalMoments, availability.journal);

@@ -1040,8 +1040,8 @@ async function saveCreateFlow(event, sourceItem, sourceView) {
   }
 }
 
-function syncCompassRoute(view, id = null, mode = "replace") {
-  const path = compassRoutePath(window.location.href, view, id);
+function syncCompassRoute(view, id = null, mode = "replace", filter = null) {
+  const path = compassRoutePath(window.location.href, view, id, filter);
   const historyState = id === null ? null : { compassDrawer: true };
   if (mode === "push") window.history.pushState(historyState, "", path);
   else window.history.replaceState(historyState, "", path);
@@ -1078,7 +1078,7 @@ function closeDrawer(sync = true) {
     return;
   }
   hideDrawer();
-  if (sync) syncCompassRoute(state.view);
+  if (sync) syncCompassRoute(state.view, null, "replace", state.metricFilter);
 }
 
 function setModalOpen(open) {
@@ -1146,10 +1146,10 @@ function setView(view, filter = defaultStatusByView[view], sync = true) {
   hideDrawer();
   state.view = view;
   state.metricFilter = filter;
-  state.status = filter === "pending" || filter === "active" ? filter : "";
+  state.status = filter === "untriaged" ? "active" : filter === "pending" || filter === "active" ? filter : "";
   updateStatusOptions();
   renderList();
-  if (sync) syncCompassRoute(view, null, "push");
+  if (sync) syncCompassRoute(view, null, "push", filter === "untriaged" ? filter : null);
 }
 
 function applyCompassRoute(notify = true) {
@@ -1157,7 +1157,7 @@ function applyCompassRoute(notify = true) {
   const route = parseCompassRoute(window.location.href);
   state.view = route.view;
   state.status = defaultStatusByView[route.view];
-  state.metricFilter = "";
+  state.metricFilter = route.filter || "";
   state.search = "";
   els.searchInput.value = "";
   hideDrawer();
@@ -1222,10 +1222,13 @@ async function loadDashboard() {
 document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
 document.querySelectorAll(".metric").forEach((metric) => metric.addEventListener("click", () => setView(metric.dataset.view, metric.dataset.filter)));
 els.searchInput.addEventListener("input", () => { state.search = els.searchInput.value; renderList(); });
-els.statusFilter.addEventListener("change", () => { state.status = els.statusFilter.value; state.metricFilter = ""; renderList(); });
+els.statusFilter.addEventListener("change", () => {
+  state.status = els.statusFilter.value; state.metricFilter = ""; renderList();
+  syncCompassRoute(state.view);
+});
 els.clearFilter.addEventListener("click", () => {
   state.status = ""; state.search = ""; state.metricFilter = "";
-  els.searchInput.value = ""; updateStatusOptions(); renderList();
+  els.searchInput.value = ""; updateStatusOptions(); renderList(); syncCompassRoute(state.view);
 });
 els.refreshButton.addEventListener("click", loadDashboard);
 els.addInboxButton.addEventListener("click", () => setModalOpen(true));
