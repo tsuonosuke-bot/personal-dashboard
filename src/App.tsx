@@ -18,7 +18,7 @@ const QuizView = lazy(() => import("./components/QuizView")
   .then((module) => ({ default: module.QuizView })));
 
 export default function App() {
-  const [showQuiz, setShowQuiz] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(() => new URLSearchParams(window.location.search).get("view") === "quiz");
   const {
     knowledge, archivedKnowledge, quizLog, loading, error, mutating,
     reload, createKnowledge, updateKnowledge,
@@ -70,6 +70,14 @@ export default function App() {
 
   const selectReview = (review: ReviewFilter) => updateFilters({ review });
   const selectCategory = (category: string) => updateFilters({ category, review: "all" });
+
+  const setQuizOpen = (open: boolean) => {
+    const url = new URL(window.location.href);
+    if (open) url.searchParams.set("view", "quiz");
+    else url.searchParams.delete("view");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    setShowQuiz(open);
+  };
 
   const openNew = () => {
     setActionError(null);
@@ -131,7 +139,7 @@ export default function App() {
         <QuizView
           knowledge={knowledge}
           quizLog={quizLog}
-          onExit={() => setShowQuiz(false)}
+          onExit={() => setQuizOpen(false)}
         />
       </Suspense>
     );
@@ -148,7 +156,7 @@ export default function App() {
           </div>
           <div className="head-actions">
             <a className="hub-link" href="https://personal-dashboard-7md.pages.dev/">← Hub</a>
-            <button className="primary-button quiz-nav-button" onClick={() => setShowQuiz(true)}>▶ 復習する</button>
+            <button className="primary-button quiz-nav-button" onClick={() => setQuizOpen(true)}>▶ 復習する</button>
             <button onClick={handleReload} disabled={loading || mutating}>↻ 更新</button>
             <button
               className="archive-button"

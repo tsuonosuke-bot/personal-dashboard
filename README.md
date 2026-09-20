@@ -23,6 +23,9 @@ npm run dev:pages
 `http://localhost:8788` で起動する。単体の `npm run dev` はUI開発用で、
 Viteだけを起動するため `/api/*` は利用できない。
 
+`/?view=quiz` で復習クイズの設定画面を直接開ける。Personal Hubの
+「復習を開始」ショートカットは、SSO引き継ぎ後にこのURLへ遷移する。
+
 `.dev.vars` はGit管理外。実際のキーやパスワードをコミットしないこと。
 
 ## 実行時の環境変数

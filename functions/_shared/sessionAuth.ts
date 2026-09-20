@@ -91,6 +91,24 @@ export async function attachSession(response: Response, request: Request, env: S
   return secured;
 }
 
+export async function createHandoffUrl(target: URL, env: SessionEnv): Promise<URL | null> {
+  const value = secret(env);
+  if (!value) return null;
+  const payload: TokenPayload = {
+    v: 1,
+    typ: "handoff",
+    aud: target.host,
+    exp: Math.floor(Date.now() / 1_000) + 60,
+    nonce: nonce(),
+  };
+  const token = await signPayload(payload, value);
+  const redirect = new URL("/auth/handoff", target.origin);
+  redirect.searchParams.set("token", token);
+  const destination = `${target.pathname}${target.search}${target.hash}`;
+  if (destination !== "/") redirect.searchParams.set("next", destination);
+  return redirect;
+}
+
 export async function acceptHandoff(request: Request, env: SessionEnv): Promise<Response | null> {
   const url = new URL(request.url);
   if (url.pathname !== "/auth/handoff") return null;
@@ -98,5 +116,6 @@ export async function acceptHandoff(request: Request, env: SessionEnv): Promise<
   if (!value) return new Response("SSO handoff is not configured.\n", { status: 503 });
   const token = url.searchParams.get("token") || "";
   if (!await verifyToken(token, "handoff", url.host, value)) return new Response("SSO handoff token is invalid.\n", { status: 403 });
-  return attachSession(new Response(null, { status: 302, headers: { Location: "/" } }), request, env);
+  const destination = url.searchParams.get("next") === "/?view=quiz" ? "/?view=quiz" : "/";
+  return attachSession(new Response(null, { status: 302, headers: { Location: destination } }), request, env);
 }
