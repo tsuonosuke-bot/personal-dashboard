@@ -90,6 +90,14 @@ test("Compass previews every route and requires explicit confirmation for Google
   assert.match(script, /calendar: plan\.calendar \|\| null/);
 });
 
+test("Compass keeps Google Calendar reconnection available from the main screen", async () => {
+  const html = await readFile(new URL("../public/compass/index.html", import.meta.url), "utf8");
+
+  assert.match(html, /class="calendar-connect-link"/);
+  assert.match(html, /href="\/api\/google-calendar-connect"/);
+  assert.match(html, />Calendar再接続<\/a>/);
+});
+
 test("Compass asks AI only on explicit action and sends suggestions through human review", async () => {
   const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
 

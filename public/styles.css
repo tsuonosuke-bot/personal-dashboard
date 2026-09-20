@@ -34,6 +34,8 @@ button { color: inherit; }
 .topbar-actions { display: flex; align-items: center; gap: 12px; }
 .hub-link { padding: 9px 11px; border-radius: 9px; color: var(--green); font-size: 12px; font-weight: 800; text-decoration: none; }
 .hub-link:hover { background: rgba(40,91,73,.08); }
+.calendar-connect-link { padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--green); font-size: 12px; font-weight: 800; text-decoration: none; }
+.calendar-connect-link:hover { border-color: var(--green); background: var(--green-soft); }
 .dashboard-switcher { position: relative; }
 .dashboard-switcher summary { display: flex; align-items: center; gap: 7px; padding: 9px 12px; border-radius: 9px; color: var(--muted); font-size: 12px; font-weight: 700; list-style: none; cursor: pointer; }
 .dashboard-switcher summary::-webkit-details-marker { display: none; }
@@ -249,7 +251,7 @@ body { background: var(--paper); }
 .brand b { font: 700 16px/1.2 Inter, "Segoe UI", sans-serif; }
 .brand small { font-size: 8px; }
 .topbar-actions { gap: 7px; }
-.hub-link, .dashboard-switcher summary { min-height: 34px; padding: 7px 10px; border-radius: 8px; font-size: 11px; }
+.hub-link, .calendar-connect-link, .dashboard-switcher summary { min-height: 34px; padding: 7px 10px; border-radius: 8px; font-size: 11px; }
 .source-badge { min-height: 34px; padding: 7px 10px; font-size: 10px; }
 .icon-button { width: 34px; height: 34px; border-radius: 9px; }
 main { width: min(1240px, calc(100% - 28px)); }
