@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { ArchivedKnowledgeModal } from "./components/ArchivedKnowledgeModal";
 import { FilterBar } from "./components/FilterBar";
 import { KnowledgeTable } from "./components/KnowledgeTable";
@@ -10,6 +10,7 @@ import { StatsCards } from "./components/StatsCards";
 import { ALL, DEFAULT_PAGE_SIZE } from "./constants";
 import { useFilteredKnowledge } from "./hooks/useFilteredKnowledge";
 import { useKnowledgeData } from "./hooks/useKnowledgeData";
+import { dashboardRoutePath, parseDashboardRoute } from "./lib/dashboardRoute";
 import type {
   Filters, Knowledge, KnowledgeDraft, KnowledgePriority, ReviewFilter, SortKey, SortState,
 } from "./types";
@@ -20,7 +21,7 @@ const QuizView = lazy(() => import("./components/QuizView")
   .then((module) => ({ default: module.QuizView })));
 
 export default function App() {
-  const [showQuiz, setShowQuiz] = useState(() => new URLSearchParams(window.location.search).get("view") === "quiz");
+  const [showQuiz, setShowQuiz] = useState(() => parseDashboardRoute(window.location.href).kind === "quiz");
   const {
     knowledge, archivedKnowledge, quizLog, loading, error, mutating,
     reload, createKnowledge, updateKnowledge,
@@ -52,6 +53,56 @@ export default function App() {
   const currentPage = Math.min(page, totalPages);
   const rows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  const replaceRoute = useCallback((route: Parameters<typeof dashboardRoutePath>[1]) => {
+    window.history.replaceState(null, "", dashboardRoutePath(window.location.href, route));
+  }, []);
+
+  const applyDashboardRoute = useCallback((notify = true) => {
+    const route = parseDashboardRoute(window.location.href);
+    if (route.kind === "quiz") {
+      setSelected(null);
+      setArchiveOpen(false);
+      setShowQuiz(true);
+      return;
+    }
+
+    setShowQuiz(false);
+    if (loading || error) return;
+
+    if (route.kind === "knowledge") {
+      const active = knowledge.find((item) => item.id === route.knowledgeId);
+      if (active) {
+        setArchiveOpen(false);
+        setSelected(active);
+        return;
+      }
+      const archived = archivedKnowledge.find((item) => item.id === route.knowledgeId);
+      setSelected(null);
+      replaceRoute({ kind: "dashboard" });
+      if (archived) {
+        setArchiveOpen(true);
+        if (notify) setNotice("対象のナレッジはアーカイブ済みです。アーカイブ一覧を表示します。");
+      } else {
+        setArchiveOpen(false);
+        if (notify) setNotice("対象のナレッジが見つかりません。一覧を表示します。");
+      }
+      return;
+    }
+
+    setSelected(null);
+    if (route.kind === "invalid-knowledge") {
+      replaceRoute({ kind: "dashboard" });
+      if (notify) setNotice("指定されたナレッジを開けません。一覧を表示します。");
+    }
+  }, [archivedKnowledge, error, knowledge, loading, replaceRoute]);
+
+  useEffect(() => {
+    applyDashboardRoute();
+    const handlePopState = () => applyDashboardRoute();
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [applyDashboardRoute]);
+
   const updateFilters = (patch: Partial<Filters>) => {
     setFilters((prev) => ({ ...prev, ...patch }));
     setPage(1);
@@ -75,11 +126,29 @@ export default function App() {
   const selectCategory = (category: string) => updateFilters({ category, review: "all" });
 
   const setQuizOpen = (open: boolean) => {
-    const url = new URL(window.location.href);
-    if (open) url.searchParams.set("view", "quiz");
-    else url.searchParams.delete("view");
-    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    replaceRoute(open ? { kind: "quiz" } : { kind: "dashboard" });
+    setSelected(null);
     setShowQuiz(open);
+  };
+
+  const openKnowledge = (item: Knowledge) => {
+    setActionError(null);
+    setSelected(item);
+    window.history.pushState(
+      { dashboardRoute: "knowledge" },
+      "",
+      dashboardRoutePath(window.location.href, { kind: "knowledge", knowledgeId: item.id }),
+    );
+  };
+
+  const closeKnowledge = () => {
+    const route = parseDashboardRoute(window.location.href);
+    if (route.kind === "knowledge" && window.history.state?.dashboardRoute === "knowledge") {
+      window.history.back();
+      return;
+    }
+    setSelected(null);
+    replaceRoute({ kind: "dashboard" });
   };
 
   const openNew = () => {
@@ -88,6 +157,7 @@ export default function App() {
   };
 
   const openEdit = (item: Knowledge) => {
+    replaceRoute({ kind: "dashboard" });
     setSelected(null);
     setActionError(null);
     setFormTarget(item);
@@ -116,6 +186,7 @@ export default function App() {
     setActionError(null);
     try {
       const archived = await updateKnowledge(item.id, item.content_version, { archived: true });
+      replaceRoute({ kind: "dashboard" });
       setSelected(null);
       setNotice("ナレッジをアーカイブしました。");
       setUndoArchived(archived);
@@ -220,7 +291,7 @@ export default function App() {
             resultCount={filtered.length}
             onChange={updateFilters}
           />
-          <KnowledgeTable rows={rows} sort={sort} onSort={handleSort} onOpen={setSelected} />
+          <KnowledgeTable rows={rows} sort={sort} onSort={handleSort} onOpen={openKnowledge} />
           <Pagination
             page={currentPage}
             totalPages={totalPages}
@@ -237,7 +308,7 @@ export default function App() {
           knowledge={selected}
           quizLog={quizLog}
           mutating={mutating}
-          onClose={() => setSelected(null)}
+          onClose={closeKnowledge}
           onEdit={() => openEdit(selected)}
           onArchive={() => void archiveKnowledge(selected)}
         />

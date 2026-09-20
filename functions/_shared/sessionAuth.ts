@@ -1,4 +1,5 @@
 import { requestSupabaseFunction, type SupabaseEnv } from "./supabaseRest.ts";
+import { isUuid } from "./knowledgeValidation.ts";
 
 export interface SessionEnv extends SupabaseEnv {
   SSO_SHARED_SECRET?: string;
@@ -121,6 +122,23 @@ export async function createHandoffUrl(target: URL, env: SessionEnv): Promise<UR
   return redirect;
 }
 
+export function acceptedDestination(value: string | null): string {
+  if (!value || !value.startsWith("/")) return "/";
+  let destination: URL;
+  try {
+    destination = new URL(value, "https://knowledge.invalid");
+  } catch {
+    return "/";
+  }
+  if (destination.origin !== "https://knowledge.invalid" || destination.pathname !== "/" || destination.hash) return "/";
+  const entries = [...destination.searchParams.entries()];
+  if (entries.length !== 1) return "/";
+  const [[name, parameter]] = entries;
+  if (name === "view" && parameter === "quiz") return "/?view=quiz";
+  if (name === "knowledge" && isUuid(parameter)) return `/?knowledge=${encodeURIComponent(parameter)}`;
+  return "/";
+}
+
 export async function acceptHandoff(request: Request, env: SessionEnv): Promise<Response | null> {
   const url = new URL(request.url);
   if (url.pathname !== "/auth/handoff") return null;
@@ -137,6 +155,6 @@ export async function acceptHandoff(request: Request, env: SessionEnv): Promise<
   if (consumed.data !== true) {
     return new Response("SSO handoff token has already been used.\n", { status: 403 });
   }
-  const destination = url.searchParams.get("next") === "/?view=quiz" ? "/?view=quiz" : "/";
+  const destination = acceptedDestination(url.searchParams.get("next"));
   return attachSession(new Response(null, { status: 302, headers: { Location: destination } }), request, env);
 }
