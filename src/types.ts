@@ -99,6 +99,10 @@ export interface QuizStart {
 export interface QuizGradeResult {
   id: string;
   title: string;
+  /** 採点記録後の最新値。結果画面から安全に優先度を更新するために使う。 */
+  priority: KnowledgePriority;
+  /** 採点記録後の競合検出用バージョン。 */
+  content_version: number;
   verdict: QuizVerdict;
   quality: number;
   correct_answer: string;

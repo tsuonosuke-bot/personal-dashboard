@@ -2,8 +2,11 @@ import { useMemo, useState } from "react";
 import {
   DEFAULT_QUIZ_FORMAT, DEFAULT_QUIZ_LIMIT, QUIZ_FORMAT_OPTIONS, QUIZ_LIMIT_OPTIONS, useQuiz,
 } from "../hooks/useQuiz";
+import { PRIORITY_INTERVAL_HINTS, PRIORITY_ORDER } from "../constants";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
-import type { Knowledge, QuizFormatRequest, QuizLog, QuizQuestion } from "../types";
+import type {
+  Knowledge, KnowledgePriority, QuizFormatRequest, QuizGradeResult, QuizLog, QuizQuestion,
+} from "../types";
 
 /** 形式ごとに、どこまで書けばよいかを入力欄のプレースホルダで伝える。 */
 const ANSWER_PLACEHOLDER: Record<string, string> = {
@@ -24,14 +27,29 @@ interface Props {
   quizLog: QuizLog[];
   onExit: () => void;
   onRecorded: () => void | Promise<void>;
+  onPriorityChange: (
+    id: string,
+    expectedVersion: number,
+    priority: KnowledgePriority,
+  ) => Promise<Knowledge>;
 }
 
-export function QuizView({ knowledge, quizLog, onExit, onRecorded }: Props) {
+type PriorityFeedback = {
+  id: string;
+  status: "saving" | "saved" | "error";
+  priority?: KnowledgePriority;
+  message?: string;
+};
+
+export function QuizView({
+  knowledge, quizLog, onExit, onRecorded, onPriorityChange,
+}: Props) {
   const quiz = useQuiz(onRecorded);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [limit, setLimit] = useState<number>(DEFAULT_QUIZ_LIMIT);
   const [format, setFormat] = useState<QuizFormatRequest>(DEFAULT_QUIZ_FORMAT);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [priorityFeedback, setPriorityFeedback] = useState<PriorityFeedback | null>(null);
 
   const categories = useMemo(
     () => [...new Set(knowledge.map((item) => item.category))].sort(),
@@ -43,6 +61,27 @@ export function QuizView({ knowledge, quizLog, onExit, onRecorded }: Props) {
     setSelectedCategories((prev) => prev.includes(category)
       ? prev.filter((value) => value !== category)
       : [...prev, category]);
+  };
+
+  const resetQuiz = () => {
+    setPriorityFeedback(null);
+    quiz.reset();
+  };
+
+  const changePriority = async (result: QuizGradeResult, priority: KnowledgePriority) => {
+    if (priority === result.priority || priorityFeedback?.status === "saving") return;
+    setPriorityFeedback({ id: result.id, status: "saving", priority });
+    try {
+      const updated = await onPriorityChange(result.id, result.content_version, priority);
+      quiz.syncKnowledgeResult(updated);
+      setPriorityFeedback({ id: result.id, status: "saved" });
+    } catch (caught) {
+      setPriorityFeedback({
+        id: result.id,
+        status: "error",
+        message: caught instanceof Error ? caught.message : "優先度の保存に失敗しました。",
+      });
+    }
   };
 
   return (
@@ -117,7 +156,7 @@ export function QuizView({ knowledge, quizLog, onExit, onRecorded }: Props) {
                 ? "本日の出題は終わっています。選んだカテゴリは全問採点済みです。"
                 : "選んだカテゴリに出題できるナレッジがありません。"}
             </p>
-            <button className="primary-button" onClick={quiz.reset}>戻る</button>
+            <button className="primary-button" onClick={resetQuiz}>戻る</button>
           </div>
         )}
 
@@ -148,6 +187,11 @@ export function QuizView({ knowledge, quizLog, onExit, onRecorded }: Props) {
               {quiz.questions.map((question) => {
                 const result = quiz.results.find((r) => r.id === question.id);
                 if (!result) return null;
+                const displayedPriority = priorityFeedback?.id === result.id
+                  && priorityFeedback.status === "saving"
+                  && priorityFeedback.priority
+                  ? priorityFeedback.priority
+                  : result.priority;
                 return (
                   <li key={question.id} className="quiz-result-item card">
                     <div className="quiz-result-head">
@@ -173,15 +217,43 @@ export function QuizView({ knowledge, quizLog, onExit, onRecorded }: Props) {
                       <h3>解説</h3>
                       <p>{result.explanation}</p>
                     </div>
-                    {result.next_review_on && (
-                      <p className="muted">次回復習日: {result.next_review_on}</p>
-                    )}
+                    <div className="quiz-priority-panel">
+                      <label className="quiz-priority-control">
+                        <span>優先度</span>
+                        <select
+                          aria-label={`${result.title}の優先度`}
+                          value={displayedPriority}
+                          disabled={priorityFeedback?.status === "saving"}
+                          onChange={(event) => void changePriority(
+                            result,
+                            event.target.value as KnowledgePriority,
+                          )}
+                        >
+                          {PRIORITY_ORDER.map((priority) => (
+                            <option key={priority} value={priority}>{priority}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <p className="quiz-priority-hint">
+                        {PRIORITY_INTERVAL_HINTS[displayedPriority]}。予定がある場合は次回復習日も更新されます。
+                      </p>
+                      {result.next_review_on && (
+                        <p className="quiz-next-review">次回復習日: {result.next_review_on}</p>
+                      )}
+                      <div className="quiz-priority-feedback" aria-live="polite">
+                        {priorityFeedback?.id === result.id && priorityFeedback.status === "saving" && "保存中…"}
+                        {priorityFeedback?.id === result.id && priorityFeedback.status === "saved" && "保存しました。"}
+                        {priorityFeedback?.id === result.id && priorityFeedback.status === "error" && (
+                          <span className="quiz-priority-error">{priorityFeedback.message}</span>
+                        )}
+                      </div>
+                    </div>
                   </li>
                 );
               })}
             </ul>
             <div className="quiz-result-actions">
-              <button className="primary-button" onClick={quiz.reset}>もう一度</button>
+              <button className="primary-button" onClick={resetQuiz}>もう一度</button>
               <button onClick={onExit}>ダッシュボードへ戻る</button>
             </div>
           </div>

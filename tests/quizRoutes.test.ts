@@ -456,6 +456,18 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
+      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on") {
+        return Response.json([
+          {
+            id: ID_1, title: "正解1", priority: "最高", content_version: 7,
+            next_review_on: "2026-10-03",
+          },
+          {
+            id: ID_2, title: "正解2", priority: "高", content_version: 9,
+            next_review_on: "2026-10-01",
+          },
+        ]);
+      }
       return Response.json([
         {
           id: ID_1, title: "正解1", explanation: "説明1", category: "英語", tags: ["文法"],
@@ -505,11 +517,13 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
     assert.deepEqual(body.results, [
       {
         id: ID_1, title: "正解1", verdict: "正解", quality: 5, correct_answer: "模範解答1",
-        explanation: "よくできました", next_review_on: "2026-10-03", recorded: true,
+        explanation: "よくできました", priority: "最高", content_version: 7,
+        next_review_on: "2026-10-03", recorded: true,
       },
       {
         id: ID_2, title: "正解2", verdict: "正解", quality: 4, correct_answer: "模範解答2",
-        explanation: "正解", next_review_on: "2026-10-01", recorded: true,
+        explanation: "正解", priority: "高", content_version: 9,
+        next_review_on: "2026-10-01", recorded: true,
       },
     ]);
     assert.equal(seenBatchBodies.length, 1);
@@ -534,6 +548,12 @@ test("quiz/grade はDBの原子的な重複判定をそのまま返す", async (
   globalThis.fetch = async (input) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
+      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on") {
+        return Response.json([{
+          id: ID_1, title: "正解1", priority: "中", content_version: 4,
+          next_review_on: "2026-09-20",
+        }]);
+      }
       return Response.json([
         {
           id: ID_1, title: "正解1", explanation: "説明1", category: "英語", tags: [],
@@ -560,9 +580,18 @@ test("quiz/grade はDBの原子的な重複判定をそのまま返す", async (
       env,
     });
     assert.equal(response.status, 200);
-    const body = await response.json() as { results: { recorded: boolean; next_review_on: string | null }[] };
+    const body = await response.json() as {
+      results: {
+        recorded: boolean;
+        next_review_on: string | null;
+        priority: string;
+        content_version: number;
+      }[];
+    };
     assert.equal(body.results[0].recorded, false);
     assert.equal(body.results[0].next_review_on, "2026-09-20");
+    assert.equal(body.results[0].priority, "中");
+    assert.equal(body.results[0].content_version, 4);
     assert.equal(batchCalled, true);
   } finally {
     globalThis.fetch = originalFetch;

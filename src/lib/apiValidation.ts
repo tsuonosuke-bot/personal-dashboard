@@ -161,10 +161,18 @@ export function parseQuizGradeResult(value: unknown): QuizGradeResult {
   if (!isRecord(value)) return fail(entity);
   const verdict = stringValue(value, "verdict", entity);
   if (!VERDICT_VALUES.has(verdict as QuizVerdict)) return fail(entity, "verdict");
+  const priority = stringValue(value, "priority", entity);
+  if (!PRIORITY_VALUES.has(priority as KnowledgePriority)) return fail(entity, "priority");
+  const contentVersion = numberValue(value, "content_version", entity);
+  if (!Number.isSafeInteger(contentVersion) || contentVersion < 1) {
+    return fail(entity, "content_version");
+  }
   if (typeof value.recorded !== "boolean") return fail(entity, "recorded");
   return {
     id: stringValue(value, "id", entity),
     title: stringValue(value, "title", entity),
+    priority: priority as KnowledgePriority,
+    content_version: contentVersion,
     verdict: verdict as QuizVerdict,
     quality: (() => {
       const quality = numberValue(value, "quality", entity);

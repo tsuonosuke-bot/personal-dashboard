@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  parseKnowledge, parsePageEnvelope, parseQuizLog, parseQuizStartResponse,
+  parseKnowledge, parsePageEnvelope, parseQuizGradeResponse, parseQuizLog, parseQuizStartResponse,
 } from "../src/lib/apiValidation.ts";
 import { getKnowledge } from "../src/lib/api.ts";
 
@@ -78,6 +78,30 @@ test("出題の形式と選択肢の食い違いを受理しない", () => {
   assert.throws(() => parseQuizStartResponse({ items: [{ ...free, choices: ["ア"] }] }), /choices/);
   assert.throws(() => parseQuizStartResponse({ items: [{ ...choice, choices: ["ア", "ア", "ウ", "エ"] }] }), /choices/);
   assert.throws(() => parseQuizStartResponse({ items: [{ ...free, token: "" }] }), /token/);
+});
+
+test("採点結果の優先度と更新バージョンを検証する", () => {
+  const result = {
+    id: "123e4567-e89b-42d3-a456-426614174000",
+    title: "テスト",
+    priority: "高",
+    content_version: 3,
+    verdict: "正解",
+    quality: 5,
+    correct_answer: "模範解答",
+    explanation: "解説",
+    next_review_on: "2026-09-21",
+    recorded: true,
+  };
+  assert.deepEqual(parseQuizGradeResponse({ results: [result] }), [result]);
+  assert.throws(
+    () => parseQuizGradeResponse({ results: [{ ...result, priority: "最優先" }] }),
+    /priority/,
+  );
+  assert.throws(
+    () => parseQuizGradeResponse({ results: [{ ...result, content_version: 0 }] }),
+    /content_version/,
+  );
 });
 
 test("固定上限で切らず、全ページのナレッジを取得する", async () => {
