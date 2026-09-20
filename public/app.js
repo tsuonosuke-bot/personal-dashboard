@@ -1,3 +1,5 @@
+import { compassRoutePath, parseCompassRoute } from "./compass-routing.js";
+
 const state = {
   data: null,
   view: "inbox",
@@ -1020,6 +1022,7 @@ async function saveCreateFlow(event, sourceItem, sourceView) {
     state.metricFilter = "";
     els.searchInput.value = "";
     state.drawerItem = { id: Number(payload.id), view: meta.targetView };
+    syncCompassRoute(meta.targetView, Number(payload.id));
     const refreshed = await loadDashboard();
     if (!refreshed) {
       setCreateFlowError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
@@ -1037,20 +1040,14 @@ async function saveCreateFlow(event, sourceItem, sourceView) {
   }
 }
 
-function openDrawer(id, view = state.view) {
-  const item = (state.data?.[view] || []).find((entry) => entry.id === id);
-  if (!item) return;
-  state.aiRequestToken += 1;
-  state.drawerItem = { id, view };
-  renderDrawerItem(item, view);
-  els.drawerBackdrop.hidden = false;
-  els.drawer.classList.add("open");
-  els.drawer.setAttribute("aria-hidden", "false");
-  document.body.style.overflow = "hidden";
-  els.drawerClose.focus();
+function syncCompassRoute(view, id = null, mode = "replace") {
+  const path = compassRoutePath(window.location.href, view, id);
+  const historyState = id === null ? null : { compassDrawer: true };
+  if (mode === "push") window.history.pushState(historyState, "", path);
+  else window.history.replaceState(historyState, "", path);
 }
 
-function closeDrawer() {
+function hideDrawer() {
   state.aiRequestToken += 1;
   state.drawerItem = null;
   els.drawer.classList.remove("open");
@@ -1059,11 +1056,38 @@ function closeDrawer() {
   document.body.style.overflow = "";
 }
 
+function openDrawer(id, view = state.view, historyMode = "push") {
+  const item = (state.data?.[view] || []).find((entry) => entry.id === id);
+  if (!item) return false;
+  state.aiRequestToken += 1;
+  state.drawerItem = { id, view };
+  renderDrawerItem(item, view);
+  els.drawerBackdrop.hidden = false;
+  els.drawer.classList.add("open");
+  els.drawer.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  els.drawerClose.focus();
+  if (historyMode !== "none") syncCompassRoute(view, id, historyMode);
+  return true;
+}
+
+function closeDrawer(sync = true) {
+  const route = parseCompassRoute(window.location.href);
+  if (sync && route.id !== null && window.history.state?.compassDrawer) {
+    window.history.back();
+    return;
+  }
+  hideDrawer();
+  if (sync) syncCompassRoute(state.view);
+}
+
 function setModalOpen(open) {
   els.inboxModal.hidden = !open;
   document.body.style.overflow = open ? "hidden" : "";
   if (!open && new URLSearchParams(window.location.search).get("new") === "inbox") {
-    window.history.replaceState(null, "", window.location.pathname);
+    const cleaned = new URL(window.location.href);
+    cleaned.searchParams.delete("new");
+    window.history.replaceState(window.history.state, "", `${cleaned.pathname}${cleaned.search}${cleaned.hash}`);
   }
   if (open) {
     els.inboxFormError.hidden = true;
@@ -1107,6 +1131,7 @@ async function createInbox(event) {
     state.view = "inbox";
     state.status = defaultStatusByView.inbox;
     state.metricFilter = "";
+    syncCompassRoute("inbox");
     showToast("Inboxに保存しました。リストへ反映しています。");
     await loadDashboard();
   } catch (error) {
@@ -1117,12 +1142,57 @@ async function createInbox(event) {
   }
 }
 
-function setView(view, filter = defaultStatusByView[view]) {
+function setView(view, filter = defaultStatusByView[view], sync = true) {
+  hideDrawer();
   state.view = view;
   state.metricFilter = filter;
   state.status = filter === "pending" || filter === "active" ? filter : "";
   updateStatusOptions();
   renderList();
+  if (sync) syncCompassRoute(view, null, "push");
+}
+
+function applyCompassRoute(notify = true) {
+  if (!state.data) return;
+  const route = parseCompassRoute(window.location.href);
+  state.view = route.view;
+  state.status = defaultStatusByView[route.view];
+  state.metricFilter = "";
+  state.search = "";
+  els.searchInput.value = "";
+  hideDrawer();
+
+  if (route.error) {
+    updateStatusOptions();
+    renderList();
+    syncCompassRoute(route.view);
+    if (notify) showToast("指定された対象を開けません。一覧を表示します。");
+    return;
+  }
+
+  if (route.id !== null) {
+    const item = (state.data[route.view] || []).find((entry) => entry.id === route.id);
+    if (!item) {
+      state.status = "";
+      updateStatusOptions();
+      renderList();
+      syncCompassRoute(route.view);
+      if (notify) showToast(`対象の${viewMeta[route.view].singular}が見つかりません。一覧を表示します。`);
+      return;
+    }
+    if (closedStatusesByView[route.view]?.has(item.status)) {
+      state.status = "";
+      updateStatusOptions();
+      renderList();
+      syncCompassRoute(route.view);
+      if (notify) showToast(`対象の${viewMeta[route.view].singular}は完了またはアーカイブ済みです。一覧を表示します。`);
+      return;
+    }
+  }
+
+  updateStatusOptions();
+  renderList();
+  if (route.id !== null) openDrawer(route.id, route.view, "none");
 }
 
 async function loadDashboard() {
@@ -1136,9 +1206,7 @@ async function loadDashboard() {
     setSource(payload.source);
     renderSummary();
     renderNavigation(payload.navigation || []);
-    updateStatusOptions();
-    renderList();
-    if (state.drawerItem) openDrawer(state.drawerItem.id, state.drawerItem.view);
+    applyCompassRoute();
     return true;
   } catch (error) {
     setSource(null, true);
@@ -1176,6 +1244,7 @@ document.addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
   if (!els.dashboardSwitcher.contains(event.target)) els.dashboardSwitcher.removeAttribute("open");
 });
+window.addEventListener("popstate", () => applyCompassRoute());
 
 const initialParameters = new URLSearchParams(window.location.search);
 loadDashboard().then(() => {

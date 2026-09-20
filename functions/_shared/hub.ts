@@ -352,6 +352,10 @@ function monthKey(value: string | null): string {
   return value?.slice(0, 7) || "";
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function normalizeKnowledge(rows: KnowledgeRow[], today: string) {
   const items = rows
     .filter((row) => row.archived !== true)
@@ -364,8 +368,10 @@ function normalizeKnowledge(rows: KnowledgeRow[], today: string) {
       const accuracy = hasSuppliedAccuracy && Number.isFinite(suppliedAccuracy)
         ? suppliedAccuracy
         : (asked > 0 ? Math.round((correct / asked) * 100) : null);
+      const id = text(row.id);
       return {
-        id: text(row.id),
+        id,
+        url: isUuid(id) ? `/go/knowledge?knowledge=${encodeURIComponent(id)}` : "/go/knowledge",
         title: text(row.title) || "タイトルなし",
         category: text(row.category) || "未分類",
         mastery: text(row.mastery) || "未学習",
@@ -418,12 +424,16 @@ export function normalizeHub(
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
   const previousDate = new Date(Date.UTC(year, month - 1, 1));
   const previousMonth = `${previousDate.getUTCFullYear()}-${String(previousDate.getUTCMonth() + 1).padStart(2, "0")}`;
-  const wants = wantRows.map((row) => ({
-    id: integer(row.id),
-    content: text(row.content) || "内容なし",
-    status: text(row.status).toLowerCase(),
-    createdAt: date(row.created_at),
-  }));
+  const wants = wantRows.map((row) => {
+    const id = integer(row.id);
+    return {
+      id,
+      url: id !== null && id > 0 ? `/compass/?view=wants&id=${id}` : "/compass/?view=wants",
+      content: text(row.content) || "内容なし",
+      status: text(row.status).toLowerCase(),
+      createdAt: date(row.created_at),
+    };
+  });
   const activeWants = wants
     .filter((want) => want.status === "active")
     .sort((left, right) => (right.createdAt || "").localeCompare(left.createdAt || "") || (right.id ?? 0) - (left.id ?? 0));

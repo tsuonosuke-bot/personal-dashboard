@@ -26,6 +26,7 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(html, /過去のJournal/);
   assert.match(html, /読み取り専用/);
   assert.match(script, /renderWants\(payload\.wants, payload\.navigation\.compass, availability\.wants\)/);
+  assert.match(script, /escapeHtml\(item\.url \|\| url\)/);
   assert.match(script, /renderFocus\(payload\.focus \|\| \[\], availability\.focus\)/);
   assert.match(script, /fetch\("\/api\/focus"/);
   assert.match(script, /"X-Dashboard-Action": action/);
@@ -167,7 +168,17 @@ test("Compass defaults each tab to actionable items and counts the filtered resu
 
   assert.match(script, /status: "pending"/);
   assert.match(script, /inbox: "pending",\s+wants: "active",/);
-  assert.match(script, /function setView\(view, filter = defaultStatusByView\[view\]\)/);
+  assert.match(script, /function setView\(view, filter = defaultStatusByView\[view\], sync = true\)/);
   assert.match(script, /function renderCurrentTabCount\(items\)/);
   assert.match(script, /countElement\.textContent = items\.length/);
+});
+
+test("Compass applies direct record routes and safe fallbacks", async () => {
+  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+
+  assert.match(script, /parseCompassRoute\(window\.location\.href\)/);
+  assert.match(script, /window\.addEventListener\("popstate"/);
+  assert.match(script, /openDrawer\(route\.id, route\.view, "none"\)/);
+  assert.match(script, /完了またはアーカイブ済みです。一覧を表示します/);
+  assert.match(script, /が見つかりません。一覧を表示します/);
 });

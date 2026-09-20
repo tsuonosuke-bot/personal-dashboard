@@ -59,6 +59,30 @@ test("Knowledge review shortcut creates a quiz handoff", async () => {
   assert.equal(location.searchParams.get("next"), "/?view=quiz");
 });
 
+test("Knowledge card shortcut preserves a validated record destination through SSO", async () => {
+  const knowledgeId = "123e4567-e89b-42d3-a456-426614174000";
+  const response = await goRoute({
+    request: new Request(`https://hub.example/go/knowledge?knowledge=${knowledgeId}`),
+    env: { ...env, NAV_KNOWLEDGE_URL: "https://knowledge.example/custom/?tenant=owner" },
+    params: { target: "knowledge" },
+  });
+  assert.equal(response.status, 302);
+  const location = new URL(response.headers.get("Location") || "https://invalid.example/");
+  assert.equal(location.origin, "https://knowledge.example");
+  assert.equal(location.pathname, "/auth/handoff");
+  assert.equal(location.searchParams.get("next"), `/?knowledge=${knowledgeId}`);
+});
+
+test("Knowledge card shortcut ignores an invalid record identifier", async () => {
+  const response = await goRoute({
+    request: new Request("https://hub.example/go/knowledge?knowledge=https://attacker.example/"),
+    env: { AUTH_MODE: "access", NAV_KNOWLEDGE_URL: "https://knowledge.example/" },
+    params: { target: "knowledge" },
+  });
+  assert.equal(response.status, 302);
+  assert.equal(response.headers.get("Location"), "https://knowledge.example/");
+});
+
 test("dashboard navigation falls back to the protected target without SSO", async () => {
   const response = await goRoute({
     request: new Request("https://hub.example/go/knowledge?view=quiz"),

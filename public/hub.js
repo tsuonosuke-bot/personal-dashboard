@@ -124,7 +124,7 @@ function renderKnowledge(items, url, available = true) {
   }
   els.knowledgeList.innerHTML = items.map((item) => {
     const reason = knowledgeReason(item);
-    return `<a class="knowledge-item" href="${escapeHtml(url)}">
+    return `<a class="knowledge-item" href="${escapeHtml(item.url || url)}">
       <span class="reason ${reason.className}">${reason.label}</span>
       <div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.category)} · ${escapeHtml(reason.detail)}</small></div>
       <span aria-hidden="true">→</span>
@@ -142,7 +142,7 @@ function renderWants(items, url, available = true) {
     return;
   }
   els.wantList.innerHTML = items.map((item, index) => `
-    <a class="want-card" href="${escapeHtml(url)}">
+    <a class="want-card" href="${escapeHtml(item.url || url)}">
       <span>${String(index + 1).padStart(2, "0")}</span>
       <div><strong>${escapeHtml(item.content)}</strong><small>${escapeHtml(formatDate(item.createdAt))} 登録</small></div>
       <b aria-hidden="true">→</b>

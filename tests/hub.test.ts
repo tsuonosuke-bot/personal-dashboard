@@ -18,9 +18,9 @@ test("hub combines finance, knowledge, inbox, and recent Active Wants", () => {
       { id: 9, transaction_date: "2026-08-20", amount: 800, title: "Book", category: "Learning" },
     ],
     [
-      { id: "weak", title: "Weak item", category: "SAP", times_asked: 4, accuracy: 50, next_review_on: "2026-09-15", created_at: "2026-08-01T00:00:00Z", archived: false },
-      { id: "due", title: "Due item", category: "English", times_asked: 1, accuracy: 100, next_review_on: "2026-09-13", created_at: "2026-08-02T00:00:00Z", archived: false },
-      { id: "new", title: "New item", category: "Tech", times_asked: 0, accuracy: null, next_review_on: null, created_at: "2026-09-14T00:00:00Z", archived: false },
+      { id: "11111111-1111-4111-8111-111111111111", title: "Weak item", category: "SAP", times_asked: 4, accuracy: 50, next_review_on: "2026-09-15", created_at: "2026-08-01T00:00:00Z", archived: false },
+      { id: "22222222-2222-4222-8222-222222222222", title: "Due item", category: "English", times_asked: 1, accuracy: 100, next_review_on: "2026-09-13", created_at: "2026-08-02T00:00:00Z", archived: false },
+      { id: "33333333-3333-4333-8333-333333333333", title: "New item", category: "Tech", times_asked: 0, accuracy: null, next_review_on: null, created_at: "2026-09-14T00:00:00Z", archived: false },
     ],
     {},
     now,
@@ -34,7 +34,16 @@ test("hub combines finance, knowledge, inbox, and recent Active Wants", () => {
   assert.equal(hub.summary.activeWants, 2);
   assert.equal(hub.navigation.knowledgeReview, "/go/knowledge?view=quiz");
   assert.deepEqual(hub.wants.map((item) => item.id), [2, 1]);
+  assert.deepEqual(hub.wants.map((item) => item.url), [
+    "/compass/?view=wants&id=2",
+    "/compass/?view=wants&id=1",
+  ]);
   assert.deepEqual(hub.knowledge.map((item) => item.reason), ["weak", "due", "new"]);
+  assert.deepEqual(hub.knowledge.map((item) => item.url), [
+    "/go/knowledge?knowledge=11111111-1111-4111-8111-111111111111",
+    "/go/knowledge?knowledge=22222222-2222-4222-8222-222222222222",
+    "/go/knowledge?knowledge=33333333-3333-4333-8333-333333333333",
+  ]);
   assert.equal(hub.recentExpenses[0].title, "Lunch");
 });
 
