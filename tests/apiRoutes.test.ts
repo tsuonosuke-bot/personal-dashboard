@@ -73,7 +73,7 @@ test("quiz-log APIは新しい履歴から安定順で取得する", async () =>
   }
 });
 
-test("knowledge item APIはアーカイブ解除を1件だけに適用する", async () => {
+test("knowledge item APIは期待バージョンが一致する1件だけを更新する", async () => {
   const originalFetch = globalThis.fetch;
   const id = "123e4567-e89b-42d3-a456-426614174000";
   let seenUrl = "";
@@ -92,15 +92,47 @@ test("knowledge item APIはアーカイブ解除を1件だけに適用する", a
           "Content-Type": "application/json",
           "X-Dashboard-Action": "knowledge-write",
         },
-        body: JSON.stringify({ archived: false }),
+        body: JSON.stringify({ expected_version: 3, changes: { archived: false } }),
       }),
       env,
       params: { id },
     });
     assert.equal(response.status, 200);
     assert.match(seenUrl, new RegExp(`id=eq(?:\\.|%2E)${id}`));
+    assert.match(seenUrl, /content_version=eq(?:\.|%2E)3/);
     assert.equal(seenInit?.method, "PATCH");
     assert.deepEqual(JSON.parse(String(seenInit?.body)), { archived: false });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("knowledge item APIは更新競合を409で返す", async () => {
+  const originalFetch = globalThis.fetch;
+  const id = "123e4567-e89b-42d3-a456-426614174000";
+  let calls = 0;
+  globalThis.fetch = async (_input, init) => {
+    calls++;
+    if (init?.method === "PATCH") return Response.json([]);
+    return Response.json([{ id }]);
+  };
+  try {
+    const response = await knowledgeItemRoute({
+      request: new Request(`https://dashboard.example/api/knowledge/${id}`, {
+        method: "PATCH",
+        headers: {
+          Origin: "https://dashboard.example",
+          "Content-Type": "application/json",
+          "X-Dashboard-Action": "knowledge-write",
+        },
+        body: JSON.stringify({ expected_version: 2, changes: { title: "更新" } }),
+      }),
+      env,
+      params: { id },
+    });
+    assert.equal(response.status, 409);
+    assert.equal(calls, 2);
+    assert.match((await response.json() as { error: string }).error, /再読み込み/);
   } finally {
     globalThis.fetch = originalFetch;
   }

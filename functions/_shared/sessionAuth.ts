@@ -1,4 +1,6 @@
-export interface SessionEnv {
+import { requestSupabaseFunction, type SupabaseEnv } from "./supabaseRest.ts";
+
+export interface SessionEnv extends SupabaseEnv {
   SSO_SHARED_SECRET?: string;
   SESSION_TTL_DAYS?: string;
 }
@@ -37,19 +39,29 @@ async function signPayload(payload: TokenPayload, value: string): Promise<string
   return `${encoded}.${toBase64Url(new Uint8Array(signature))}`;
 }
 
-async function verifyToken(token: string, type: TokenType, audience: string, value: string, now = Date.now()): Promise<boolean> {
+async function verifyToken(
+  token: string,
+  type: TokenType,
+  audience: string,
+  value: string,
+  now = Date.now(),
+): Promise<TokenPayload | null> {
   const [encoded, encodedSignature, extra] = token.split(".");
-  if (!encoded || !encodedSignature || extra) return false;
+  if (!encoded || !encodedSignature || extra) return null;
   const payloadBytes = fromBase64Url(encoded);
   const signature = fromBase64Url(encodedSignature);
-  if (!payloadBytes || !signature) return false;
+  if (!payloadBytes || !signature) return null;
   const valid = await crypto.subtle.verify("HMAC", await hmacKey(value), signature as unknown as BufferSource, encoder.encode(encoded));
-  if (!valid) return false;
+  if (!valid) return null;
   try {
     const payload = JSON.parse(new TextDecoder().decode(payloadBytes)) as Partial<TokenPayload>;
     return payload.v === 1 && payload.typ === type && payload.aud === audience
-      && typeof payload.exp === "number" && payload.exp >= Math.floor(now / 1_000) - 5;
-  } catch { return false; }
+      && typeof payload.exp === "number" && Number.isInteger(payload.exp)
+      && payload.exp >= Math.floor(now / 1_000) - 5
+      && typeof payload.nonce === "string" && /^[A-Za-z0-9_-]{20,64}$/.test(payload.nonce)
+      ? payload as TokenPayload
+      : null;
+  } catch { return null; }
 }
 
 function nonce(): string {
@@ -76,7 +88,7 @@ export async function hasValidSession(request: Request, env: SessionEnv): Promis
   const value = secret(env);
   const token = readCookie(request);
   if (!value || !token) return false;
-  return verifyToken(token, "session", new URL(request.url).host, value);
+  return Boolean(await verifyToken(token, "session", new URL(request.url).host, value));
 }
 
 export async function attachSession(response: Response, request: Request, env: SessionEnv): Promise<Response> {
@@ -115,7 +127,16 @@ export async function acceptHandoff(request: Request, env: SessionEnv): Promise<
   const value = secret(env);
   if (!value) return new Response("SSO handoff is not configured.\n", { status: 503 });
   const token = url.searchParams.get("token") || "";
-  if (!await verifyToken(token, "handoff", url.host, value)) return new Response("SSO handoff token is invalid.\n", { status: 403 });
+  const payload = await verifyToken(token, "handoff", url.host, value);
+  if (!payload) return new Response("SSO handoff token is invalid.\n", { status: 403 });
+  const consumed = await requestSupabaseFunction(env, "consume_dashboard_handoff_nonce", {
+    p_nonce: payload.nonce,
+    p_expires_at: payload.exp,
+  });
+  if (!consumed.ok) return consumed.response;
+  if (consumed.data !== true) {
+    return new Response("SSO handoff token has already been used.\n", { status: 403 });
+  }
   const destination = url.searchParams.get("next") === "/?view=quiz" ? "/?view=quiz" : "/";
   return attachSession(new Response(null, { status: 302, headers: { Location: destination } }), request, env);
 }

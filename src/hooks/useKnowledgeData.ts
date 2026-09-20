@@ -50,11 +50,12 @@ export function useKnowledgeData() {
 
   const updateKnowledge = useCallback(async (
     id: string,
+    expectedVersion: number,
     input: Partial<KnowledgeDraft> | { archived: boolean },
   ) => {
     setMutating(true);
     try {
-      const updated = await updateKnowledgeApi(id, input);
+      const updated = await updateKnowledgeApi(id, expectedVersion, input);
       setKnowledge((current) => updated.archived
         ? current.filter((item) => item.id !== id)
         : [updated, ...current.filter((item) => item.id !== id)]);

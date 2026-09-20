@@ -29,6 +29,7 @@ npm test           # ロジック、API、認証、入力・応答検証
 - `SUPABASE_URL`（必須）
 - `SUPABASE_SECRET_KEY`（必須、CloudflareではSecretとして保存）
 - `ANTHROPIC_API_KEY`（必須、復習クイズの出題・採点に使用。CloudflareではSecretとして保存）
+- `QUIZ_SIGNING_SECRET`（必須、32文字以上。出題内容の署名用でSSO共有secretと分ける）
 
 Secret keyはRLSを迂回するサーバー専用キー。`VITE_` 接頭辞を付けたり、ブラウザ、
 ソース、ログへ出したりしてはいけない。実値がない環境でも型チェックとビルドは可能。
@@ -43,7 +44,7 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - `id` はuuid文字列
 - `mastery` は `未学習` / `学習中` / `習得中` / `定着` の4種。この語彙を変えない
 - 他: `title`, `explanation`, `category`, `tags`, `accuracy`,
-  `next_review_on`, `archived`, `created_at`
+  `next_review_on`, `archived`, `created_at`, `content_version`
 - 通常一覧は `archived = false`、アーカイブ一覧は `archived = true` が対象
 
 ### `quiz_log`
@@ -61,16 +62,18 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 
 - `GET /api/knowledge`: 明示した列。`status=active|archived|all` と制限付きページング
 - `POST /api/knowledge`: 検証済みの編集可能項目だけで新規登録
-- `PATCH /api/knowledge/:id`: UUIDで特定した1件の編集、アーカイブ、復元
+- `PATCH /api/knowledge/:id`: UUIDと`content_version`で特定した1件の編集、アーカイブ、復元。
+  競合時は409で止め、後勝ち上書きをしない
 - `GET /api/quiz-log`: 明示した列を新しい順に制限付きページング
 - `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す。
   `categories`（登録済みカテゴリ名の配列。空配列は全カテゴリ）、`limit`、`format` で絞り込む
-- `POST /api/quiz/grade`: `knowledge`/`quiz_log` を読み直して正解を確認し、Claude APIで採点、
-  `record_answers_batch` RPCで一括記録
+- `POST /api/quiz/grade`: 署名済み出題トークンと`knowledge`を照合してClaude APIで採点し、
+  `record_answers_batch_once` RPCで同日重複を原子的に判定・一括記録
 
 クイズAPIはブラウザにも `knowledge` の列を素で返さない。`start` は
-`{ id, question, format, choices }` だけ、`grade` は採点後なので `title` と模範解答を返す。
+`{ id, question, format, choices, token }` だけ、`grade` は採点後なので `title` と模範解答を返す。
 `choices` は四択のときだけ入り、どれが正解かは返さない（採点時に `knowledge` を読み直して判定する）。
+`token` はID・問題文・形式・選択肢をHMAC署名する。採点要求から同じ値を自己申告させない。
 
 一覧APIの `limit` は1〜1,000、`offset` は0以上に限定し、応答は
 `{ items, total, limit, offset }` とする。ブラウザ側は全ページを取得し、固定件数で
@@ -87,10 +90,14 @@ SM-2の計算は全てDB関数側にあり、Functions側やブラウザ側で�
 - `record_answers_batch(p_answers jsonb)`: `record_answer` を `cross join lateral` で
   複数件まとめて1SQLで呼ぶだけの薄いラッパー。採点全体の原子性のために追加した
   （SM-2ロジック自体は持たない）
+- `record_answers_batch_once(p_answers jsonb)`: 対象行を安定順でロックし、`jst_today()`基準の
+  同日重複判定と未記録分の`record_answer`を同一トランザクションで行う
+- `get_recent_quiz_notes(p_knowledge_ids, p_per_item=2)`: 選択された各項目について直近N件を返す
+- `consume_dashboard_handoff_nonce(p_nonce, p_expires_at)`: SSO引き継ぎnonceを一度だけ消費する
 - `jst_today()`: 日本時間の今日。日付判定は必ずこれを経由する
 
-`/api/quiz/grade` は書き込み前に `quiz_log` を `asked_on = jst_today()` で確認し、
-その日にまだ記録がない項目だけを `record_answers_batch` に渡す（同日重複記録の防止）。
+DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECTだけで同日重複を防ごうとせず、
+必ず `record_answers_batch_once` の行ロック下で判定する。
 
 ### クイズの出題・採点品質
 
@@ -108,9 +115,9 @@ SM-2の計算は全てDB関数側にあり、Functions側やブラウザ側で�
 - 四択の選択肢はAIに4件作らせ、サーバー側で並べ替えてから返す。件数・重複・空文字が崩れた項目は、
   その項目だけをもう一度まとめて生成し直す（1回だけ）。それでも崩れていたら黙って自由記述に
   落とさず502にする。採点では当て勘が混じるぶんq値の上限を4に抑える
-- 採点要求の `format` はブラウザの自己申告だが、許可値であることだけ検証すれば足りる
-  （履歴のラベルと採点方針にしか使わず、正解は毎回 `knowledge` から読み直すため）
-- 採点は出題時の問題文もブラウザから送り返し、「この問いに答えられたか」で採点する。
+- 採点要求は `{ token, answer }` のみ。ID・形式・問題文・選択肢は署名済みトークンから復元し、
+  ブラウザによるq値上限回避や問題文差し替えを許さない
+- 採点は署名済みの出題時問題文を使い、「この問いに答えられたか」で採点する。
   問題文を渡さないと、空所補充に単語で答えただけで「説明が足りない」と減点される
 - 採点は `correct_answer`（模範解答）と `explanation`（この回答への講評）を分けて出させる
 - 0件時は `knowledge` の件数を数えて「対象なし」と「本日出題済み」を切り分ける
@@ -139,6 +146,7 @@ functions/
   _shared/knowledgeValidation.ts 書き込み要求と入力の検証
   _shared/quizValidation.ts クイズAPIの要求検証
   _shared/anthropicClient.ts Claude APIをツール強制呼び出しで叩く共通クライアント
+  _shared/quizSession.ts    クイズ出題トークンの署名・検証
   api/knowledge.ts          ナレッジ一覧・新規登録API
   api/knowledge/[id].ts     ナレッジ編集・アーカイブ・復元API
   api/quiz-log.ts           クイズ履歴読み取りAPI

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   MAX_ANSWER_CHARS,
-  MAX_QUESTION_CHARS,
   MAX_QUIZ_LIMIT,
   QUIZ_ACTION_HEADER,
   readQuizJsonBody,
@@ -62,33 +61,26 @@ test("出題要求のcategories/limit/formatを検証し、既定値を補う", 
   assert.equal(validateStartRequest({ format: 1 }).ok, false);
 });
 
-test("採点要求のid/answer/format/questionを検証し、重複IDを拒否する", () => {
-  const id1 = "123e4567-e89b-42d3-a456-426614174000";
-  const id2 = "223e4567-e89b-42d3-a456-426614174000";
-  // formatを送らない古いクライアントは一問一答として扱い、questionが欠けていても採点は続けられる。
+test("採点要求は署名トークンと回答だけを受理する", () => {
+  const token1 = `payload.${"a".repeat(43)}`;
+  const token2 = `payload.${"b".repeat(43)}`;
   assert.deepEqual(
     validateGradeRequest([
-      { id: id1, answer: " ok ", format: "四択", question: " 問題文 " },
-      { id: id2, answer: "" },
+      { token: token1, answer: " ok " },
+      { token: token2, answer: "" },
     ]),
     {
       ok: true,
       value: [
-        { id: id1, answer: "ok", format: "四択", question: "問題文" },
-        { id: id2, answer: "", format: "一問一答", question: "" },
+        { token: token1, answer: "ok" },
+        { token: token2, answer: "" },
       ],
     },
   );
-  assert.equal(validateGradeRequest([{ id: id1, answer: "x", format: "おまかせ" }]).ok, false);
-  assert.equal(validateGradeRequest([{ id: id1, answer: "x", format: "穴埋め" }]).ok, false);
-  assert.equal(
-    validateGradeRequest([{ id: id1, answer: "x", question: "x".repeat(MAX_QUESTION_CHARS + 1) }]).ok,
-    false,
-  );
-  assert.equal(validateGradeRequest([{ id: id1, answer: "x", question: 1 }]).ok, false);
   assert.equal(validateGradeRequest([]).ok, false);
-  assert.equal(validateGradeRequest([{ id: "not-a-uuid", answer: "x" }]).ok, false);
-  assert.equal(validateGradeRequest([{ id: id1, answer: "x" }, { id: id1, answer: "y" }]).ok, false);
-  assert.equal(validateGradeRequest([{ id: id1, answer: "x".repeat(MAX_ANSWER_CHARS + 1) }]).ok, false);
-  assert.equal(validateGradeRequest(Array.from({ length: 31 }, () => ({ id: id1, answer: "x" }))).ok, false);
+  assert.equal(validateGradeRequest([{ token: "short", answer: "x" }]).ok, false);
+  assert.equal(validateGradeRequest([{ token: token1, answer: "x", id: "untrusted" }]).ok, false);
+  assert.equal(validateGradeRequest([{ token: token1, answer: "x", format: "四択" }]).ok, false);
+  assert.equal(validateGradeRequest([{ token: token1, answer: "x".repeat(MAX_ANSWER_CHARS + 1) }]).ok, false);
+  assert.equal(validateGradeRequest(Array.from({ length: 31 }, () => ({ token: token1, answer: "x" }))).ok, false);
 });

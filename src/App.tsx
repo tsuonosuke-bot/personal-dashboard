@@ -94,7 +94,7 @@ export default function App() {
     setActionError(null);
     try {
       if (formTarget) {
-        await updateKnowledge(formTarget.id, draft);
+        await updateKnowledge(formTarget.id, formTarget.content_version, draft);
         setNotice("ナレッジを更新しました。");
       } else {
         await createKnowledge(draft);
@@ -112,7 +112,7 @@ export default function App() {
     if (!window.confirm(`「${item.title}」をアーカイブしますか？\n一覧から非表示になります。`)) return;
     setActionError(null);
     try {
-      const archived = await updateKnowledge(item.id, { archived: true });
+      const archived = await updateKnowledge(item.id, item.content_version, { archived: true });
       setSelected(null);
       setNotice("ナレッジをアーカイブしました。");
       setUndoArchived(archived);
@@ -124,7 +124,7 @@ export default function App() {
   const restoreKnowledge = async (item: Knowledge) => {
     setActionError(null);
     try {
-      await updateKnowledge(item.id, { archived: false });
+      await updateKnowledge(item.id, item.content_version, { archived: false });
       setUndoArchived(null);
       setNotice("ナレッジを復元しました。");
       setPage(1);
@@ -140,6 +140,7 @@ export default function App() {
           knowledge={knowledge}
           quizLog={quizLog}
           onExit={() => setQuizOpen(false)}
+          onRecorded={reload}
         />
       </Suspense>
     );

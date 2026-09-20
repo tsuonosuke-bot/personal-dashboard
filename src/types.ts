@@ -21,6 +21,8 @@ export interface Knowledge {
   mastery_streak: number;
   archived: boolean;
   created_at: string;
+  /** 編集競合を検出するための単調増加バージョン。 */
+  content_version: number;
 }
 
 export interface QuizLog {
@@ -74,6 +76,8 @@ export interface QuizQuestion {
   format: QuizFormat;
   /** 四択のときだけ入る選択肢。他の形式ではnull。 */
   choices: string[] | null;
+  /** 問題文と形式をサーバーへ改ざんされず返すための署名済みトークン。 */
+  token: string;
 }
 
 export type QuizEmptyReason = "no_knowledge" | "done_today";

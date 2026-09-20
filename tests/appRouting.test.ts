@@ -8,4 +8,5 @@ test("quiz view can be opened from and closed back to the URL", async () => {
   assert.match(source, /url\.searchParams\.set\("view", "quiz"\)/);
   assert.match(source, /url\.searchParams\.delete\("view"\)/);
   assert.match(source, /onExit=\{\(\) => setQuizOpen\(false\)\}/);
+  assert.match(source, /onRecorded=\{reload\}/);
 });

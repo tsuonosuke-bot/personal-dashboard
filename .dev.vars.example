@@ -7,6 +7,7 @@ AUTH_MODE=basic
 # POLICY_AUD=replace-with-access-application-aud
 HUB_SERVICE_TOKEN=replace-with-a-random-32-byte-secret
 SSO_SHARED_SECRET=replace-with-a-different-random-32-byte-secret
+QUIZ_SIGNING_SECRET=replace-with-another-random-32-byte-secret
 SESSION_TTL_DAYS=30
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_replace-me

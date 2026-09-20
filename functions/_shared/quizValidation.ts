@@ -1,11 +1,13 @@
 export const QUIZ_ACTION_HEADER = "quiz-session";
-export const MAX_QUIZ_REQUEST_CHARS = 40_000;
+export const MAX_QUIZ_REQUEST_CHARS = 160_000;
 
 export const MIN_QUIZ_LIMIT = 1;
 export const MAX_QUIZ_LIMIT = 30;
 export const DEFAULT_QUIZ_LIMIT = 15;
 export const MAX_ANSWER_CHARS = 2_000;
 export const MAX_QUESTION_CHARS = 2_000;
+export const MAX_CHOICE_CHARS = 500;
+export const MAX_QUIZ_TOKEN_CHARS = 16_000;
 export const MAX_QUIZ_CATEGORIES = 50;
 export const MAX_CATEGORY_CHARS = 100;
 
@@ -24,8 +26,6 @@ function isQuizFormat(value: unknown): value is QuizFormat {
   return typeof value === "string" && (QUIZ_FORMATS as readonly string[]).includes(value);
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 export interface RequestGuardError {
   status: number;
   error: string;
@@ -40,11 +40,8 @@ export interface StartRequestInput {
 }
 
 export interface GradeAnswerInput {
-  id: string;
+  token: string;
   answer: string;
-  format: QuizFormat;
-  /** 実際に出題した問題文。採点を「この問いに答えられたか」に限定するために送り返す。 */
-  question: string;
 }
 
 type JsonResult =
@@ -138,30 +135,21 @@ export function validateGradeRequest(
   if (!Array.isArray(input) || input.length < 1 || input.length > MAX_QUIZ_LIMIT) {
     return { ok: false, error: `回答は1〜${MAX_QUIZ_LIMIT}件で送信してください。` };
   }
-  const seen = new Set<string>();
   const result: GradeAnswerInput[] = [];
   for (const entry of input) {
     if (!isPlainObject(entry)) return { ok: false, error: "回答の形式が正しくありません。" };
-    const { id, answer } = entry;
-    if (typeof id !== "string" || !UUID_RE.test(id)) {
-      return { ok: false, error: "回答のIDが正しくありません。" };
+    const keys = Object.keys(entry);
+    if (keys.some((key) => key !== "token" && key !== "answer")) {
+      return { ok: false, error: "回答に許可されていない項目が含まれています。" };
     }
-    if (seen.has(id)) return { ok: false, error: "同じ問題への回答が重複しています。" };
-    seen.add(id);
+    const { token, answer } = entry;
+    if (typeof token !== "string" || token.length < 20 || token.length > MAX_QUIZ_TOKEN_CHARS) {
+      return { ok: false, error: "クイズトークンが正しくありません。" };
+    }
     if (typeof answer !== "string" || answer.length > MAX_ANSWER_CHARS) {
       return { ok: false, error: `回答は${MAX_ANSWER_CHARS}文字以内の文字列で入力してください。` };
     }
-    // 形式はクイズ履歴のラベルと採点方針にしか使わないため、許可値であることだけを確かめる。
-    const rawFormat = "format" in entry ? entry.format : DEFAULT_QUIZ_FORMAT;
-    if (!isQuizFormat(rawFormat)) {
-      return { ok: false, error: "回答の出題形式が正しくありません。" };
-    }
-    // 出題直後の画面から送られる想定だが、欠けていても採点自体は続けられるようにする。
-    const question = "question" in entry ? entry.question : "";
-    if (typeof question !== "string" || question.length > MAX_QUESTION_CHARS) {
-      return { ok: false, error: `問題文は${MAX_QUESTION_CHARS}文字以内の文字列で送信してください。` };
-    }
-    result.push({ id, answer: answer.trim(), format: rawFormat, question: question.trim() });
+    result.push({ token, answer: answer.trim() });
   }
   return { ok: true, value: result };
 }

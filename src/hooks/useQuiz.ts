@@ -19,7 +19,7 @@ export const DEFAULT_QUIZ_FORMAT: QuizFormatRequest = "おまかせ";
 
 export type QuizStage = "setup" | "loading" | "empty" | "quiz" | "grading" | "results";
 
-export function useQuiz() {
+export function useQuiz(onRecorded?: () => void | Promise<void>) {
   const [stage, setStage] = useState<QuizStage>("setup");
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -73,19 +73,18 @@ export function useQuiz() {
     setError(null);
     try {
       const payload = questions.map((q) => ({
-        id: q.id,
-        question: q.question,
+        token: q.token,
         answer: answers[q.id] ?? "",
-        format: q.format,
       }));
       const graded = await gradeQuiz(payload);
       setResults(graded);
       setStage("results");
+      void onRecorded?.();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "採点に失敗しました。");
       setStage("quiz");
     }
-  }, [questions, answers]);
+  }, [questions, answers, onRecorded]);
 
   const reset = useCallback(() => {
     setStage("setup");

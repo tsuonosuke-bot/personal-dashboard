@@ -23,10 +23,11 @@ interface Props {
   knowledge: Knowledge[];
   quizLog: QuizLog[];
   onExit: () => void;
+  onRecorded: () => void | Promise<void>;
 }
 
-export function QuizView({ knowledge, quizLog, onExit }: Props) {
-  const quiz = useQuiz();
+export function QuizView({ knowledge, quizLog, onExit, onRecorded }: Props) {
+  const quiz = useQuiz(onRecorded);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [limit, setLimit] = useState<number>(DEFAULT_QUIZ_LIMIT);
   const [format, setFormat] = useState<QuizFormatRequest>(DEFAULT_QUIZ_FORMAT);

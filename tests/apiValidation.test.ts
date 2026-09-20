@@ -25,6 +25,7 @@ function validKnowledge() {
     next_review_on: "2026-09-10",
     mastery_streak: 1,
     archived: false,
+    content_version: 1,
     created_at: "2026-09-01T00:00:00Z",
   };
 }
@@ -60,16 +61,21 @@ test("クイズ判定の許可値を検証する", () => {
 });
 
 test("出題の形式と選択肢の食い違いを受理しない", () => {
-  const free = { id: "a", question: "問題", format: "記述説明", choices: null };
+  const token = "signed-token".repeat(3);
+  const free = { id: "a", question: "問題", format: "記述説明", choices: null, token };
   assert.deepEqual(parseQuizStartResponse({ items: [free] }).items, [free]);
 
-  const choice = { id: "a", question: "問題", format: "四択", choices: ["ア", "イ", "ウ", "エ"] };
+  const choice = {
+    id: "a", question: "問題", format: "四択", choices: ["ア", "イ", "ウ", "エ"], token,
+  };
   assert.deepEqual(parseQuizStartResponse({ items: [choice] }).items, [choice]);
 
   assert.throws(() => parseQuizStartResponse({ items: [{ ...free, format: "ソクラテス式" }] }), /format/);
   // 四択なのに選択肢がない／四択でないのに選択肢がある、のどちらも通さない。
   assert.throws(() => parseQuizStartResponse({ items: [{ ...choice, choices: null }] }), /choices/);
   assert.throws(() => parseQuizStartResponse({ items: [{ ...free, choices: ["ア"] }] }), /choices/);
+  assert.throws(() => parseQuizStartResponse({ items: [{ ...choice, choices: ["ア", "ア", "ウ", "エ"] }] }), /choices/);
+  assert.throws(() => parseQuizStartResponse({ items: [{ ...free, token: "" }] }), /token/);
 });
 
 test("固定上限で切らず、全ページのナレッジを取得する", async () => {

@@ -15,7 +15,7 @@ Browser --Basic認証 / Cloudflare Access--> Cloudflare Pages Functions --Secret
 ```bash
 npm install
 cp .dev.vars.example .dev.vars
-# .dev.vars の必須3項目を記入
+# .dev.vars の必須項目を記入
 npm run dev:pages
 ```
 
@@ -39,6 +39,7 @@ Viteだけを起動するため `/api/*` は利用できない。
 | `POLICY_AUD` | Access時 | Access Application Audience tag |
 | `HUB_SERVICE_TOKEN` | Hub連携時 | Hubからナレッジ一覧GETだけを許可する共有secret |
 | `SSO_SHARED_SECRET` | Hub連携時 | Hubからの署名付き認証引き継ぎを検証する共有secret |
+| `QUIZ_SIGNING_SECRET` | クイズ時 | 出題内容を採点まで改ざん不能に保つ32文字以上の署名secret |
 | `SESSION_TTL_DAYS` | 任意 | 引き継いだセッションの日数。既定30 |
 | `SUPABASE_URL` | 必須 | SupabaseプロジェクトURL |
 | `SUPABASE_SECRET_KEY` | 必須 | サーバー専用の `sb_secret_...` キー |
@@ -63,14 +64,16 @@ Viteだけを起動するため `/api/*` は利用できない。
 
 - `GET /api/knowledge` — ナレッジ一覧。`status=active|archived|all`（既定 `active`）
 - `POST /api/knowledge` — ナレッジを新規登録
-- `PATCH /api/knowledge/:id` — 許可項目の編集、アーカイブまたは復元
+- `PATCH /api/knowledge/:id` — 許可項目の編集、アーカイブまたは復元。本文は
+  `{ expected_version, changes }` とし、読み込み後に別画面で更新されていれば409を返す
 - `GET /api/quiz-log` — クイズ履歴を新しい順に取得
 - `POST /api/quiz/start` — 復習クイズを出題（`{ categories, limit }`。`categories` は登録済み
   カテゴリ名の配列で、空配列なら全カテゴリ）。DBの `pick_quiz` で候補を選び、カテゴリ・タグ・前回のつまずきメモを添えてClaude APIで問題文を
-  生成する。応答は `{ id, question }` の配列のみで、正解（タイトル・説明）は返さない
-- `POST /api/quiz/grade` — 回答 `[{ id, answer }]` を採点。サーバー側でDBから正解を引き直し、
-  Claude APIで採点した上で `record_answers_batch`（`record_answer` をまとめて呼ぶRPC）で
-  1回のSQLとして記録する。同日に記録済みの項目は再記録しない
+  生成する。応答は `{ id, question, format, choices, token }` の配列で、正解（タイトル・説明）は
+  返さない。`token` はID・問題文・形式・選択肢をサーバー署名した2時間有効の値
+- `POST /api/quiz/grade` — 回答 `[{ token, answer }]` を採点。クライアント申告のID・問題文・形式は
+  信用せず、署名済みトークンとDBから正解を復元する。採点後は `record_answers_batch_once` RPCが
+  行ロック下で同日重複を判定し、未記録分だけを原子的にSM-2更新・履歴登録する
 
 出題・採点は `claude-sonnet-5` を使う。問題文と講評の質が成果物そのものなので、
 コスト目的で軽量モデルへ落とさない。
@@ -82,6 +85,7 @@ Viteだけを起動するため `/api/*` は利用できない。
 書き込みはBasic認証に加えて、同一オリジン、専用ヘッダー、JSON、25,000文字以下の本文を
 必須とする。サーバー側で許可するのはタイトル、説明、出典メモ、カテゴリ、習熟度、タグ、
 次回復習日、アーカイブ状態だけで、ID・作成日時・学習統計は変更できない。
+更新には一覧取得時の `content_version` が必要で、競合時は上書きせず再読み込みを促す。
 アーカイブ直後は画面上で取り消せるほか、「アーカイブ済み」一覧から復元できる。
 DB接続設定がない場合は503、Supabase通信失敗は502を返す。
 
@@ -104,6 +108,7 @@ functions/
   _middleware.ts            Basic / Access認証とセキュリティヘッダー
   _shared/supabaseRest.ts   Supabase REST APIのサーバー専用クライアント
   _shared/knowledgeValidation.ts 書き込み防御と入力検証
+  _shared/quizSession.ts      出題内容の署名と採点時の検証
   api/knowledge.ts          ナレッジ一覧・新規登録API
   api/knowledge/[id].ts     ナレッジ編集・アーカイブ・復元API
   api/quiz-log.ts           クイズ履歴読み取りAPI
@@ -114,6 +119,7 @@ public/
   sw.js                     最小限のService Worker
 supabase/
   disable-anon-access.sql   移行完了後にanon権限を外すSQL
+  migrations/               本番DB関数の基準版と順序付き変更SQL
 ```
 
 グラフは [recharts](https://recharts.org/)。復習クイズの出題・採点にはClaude APIを使う。
@@ -132,8 +138,9 @@ GitHub 連携でビルド・公開する。
 公開URL: https://knowledge-dashboard-27t.pages.dev
 
 Cloudflare Pages の **Settings → Variables and Secrets** で、Production と Preview の
-両方へ必須3つの環境変数を登録する。`DASHBOARD_PASSWORD` と
-`SUPABASE_SECRET_KEY` は必ずSecretとして保存し、設定後に再デプロイする。
+両方へ必要な環境変数を登録する。少なくとも `DASHBOARD_PASSWORD`、
+`SUPABASE_SECRET_KEY`、`ANTHROPIC_API_KEY`、`QUIZ_SIGNING_SECRET` は必ずSecretとして保存し、
+設定後に再デプロイする。`QUIZ_SIGNING_SECRET` は `SSO_SHARED_SECRET` と別のランダム値にする。
 
 ブラウザからSupabaseへ直接接続しないため、`VITE_SUPABASE_URL` と
 `VITE_SUPABASE_ANON_KEY` は設定しない。
@@ -149,6 +156,14 @@ CSPは外部のスクリプトとスタイルを禁止し、rechartsに必要な
 Personal Hub、家計簿、ナレッジを同じAccess applicationで保護すると、1回のログインで3画面を移動できる。
 
 Basic認証を継続する場合も、3サイトへ同じ `SSO_SHARED_SECRET` を設定すれば、Hubからの署名付き引き継ぎで対象ホストに固定したHttpOnlyセッションを作成できる。`HUB_SERVICE_TOKEN` は `GET /api/knowledge` のみに使え、POST/PATCHや他のAPIは認証を迂回できない。
+引き継ぎトークンのnonceはSupabaseで1回だけ消費されるため、同じURLの再利用は403になる。
+
+### DBマイグレーション
+
+`supabase/migrations/` のSQLをファイル名順に適用してから、そのDB機能に依存するアプリを公開する。
+`20260920080000_version_quiz_functions.sql` は従来本番だけに存在したクイズ関数の基準版、
+`20260920090000_review_fixes.sql` は編集競合、同日二重記録、項目別の直近メモ、SSOリプレイを
+修正する。適用後は新しい列・トリガー・関数定義と実行権限を確認する。
 
 ## 既存のブラウザ直接接続からの移行
 

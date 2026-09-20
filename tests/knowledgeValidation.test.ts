@@ -5,6 +5,7 @@ import {
   isUuid,
   readJsonBody,
   validateKnowledgeInput,
+  validateKnowledgeUpdateEnvelope,
   validateMutationRequest,
 } from "../functions/_shared/knowledgeValidation.ts";
 import { requestSupabaseRows } from "../functions/_shared/supabaseRest.ts";
@@ -54,6 +55,20 @@ test("必須・許可項目・日付・文字数を厳格に検証する", () =>
     ok: true,
     value: { archived: true },
   });
+});
+
+test("更新要求は期待バージョンと変更内容を組で検証する", () => {
+  assert.deepEqual(
+    validateKnowledgeUpdateEnvelope({ expected_version: 3, changes: { archived: true } }),
+    { ok: true, expectedVersion: 3, changes: { archived: true } },
+  );
+  assert.equal(validateKnowledgeUpdateEnvelope({ changes: { archived: true } }).ok, false);
+  assert.equal(validateKnowledgeUpdateEnvelope({ expected_version: 0, changes: { archived: true } }).ok, false);
+  assert.equal(validateKnowledgeUpdateEnvelope({ expected_version: 1, changes: {} }).ok, false);
+  assert.equal(
+    validateKnowledgeUpdateEnvelope({ expected_version: 1, changes: { archived: true }, extra: true }).ok,
+    false,
+  );
 });
 
 test("書き込み要求は同一オリジン・専用ヘッダー・JSONを必須にする", () => {

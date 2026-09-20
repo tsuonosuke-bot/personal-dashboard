@@ -19,6 +19,10 @@ type ValidationResult =
   | { ok: true; value: KnowledgeWriteInput }
   | { ok: false; error: string };
 
+type UpdateValidationResult =
+  | { ok: true; expectedVersion: number; changes: KnowledgeWriteInput }
+  | { ok: false; error: string };
+
 type JsonResult =
   | { ok: true; value: unknown }
   | { ok: false; status: number; error: string };
@@ -193,4 +197,25 @@ export function validateKnowledgeInput(
     result.archived = input.archived;
   }
   return { ok: true, value: result };
+}
+
+/** 更新要求は変更内容と、画面が読み込んだ時点のバージョンを必ず組にする。 */
+export function validateKnowledgeUpdateEnvelope(input: unknown): UpdateValidationResult {
+  if (!isPlainObject(input)) {
+    return { ok: false, error: "入力内容の形式が正しくありません。" };
+  }
+  const keys = Object.keys(input);
+  if (keys.some((key) => key !== "expected_version" && key !== "changes")) {
+    return { ok: false, error: "更新要求に許可されていない項目が含まれています。" };
+  }
+  if (
+    typeof input.expected_version !== "number"
+    || !Number.isSafeInteger(input.expected_version)
+    || input.expected_version < 1
+  ) {
+    return { ok: false, error: "更新バージョンが正しくありません。" };
+  }
+  const changes = validateKnowledgeInput(input.changes, "update");
+  if (!changes.ok) return changes;
+  return { ok: true, expectedVersion: input.expected_version, changes: changes.value };
 }

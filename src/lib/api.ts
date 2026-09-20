@@ -1,5 +1,5 @@
 import type {
-  Knowledge, KnowledgeDraft, QuizFormat, QuizFormatRequest, QuizGradeResult, QuizLog, QuizStart,
+  Knowledge, KnowledgeDraft, QuizFormatRequest, QuizGradeResult, QuizLog, QuizStart,
 } from "../types";
 import {
   parseKnowledge,
@@ -79,7 +79,7 @@ export function getQuizLog(): Promise<QuizLog[]> {
 async function writeKnowledge(
   path: string,
   method: "POST" | "PATCH",
-  input: KnowledgeDraft | Partial<KnowledgeDraft> | { archived: boolean },
+  input: unknown,
 ): Promise<Knowledge> {
   const data = await requestJson(path, {
     method,
@@ -98,9 +98,13 @@ export function createKnowledge(input: KnowledgeDraft): Promise<Knowledge> {
 
 export function updateKnowledge(
   id: string,
+  expectedVersion: number,
   input: Partial<KnowledgeDraft> | { archived: boolean },
 ): Promise<Knowledge> {
-  return writeKnowledge(`/api/knowledge/${encodeURIComponent(id)}`, "PATCH", input);
+  return writeKnowledge(`/api/knowledge/${encodeURIComponent(id)}`, "PATCH", {
+    expected_version: expectedVersion,
+    changes: input,
+  });
 }
 
 async function postQuiz(path: string, body: unknown): Promise<unknown> {
@@ -124,7 +128,7 @@ export async function startQuiz(
 }
 
 export async function gradeQuiz(
-  answers: { id: string; question: string; answer: string; format: QuizFormat }[],
+  answers: { token: string; answer: string }[],
 ): Promise<QuizGradeResult[]> {
   const data = await postQuiz("/api/quiz/grade", answers);
   return parseQuizGradeResponse(data);
