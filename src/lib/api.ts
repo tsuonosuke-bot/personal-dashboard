@@ -1,4 +1,4 @@
-import type { Knowledge, KnowledgeDraft, QuizGradeResult, QuizLog, QuizMode, QuizStart } from "../types";
+import type { Knowledge, KnowledgeDraft, QuizGradeResult, QuizLog, QuizStart } from "../types";
 import {
   parseKnowledge,
   parsePageEnvelope,
@@ -112,8 +112,8 @@ async function postQuiz(path: string, body: unknown): Promise<unknown> {
   });
 }
 
-export async function startQuiz(mode: QuizMode, limit: number): Promise<QuizStart> {
-  const data = await postQuiz("/api/quiz/start", { mode, limit });
+export async function startQuiz(categories: string[], limit: number): Promise<QuizStart> {
+  const data = await postQuiz("/api/quiz/start", { categories, limit });
   return parseQuizStartResponse(data);
 }
 

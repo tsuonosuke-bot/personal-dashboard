@@ -1,4 +1,5 @@
 import {
+  inFilter,
   jsonResponse,
   methodNotAllowed,
   requestSupabaseFunction,
@@ -15,7 +16,6 @@ import {
   readQuizJsonBody,
   validateQuizRequest,
   validateStartRequest,
-  type QuizMode,
 } from "../../_shared/quizValidation.ts";
 
 interface FunctionContext {
@@ -23,7 +23,6 @@ interface FunctionContext {
   env: SupabaseEnv & AnthropicEnv;
 }
 
-const ENGLISH_CATEGORY = "英語";
 /** 1件あたり直近何回分のつまずきメモを出題の参考に渡すか。 */
 const NOTES_PER_ITEM = 2;
 const NOTE_FETCH_LIMIT = 200;
@@ -47,12 +46,6 @@ function isPickedItem(value: unknown): value is PickedItem {
     && typeof record.times_asked === "number" && typeof record.pool === "string";
 }
 
-function categoryFilter(mode: QuizMode): { include: string[] | null; exclude: string[] | null } {
-  if (mode === "english") return { include: [ENGLISH_CATEGORY], exclude: null };
-  if (mode === "non_english") return { include: null, exclude: [ENGLISH_CATEGORY] };
-  return { include: null, exclude: null };
-}
-
 /** 同じカテゴリが連続しないよう出題順だけ入れ替える。DBが選んだ問題の差し替えはしない。 */
 function spreadCategories(items: PickedItem[]): PickedItem[] {
   const rest = [...items];
@@ -68,11 +61,10 @@ function spreadCategories(items: PickedItem[]): PickedItem[] {
 /** 0件の理由を「対象の知識がない」と「本日出題済み」で切り分ける。 */
 async function emptyReason(
   env: SupabaseEnv,
-  filter: { include: string[] | null; exclude: string[] | null },
+  categories: string[],
 ): Promise<"no_knowledge" | "done_today"> {
   const params = new URLSearchParams({ select: "id", archived: "eq.false", limit: "1" });
-  if (filter.include) params.set("category", `in.(${filter.include.join(",")})`);
-  else if (filter.exclude) params.set("category", `not.in.(${filter.exclude.join(",")})`);
+  if (categories.length > 0) params.set("category", inFilter(categories));
   const result = await requestSupabaseRows(env, { table: "knowledge", params, count: "exact" });
   if (!result.ok) return "no_knowledge";
   return (result.total ?? 0) > 0 ? "done_today" : "no_knowledge";
@@ -117,11 +109,11 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const validated = validateStartRequest(json.value);
   if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
 
-  const filter = categoryFilter(validated.value.mode);
+  const { categories, limit } = validated.value;
   const picked = await requestSupabaseFunction(context.env, "pick_quiz", {
-    p_include: filter.include,
-    p_exclude: filter.exclude,
-    p_limit: validated.value.limit,
+    p_include: categories.length > 0 ? categories : null,
+    p_exclude: null,
+    p_limit: limit,
     p_include_mastered: false,
   });
   if (!picked.ok) return picked.response;
@@ -133,7 +125,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     return jsonResponse({ error: "DBから想定外の応答を受信しました。" }, 502);
   }
   if (rows.length === 0) {
-    return jsonResponse({ items: [], reason: await emptyReason(context.env, filter) });
+    return jsonResponse({ items: [], reason: await emptyReason(context.env, categories) });
   }
 
   const items = spreadCategories(rows);
@@ -142,12 +134,12 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const [tagRows, noteRows] = await Promise.all([
     requestSupabaseRows(context.env, {
       table: "knowledge",
-      params: new URLSearchParams({ id: `in.(${ids.join(",")})`, select: "id,tags" }),
+      params: new URLSearchParams({ id: inFilter(ids), select: "id,tags" }),
     }),
     requestSupabaseRows(context.env, {
       table: "quiz_log",
       params: new URLSearchParams({
-        knowledge_id: `in.(${ids.join(",")})`,
+        knowledge_id: inFilter(ids),
         select: "knowledge_id,quality,verdict,note,asked_on",
         order: "asked_on.desc,id.desc",
         limit: String(NOTE_FETCH_LIMIT),

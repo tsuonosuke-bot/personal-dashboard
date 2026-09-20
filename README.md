@@ -62,8 +62,8 @@ Viteだけを起動するため `/api/*` は利用できない。
 - `POST /api/knowledge` — ナレッジを新規登録
 - `PATCH /api/knowledge/:id` — 許可項目の編集、アーカイブまたは復元
 - `GET /api/quiz-log` — クイズ履歴を新しい順に取得
-- `POST /api/quiz/start` — 復習クイズを出題（`{ mode: "english"|"non_english"|"all", limit }`）。
-  DBの `pick_quiz` で候補を選び、カテゴリ・タグ・前回のつまずきメモを添えてClaude APIで問題文を
+- `POST /api/quiz/start` — 復習クイズを出題（`{ categories, limit }`。`categories` は登録済み
+  カテゴリ名の配列で、空配列なら全カテゴリ）。DBの `pick_quiz` で候補を選び、カテゴリ・タグ・前回のつまずきメモを添えてClaude APIで問題文を
   生成する。応答は `{ id, question }` の配列のみで、正解（タイトル・説明）は返さない
 - `POST /api/quiz/grade` — 回答 `[{ id, answer }]` を採点。サーバー側でDBから正解を引き直し、
   Claude APIで採点した上で `record_answers_batch`（`record_answer` をまとめて呼ぶRPC）で

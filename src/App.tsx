@@ -128,7 +128,11 @@ export default function App() {
   if (showQuiz) {
     return (
       <Suspense fallback={<div className="msg">読み込み中...</div>}>
-        <QuizView onExit={() => setShowQuiz(false)} />
+        <QuizView
+          knowledge={knowledge}
+          quizLog={quizLog}
+          onExit={() => setShowQuiz(false)}
+        />
       </Suspense>
     );
   }

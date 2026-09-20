@@ -7,8 +7,9 @@ interface Props {
   quizLog: QuizLog[];
   mutating: boolean;
   onClose: () => void;
-  onEdit: () => void;
-  onArchive: () => void;
+  /** 復習クイズの結果から開くときは編集・アーカイブを出さないため省略できる。 */
+  onEdit?: () => void;
+  onArchive?: () => void;
 }
 
 function displayDateTime(value: string): string {
@@ -85,10 +86,14 @@ export function KnowledgeDetailModal({
         </div>
 
         <div className="modal-actions detail-actions">
-          <button className="danger-button" onClick={onArchive} disabled={mutating}>アーカイブ</button>
+          {onArchive && (
+            <button className="danger-button" onClick={onArchive} disabled={mutating}>アーカイブ</button>
+          )}
           <span className="action-spacer" />
           <button onClick={onClose} disabled={mutating}>閉じる</button>
-          <button className="primary-button" onClick={onEdit} disabled={mutating}>編集する</button>
+          {onEdit && (
+            <button className="primary-button" onClick={onEdit} disabled={mutating}>編集する</button>
+          )}
         </div>
       </section>
     </div>

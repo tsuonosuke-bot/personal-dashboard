@@ -1,12 +1,7 @@
-import { useState } from "react";
-import { useQuiz } from "../hooks/useQuiz";
-import type { QuizMode } from "../types";
-
-const MODE_LABELS: Record<QuizMode, string> = {
-  english: "英語",
-  non_english: "英語以外",
-  all: "すべて",
-};
+import { useMemo, useState } from "react";
+import { DEFAULT_QUIZ_LIMIT, QUIZ_LIMIT_OPTIONS, useQuiz } from "../hooks/useQuiz";
+import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
+import type { Knowledge, QuizLog } from "../types";
 
 const VERDICT_CLASS: Record<string, string> = {
   正解: "quiz-verdict-ok",
@@ -14,9 +9,29 @@ const VERDICT_CLASS: Record<string, string> = {
   不正解: "quiz-verdict-ng",
 };
 
-export function QuizView({ onExit }: { onExit: () => void }) {
+interface Props {
+  knowledge: Knowledge[];
+  quizLog: QuizLog[];
+  onExit: () => void;
+}
+
+export function QuizView({ knowledge, quizLog, onExit }: Props) {
   const quiz = useQuiz();
-  const [mode, setMode] = useState<QuizMode>("all");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [limit, setLimit] = useState<number>(DEFAULT_QUIZ_LIMIT);
+  const [detailId, setDetailId] = useState<string | null>(null);
+
+  const categories = useMemo(
+    () => [...new Set(knowledge.map((item) => item.category))].sort(),
+    [knowledge],
+  );
+  const detail = knowledge.find((item) => item.id === detailId) ?? null;
+
+  const toggleCategory = (category: string) => {
+    setSelectedCategories((prev) => prev.includes(category)
+      ? prev.filter((value) => value !== category)
+      : [...prev, category]);
+  };
 
   return (
     <div className="quiz-page">
@@ -30,21 +45,38 @@ export function QuizView({ onExit }: { onExit: () => void }) {
 
         {quiz.stage === "setup" && (
           <div className="quiz-setup card">
-            <p>出題するカテゴリを選んでください。</p>
-            <div className="quiz-mode-select" role="radiogroup" aria-label="出題カテゴリ">
-              {(Object.keys(MODE_LABELS) as QuizMode[]).map((value) => (
+            <p>出題するカテゴリと問題数を選んでください。</p>
+            <div className="quiz-category-select" role="group" aria-label="出題カテゴリ">
+              <button
+                aria-pressed={selectedCategories.length === 0}
+                className={selectedCategories.length === 0 ? "active" : ""}
+                onClick={() => setSelectedCategories([])}
+              >
+                すべて
+              </button>
+              {categories.map((category) => (
                 <button
-                  key={value}
-                  role="radio"
-                  aria-checked={mode === value}
-                  className={mode === value ? "active" : ""}
-                  onClick={() => setMode(value)}
+                  key={category}
+                  aria-pressed={selectedCategories.includes(category)}
+                  className={selectedCategories.includes(category) ? "active" : ""}
+                  onClick={() => toggleCategory(category)}
                 >
-                  {MODE_LABELS[value]}
+                  {category}
                 </button>
               ))}
             </div>
-            <button className="primary-button quiz-start-button" onClick={() => void quiz.start(mode)}>
+            <label className="quiz-limit-select">
+              問題数
+              <select value={limit} onChange={(event) => setLimit(Number(event.target.value))}>
+                {QUIZ_LIMIT_OPTIONS.map((value) => (
+                  <option key={value} value={value}>{value}問</option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="primary-button quiz-start-button"
+              onClick={() => void quiz.start(selectedCategories, limit)}
+            >
               出題する
             </button>
           </div>
@@ -56,8 +88,8 @@ export function QuizView({ onExit }: { onExit: () => void }) {
           <div className="quiz-setup card">
             <p>
               {quiz.emptyReason === "done_today"
-                ? "本日の出題は終わっています。このカテゴリは全問採点済みです。"
-                : "このカテゴリに出題できるナレッジがありません。"}
+                ? "本日の出題は終わっています。選んだカテゴリは全問採点済みです。"
+                : "選んだカテゴリに出題できるナレッジがありません。"}
             </p>
             <button className="primary-button" onClick={quiz.reset}>戻る</button>
           </div>
@@ -100,7 +132,14 @@ export function QuizView({ onExit }: { onExit: () => void }) {
                     <div className="content-block">
                       <h3>正解</h3>
                       <p>{result.correct_answer}</p>
-                      <p className="quiz-result-source">{result.title}</p>
+                      <p className="quiz-result-source">
+                        出典:{" "}
+                        {knowledge.some((item) => item.id === result.id) ? (
+                          <button className="text-button" onClick={() => setDetailId(result.id)}>
+                            {result.title}
+                          </button>
+                        ) : result.title}
+                      </p>
                     </div>
                     <div className="content-block">
                       <h3>解説</h3>
@@ -120,6 +159,15 @@ export function QuizView({ onExit }: { onExit: () => void }) {
           </div>
         )}
       </main>
+
+      {detail && (
+        <KnowledgeDetailModal
+          knowledge={detail}
+          quizLog={quizLog}
+          mutating={false}
+          onClose={() => setDetailId(null)}
+        />
+      )}
     </div>
   );
 }

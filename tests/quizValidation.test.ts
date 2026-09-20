@@ -31,19 +31,22 @@ test("クイズ要求は同一オリジン・専用ヘッダー・JSONを必須�
 });
 
 test("JSON本文の構文を検証する", async () => {
-  const valid = await readQuizJsonBody(quizRequest('{"mode":"all"}'));
+  const valid = await readQuizJsonBody(quizRequest('{"categories":[]}'));
   assert.equal(valid.ok, true);
   const malformed = await readQuizJsonBody(quizRequest("{"));
   assert.deepEqual(malformed, { ok: false, status: 400, error: "JSONの形式が正しくありません。" });
 });
 
-test("出題要求のmode/limitを検証し、既定値を補う", () => {
-  assert.deepEqual(validateStartRequest({}), { ok: true, value: { mode: "all", limit: 15 } });
+test("出題要求のcategories/limitを検証し、既定値を補う", () => {
+  assert.deepEqual(validateStartRequest({}), { ok: true, value: { categories: [], limit: 15 } });
   assert.deepEqual(
-    validateStartRequest({ mode: "english", limit: 5 }),
-    { ok: true, value: { mode: "english", limit: 5 } },
+    validateStartRequest({ categories: ["英語", " 歴史 ", "英語"], limit: 5 }),
+    { ok: true, value: { categories: ["英語", "歴史"], limit: 5 } },
   );
-  assert.equal(validateStartRequest({ mode: "japanese" }).ok, false);
+  assert.equal(validateStartRequest({ categories: "英語" }).ok, false);
+  assert.equal(validateStartRequest({ categories: [""] }).ok, false);
+  assert.equal(validateStartRequest({ categories: [1] }).ok, false);
+  assert.equal(validateStartRequest({ categories: ["x".repeat(101)] }).ok, false);
   assert.equal(validateStartRequest({ limit: 0 }).ok, false);
   assert.equal(validateStartRequest({ limit: MAX_QUIZ_LIMIT + 1 }).ok, false);
   assert.equal(validateStartRequest({ limit: 1.5 }).ok, false);

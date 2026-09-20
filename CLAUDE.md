@@ -60,7 +60,8 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `POST /api/knowledge`: 検証済みの編集可能項目だけで新規登録
 - `PATCH /api/knowledge/:id`: UUIDで特定した1件の編集、アーカイブ、復元
 - `GET /api/quiz-log`: 明示した列を新しい順に制限付きページング
-- `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す
+- `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す。
+  `categories`（登録済みカテゴリ名の配列。空配列は全カテゴリ）と `limit` で絞り込む
 - `POST /api/quiz/grade`: `knowledge`/`quiz_log` を読み直して正解を確認し、Claude APIで採点、
   `record_answers_batch` RPCで一括記録
 
@@ -142,6 +143,9 @@ public/
 - rechartsの親要素には高さが必要（`.chart-box` は `height: 240px`）。
 - フィルタ変更時と更新時はページ番号を1へ戻す。
 - モーダルはフォーカスを内部に保ち、閉じたら呼び出し元へ戻す。
+- QuizViewの出題カテゴリは登録済みカテゴリから組み立てる。固定の選択肢を持たない。
+- `KnowledgeDetailModal` は `onEdit` / `onArchive` を省くと読み取り専用になる。
+  クイズの採点結果から出典を開くときはこの形で使う。
 
 ## デプロイと閲覧制限
 

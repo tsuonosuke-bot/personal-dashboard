@@ -1,8 +1,9 @@
 import { useCallback, useState } from "react";
 import { gradeQuiz, startQuiz } from "../lib/api";
-import type { QuizEmptyReason, QuizGradeResult, QuizMode, QuizQuestion } from "../types";
+import type { QuizEmptyReason, QuizGradeResult, QuizQuestion } from "../types";
 
-export const QUIZ_LIMIT = 15;
+export const QUIZ_LIMIT_OPTIONS = [5, 10, 15, 20, 30] as const;
+export const DEFAULT_QUIZ_LIMIT = 15;
 
 export type QuizStage = "setup" | "loading" | "empty" | "quiz" | "grading" | "results";
 
@@ -16,11 +17,11 @@ export function useQuiz() {
   const [emptyReason, setEmptyReason] = useState<QuizEmptyReason | null>(null);
   const [early, setEarly] = useState(false);
 
-  const start = useCallback(async (mode: QuizMode) => {
+  const start = useCallback(async (categories: string[], limit: number) => {
     setStage("loading");
     setError(null);
     try {
-      const { items, reason, early: isEarly } = await startQuiz(mode, QUIZ_LIMIT);
+      const { items, reason, early: isEarly } = await startQuiz(categories, limit);
       if (items.length === 0) {
         setEmptyReason(reason);
         setStage("empty");

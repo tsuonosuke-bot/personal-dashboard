@@ -65,7 +65,7 @@ test("quiz/start はpick_quizの候補にAI生成の問題文だけを付けて�
   };
   try {
     const response = await startRoute({
-      request: quizPost("/api/quiz/start", { mode: "all", limit: 15 }),
+      request: quizPost("/api/quiz/start", { categories: [], limit: 15 }),
       env,
     });
     assert.equal(response.status, 200);
@@ -77,6 +77,60 @@ test("quiz/start はpick_quizの候補にAI生成の問題文だけを付けて�
     assert.equal(JSON.stringify(body).includes("秘密のタイトル"), false);
     assert.equal(body.early, false);
     assert.equal(seenModel, "claude-sonnet-5");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start は選択カテゴリと問題数をpick_quizへ渡す", async () => {
+  const originalFetch = globalThis.fetch;
+  let seenPick: Record<string, unknown> = {};
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      seenPick = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return Response.json([pickedRow(ID_1, "歴史")]);
+    }
+    if (url.includes("/rest/v1/knowledge")) return Response.json([]);
+    if (url.includes("/rest/v1/quiz_log")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      return anthropicToolResponse("submit_questions", { questions: [{ id: ID_1, question: "問題1" }] });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({
+      request: quizPost("/api/quiz/start", { categories: ["歴史", "地理"], limit: 5 }),
+      env,
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(seenPick.p_include, ["歴史", "地理"]);
+    assert.equal(seenPick.p_exclude, null);
+    assert.equal(seenPick.p_limit, 5);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start は0件時のカテゴリ絞り込みを引用符付きで問い合わせる", async () => {
+  const originalFetch = globalThis.fetch;
+  let seenUrl = "";
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) return Response.json([]);
+    if (url.includes("/rest/v1/knowledge")) {
+      seenUrl = url;
+      return Response.json([], { headers: { "Content-Range": "*/0" } });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    await startRoute({
+      request: quizPost("/api/quiz/start", { categories: ["金融, 会計"] }),
+      env,
+    });
+    const category = new URL(seenUrl).searchParams.get("category");
+    assert.equal(category, 'in.("金融, 会計")');
   } finally {
     globalThis.fetch = originalFetch;
   }

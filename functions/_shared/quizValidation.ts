@@ -1,13 +1,12 @@
 export const QUIZ_ACTION_HEADER = "quiz-session";
 export const MAX_QUIZ_REQUEST_CHARS = 40_000;
 
-export type QuizMode = "english" | "non_english" | "all";
-const QUIZ_MODES: readonly QuizMode[] = ["english", "non_english", "all"];
-
 export const MIN_QUIZ_LIMIT = 1;
 export const MAX_QUIZ_LIMIT = 30;
 export const DEFAULT_QUIZ_LIMIT = 15;
 export const MAX_ANSWER_CHARS = 2_000;
+export const MAX_QUIZ_CATEGORIES = 50;
+export const MAX_CATEGORY_CHARS = 100;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -17,7 +16,8 @@ export interface RequestGuardError {
 }
 
 export interface StartRequestInput {
-  mode: QuizMode;
+  /** 出題対象のカテゴリ。空配列は全カテゴリを意味する。 */
+  categories: string[];
   limit: number;
 }
 
@@ -81,9 +81,18 @@ export function validateStartRequest(
 ): { ok: true; value: StartRequestInput } | { ok: false; error: string } {
   if (!isPlainObject(input)) return { ok: false, error: "入力内容の形式が正しくありません。" };
 
-  const rawMode = "mode" in input ? input.mode : "all";
-  if (typeof rawMode !== "string" || !QUIZ_MODES.includes(rawMode as QuizMode)) {
-    return { ok: false, error: "modeが正しくありません。" };
+  const rawCategories = "categories" in input ? input.categories : [];
+  if (!Array.isArray(rawCategories) || rawCategories.length > MAX_QUIZ_CATEGORIES) {
+    return { ok: false, error: `カテゴリは${MAX_QUIZ_CATEGORIES}件以内の配列で指定してください。` };
+  }
+  const categories: string[] = [];
+  for (const raw of rawCategories) {
+    if (typeof raw !== "string") return { ok: false, error: "カテゴリの形式が正しくありません。" };
+    const value = raw.trim();
+    if (!value || value.length > MAX_CATEGORY_CHARS) {
+      return { ok: false, error: `カテゴリは1〜${MAX_CATEGORY_CHARS}文字で指定してください。` };
+    }
+    if (!categories.includes(value)) categories.push(value);
   }
 
   const rawLimit = "limit" in input ? input.limit : DEFAULT_QUIZ_LIMIT;
@@ -94,7 +103,7 @@ export function validateStartRequest(
     return { ok: false, error: `limitは${MIN_QUIZ_LIMIT}〜${MAX_QUIZ_LIMIT}の整数で指定してください。` };
   }
 
-  return { ok: true, value: { mode: rawMode as QuizMode, limit: rawLimit } };
+  return { ok: true, value: { categories, limit: rawLimit } };
 }
 
 export function validateGradeRequest(

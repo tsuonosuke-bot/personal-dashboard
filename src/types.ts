@@ -62,8 +62,6 @@ export interface KnowledgeDraft {
   next_review_on: string | null;
 }
 
-export type QuizMode = "english" | "non_english" | "all";
-
 export interface QuizQuestion {
   id: string;
   question: string;

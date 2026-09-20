@@ -94,6 +94,11 @@ export function methodNotAllowed(allow: string): Response {
   });
 }
 
+/** PostgRESTの `in.(...)` 値。カテゴリ名に含まれるカンマや括弧が区切りに化けないよう引用する。 */
+export function inFilter(values: string[]): string {
+  return `in.(${values.map((value) => `"${value.replace(/[\\"]/g, "\\$&")}"`).join(",")})`;
+}
+
 export async function requestSupabaseRows(
   env: SupabaseEnv,
   query: SupabaseRequest,
