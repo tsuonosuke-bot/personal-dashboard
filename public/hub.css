@@ -13,6 +13,8 @@
   --blue-soft: #e0ebf0;
   --violet: #66558c;
   --violet-soft: #ebe7f4;
+  --rust: #9a4d2e;
+  --rust-soft: #f3e1d7;
   font-family: Inter, "Segoe UI", "Yu Gothic UI", Meiryo, sans-serif;
 }
 
@@ -78,7 +80,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .dashboard-card:hover { transform: translateY(-2px); border-color: var(--accent); }
 .finance-card { --accent: var(--blue); --soft: var(--blue-soft); }
 .knowledge-card { --accent: var(--violet); --soft: var(--violet-soft); }
-.habits-card { --accent: var(--green); --soft: var(--green-soft); }
+.habits-card { --accent: var(--rust); --soft: var(--rust-soft); }
 .card-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--soft); color: var(--accent); font: 600 15px/1 Georgia, serif; }
 .dashboard-card div { min-width: 0; }
 .dashboard-card h2 { margin: 0 0 6px; font: 700 19px/1.05 Inter, "Segoe UI", sans-serif; }
@@ -97,9 +99,9 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .review-shortcut:hover { border-color: var(--violet); background: #f2eff8; }
 .review-shortcut span, .review-shortcut small { color: var(--violet); }
 .review-shortcut strong { color: #4f406f; font-size: 15px; }
-.habit-shortcut { border-color: rgba(36,89,73,.22); background: var(--green-soft); }
-.habit-shortcut:hover { border-color: var(--green); background: #edf6f1; }
-.habit-shortcut span, .habit-shortcut small, .habit-shortcut strong { color: var(--green); }
+.habit-shortcut { border-color: rgba(154,77,46,.22); background: var(--rust-soft); }
+.habit-shortcut:hover { border-color: var(--rust); background: #f8ebe4; }
+.habit-shortcut span, .habit-shortcut small, .habit-shortcut strong { color: var(--rust); }
 
 .state-card { min-height: 150px; display: grid; place-items: center; align-content: center; margin: 3px 0 12px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,254,250,.75); color: var(--muted); }
 .state-card p { margin: 10px 0 0; font-size: 10px; }
