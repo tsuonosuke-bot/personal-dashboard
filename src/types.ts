@@ -1,6 +1,9 @@
 /** DB の knowledge.mastery 制約で許可されている値。 */
 export type Mastery = "未学習" | "学習中" | "習得中" | "定着";
 
+/** 復習頻度を調整するナレッジの優先度。 */
+export type KnowledgePriority = "最高" | "高" | "中" | "低" | "最低";
+
 export interface Knowledge {
   id: string;
   title: string;
@@ -8,6 +11,7 @@ export interface Knowledge {
   source_note: string | null;
   category: string;
   mastery: Mastery;
+  priority: KnowledgePriority;
   ef: number;
   reps: number;
   interval_days: number;
@@ -39,13 +43,14 @@ export interface QuizLog {
 export type QuizVerdict = "正解" | "不正解" | "部分正解";
 
 export type ReviewFilter = "all" | "today" | "overdue" | "due";
-export type SortKey = "created_at" | "title" | "category" | "mastery" | "accuracy" | "next_review_on";
+export type SortKey = "created_at" | "title" | "category" | "mastery" | "priority" | "accuracy" | "next_review_on";
 export type SortDirection = "asc" | "desc";
 
 export interface Filters {
   search: string;
   category: string;
   mastery: string;
+  priority: string;
   review: ReviewFilter;
 }
 
@@ -60,6 +65,7 @@ export interface KnowledgeDraft {
   source_note: string | null;
   category: string;
   mastery: Mastery;
+  priority: KnowledgePriority;
   tags: string[];
   next_review_on: string | null;
 }

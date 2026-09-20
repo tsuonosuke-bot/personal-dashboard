@@ -56,6 +56,11 @@ tr:hover td { background: #f8fafc; }
 .mastery-学習中 { background: #fffbeb; color: #b45309; }
 .mastery-習得中 { background: #eef2ff; color: #4f46e5; }
 .mastery-定着 { background: #f0fdf4; color: #15803d; }
+.priority-最高 { background: #fff1f2; color: #be123c; }
+.priority-高 { background: #fff7ed; color: #c2410c; }
+.priority-中 { background: #f1f5f9; color: #475569; }
+.priority-低 { background: #f0fdfa; color: #0f766e; }
+.priority-最低 { background: #f8fafc; color: #64748b; }
 
 .pager { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 16px; margin-top: 20px; font-size: 13px; }
 .pager-summary { color: #64748b; margin-right: auto; }
@@ -117,6 +122,7 @@ button.review-card { display: block; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 22px 24px; }
 .field { display: grid; gap: 7px; color: #53627a; font-size: 12px; font-weight: 650; }
 .field b { color: #66558c; font-size: 10px; }
+.field-hint { color: #8491a7; font-size: 11px; font-weight: 500; }
 .full-field { grid-column: 1 / -1; }
 .form-error { margin: 0 24px 2px; }
 .modal-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 16px 24px; border-top: 1px solid #edf1f6; background: #fbfcfe; }

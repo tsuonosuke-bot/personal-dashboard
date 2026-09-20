@@ -28,6 +28,7 @@ test("新規ナレッジを検証し、文字列とタグを正規化する", ()
     title: "  タイトル  ",
     category: " 技術 ",
     mastery: "習得中",
+    priority: "最高",
     explanation: " 説明 ",
     source_note: " ",
     tags: ["API", " API ", "Cloudflare"],
@@ -39,6 +40,7 @@ test("新規ナレッジを検証し、文字列とタグを正規化する", ()
     title: "タイトル",
     category: "技術",
     mastery: "習得中",
+    priority: "最高",
     explanation: "説明",
     source_note: null,
     tags: ["API", "Cloudflare"],
@@ -51,6 +53,7 @@ test("必須・許可項目・日付・文字数を厳格に検証する", () =>
   assert.equal(validateKnowledgeInput({ title: "a", category: "b", id: "x" }, "create").ok, false);
   assert.equal(validateKnowledgeInput({ next_review_on: "2026-02-30" }, "update").ok, false);
   assert.equal(validateKnowledgeInput({ title: "x".repeat(201) }, "update").ok, false);
+  assert.equal(validateKnowledgeInput({ priority: "最優先" }, "update").ok, false);
   assert.deepEqual(validateKnowledgeInput({ archived: true }, "update"), {
     ok: true,
     value: { archived: true },

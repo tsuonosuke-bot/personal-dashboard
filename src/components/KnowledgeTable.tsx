@@ -12,6 +12,7 @@ const HEADERS: { key: SortKey; label: string }[] = [
   { key: "title", label: "タイトル" },
   { key: "category", label: "カテゴリ" },
   { key: "mastery", label: "習熟度" },
+  { key: "priority", label: "優先度" },
   { key: "accuracy", label: "正答率" },
   { key: "next_review_on", label: "次回復習" },
 ];
@@ -39,7 +40,7 @@ export function KnowledgeTable({ rows, sort, onSort, onOpen }: Props) {
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={6} className="msg">該当データなし</td>
+              <td colSpan={7} className="msg">該当データなし</td>
             </tr>
           ) : (
             rows.map((k) => {
@@ -56,6 +57,7 @@ export function KnowledgeTable({ rows, sort, onSort, onOpen }: Props) {
                       {k.mastery}
                     </span>
                   </td>
+                  <td><span className={`badge priority-${k.priority}`}>{k.priority}</span></td>
                   <td>{k.accuracy != null ? `${Math.round(k.accuracy * 100)}%` : "-"}</td>
                   <td className={k.next_review_on && k.next_review_on < today ? "overdue-text" : ""}>
                     {k.next_review_on ?? "-"}

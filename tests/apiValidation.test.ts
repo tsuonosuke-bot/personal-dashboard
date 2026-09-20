@@ -13,6 +13,7 @@ function validKnowledge() {
     source_note: null,
     category: "技術",
     mastery: "学習中",
+    priority: "最高",
     ef: 2.5,
     reps: 1,
     interval_days: 2,
@@ -39,6 +40,7 @@ test("ページ応答とナレッジの全フィールドを検証する", () =>
 
 test("壊れたタグやページ情報を受理しない", () => {
   assert.throws(() => parseKnowledge({ ...validKnowledge(), tags: null }), /tags/);
+  assert.throws(() => parseKnowledge({ ...validKnowledge(), priority: "最優先" }), /priority/);
   assert.throws(
     () => parsePageEnvelope({ items: [], total: -1, limit: 1000, offset: 0 }),
     /total/,

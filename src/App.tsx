@@ -27,6 +27,7 @@ export default function App() {
     search: "",
     category: ALL,
     mastery: ALL,
+    priority: ALL,
     review: "all",
   });
   const [sort, setSort] = useState<SortState>({ key: "created_at", direction: "desc" });
@@ -64,7 +65,7 @@ export default function App() {
   const handleSort = (key: SortKey) => {
     setSort((current) => current.key === key
       ? { key, direction: current.direction === "asc" ? "desc" : "asc" }
-      : { key, direction: key === "title" || key === "category" || key === "mastery" ? "asc" : "desc" });
+      : { key, direction: key === "title" || key === "category" || key === "mastery" || key === "priority" ? "asc" : "desc" });
     setPage(1);
   };
 

@@ -16,6 +16,7 @@ function knowledge(id: string, patch: Partial<Knowledge> = {}): Knowledge {
     source_note: null,
     category: "共通",
     mastery: "未学習",
+    priority: "高",
     ef: 2.5,
     reps: 0,
     interval_days: 0,
@@ -29,6 +30,7 @@ function knowledge(id: string, patch: Partial<Knowledge> = {}): Knowledge {
     accuracy: null,
     tags: [],
     mastery_streak: 0,
+    content_version: 1,
     ...patch,
   };
 }
@@ -37,6 +39,7 @@ const defaultFilters: Filters = {
   search: "",
   category: "すべて",
   mastery: "すべて",
+  priority: "すべて",
   review: "all",
 };
 const defaultSort: SortState = { key: "created_at", direction: "desc" };
@@ -71,6 +74,24 @@ test("タイトル・説明・出典・タグを検索して並び替える", ()
   assert.deepEqual(byTag.map((item) => item.id), ["b"]);
   const sorted = filterAndSortKnowledge(rows, defaultFilters, { key: "title", direction: "asc" });
   assert.deepEqual(sorted.map((item) => item.id), ["a", "b"]);
+});
+
+test("優先度で絞り込み、最高・高・中・低・最低の順に並び替える", () => {
+  const rows = [
+    knowledge("lowest", { priority: "最低" }),
+    knowledge("low", { priority: "低" }),
+    knowledge("highest", { priority: "最高" }),
+    knowledge("high", { priority: "高" }),
+    knowledge("medium", { priority: "中" }),
+  ];
+  const filtered = filterAndSortKnowledge(
+    rows,
+    { ...defaultFilters, priority: "最高" },
+    { key: "priority", direction: "asc" },
+  );
+  assert.deepEqual(filtered.map((item) => item.id), ["highest"]);
+  const sorted = filterAndSortKnowledge(rows, defaultFilters, { key: "priority", direction: "asc" });
+  assert.deepEqual(sorted.map((item) => item.id), ["highest", "high", "medium", "low", "lowest"]);
 });
 
 test("苦手カテゴリを回答数で加重して算出する", () => {

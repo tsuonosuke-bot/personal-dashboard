@@ -1,7 +1,7 @@
 import type {
   Filters, Knowledge, SortDirection, SortKey, SortState,
 } from "../types";
-import { ALL, MASTERY_ORDER } from "../constants.ts";
+import { ALL, MASTERY_ORDER, PRIORITY_ORDER } from "../constants.ts";
 
 export interface WeakCategory {
   category: string;
@@ -30,6 +30,7 @@ export function filterKnowledge(
   return knowledge.filter((item) => {
     if (filters.category !== ALL && item.category !== filters.category) return false;
     if (filters.mastery !== ALL && item.mastery !== filters.mastery) return false;
+    if (filters.priority !== ALL && item.priority !== filters.priority) return false;
     if (filters.review === "today" && item.next_review_on !== today) return false;
     if (filters.review === "overdue" && (!item.next_review_on || item.next_review_on >= today)) return false;
     if (filters.review === "due" && (!item.next_review_on || item.next_review_on > today)) return false;
@@ -59,6 +60,8 @@ function compareValues(
   let comparison: number;
   if (key === "mastery") {
     comparison = MASTERY_ORDER.indexOf(a.mastery) - MASTERY_ORDER.indexOf(b.mastery);
+  } else if (key === "priority") {
+    comparison = PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority);
   } else if (typeof left === "number" && typeof right === "number") {
     comparison = left - right;
   } else {
