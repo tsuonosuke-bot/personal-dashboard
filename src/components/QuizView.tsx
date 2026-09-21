@@ -243,6 +243,8 @@ export function QuizView({
                   kind: "knowledge",
                   knowledgeId: result.id,
                 });
+                const userAnswer = quiz.answers[question.id] ?? "";
+                const hasUserAnswer = userAnswer.trim().length > 0;
                 const displayedPriority = priorityFeedback?.id === result.id
                   && priorityFeedback.status === "saving"
                   && priorityFeedback.priority
@@ -257,6 +259,12 @@ export function QuizView({
                       {!result.recorded && <span className="muted">（同じ回答はすでに記録済みです）</span>}
                     </div>
                     <p className="quiz-result-question">{question.question}</p>
+                    <div className="content-block quiz-user-answer-block">
+                      <h3>あなたの回答</h3>
+                      <p className={`quiz-user-answer${hasUserAnswer ? "" : " unanswered"}`}>
+                        {hasUserAnswer ? userAnswer : "（未回答）"}
+                      </p>
+                    </div>
                     <div className="content-block">
                       <h3>正解</h3>
                       <p>{result.correct_answer}</p>

@@ -11,6 +11,9 @@ test("復習結果にナレッジID・分類と新規タブの管理導線を表
   assert.match(source, /<dt>ナレッジID<\/dt>/);
   assert.match(source, /<dt>分類<\/dt>/);
   assert.match(source, /\{result\.category\}/);
+  assert.match(source, /<h3>あなたの回答<\/h3>/);
+  assert.match(source, /quiz\.answers\[question\.id\]/);
+  assert.match(source, /hasUserAnswer \? userAnswer : "（未回答）"/);
   assert.match(source, /dashboardRoutePath\(window\.location\.href/);
   assert.match(source, /href=\{knowledgeHref\}/);
   assert.match(source, /target="_blank"/);
