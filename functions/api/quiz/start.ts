@@ -278,8 +278,10 @@ const SYSTEM_PROMPT = `あなたはナレッジDBの復習クイズの出題者�
 
 ## 出題形式
 
-項目ごとの allowed_formats から、その知識の構造に最も合う形式を1つ選び、formatに入れる。
-候補が1つだけなら必ずそれを使う。候補が複数なら、単一の用語・日付・事実は一問一答、
+項目の required_format が null でなければ出題形式はサーバー側で決定済みである。
+問題文とchoicesを必ず required_format に合わせ、formatにも同じ値を入れる。
+required_format が null の項目だけ、allowed_formats から知識の構造に最も合う形式を1つ選ぶ。
+候補が複数なら、単一の用語・日付・事実は一問一答、
 理由・比較・手順など2点以上の要素を結びつける知識は記述説明、具体場面へ適用できる知識は産出を選ぶ。
 
 - 一問一答: 選択肢なしで、答えを一語〜一文で言わせる。答えられる粒度にし、
@@ -325,11 +327,14 @@ const RETRY_SYSTEM_SUFFIX = `
 ## 再生成の注意
 
 これは一部の項目だけの再生成依頼です。前回、問題文またはchoicesが次のいずれかで不採用になりました。
+- required_formatまたはallowed_formatsに含まれないformatを返した
 - 問題文で指定した英語の語数が、titleの実際の語数と一致していなかった
 - 件数が${CHOICE_COUNT}件ちょうどでなかった
 - 同じ文言が重複していた
 - 空文字が含まれていた
 - correct_choiceがchoices内の1件と完全一致していなかった
+各項目のprevious_errorを確認し、同じ違反を繰り返さないこと。
+required_formatがnullでなければ、問題文・format・choicesを必ずその形式に合わせること。
 語数に確信がなければ語数指定を削除すること。四択では必ず条件を満たすchoicesとcorrect_choiceを付けること。`;
 
 interface QuestionToolInput {
@@ -356,7 +361,7 @@ const QUESTION_TOOL = {
             format: {
               type: "string",
               enum: ["一問一答", "四択", "記述説明", "産出"],
-              description: "allowed_formatsから選んだ出題形式",
+              description: "required_formatがあれば同じ値。nullならallowed_formatsから選んだ出題形式",
             },
             choices: {
               type: "array",
@@ -383,18 +388,24 @@ function buildUserText(
   allowedById: Map<string, QuizFormat[]>,
   tagsById: Map<string, string[]>,
   notesById: Map<string, { asked_on: string; verdict: string; note: string }[]>,
+  validationErrors?: Map<string, string>,
 ): string {
-  return JSON.stringify(items.map((item) => ({
-    id: item.id,
-    title: item.title,
-    explanation: item.explanation ?? "",
-    category: item.category,
-    tags: tagsById.get(item.id) ?? [],
-    mastery: item.mastery,
-    times_asked: item.times_asked,
-    allowed_formats: allowedById.get(item.id),
-    past_notes: notesById.get(item.id) ?? [],
-  })));
+  return JSON.stringify(items.map((item) => {
+    const allowed = allowedById.get(item.id) ?? [];
+    return {
+      id: item.id,
+      title: item.title,
+      explanation: item.explanation ?? "",
+      category: item.category,
+      tags: tagsById.get(item.id) ?? [],
+      mastery: item.mastery,
+      times_asked: item.times_asked,
+      required_format: allowed.length === 1 ? allowed[0] : null,
+      allowed_formats: allowed,
+      previous_error: validationErrors?.get(item.id) ?? null,
+      past_notes: notesById.get(item.id) ?? [],
+    };
+  }));
 }
 
 /** AIを1回呼んで問題文と（四択なら）選択肢を取り出す。選択肢の妥当性チェックは呼び出し側で行う。 */
@@ -405,6 +416,7 @@ async function generateQuestions(
   tagsById: Map<string, string[]>,
   notesById: Map<string, { asked_on: string; verdict: string; note: string }[]>,
   isRetry: boolean,
+  validationErrors?: Map<string, string>,
 ): Promise<
   | {
     ok: true;
@@ -416,7 +428,7 @@ async function generateQuestions(
   const generated = await callAnthropicTool(env, {
     model: QUIZ_MODEL,
     system: isRetry ? SYSTEM_PROMPT + RETRY_SYSTEM_SUFFIX : SYSTEM_PROMPT,
-    userText: buildUserText(items, allowedById, tagsById, notesById),
+    userText: buildUserText(items, allowedById, tagsById, notesById, validationErrors),
     maxTokens: QUIZ_MAX_TOKENS,
     tool: QUESTION_TOOL,
   });
@@ -454,17 +466,23 @@ async function generateQuestions(
       issueById.set(id, "問題文が文字列で返されませんでした。");
       continue;
     }
-    // A single allowed format is deterministic even if the model omits the
-    // redundant field. Multiple candidates always require an explicit choice.
-    const selectedFormat = typeof format === "string"
-      ? format as QuizFormat
-      : allowed.length === 1 ? allowed[0] : null;
+    // 候補が1つならモデルの申告値に依存せず、サーバーが決めた形式を正本にする。
+    // 複数候補のときだけ、モデルに知識の構造に合う形式を選ばせる。
+    const reportedFormat = typeof format === "string" ? format : null;
+    const formatMismatch = reportedFormat !== null && !allowed.includes(reportedFormat as QuizFormat)
+      ? `許可形式「${allowed.join(" / ")}」に対し、AI応答は「${reportedFormat}」でした。`
+      : null;
+    const selectedFormat = allowed.length === 1
+      ? allowed[0]
+      : reportedFormat as QuizFormat | null;
     if (!selectedFormat) {
-      issueById.set(id, "複数の候補から出題形式が選ばれていませんでした。");
+      issueById.set(id, `許可形式「${allowed.join(" / ")}」から出題形式が選ばれていませんでした。`);
       continue;
     }
-    if (!allowed.includes(selectedFormat)) {
-      issueById.set(id, `許可されていない出題形式「${String(format)}」が返されました。`);
+    // 初回は形式違反を再生成対象にし、具体的な違反内容をAIへ返す。
+    // 単一候補の再生成では、申告値が再び違っても最終形式はサーバー側の正本を使う。
+    if (formatMismatch && (!isRetry || allowed.length > 1)) {
+      issueById.set(id, formatMismatch);
       continue;
     }
     const trimmed = question.trim();
@@ -664,7 +682,20 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   // それでも崩れていたら、黙って自由記述に落とさず失敗させる。
   const needsRetry = items.filter((item) => !isGenerated(item));
   if (needsRetry.length > 0) {
-    const retry = await generateQuestions(context.env, needsRetry, allowedById, tagsById, notesById, true);
+    const validationErrors = new Map(needsRetry.map((item) => [
+      item.id,
+      generationIssue(item, byId.get(item.id), issueById.get(item.id))
+        ?? "問題生成結果が出題条件を満たしませんでした。",
+    ]));
+    const retry = await generateQuestions(
+      context.env,
+      needsRetry,
+      allowedById,
+      tagsById,
+      notesById,
+      true,
+      validationErrors,
+    );
     if (!retry.ok) return retry.response;
     for (const item of needsRetry) {
       // 1回目の不正な結果を残すと、再生成で欠落した項目を成功扱いする可能性がある。
