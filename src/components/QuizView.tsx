@@ -305,7 +305,9 @@ export function QuizView({
             total={quiz.questions.length}
             question={quiz.questions[quiz.index]}
             answer={quiz.answers[quiz.questions[quiz.index].id] ?? ""}
+            skipped={quiz.skipped[quiz.questions[quiz.index].id] ?? false}
             onAnswer={quiz.answerCurrent}
+            onSkip={quiz.skipCurrent}
             onBack={quiz.goBack}
             onNext={quiz.goNext}
             onSubmit={() => void quiz.submit()}
@@ -325,12 +327,29 @@ export function QuizView({
                 <span>正常な問題の採点は完了しています。エラー原因は該当する問題にだけ表示します。</span>
               </div>
             )}
+            {Object.values(quiz.skipped).some(Boolean) && (
+              <div className="quiz-skipped-summary" role="status">
+                記録しなかった問題: {Object.values(quiz.skipped).filter(Boolean).length}問
+              </div>
+            )}
             <ul className="quiz-result-list">
               {quiz.questions.map((question, questionIndex) => {
                 const result = quiz.results.find((r) => r.id === question.id);
                 const failure = quiz.failures.find((item) => item.index === questionIndex);
                 const userAnswer = quiz.answers[question.id] ?? "";
                 const hasUserAnswer = userAnswer.trim().length > 0;
+                if (quiz.skipped[question.id]) {
+                  return (
+                    <li key={question.id} className="quiz-result-item quiz-result-skipped card">
+                      <div className="quiz-result-head">
+                        <span className="badge quiz-verdict-skipped">記録なし</span>
+                        <span className="quiz-result-format">{question.format}</span>
+                      </div>
+                      <p className="quiz-result-question">{question.question}</p>
+                      <p className="muted">この問題は採点せず、復習履歴にも記録していません。</p>
+                    </li>
+                  );
+                }
                 if (!result) {
                   if (!failure) return null;
                   return (
@@ -499,13 +518,15 @@ export function QuizView({
 }
 
 function QuizQuestionCard({
-  index, total, question, answer, onAnswer, onBack, onNext, onSubmit, isLast,
+  index, total, question, answer, skipped, onAnswer, onSkip, onBack, onNext, onSubmit, isLast,
 }: {
   index: number;
   total: number;
   question: QuizQuestion;
   answer: string;
+  skipped: boolean;
   onAnswer: (text: string) => void;
+  onSkip: (value: boolean) => void;
   onBack: () => void;
   onNext: () => void;
   onSubmit: () => void;
@@ -530,6 +551,7 @@ function QuizQuestionCard({
                 name={`choice-${question.id}`}
                 value={choice}
                 checked={answer === choice}
+                disabled={skipped}
                 onChange={() => onAnswer(choice)}
               />
               <span>{choice}</span>
@@ -541,12 +563,21 @@ function QuizQuestionCard({
           className="quiz-answer-input"
           rows={question.format === "一問一答" ? 3 : 6}
           value={answer}
+          disabled={skipped}
           maxLength={MAX_QUIZ_ANSWER_CHARS}
           placeholder={ANSWER_PLACEHOLDER[question.format]}
           autoFocus
           onChange={(event) => onAnswer(event.target.value)}
         />
       )}
+      <label className={`quiz-skip-control${skipped ? " selected" : ""}`}>
+        <input
+          type="checkbox"
+          checked={skipped}
+          onChange={(event) => onSkip(event.target.checked)}
+        />
+        <span>この問題は採点・復習履歴に記録しない</span>
+      </label>
       <div className="quiz-question-actions">
         <button onClick={onBack} disabled={index === 0}>← 前へ</button>
         {isLast ? (

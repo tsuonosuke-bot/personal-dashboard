@@ -49,6 +49,7 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
   const [stage, setStage] = useState<QuizStage>("setup");
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [skipped, setSkipped] = useState<Record<string, boolean>>({});
   const [index, setIndex] = useState(0);
   const [results, setResults] = useState<QuizGradeResult[]>([]);
   const [failures, setFailures] = useState<QuizGradeFailure[]>([]);
@@ -75,6 +76,7 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
       }
       setQuestions(items);
       setAnswers(Object.fromEntries(items.map((item) => [item.id, ""])));
+      setSkipped(Object.fromEntries(items.map((item) => [item.id, false])));
       setIndex(0);
       setEarly(isEarly);
       setStage("quiz");
@@ -90,6 +92,12 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
     setAnswers((prev) => ({ ...prev, [current.id]: text }));
   }, [questions, index]);
 
+  const skipCurrent = useCallback((value: boolean) => {
+    const current = questions[index];
+    if (!current) return;
+    setSkipped((prev) => ({ ...prev, [current.id]: value }));
+  }, [questions, index]);
+
   const goNext = useCallback(() => {
     setIndex((prev) => Math.min(prev + 1, questions.length - 1));
   }, [questions.length]);
@@ -102,13 +110,24 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
     setStage("grading");
     setError(null);
     try {
-      const payload = questions.map((q) => ({
+      const submitted = questions.flatMap((q, questionIndex) => skipped[q.id] ? [] : [{
+        questionIndex,
         token: q.token,
         answer: answers[q.id] ?? "",
-      }));
+      }]);
+      if (submitted.length === 0) {
+        setResults([]);
+        setFailures([]);
+        setStage("results");
+        return;
+      }
+      const payload = submitted.map(({ token, answer }) => ({ token, answer }));
       const graded = await gradeQuiz(payload);
       setResults(graded.results);
-      setFailures(graded.failures);
+      setFailures(graded.failures.map((failure) => ({
+        ...failure,
+        index: submitted[failure.index]?.questionIndex ?? failure.index,
+      })));
       // 採点直後の再読込と結果画面からの優先度更新を競合させない。
       if (graded.results.length > 0 || graded.failures.some((failure) => failure.recorded === true)) {
         try {
@@ -122,7 +141,7 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
       setError(displayError(caught, "採点に失敗しました。"));
       setStage("quiz");
     }
-  }, [questions, answers, onRecorded]);
+  }, [questions, answers, skipped, onRecorded]);
 
   const syncKnowledgeResult = useCallback((updated: Knowledge) => {
     setResults((current) => current.map((result) => result.id === updated.id
@@ -144,6 +163,7 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
     setStage("setup");
     setQuestions([]);
     setAnswers({});
+    setSkipped({});
     setIndex(0);
     setResults([]);
     setFailures([]);
@@ -153,7 +173,7 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
   }, []);
 
   return {
-    stage, questions, answers, index, results, failures, error, emptyReason, early,
-    start, answerCurrent, goNext, goBack, submit, reset, syncKnowledgeResult,
+    stage, questions, answers, skipped, index, results, failures, error, emptyReason, early,
+    start, answerCurrent, skipCurrent, goNext, goBack, submit, reset, syncKnowledgeResult,
   };
 }
