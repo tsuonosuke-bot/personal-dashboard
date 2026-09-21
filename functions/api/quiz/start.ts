@@ -164,6 +164,34 @@ function hasConsistentWordCount(item: PickedItem, question: string): boolean {
   return requested === null || actual === null || requested === actual;
 }
 
+/**
+ * 句読点や全半角の違いを無視して、正解タイトルが問題文へそのまま露出していないか確認する。
+ * 日本語を含むタイトルは助詞が直後に続くため、空白を除いた完全な部分一致で確認する。
+ */
+function normalizedLeakText(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLocaleLowerCase("en-US")
+    .replace(/[\u2018\u2019]/gu, "'")
+    .replace(/[^\p{L}\p{N}']+/gu, " ")
+    .trim();
+}
+
+export function questionRevealsTitle(title: string, question: string): boolean {
+  const normalizedTitle = normalizedLeakText(title);
+  if (!normalizedTitle) return false;
+
+  if (/[^\x00-\x7f]/u.test(normalizedTitle)) {
+    const compactTitle = normalizedTitle.replace(/\s+/gu, "");
+    const compactQuestion = normalizedLeakText(question).replace(/\s+/gu, "");
+    return compactTitle.length >= 2 && compactQuestion.includes(compactTitle);
+  }
+
+  // 1文字だけのタイトルは、冠詞やプレースホルダーとの偶然一致が多すぎるため対象外にする。
+  if (normalizedTitle.length < 2) return false;
+  return ` ${normalizedLeakText(question)} `.includes(` ${normalizedTitle} `);
+}
+
 /** 「使わせる」問い方が成立する、語学系のカテゴリ。 */
 const PRODUCTION_CATEGORIES = new Set(["英語", "単語"]);
 
@@ -333,6 +361,7 @@ const RETRY_SYSTEM_SUFFIX = `
 - 同じ文言が重複していた
 - 空文字が含まれていた
 - correct_choiceがchoices内の1件と完全一致していなかった
+- 正解であるtitleの語句を問題文に含めていた
 各項目のprevious_errorを確認し、同じ違反を繰り返さないこと。
 required_formatがnullでなければ、問題文・format・choicesを必ずその形式に合わせること。
 語数に確信がなければ語数指定を削除すること。四択では必ず条件を満たすchoicesとcorrect_choiceを付けること。`;
@@ -524,6 +553,9 @@ function generationIssue(
   parserIssue: string | undefined,
 ): string | null {
   if (!generated) return parserIssue ?? "AIの応答にこの項目の問題が含まれていませんでした。";
+  if (questionRevealsTitle(item.title, generated.question)) {
+    return "問題文に正解であるtitleの語句がそのまま含まれています。答えを伏せてください。";
+  }
   if (!hasConsistentWordCount(item, generated.question)) {
     const requested = requestedWordCount(generated.question);
     const actual = englishTitleWordCount(item.title);

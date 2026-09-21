@@ -527,6 +527,49 @@ test("quiz/start は正解と矛盾する英語の語数指定を再生成する
   }
 });
 
+test("quiz/start は問題文に正解タイトルが出ていたら、その問題だけを再生成する", async () => {
+  const originalFetch = globalThis.fetch;
+  let anthropicCalls = 0;
+  let retryError = "";
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json([pickedRow(ID_1, "英語", { title: "due to" })]);
+    }
+    if (url.includes("/rest/v1/knowledge")) return Response.json([{ id: ID_1, tags: ["熟語"] }]);
+    if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      anthropicCalls += 1;
+      const body = JSON.parse(String(init?.body)) as { messages: { content: string }[] };
+      const sent = JSON.parse(body.messages[0].content) as { previous_error: string | null }[];
+      retryError = sent[0].previous_error ?? retryError;
+      return anthropicToolResponse("submit_questions", {
+        questions: [{
+          id: ID_1,
+          question: anthropicCalls === 1
+            ? "「due to」を用いて、空所を埋めてください: I'll be late ＿＿＿ a train delay."
+            : "『電車の遅延のため』という意味になるよう空所を埋めてください: I'll be late ＿＿＿ a train delay.",
+          format: "産出",
+        }],
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({
+      request: quizPost("/api/quiz/start", { format: "産出" }),
+      env,
+    });
+    assert.equal(response.status, 200);
+    assert.equal(anthropicCalls, 2);
+    assert.match(retryError, /titleの語句/);
+    const body = await response.json() as { items: { question: string }[] };
+    assert.doesNotMatch(body.items[0].question, /due to/i);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("quiz/start は四択の選択肢がそろわなければ自由記述に落とさず失敗させる", async () => {
   const originalFetch = globalThis.fetch;
   let choices: unknown = ["ア", "イ", "ウ"];
