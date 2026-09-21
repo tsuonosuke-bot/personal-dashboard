@@ -33,6 +33,7 @@ interface WantRow {
   content?: unknown;
   status?: unknown;
   type?: unknown;
+  source_inbox_id?: unknown;
   revisit_on?: unknown;
   revisit_count?: unknown;
   note?: unknown;
@@ -58,7 +59,11 @@ interface WantRouteRow {
 
 const TABLES: Record<string, TableDefinition> = {
   inbox: { name: "idea_inbox", select: "id,content,status,result,created_at", order: "created_at.desc,id.desc" },
-  wants: { name: "wants", select: "id,content,status,type,revisit_on,revisit_count,note,created_at", order: "created_at.desc,id.desc" },
+  wants: {
+    name: "wants",
+    select: "id,content,status,type,revisit_on,revisit_count,note,created_at,source_inbox_id",
+    order: "created_at.desc,id.desc",
+  },
   routes: {
     name: "want_routes",
     select: "id,want_id,intent,destination,status,title,detail,cadence,target_id,target_url,error_code,destination_data,created_at,updated_at",
@@ -161,6 +166,75 @@ function safeNavigationUrl(value: string | undefined): string | null {
   }
 }
 
+const DESTINATION_LABELS: Record<string, string> = {
+  calendar: "Google Calendar",
+  github: "GitHub Issue",
+  writing: "Writing",
+  habit: "Habits",
+  knowledge: "Knowledge候補",
+  focus: "Focus",
+  journal: "Journal候補",
+  archive: "アーカイブ",
+};
+
+const DESTINATIONS_BY_LABEL = new Map(Object.entries(DESTINATION_LABELS).map(([key, label]) => [label, key]));
+
+// These destinations are saved as a plan only; nothing has been written to the
+// external system yet, so they stay visible as pending work.
+const PLAN_ONLY_DESTINATIONS = new Set(["github", "knowledge", "journal"]);
+
+interface InboxDestination {
+  destination: string;
+  status: string;
+}
+
+interface InboxTriage {
+  destinations: InboxDestination[];
+  revisitOn: string | null;
+  source: "route" | "result" | null;
+}
+
+// Destinations recorded before the Inbox linked its Want keep only the result
+// text, so fall back to the phrase the dashboard writes there.
+function triageFromResult(result: string | null): InboxTriage {
+  if (!result) return { destinations: [], revisitOn: null, source: null };
+  const routed = /^(.+?)へ振り分け/.exec(result);
+  const destination = routed ? DESTINATIONS_BY_LABEL.get(routed[1]) : undefined;
+  if (destination) {
+    const status = PLAN_ONLY_DESTINATIONS.has(destination) ? "planned" : "created";
+    return { destinations: [{ destination, status }], revisitOn: null, source: "result" };
+  }
+  const deferred = /^寝かせる[(（]再訪\s*(\d{4}-\d{2}-\d{2})[)）]/.exec(result);
+  if (deferred) return { destinations: [], revisitOn: deferred[1], source: "result" };
+  return { destinations: [], revisitOn: null, source: null };
+}
+
+interface LinkedWant {
+  status: string;
+  revisitOn: string | null;
+  routes: { destination: string; status: string }[];
+}
+
+function inboxTriage(result: string | null, linkedWants: LinkedWant[]): InboxTriage {
+  const destinations = new Map<string, string>();
+  let revisitOn: string | null = null;
+  linkedWants.forEach((want) => {
+    want.routes.forEach((route) => {
+      if (route.status !== "planned" && route.status !== "created") return;
+      if (destinations.get(route.destination) !== "created") destinations.set(route.destination, route.status);
+    });
+    if (want.status === "active" && want.revisitOn !== null) {
+      revisitOn = revisitOn === null || want.revisitOn < revisitOn ? want.revisitOn : revisitOn;
+    }
+  });
+  if (destinations.size === 0 && revisitOn === null) return triageFromResult(result);
+  return {
+    destinations: [...destinations].map(([destination, status]) => ({ destination, status })),
+    revisitOn,
+    source: "route",
+  };
+}
+
 export function normalizeDashboard(
   inboxRows: InboxRow[],
   wantRows: WantRow[],
@@ -202,11 +276,24 @@ export function normalizeDashboard(
     content: text(row.content),
     status: text(row.status) || "unknown",
     type: text(row.type) || "want",
+    sourceInboxId: integer(row.source_inbox_id),
     revisitOn: plainDate(row.revisit_on),
     revisitCount: integer(row.revisit_count) ?? 0,
     note: text(row.note) || null,
     createdAt: isoDate(row.created_at),
     routes: routesByWant.get(integer(row.id) ?? -1) || [],
+  }));
+
+  const wantsByInbox = new Map<number, LinkedWant[]>();
+  wants.forEach((want) => {
+    if (want.sourceInboxId === null) return;
+    const current = wantsByInbox.get(want.sourceInboxId) || [];
+    current.push(want);
+    wantsByInbox.set(want.sourceInboxId, current);
+  });
+  const inboxWithTriage = inbox.map((item) => ({
+    ...item,
+    triage: inboxTriage(item.result, wantsByInbox.get(item.id ?? -1) || []),
   }));
 
   const activeWants = wants.filter((item) => item.status === "active");
@@ -232,8 +319,10 @@ export function normalizeDashboard(
       untriagedWants: activeWants.length,
       completedWants: completedWants.length,
       dueForReview: wants.filter((item) => item.status === "active" && item.revisitOn !== null && item.revisitOn <= today).length,
+      knowledgePending: inboxWithTriage.filter((item) => item.triage.destinations
+        .some((entry) => entry.destination === "knowledge" && entry.status === "planned")).length,
     },
-    inbox,
+    inbox: inboxWithTriage,
     wants,
   };
 }

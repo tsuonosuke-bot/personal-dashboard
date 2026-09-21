@@ -38,6 +38,13 @@
 3. 確定するとWantsへ`type='want'`・`revisit_on`つきで登録し、元Inboxを「寝かせる（再訪 日付）」として整理済みにする。
 4. 再訪日が来たWantはHubの未整理Wantsとして浮上し、そこで動かすか、寝かせ直すかを決める。
 
+### Knowledge登録待ちの見分け方
+
+1. Inboxから振り分けた項目は、作成したWantに `source_inbox_id` が入り、元のInboxと振り分け先が結びつく。
+2. Ideaの一覧カードには振り分け先が表示される。Knowledge・GitHub・Journalは計画保存のままなので「登録待ち」として別の色で示す。
+3. 一覧の「Knowledge登録待ち」を押すと、実際のナレッジDB登録がまだの項目だけに絞り込める（`?filter=knowledge`）。
+4. この機能より前に処理したInboxは、処理結果の「〜へ振り分け」「寝かせる（再訪 日付）」という文言から振り分け先を復元する。「Wantsに登録」とだけ記録された旧データは振り分け先不明として扱う。
+
 ### 振り分け履歴の持ち方
 
 `want_routes`・`writing_topics`・`habits`・`focus_items`はいずれも元のWantを参照するため、Inboxから直接振り分けた場合も、確定時にそのInboxの内容でWantを1件作成してから履歴を記録し、そのWantは振り分け完了と同時に自動で完了する。画面上の段はInboxだけ、履歴上の正本はWantという形を保つ。

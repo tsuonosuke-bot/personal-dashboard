@@ -10,7 +10,9 @@ export function parseCompassRoute(value) {
   const view = VALID_VIEWS.has(requestedView) ? requestedView : "inbox";
   const rawId = url.searchParams.get("id");
   const rawFilter = url.searchParams.get("filter");
-  const filter = rawFilter === "untriaged" && requestedView === "wants" && rawId === null ? "untriaged" : null;
+  const untriaged = rawFilter === "untriaged" && requestedView === "wants" && rawId === null;
+  const knowledge = rawFilter === "knowledge" && (requestedView === null || VALID_VIEWS.has(requestedView)) && rawId === null;
+  const filter = untriaged ? "untriaged" : knowledge ? "knowledge" : null;
   if (rawFilter !== null && filter === null) return { view, id: null, filter: null, error: "invalid-target" };
   if (rawId === null) return { view, id: null, filter, error: null };
   if (!VALID_VIEWS.has(requestedView) || !/^[1-9]\d*$/.test(rawId)) {
@@ -29,6 +31,7 @@ export function compassRoutePath(value, view, id = null, filter = null) {
   if (id !== null && Number.isSafeInteger(id) && id > 0) url.searchParams.set("id", String(id));
   else url.searchParams.delete("id");
   if (id === null && view === "wants" && filter === "untriaged") url.searchParams.set("filter", "untriaged");
+  else if (id === null && filter === "knowledge") url.searchParams.set("filter", "knowledge");
   else url.searchParams.delete("filter");
   return `${url.pathname}${url.search}${url.hash}`;
 }
