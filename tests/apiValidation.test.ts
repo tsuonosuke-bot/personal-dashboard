@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   parseKnowledge, parsePageEnvelope, parseQuizGradeResponse, parseQuizLog, parseQuizStartResponse,
 } from "../src/lib/apiValidation.ts";
-import { getKnowledge } from "../src/lib/api.ts";
+import { ApiError, getKnowledge, startQuiz } from "../src/lib/api.ts";
 
 function validKnowledge() {
   return {
@@ -161,6 +161,35 @@ test("固定上限で切らず、全ページのナレッジを取得する", as
     assert.equal(result.length, 1_001);
     assert.deepEqual(offsets, [0, 600, 1_001]);
     assert.equal(result.at(-1)?.archived, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("問題生成APIの診断情報を画面用エラーとして保持する", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({
+    error: "問題生成に失敗しました。",
+    stage: "AI応答の確認",
+    reason: "再生成後も1問が出題条件を満たしませんでした。",
+    action: "もう一度出題してください。",
+    details: ["1問目「テスト」: 選択肢が3件です（4件必要です）。"],
+    reference: "req_test_123",
+  }, { status: 502 });
+  try {
+    await assert.rejects(
+      startQuiz([], 5, "四択"),
+      (error: unknown) => {
+        assert.equal(error instanceof ApiError, true);
+        if (!(error instanceof ApiError)) return false;
+        assert.equal(error.status, 502);
+        assert.equal(error.stage, "AI応答の確認");
+        assert.match(error.reason ?? "", /1問/);
+        assert.deepEqual(error.details, ["1問目「テスト」: 選択肢が3件です（4件必要です）。"]);
+        assert.equal(error.reference, "req_test_123");
+        return true;
+      },
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }

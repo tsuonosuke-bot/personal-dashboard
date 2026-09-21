@@ -465,11 +465,11 @@ test("quiz/start は四択の選択肢がそろわなければ自由記述に落
   };
   try {
     for (const broken of [
-      { choices: ["ア", "イ", "ウ"], correct: "ア" },
-      { choices: ["ア", "ア", "イ", "ウ"], correct: "ア" },
-      { choices: ["ア", "", "イ", "ウ"], correct: "ア" },
-      { choices: ["ア", "イ", "ウ", "エ"], correct: "選択肢外" },
-      { choices: undefined, correct: undefined },
+      { choices: ["ア", "イ", "ウ"], correct: "ア", reason: /3件/ },
+      { choices: ["ア", "ア", "イ", "ウ"], correct: "ア", reason: /重複/ },
+      { choices: ["ア", "", "イ", "ウ"], correct: "ア", reason: /空の選択肢/ },
+      { choices: ["ア", "イ", "ウ", "エ"], correct: "選択肢外", reason: /一致しません/ },
+      { choices: undefined, correct: undefined, reason: /choicesが返されません/ },
     ]) {
       choices = broken.choices;
       correctChoice = broken.correct;
@@ -478,7 +478,77 @@ test("quiz/start は四択の選択肢がそろわなければ自由記述に落
         env,
       });
       assert.equal(response.status, 502, JSON.stringify(broken));
+      const body = await response.json() as {
+        error: string; stage: string; reason: string; action: string; details: string[];
+      };
+      assert.equal(body.error, "問題生成に失敗しました。");
+      assert.equal(body.stage, "AI応答の確認");
+      assert.match(body.reason, /再生成後も1問/);
+      assert.equal(body.details.length, 1);
+      assert.match(body.details[0], broken.reason);
+      assert.match(body.action, /もう一度出題/);
     }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start はAI APIの失敗原因と問い合わせ用IDを安全に返す", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json([pickedRow(ID_1, "ビジネス")]);
+    }
+    if (url.includes("/rest/v1/knowledge")) return Response.json([{ id: ID_1, tags: [] }]);
+    if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      return Response.json(
+        { error: { type: "rate_limit_error", message: "raw provider message" } },
+        { status: 429, headers: { "request-id": "req_test_123" } },
+      );
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({
+      request: quizPost("/api/quiz/start", { format: "一問一答" }),
+      env,
+    });
+    assert.equal(response.status, 502);
+    const body = await response.json() as Record<string, unknown>;
+    assert.equal(body.error, "問題生成に失敗しました。");
+    assert.equal(body.stage, "AIへの接続");
+    assert.match(String(body.reason), /利用上限.*HTTP 429/);
+    assert.match(String(body.action), /少し待って/);
+    assert.equal(body.reference, "req_test_123");
+    assert.equal(JSON.stringify(body).includes("raw provider message"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start はDB障害が発生した処理段階を返す", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json({ message: "raw database message" }, { status: 500 });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({
+      request: quizPost("/api/quiz/start", {}),
+      env,
+    });
+    assert.equal(response.status, 502);
+    const body = await response.json() as Record<string, unknown>;
+    assert.equal(body.error, "問題生成に失敗しました。");
+    assert.equal(body.stage, "出題対象の選定");
+    assert.equal(body.reason, "DBの処理に失敗しました。");
+    assert.match(String(body.action), /DB接続/);
+    assert.equal(JSON.stringify(body).includes("raw database message"), false);
   } finally {
     globalThis.fetch = originalFetch;
   }

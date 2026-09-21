@@ -267,6 +267,16 @@ button.review-card { display: block; }
 }
 .quiz-header h1 { font-size: 19px; margin: 0; }
 .quiz-body { max-width: 640px; margin: 0 auto; padding: 18px 16px 60px; }
+.quiz-generation-error { display: grid; gap: 10px; text-align: left; line-height: 1.55; }
+.quiz-generation-error > strong { font-size: 14px; }
+.quiz-generation-error dl, .quiz-generation-error p, .quiz-generation-error ul { margin: 0; }
+.quiz-generation-error dl { display: grid; gap: 6px; }
+.quiz-generation-error dl > div { display: grid; grid-template-columns: 88px 1fr; gap: 8px; }
+.quiz-generation-error dt, .quiz-generation-error-details > span { font-weight: 700; }
+.quiz-generation-error dd { margin: 0; color: #7f1d1d; }
+.quiz-generation-error-details { display: grid; gap: 4px; }
+.quiz-generation-error ul { padding-left: 20px; color: #7f1d1d; }
+.quiz-generation-error small { color: #991b1b; overflow-wrap: anywhere; }
 .quiz-setup { display: grid; gap: 16px; text-align: center; }
 .daily-quiz-start { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px; border-radius: 10px; background: #f4f1fa; text-align: left; }
 .daily-quiz-start strong, .daily-quiz-start span { display: block; }

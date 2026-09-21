@@ -57,21 +57,84 @@ interface ChoiceSet {
   correctChoice: string;
 }
 
-/** AIの選択肢と正解を受け取れる形に正規化する。件数・重複・空文字のどれかが崩れていたら不採用。 */
-function normalizeChoiceSet(value: unknown, correctChoice: unknown): ChoiceSet | null {
-  if (!Array.isArray(value)) return null;
+type ChoiceSetResult =
+  | { ok: true; value: ChoiceSet }
+  | { ok: false; reason: string };
+
+interface GeneratedQuestion {
+  question: string;
+  format: QuizFormat;
+  choices: string[] | null;
+  correctChoice: string | null;
+}
+
+interface QuizStartErrorOptions {
+  stage: string;
+  reason: string;
+  action: string;
+  details?: string[];
+  reference?: string;
+}
+
+function quizStartError(options: QuizStartErrorOptions, status = 502): Response {
+  return jsonResponse({
+    error: "問題生成に失敗しました。",
+    ...options,
+  }, status);
+}
+
+async function dependencyError(
+  response: Response,
+  stage: string,
+  action: string,
+): Promise<Response> {
+  let reason = `必要なデータを取得できませんでした（HTTP ${response.status}）。`;
+  try {
+    const body = await response.json() as { error?: unknown };
+    if (typeof body.error === "string" && body.error.trim()) reason = body.error.trim();
+  } catch {
+    // 内部APIがJSON以外を返した場合も、処理段階とHTTPステータスは画面へ返す。
+  }
+  return quizStartError({ stage, reason, action }, response.status);
+}
+
+/** AIの選択肢と正解を受け取れる形に正規化し、不採用時は利用者向けの理由も返す。 */
+function normalizeChoiceSet(value: unknown, correctChoice: unknown): ChoiceSetResult {
+  if (!Array.isArray(value)) {
+    return { ok: false, reason: "四択のchoicesが返されませんでした。" };
+  }
   const trimmed: string[] = [];
   for (const entry of value) {
-    if (typeof entry !== "string") return null;
+    if (typeof entry !== "string") {
+      return { ok: false, reason: "選択肢に文字列以外の値が含まれています。" };
+    }
     const text = entry.trim();
-    if (!text || text.length > MAX_CHOICE_CHARS || trimmed.includes(text)) return null;
+    if (!text) return { ok: false, reason: "空の選択肢が含まれています。" };
+    if (text.length > MAX_CHOICE_CHARS) {
+      return { ok: false, reason: `選択肢が上限の${MAX_CHOICE_CHARS}文字を超えています。` };
+    }
+    if (trimmed.includes(text)) {
+      return { ok: false, reason: "同じ選択肢が重複しています。" };
+    }
     trimmed.push(text);
   }
-  if (trimmed.length !== CHOICE_COUNT || typeof correctChoice !== "string") return null;
+  if (trimmed.length !== CHOICE_COUNT) {
+    return {
+      ok: false,
+      reason: `選択肢が${trimmed.length}件です（${CHOICE_COUNT}件必要です）。`,
+    };
+  }
+  if (typeof correctChoice !== "string" || !correctChoice.trim()) {
+    return { ok: false, reason: "正解選択肢のcorrect_choiceが返されませんでした。" };
+  }
   const normalizedCorrectChoice = correctChoice.trim();
-  return trimmed.includes(normalizedCorrectChoice)
-    ? { choices: trimmed, correctChoice: normalizedCorrectChoice }
-    : null;
+  if (!trimmed.includes(normalizedCorrectChoice)) {
+    return { ok: false, reason: "correct_choiceが4件の選択肢のどれとも一致しません。" };
+  }
+  return {
+    ok: true,
+    value: { choices: trimmed, correctChoice: normalizedCorrectChoice },
+  };
 }
 
 /** 「3語」「三語」「3 words」のような、問題文で明示された英語の語数を取り出す。 */
@@ -345,12 +408,8 @@ async function generateQuestions(
 ): Promise<
   | {
     ok: true;
-    byId: Map<string, {
-      question: string;
-      format: QuizFormat;
-      choices: string[] | null;
-      correctChoice: string | null;
-    }>;
+    byId: Map<string, GeneratedQuestion>;
+    issueById: Map<string, string>;
   }
   | { ok: false; response: Response }
 > {
@@ -361,41 +420,109 @@ async function generateQuestions(
     maxTokens: QUIZ_MAX_TOKENS,
     tool: QUESTION_TOOL,
   });
-  if (!generated.ok) return { ok: false, response: jsonResponse({ error: generated.error }, generated.status) };
+  if (!generated.ok) return {
+    ok: false,
+    response: quizStartError({
+      stage: "AIへの接続",
+      reason: generated.error,
+      action: generated.action ?? "時間を置いて、もう一度出題してください。",
+      reference: generated.reference,
+    }, generated.status),
+  };
 
   const questions = (generated.input as { questions?: unknown })?.questions;
   if (!Array.isArray(questions)) {
-    return { ok: false, response: jsonResponse({ error: "AIの応答形式が正しくありません。" }, 502) };
+    return {
+      ok: false,
+      response: quizStartError({
+        stage: "AI応答の確認",
+        reason: "AIの応答にquestions配列が含まれていませんでした。",
+        action: "もう一度出題してください。繰り返す場合はAIモデルと出力形式の設定を確認してください。",
+      }),
+    };
   }
 
-  const byId = new Map<
-    string,
-    { question: string; format: QuizFormat; choices: string[] | null; correctChoice: string | null }
-  >();
+  const byId = new Map<string, GeneratedQuestion>();
+  const issueById = new Map<string, string>();
   for (const entry of questions as QuestionToolInput[]) {
     if (typeof entry !== "object" || entry === null) continue;
     const { id, question, format, choices, correct_choice } = entry;
-    if (typeof id !== "string" || typeof question !== "string") continue;
+    if (typeof id !== "string") continue;
     const allowed = allowedById.get(id) ?? [];
+    if (allowed.length === 0) continue;
+    if (typeof question !== "string") {
+      issueById.set(id, "問題文が文字列で返されませんでした。");
+      continue;
+    }
     // A single allowed format is deterministic even if the model omits the
     // redundant field. Multiple candidates always require an explicit choice.
     const selectedFormat = typeof format === "string"
       ? format as QuizFormat
       : allowed.length === 1 ? allowed[0] : null;
-    if (!selectedFormat || !allowed.includes(selectedFormat)) continue;
+    if (!selectedFormat) {
+      issueById.set(id, "複数の候補から出題形式が選ばれていませんでした。");
+      continue;
+    }
+    if (!allowed.includes(selectedFormat)) {
+      issueById.set(id, `許可されていない出題形式「${String(format)}」が返されました。`);
+      continue;
+    }
     const trimmed = question.trim();
-    if (!trimmed || trimmed.length > MAX_QUESTION_CHARS) continue;
+    if (!trimmed) {
+      issueById.set(id, "問題文が空でした。");
+      continue;
+    }
+    if (trimmed.length > MAX_QUESTION_CHARS) {
+      issueById.set(id, `問題文が上限の${MAX_QUESTION_CHARS}文字を超えています。`);
+      continue;
+    }
     const choiceSet = selectedFormat === "四択"
       ? normalizeChoiceSet(choices, correct_choice)
       : null;
+    if (choiceSet && !choiceSet.ok) {
+      issueById.set(id, choiceSet.reason);
+      continue;
+    }
+    const normalizedChoices = choiceSet?.ok ? choiceSet.value : null;
     byId.set(id, {
       question: trimmed,
       format: selectedFormat,
-      choices: choiceSet?.choices ?? null,
-      correctChoice: choiceSet?.correctChoice ?? null,
+      choices: normalizedChoices?.choices ?? null,
+      correctChoice: normalizedChoices?.correctChoice ?? null,
     });
+    issueById.delete(id);
   }
-  return { ok: true, byId };
+  for (const item of items) {
+    if (!byId.has(item.id) && !issueById.has(item.id)) {
+      issueById.set(item.id, "AIの応答にこの項目の問題が含まれていませんでした。");
+    }
+  }
+  return { ok: true, byId, issueById };
+}
+
+function generationIssue(
+  item: PickedItem,
+  generated: GeneratedQuestion | undefined,
+  parserIssue: string | undefined,
+): string | null {
+  if (!generated) return parserIssue ?? "AIの応答にこの項目の問題が含まれていませんでした。";
+  if (!hasConsistentWordCount(item, generated.question)) {
+    const requested = requestedWordCount(generated.question);
+    const actual = englishTitleWordCount(item.title);
+    return requested !== null && actual !== null
+      ? `問題文では${requested}語と指定していますが、正解は${actual}語です。`
+      : "問題文の語数指定が正解と一致しません。";
+  }
+  if (generated.format === "四択" && !generated.choices) {
+    return parserIssue ?? "四択の選択肢を確認できませんでした。";
+  }
+  return null;
+}
+
+function diagnosticItemLabel(item: PickedItem, index: number): string {
+  const normalized = item.title.replace(/\s+/gu, " ").trim();
+  const title = normalized.length > 48 ? `${normalized.slice(0, 47)}…` : normalized;
+  return `${index + 1}問目「${title || "タイトルなし"}」`;
 }
 
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
@@ -417,20 +544,40 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       p_limit: limit,
       p_include_mastered: false,
     });
-  if (!picked.ok) return picked.response;
+  if (!picked.ok) return dependencyError(
+    picked.response,
+    "出題対象の選定",
+    "DB接続とクイズ選定処理を確認して、もう一度出題してください。",
+  );
   if (!Array.isArray(picked.data)) {
-    return jsonResponse({ error: "DBから想定外の応答を受信しました。" }, 502);
+    return quizStartError({
+      stage: "出題対象の選定",
+      reason: "DBから想定外の応答を受信しました。",
+      action: "クイズ選定処理の戻り値を確認してください。",
+    });
   }
   const rows = picked.data.filter(isPickedItem);
   if (rows.length !== picked.data.length) {
-    return jsonResponse({ error: "DBから想定外の応答を受信しました。" }, 502);
+    return quizStartError({
+      stage: "出題対象の検証",
+      reason: "DBから返った出題対象に必須項目の不足または型の不一致があります。",
+      action: "クイズ選定処理の戻り値とDBマイグレーションを確認してください。",
+    });
   }
   if (rows.length === 0) {
     if (mode === "daily") {
       const status = await requestSupabaseFunction(context.env, "get_daily_review_status", { p_limit: limit });
-      if (!status.ok) return status.response;
+      if (!status.ok) return dependencyError(
+        status.response,
+        "日次復習キューの確認",
+        "DB接続と日次復習キュー処理を確認して、もう一度出題してください。",
+      );
       if (!Array.isArray(status.data) || status.data.length !== 1) {
-        return jsonResponse({ error: "日次復習キューの状態を確認できませんでした。" }, 502);
+        return quizStartError({
+          stage: "日次復習キューの確認",
+          reason: "日次復習キューの応答件数または形式が正しくありません。",
+          action: "日次復習キュー処理の戻り値を確認してください。",
+        });
       }
       return jsonResponse({
         items: [],
@@ -441,7 +588,11 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       });
     }
     const empty = await emptyReason(context.env, categories);
-    if (!empty.ok) return empty.response;
+    if (!empty.ok) return dependencyError(
+      empty.response,
+      "出題対象件数の確認",
+      "DB接続と対象カテゴリを確認して、もう一度出題してください。",
+    );
     return jsonResponse({ items: [], reason: empty.reason });
   }
 
@@ -458,10 +609,22 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       p_per_item: NOTES_PER_ITEM,
     }),
   ]);
-  if (!tagRows.ok) return tagRows.response;
-  if (!noteRows.ok) return noteRows.response;
+  if (!tagRows.ok) return dependencyError(
+    tagRows.response,
+    "ナレッジ情報の取得",
+    "DB接続とナレッジデータを確認して、もう一度出題してください。",
+  );
+  if (!noteRows.ok) return dependencyError(
+    noteRows.response,
+    "過去の復習記録の取得",
+    "DB接続と復習履歴取得処理を確認して、もう一度出題してください。",
+  );
   if (!Array.isArray(noteRows.data)) {
-    return jsonResponse({ error: "DBから想定外の応答を受信しました。" }, 502);
+    return quizStartError({
+      stage: "過去の復習記録の確認",
+      reason: "DBから返った復習履歴の形式が正しくありません。",
+      action: "復習履歴取得処理の戻り値を確認してください。",
+    });
   }
 
   const tagsById = new Map<string, string[]>();
@@ -490,13 +653,11 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const first = await generateQuestions(context.env, items, allowedById, tagsById, notesById, false);
   if (!first.ok) return first.response;
   const byId = first.byId;
+  const issueById = first.issueById;
 
   // 項目ごとに、問題文があり（四択なら選択肢も揃って）初めて成立とみなす。
   const isGenerated = (item: PickedItem): boolean => {
-    const generatedItem = byId.get(item.id);
-    if (!generatedItem) return false;
-    if (!hasConsistentWordCount(item, generatedItem.question)) return false;
-    return generatedItem.format !== "四択" || generatedItem.choices !== null;
+    return generationIssue(item, byId.get(item.id), issueById.get(item.id)) === null;
   };
 
   // AIの出力は確率的なので、崩れた項目だけをもう一度まとめて生成し直す。
@@ -505,7 +666,26 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   if (needsRetry.length > 0) {
     const retry = await generateQuestions(context.env, needsRetry, allowedById, tagsById, notesById, true);
     if (!retry.ok) return retry.response;
+    for (const item of needsRetry) {
+      // 1回目の不正な結果を残すと、再生成で欠落した項目を成功扱いする可能性がある。
+      byId.delete(item.id);
+      issueById.delete(item.id);
+    }
     for (const [id, entry] of retry.byId) byId.set(id, entry);
+    for (const [id, issue] of retry.issueById) issueById.set(id, issue);
+  }
+
+  const invalidDetails = items.flatMap((item, index) => {
+    const issue = generationIssue(item, byId.get(item.id), issueById.get(item.id));
+    return issue ? [`${diagnosticItemLabel(item, index)}: ${issue}`] : [];
+  });
+  if (invalidDetails.length > 0) {
+    return quizStartError({
+      stage: "AI応答の確認",
+      reason: `再生成後も${invalidDetails.length}問が出題条件を満たしませんでした。`,
+      action: "同じ条件でもう一度出題してください。繰り返す場合は、下記のナレッジ内容またはAI設定を確認してください。",
+      details: invalidDetails,
+    });
   }
 
   const responseItems: QuizItem[] = [];
@@ -513,14 +693,27 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     const generatedItem = byId.get(item.id);
     const itemFormat = generatedItem?.format;
     if (!generatedItem) {
-      return jsonResponse({ error: "AIが一部の問題を生成しませんでした。" }, 502);
+      // invalidDetailsで検出済み。ここへ到達した場合はサーバー側の整合性エラー。
+      return quizStartError({
+        stage: "問題データの組み立て",
+        reason: "検証済みの問題データを取得できませんでした。",
+        action: "もう一度出題してください。繰り返す場合はサーバーログを確認してください。",
+      });
     }
     if (!hasConsistentWordCount(item, generatedItem.question)) {
-      return jsonResponse({ error: "AIが正解と矛盾する語数指定の問題を生成しました。" }, 502);
+      return quizStartError({
+        stage: "問題データの組み立て",
+        reason: "検証後に問題文の語数指定との不整合を検出しました。",
+        action: "もう一度出題してください。繰り返す場合はサーバーログを確認してください。",
+      });
     }
     // 四択は選択肢がそろって初めて成立するので、欠けていたら黙って自由記述にはしない。
     if (!itemFormat || itemFormat === "四択" && !generatedItem.choices) {
-      return jsonResponse({ error: "AIが一部の選択肢を生成しませんでした。" }, 502);
+      return quizStartError({
+        stage: "問題データの組み立て",
+        reason: "AIが一部の選択肢を生成しませんでした。検証後に出題形式または選択肢との不整合を検出しました。",
+        action: "もう一度出題してください。繰り返す場合はサーバーログを確認してください。",
+      });
     }
     const choices = itemFormat === "四択" ? shuffle(generatedItem.choices!) : null;
     const signed = await issueQuizToken({
@@ -530,7 +723,11 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       choices,
       correctChoice: generatedItem.correctChoice,
     }, context.request, context.env);
-    if (!signed.ok) return jsonResponse({ error: signed.error }, signed.status);
+    if (!signed.ok) return quizStartError({
+      stage: "問題の安全な準備",
+      reason: signed.error,
+      action: "サーバーのクイズ署名設定を確認してください。",
+    }, signed.status);
     responseItems.push({
       id: item.id,
       question: generatedItem.question,

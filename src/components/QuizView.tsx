@@ -167,7 +167,37 @@ export function QuizView({
       </header>
 
       <main className="quiz-body">
-        {quiz.error && <div className="err compact" role="alert">{quiz.error}</div>}
+        {quiz.error && (
+          <div className="err compact quiz-generation-error" role="alert">
+            <strong>{quiz.error.message}</strong>
+            {(quiz.error.stage || quiz.error.reason) && (
+              <dl>
+                {quiz.error.stage && (
+                  <div>
+                    <dt>失敗した処理</dt>
+                    <dd>{quiz.error.stage}</dd>
+                  </div>
+                )}
+                {quiz.error.reason && (
+                  <div>
+                    <dt>原因</dt>
+                    <dd>{quiz.error.reason}</dd>
+                  </div>
+                )}
+              </dl>
+            )}
+            {quiz.error.details.length > 0 && (
+              <div className="quiz-generation-error-details">
+                <span>該当項目</span>
+                <ul>
+                  {quiz.error.details.map((detail, index) => <li key={`${index}-${detail}`}>{detail}</li>)}
+                </ul>
+              </div>
+            )}
+            {quiz.error.action && <p><b>対処:</b> {quiz.error.action}</p>}
+            {quiz.error.reference && <small>問い合わせ用ID: {quiz.error.reference}</small>}
+          </div>
+        )}
 
         {quiz.stage === "setup" && (
           <div className="quiz-setup card">
