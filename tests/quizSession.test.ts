@@ -28,6 +28,8 @@ test("クイズトークンは正解を漏らさず署名し、四択回答を�
   const verified = await verifyQuizToken(issued.token, request, env, Date.UTC(2026, 8, 20));
   assert.equal(verified.ok, true);
   if (!verified.ok) return;
+  const { attempt_id } = verified.value;
+  assert.match(attempt_id, /^[A-Za-z0-9_-]{20,64}$/);
   assert.deepEqual(
     {
       id: verified.value.id,
@@ -51,8 +53,11 @@ test("改ざん・別ホスト・期限切れのクイズトークンを拒否�
   const issued = await issueQuizToken(item, request, env, now);
   assert.equal(issued.ok, true);
   if (!issued.ok) return;
-  const last = issued.token.at(-1) === "a" ? "b" : "a";
-  const tampered = `${issued.token.slice(0, -1)}${last}`;
+  // 署名末尾の文字は下位ビットが捨てられ、書き換えても同じバイト列に戻ることがある。
+  // 必ず署名バイトが変わる先頭文字を差し替える。
+  const [encodedPayload, encodedSignature] = issued.token.split(".");
+  const head = encodedSignature[0] === "A" ? "B" : "A";
+  const tampered = `${encodedPayload}.${head}${encodedSignature.slice(1)}`;
   assert.equal((await verifyQuizToken(tampered, request, env, now)).ok, false);
   assert.equal((await verifyQuizToken(
     issued.token,

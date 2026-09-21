@@ -68,7 +68,7 @@ export function KnowledgeFormModal({
               <select value={priority} onChange={(event) => setPriority(event.target.value as KnowledgePriority)}>
                 {PRIORITY_ORDER.map((value) => <option key={value} value={value}>{value}</option>)}
               </select>
-              <small className="field-hint">{PRIORITY_INTERVAL_HINTS[priority]}で復習します。</small>
+              <small className="field-hint">{PRIORITY_INTERVAL_HINTS[priority]}に出題します。復習間隔は変わりません。</small>
             </label>
             <label className="field">
               <span>習熟度</span>

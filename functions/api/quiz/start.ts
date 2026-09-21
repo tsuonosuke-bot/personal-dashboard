@@ -112,6 +112,8 @@ interface PickedItem {
   mastery: string;
   times_asked: number;
   pool: string;
+  stability_hours: number;
+  relearning_stage: "recognition" | "recall" | null;
 }
 
 function isPickedItem(value: unknown): value is PickedItem {
@@ -120,18 +122,27 @@ function isPickedItem(value: unknown): value is PickedItem {
   return typeof record.id === "string" && typeof record.title === "string"
     && (record.explanation === null || typeof record.explanation === "string")
     && typeof record.category === "string" && typeof record.mastery === "string"
-    && typeof record.times_asked === "number" && typeof record.pool === "string";
+    && typeof record.times_asked === "number" && typeof record.pool === "string"
+    && typeof record.stability_hours === "number"
+    && (record.relearning_stage === null || record.relearning_stage === "recognition"
+      || record.relearning_stage === "recall");
 }
 
 /**
- * おまかせ指定のとき、習熟度に合わせて問い方を上げる（再認→想起→説明→産出）。
- * 形式を明示されたときはその形式をそのまま使う。
+ * おまかせ指定のとき、DB状態から許可できる形式だけを返す。複数ある場合は、
+ * ナレッジの構造を読めるAIに最適な1つを選ばせる。
  */
-function resolveFormat(item: PickedItem, requested: QuizFormatRequest): QuizFormat {
-  if (requested !== AUTO_FORMAT) return requested;
-  if (item.mastery === "未学習") return "四択";
-  if (item.mastery === "学習中") return "一問一答";
-  return PRODUCTION_CATEGORIES.has(item.category) ? "産出" : "記述説明";
+function allowedFormats(item: PickedItem, requested: QuizFormatRequest): QuizFormat[] {
+  if (requested !== AUTO_FORMAT) return [requested];
+  if (item.relearning_stage === "recognition") return ["四択"];
+  if (item.relearning_stage === "recall") return ["一問一答"];
+  if (item.mastery === "未学習" || (item.mastery === "学習中" && item.stability_hours < 24)) {
+    return ["四択"];
+  }
+  if (item.mastery === "学習中") return ["一問一答"];
+  if (PRODUCTION_CATEGORIES.has(item.category)) return ["産出"];
+  if (item.mastery === "定着") return ["一問一答", "記述説明", "産出"];
+  return ["一問一答", "記述説明"];
 }
 
 /** 正解の位置が偏らないよう選択肢を並べ替える。AIの出力順をそのまま見せない。 */
@@ -144,14 +155,23 @@ function shuffle(values: string[]): string[] {
   return result;
 }
 
-/** 同じカテゴリが連続しないよう出題順だけ入れ替える。DBが選んだ問題の差し替えはしない。 */
+/**
+ * 同じカテゴリが連続しないよう出題順だけ入れ替える。DBが選んだ問題の差し替えはしない。
+ * 再学習プールRなどの優先順は越えない。
+ */
 function spreadCategories(items: PickedItem[]): PickedItem[] {
-  const rest = [...items];
   const ordered: PickedItem[] = [];
-  while (rest.length > 0) {
-    const previous = ordered[ordered.length - 1];
-    const found = rest.findIndex((item) => item.category !== previous?.category);
-    ordered.push(...rest.splice(found < 0 ? 0 : found, 1));
+  for (let start = 0; start < items.length;) {
+    const pool = items[start].pool;
+    let end = start + 1;
+    while (end < items.length && items[end].pool === pool) end += 1;
+    const rest = items.slice(start, end);
+    while (rest.length > 0) {
+      const previous = ordered[ordered.length - 1];
+      const found = rest.findIndex((item) => item.category !== previous?.category);
+      ordered.push(...rest.splice(found < 0 ? 0 : found, 1));
+    }
+    start = end;
   }
   return ordered;
 }
@@ -195,7 +215,9 @@ const SYSTEM_PROMPT = `あなたはナレッジDBの復習クイズの出題者�
 
 ## 出題形式
 
-項目ごとの format に従って問い方を変える。
+項目ごとの allowed_formats から、その知識の構造に最も合う形式を1つ選び、formatに入れる。
+候補が1つだけなら必ずそれを使う。候補が複数なら、単一の用語・日付・事実は一問一答、
+理由・比較・手順など2点以上の要素を結びつける知識は記述説明、具体場面へ適用できる知識は産出を選ぶ。
 
 - 一問一答: 選択肢なしで、答えを一語〜一文で言わせる。答えられる粒度にし、
   「〜について説明してください」だけの漠然とした問題文にしない。
@@ -211,7 +233,7 @@ const SYSTEM_PROMPT = `あなたはナレッジDBの復習クイズの出題者�
 - 産出: 覚えた知識を使わせる。英語なら日本語の意味や使う場面を示して英語で書かせる、
   それ以外なら具体例や適用場面を自分の言葉で作らせる。答えの語句は問題文に出さない。
 
-choices は四択の項目にだけ付ける。他の形式では省略する。
+choices は選んだformatが四択の項目にだけ付ける。他の形式では省略する。
 
 ## 禁止事項
 
@@ -250,6 +272,7 @@ const RETRY_SYSTEM_SUFFIX = `
 interface QuestionToolInput {
   id: string;
   question: string;
+  format?: unknown;
   choices?: unknown;
   correct_choice?: unknown;
 }
@@ -267,6 +290,11 @@ const QUESTION_TOOL = {
           properties: {
             id: { type: "string" },
             question: { type: "string" },
+            format: {
+              type: "string",
+              enum: ["一問一答", "四択", "記述説明", "産出"],
+              description: "allowed_formatsから選んだ出題形式",
+            },
             choices: {
               type: "array",
               description: "四択の項目にだけ付ける選択肢。ちょうど4件、重複・空文字なし",
@@ -279,7 +307,7 @@ const QUESTION_TOOL = {
               description: "四択のときだけ付ける正解選択肢。choices内の1件と完全一致させる",
             },
           },
-          required: ["id", "question"],
+          required: ["id", "question", "format"],
         },
       },
     },
@@ -289,7 +317,7 @@ const QUESTION_TOOL = {
 
 function buildUserText(
   items: PickedItem[],
-  formatById: Map<string, QuizFormat>,
+  allowedById: Map<string, QuizFormat[]>,
   tagsById: Map<string, string[]>,
   notesById: Map<string, { asked_on: string; verdict: string; note: string }[]>,
 ): string {
@@ -301,7 +329,7 @@ function buildUserText(
     tags: tagsById.get(item.id) ?? [],
     mastery: item.mastery,
     times_asked: item.times_asked,
-    format: formatById.get(item.id),
+    allowed_formats: allowedById.get(item.id),
     past_notes: notesById.get(item.id) ?? [],
   })));
 }
@@ -310,21 +338,26 @@ function buildUserText(
 async function generateQuestions(
   env: AnthropicEnv,
   items: PickedItem[],
-  formatById: Map<string, QuizFormat>,
+  allowedById: Map<string, QuizFormat[]>,
   tagsById: Map<string, string[]>,
   notesById: Map<string, { asked_on: string; verdict: string; note: string }[]>,
   isRetry: boolean,
 ): Promise<
   | {
     ok: true;
-    byId: Map<string, { question: string; choices: string[] | null; correctChoice: string | null }>;
+    byId: Map<string, {
+      question: string;
+      format: QuizFormat;
+      choices: string[] | null;
+      correctChoice: string | null;
+    }>;
   }
   | { ok: false; response: Response }
 > {
   const generated = await callAnthropicTool(env, {
     model: QUIZ_MODEL,
     system: isRetry ? SYSTEM_PROMPT + RETRY_SYSTEM_SUFFIX : SYSTEM_PROMPT,
-    userText: buildUserText(items, formatById, tagsById, notesById),
+    userText: buildUserText(items, allowedById, tagsById, notesById),
     maxTokens: QUIZ_MAX_TOKENS,
     tool: QUESTION_TOOL,
   });
@@ -337,19 +370,27 @@ async function generateQuestions(
 
   const byId = new Map<
     string,
-    { question: string; choices: string[] | null; correctChoice: string | null }
+    { question: string; format: QuizFormat; choices: string[] | null; correctChoice: string | null }
   >();
   for (const entry of questions as QuestionToolInput[]) {
     if (typeof entry !== "object" || entry === null) continue;
-    const { id, question, choices, correct_choice } = entry;
+    const { id, question, format, choices, correct_choice } = entry;
     if (typeof id !== "string" || typeof question !== "string") continue;
+    const allowed = allowedById.get(id) ?? [];
+    // A single allowed format is deterministic even if the model omits the
+    // redundant field. Multiple candidates always require an explicit choice.
+    const selectedFormat = typeof format === "string"
+      ? format as QuizFormat
+      : allowed.length === 1 ? allowed[0] : null;
+    if (!selectedFormat || !allowed.includes(selectedFormat)) continue;
     const trimmed = question.trim();
     if (!trimmed || trimmed.length > MAX_QUESTION_CHARS) continue;
-    const choiceSet = formatById.get(id) === "四択"
+    const choiceSet = selectedFormat === "四択"
       ? normalizeChoiceSet(choices, correct_choice)
       : null;
     byId.set(id, {
       question: trimmed,
+      format: selectedFormat,
       choices: choiceSet?.choices ?? null,
       correctChoice: choiceSet?.correctChoice ?? null,
     });
@@ -367,13 +408,15 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const validated = validateStartRequest(json.value);
   if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
 
-  const { categories, limit, format } = validated.value;
-  const picked = await requestSupabaseFunction(context.env, "pick_quiz", {
-    p_include: categories.length > 0 ? categories : null,
-    p_exclude: null,
-    p_limit: limit,
-    p_include_mastered: false,
-  });
+  const { categories, limit, format, mode } = validated.value;
+  const picked = mode === "daily"
+    ? await requestSupabaseFunction(context.env, "pick_daily_review_queue", { p_limit: limit })
+    : await requestSupabaseFunction(context.env, "pick_quiz", {
+      p_include: categories.length > 0 ? categories : null,
+      p_exclude: null,
+      p_limit: limit,
+      p_include_mastered: false,
+    });
   if (!picked.ok) return picked.response;
   if (!Array.isArray(picked.data)) {
     return jsonResponse({ error: "DBから想定外の応答を受信しました。" }, 502);
@@ -383,6 +426,20 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     return jsonResponse({ error: "DBから想定外の応答を受信しました。" }, 502);
   }
   if (rows.length === 0) {
+    if (mode === "daily") {
+      const status = await requestSupabaseFunction(context.env, "get_daily_review_status", { p_limit: limit });
+      if (!status.ok) return status.response;
+      if (!Array.isArray(status.data) || status.data.length !== 1) {
+        return jsonResponse({ error: "日次復習キューの状態を確認できませんでした。" }, 502);
+      }
+      return jsonResponse({
+        items: [],
+        // Daily mode means "nothing is due now" even when every active card is
+        // scheduled for the future. Do not mislabel that as an empty database.
+        reason: "done_today",
+        mode,
+      });
+    }
     const empty = await emptyReason(context.env, categories);
     if (!empty.ok) return empty.response;
     return jsonResponse({ items: [], reason: empty.reason });
@@ -428,9 +485,9 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     notesById.set(knowledge_id, history);
   }
 
-  const formatById = new Map(items.map((item) => [item.id, resolveFormat(item, format)]));
+  const allowedById = new Map(items.map((item) => [item.id, allowedFormats(item, format)]));
 
-  const first = await generateQuestions(context.env, items, formatById, tagsById, notesById, false);
+  const first = await generateQuestions(context.env, items, allowedById, tagsById, notesById, false);
   if (!first.ok) return first.response;
   const byId = first.byId;
 
@@ -439,14 +496,14 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     const generatedItem = byId.get(item.id);
     if (!generatedItem) return false;
     if (!hasConsistentWordCount(item, generatedItem.question)) return false;
-    return formatById.get(item.id) !== "四択" || generatedItem.choices !== null;
+    return generatedItem.format !== "四択" || generatedItem.choices !== null;
   };
 
   // AIの出力は確率的なので、崩れた項目だけをもう一度まとめて生成し直す。
   // それでも崩れていたら、黙って自由記述に落とさず失敗させる。
   const needsRetry = items.filter((item) => !isGenerated(item));
   if (needsRetry.length > 0) {
-    const retry = await generateQuestions(context.env, needsRetry, formatById, tagsById, notesById, true);
+    const retry = await generateQuestions(context.env, needsRetry, allowedById, tagsById, notesById, true);
     if (!retry.ok) return retry.response;
     for (const [id, entry] of retry.byId) byId.set(id, entry);
   }
@@ -454,7 +511,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const responseItems: QuizItem[] = [];
   for (const item of items) {
     const generatedItem = byId.get(item.id);
-    const itemFormat = formatById.get(item.id)!;
+    const itemFormat = generatedItem?.format;
     if (!generatedItem) {
       return jsonResponse({ error: "AIが一部の問題を生成しませんでした。" }, 502);
     }
@@ -462,7 +519,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       return jsonResponse({ error: "AIが正解と矛盾する語数指定の問題を生成しました。" }, 502);
     }
     // 四択は選択肢がそろって初めて成立するので、欠けていたら黙って自由記述にはしない。
-    if (itemFormat === "四択" && !generatedItem.choices) {
+    if (!itemFormat || itemFormat === "四択" && !generatedItem.choices) {
       return jsonResponse({ error: "AIが一部の選択肢を生成しませんでした。" }, 502);
     }
     const choices = itemFormat === "四択" ? shuffle(generatedItem.choices!) : null;
@@ -487,5 +544,6 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     items: responseItems,
     // プールFは期限前の前倒し出題。画面で一言添えるために知らせる。
     early: items.every((item) => item.pool === "F"),
+    mode,
   });
 };

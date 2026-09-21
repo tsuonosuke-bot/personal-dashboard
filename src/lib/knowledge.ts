@@ -25,15 +25,19 @@ export function filterKnowledge(
   knowledge: Knowledge[],
   filters: Filters,
   today = getJstToday(),
+  now = new Date(),
 ): Knowledge[] {
   const search = filters.search.trim().toLowerCase();
+  const todayStart = Date.parse(`${today}T00:00:00+09:00`);
+  const nowMs = now.getTime();
   return knowledge.filter((item) => {
     if (filters.category !== ALL && item.category !== filters.category) return false;
     if (filters.mastery !== ALL && item.mastery !== filters.mastery) return false;
     if (filters.priority !== ALL && item.priority !== filters.priority) return false;
-    if (filters.review === "today" && item.next_review_on !== today) return false;
-    if (filters.review === "overdue" && (!item.next_review_on || item.next_review_on >= today)) return false;
-    if (filters.review === "due" && (!item.next_review_on || item.next_review_on > today)) return false;
+    const dueAt = Date.parse(item.next_review_at);
+    if (filters.review === "today" && getJstToday(new Date(dueAt)) !== today) return false;
+    if (filters.review === "overdue" && !(dueAt < todayStart)) return false;
+    if (filters.review === "due" && !(dueAt <= nowMs)) return false;
     if (search) {
       const haystack = [
         item.title, item.explanation ?? "", item.source_note ?? "",
@@ -82,14 +86,18 @@ export function filterAndSortKnowledge(
   filters: Filters,
   sort: SortState,
   today = getJstToday(),
+  now = new Date(),
 ): Knowledge[] {
-  return sortKnowledge(filterKnowledge(knowledge, filters, today), sort);
+  return sortKnowledge(filterKnowledge(knowledge, filters, today, now), sort);
 }
 
-export function getReviewCounts(knowledge: Knowledge[], today = getJstToday()) {
-  const todayCount = knowledge.filter((item) => item.next_review_on === today).length;
-  const overdue = knowledge.filter((item) => item.next_review_on && item.next_review_on < today).length;
-  return { today: todayCount, overdue, due: todayCount + overdue };
+export function getReviewCounts(knowledge: Knowledge[], today = getJstToday(), now = new Date()) {
+  const todayStart = Date.parse(`${today}T00:00:00+09:00`);
+  const nowMs = now.getTime();
+  const todayCount = knowledge.filter((item) => getJstToday(new Date(item.next_review_at)) === today).length;
+  const overdue = knowledge.filter((item) => Date.parse(item.next_review_at) < todayStart).length;
+  const due = knowledge.filter((item) => Date.parse(item.next_review_at) <= nowMs).length;
+  return { today: todayCount, overdue, due };
 }
 
 export function getWeakCategories(knowledge: Knowledge[], limit = 3): WeakCategory[] {

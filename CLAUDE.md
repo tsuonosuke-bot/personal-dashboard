@@ -44,11 +44,11 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - `id` はuuid文字列
 - `mastery` は `未学習` / `学習中` / `習得中` / `定着` の4種。この語彙を変えない
 - 他: `title`, `explanation`, `category`, `tags`, `accuracy`,
-  `next_review_on`, `archived`, `created_at`, `content_version`, `priority`, `base_interval_days`
-- `priority` は `最高` / `高` / `中` / `低` / `最低`。従来間隔を維持する既定値は `高`。
-  SM-2の従来間隔に対して最高=約0.5倍、高=1倍、中=約1.5倍、低=約2倍、
-  最低=約3倍（最大365日）で次回復習日を決める
-- `base_interval_days` は優先度適用前の間隔。倍率の累積を避ける内部列で、ブラウザへは返さない
+  `next_review_on`, `next_review_at`, `stability_hours`, `relearning_stage`, `relearning_quality`, `relearning_penalized`,
+  `last_reviewed_at`, `archived`, `created_at`, `content_version`, `priority`, `base_interval_days`
+- `priority` は `最高` / `高` / `中` / `低` / `最低`。同じ期限内の出題順だけに使い、間隔は変えない
+- `next_review_at` が時刻を含む正本。`next_review_on` と日単位の列は互換表示用
+- `stability_hours` は保持型の定着間隔、`relearning_stage` は `recognition` / `recall`
 - 通常一覧は `archived = false`、アーカイブ一覧は `archived = true` が対象
 
 ### `quiz_log`
@@ -58,7 +58,8 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - `format` は `一問一答` / `四択` / `記述説明` / `産出` / `ソクラテス式`。
   ダッシュボードから出題するのは `ソクラテス式` を除く4種（対話の往復が要るため）。
   `四択` を許可するCHECK制約の変更は `supabase/allow-choice-quiz-format.sql`
-- 他: `knowledge_id`, `asked_on`, `quality`, `note`
+- 他: `knowledge_id`, `asked_on`, `quality`, `note`, `attempt_id`（署名済み出題nonce）、
+  `was_early`、`schedule_updated`
 
 ### DBアクセス
 
@@ -72,8 +73,8 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す。
   `categories`（登録済みカテゴリ名の配列。空配列は全カテゴリ）、`limit`、`format` で絞り込む
 - `POST /api/quiz/grade`: 署名済み出題トークンと`knowledge`を照合してClaude APIで採点し、
-  `record_answers_batch_once` RPCで同日重複を原子的に判定・一括記録。結果画面で優先度を安全に
-  変更できるよう、記録後の`priority`・`content_version`・`next_review_on`も返す
+  `record_answers_batch_once` RPCで出題nonceの重複を原子的に判定・一括記録。結果画面で優先度を安全に
+  変更できるよう、記録後の`priority`・`content_version`・`next_review_at`・定着／再学習状態も返す
 
 クイズAPIはブラウザにも `knowledge` の列を素で返さない。`start` は
 `{ id, question, format, choices, token }` だけ、`grade` は採点後なので `title` と模範解答を返す。
@@ -88,7 +89,7 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 
 ### 復習クイズのDB関数
 
-SM-2と優先度による間隔調整の計算は全てDB関数側にあり、Functions側やブラウザ側で再実装しない。
+定着間隔、再学習、昇格、期限前回答の判定は全てDB関数側にあり、Functions側やブラウザ側で再実装しない。
 
 - `pick_quiz(p_include, p_exclude, p_limit, p_include_mastered=false)`: 出題候補を返す
 - `record_answer(p_knowledge_id, p_quality, p_verdict, p_note, p_format)`: 採点1件を
@@ -96,13 +97,17 @@ SM-2と優先度による間隔調整の計算は全てDB関数側にあり、Fu
 - `record_answers_batch(p_answers jsonb)`: `record_answer` を `cross join lateral` で
   複数件まとめて1SQLで呼ぶだけの薄いラッパー。採点全体の原子性のために追加した
   （SM-2ロジック自体は持たない）
-- `record_answers_batch_once(p_answers jsonb)`: 対象行を安定順でロックし、`jst_today()`基準の
-  同日重複判定と未記録分の`record_answer`を同一トランザクションで行う
+- `record_answers_batch_once(p_answers jsonb)`: 対象行を安定順でロックし、
+  出題nonceの重複判定と未記録分の`record_answer`を
+  同一トランザクションで行う
 - `get_recent_quiz_notes(p_knowledge_ids, p_per_item=2)`: 選択された各項目について直近N件を返す
 - `consume_dashboard_handoff_nonce(p_nonce, p_expires_at)`: SSO引き継ぎnonceを一度だけ消費する
 - `jst_today()`: 日本時間の今日。日付判定は必ずこれを経由する
 
-DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECTだけで同日重複を防ごうとせず、
+q別の基準間隔はq0=10分、q1=30分、q2=6時間、q3=12時間、q4=1日以上、q5=3日以上。
+q0〜q3の定着保持率は40%・55%・70%・85%で、1再学習エピソードに1回だけ適用する。
+期限到来の自由記述q4/q5は1.4倍/1.8倍へ伸ばし、優先度は出題順だけに使う。
+DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECTだけで重複や再復習待機を防ごうとせず、
 必ず `record_answers_batch_once` の行ロック下で判定する。
 
 ### クイズの出題・採点品質
@@ -115,8 +120,9 @@ DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECT
   渡す。noteは次回出題に効かせるために書かせている
 - 出題順は同じカテゴリが連続しないよう入れ替える。並べ替えるのは順番だけで、`pick_quiz` が
   選んだ問題の差し替えはしない
-- 出題形式は `おまかせ` / `一問一答` / `四択` / `記述説明` / `産出` から選ぶ。`おまかせ` は習熟度で
-  問い方を上げる（未学習→四択、学習中→一問一答、習得中・定着→記述説明、語学カテゴリなら産出）。
+- 出題形式は `おまかせ` / `一問一答` / `四択` / `記述説明` / `産出` から選ぶ。`おまかせ` は未学習・
+  低定着・再認を四択、次を一問一答にする。習得中・定着は、単一事実なら一問一答、理由・比較・
+  手順なら記述説明、適用可能なら産出をAIが許可候補から選ぶ。語学カテゴリは産出を使う。
   値はスキル側と揃える。揃えないと `quiz_log` の履歴が形式で分断される
 - 四択の選択肢はAIに4件作らせ、サーバー側で並べ替えてから返す。件数・重複・空文字が崩れた項目は、
   その項目だけをもう一度まとめて生成し直す（1回だけ）。それでも崩れていたら黙って自由記述に
@@ -126,7 +132,16 @@ DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECT
   ブラウザによるq値上限回避や問題文差し替えを許さない
 - 採点は署名済みの出題時問題文を使い、「この問いに答えられたか」で採点する。
   問題文を渡さないと、空所補充に単語で答えただけで「説明が足りない」と減点される
+- 語学の空所補充では、単数・複数、時制、活用などの語形差を機械的に別語や0点扱いしない。
+  完成文が問いの意味を満たして自然なら正解とし、登録済みの参考解答より一般的な表現も許容する
 - 採点は `correct_answer`（模範解答）と `explanation`（この回答への講評）を分けて出させる
+- 採点では `answer_quotes` にユーザーの回答から1〜3件そのまま引用させ、サーバー側で `user_answer`
+  と照合する（NFKC・小文字化・空白除去のうえ部分一致）。q値が5未満なら減点の根拠になる箇所を
+  引用に含めさせ、講評でユーザーの回答に言及するときもこの引用を使わせる。一致しない項目は採点を
+  捨て、該当項目をまとめて再採点する。それでも残った項目は1問ずつ再採点し、一致しなければ記録せず502。
+  この照合を外すと、of と誤答したのに「for を即答できている」と講評して正解になる事故と、
+  書いていない「前提作業」を書いたことにして減点する事故が戻る
+- 無回答（空文字）はAIの判定に関わらずq0・不正解で記録する。空欄のまま提出した項目を進めない
 - 0件時は `knowledge` の件数を数えて「対象なし」と「本日出題済み」を切り分ける
 Secret keyはservice_roleのためRLSを迂回する。ブラウザのanon keyでは
 `record_answer` / `record_answers_batch` は書き込めない設計を変えない。

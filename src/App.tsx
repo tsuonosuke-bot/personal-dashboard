@@ -1,5 +1,6 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { ArchivedKnowledgeModal } from "./components/ArchivedKnowledgeModal";
+import { DailyReviewPanel } from "./components/DailyReviewPanel";
 import { FilterBar } from "./components/FilterBar";
 import { KnowledgeTable } from "./components/KnowledgeTable";
 import { KnowledgeDetailModal } from "./components/KnowledgeDetailModal";
@@ -9,7 +10,9 @@ import { ReviewInsights } from "./components/ReviewInsights";
 import { StatsCards } from "./components/StatsCards";
 import { ALL, DEFAULT_PAGE_SIZE } from "./constants";
 import { useFilteredKnowledge } from "./hooks/useFilteredKnowledge";
+import { useDailyReview } from "./hooks/useDailyReview";
 import { useKnowledgeData } from "./hooks/useKnowledgeData";
+import { dashboardRoutePath, parseDashboardRoute } from "./lib/dashboardRoute";
 import type {
   Filters, Knowledge, KnowledgeDraft, ReviewFilter, SortKey, SortState,
 } from "./types";
@@ -20,11 +23,16 @@ const QuizView = lazy(() => import("./components/QuizView")
   .then((module) => ({ default: module.QuizView })));
 
 export default function App() {
-  const [showQuiz, setShowQuiz] = useState(() => new URLSearchParams(window.location.search).get("view") === "quiz");
+  const initialRoute = parseDashboardRoute(window.location.href);
+  const [showQuiz, setShowQuiz] = useState(() => initialRoute.kind === "quiz");
+  const [quizMode, setQuizMode] = useState<"daily" | "custom">(() => (
+    initialRoute.kind === "quiz" ? initialRoute.mode : "custom"
+  ));
   const {
     knowledge, archivedKnowledge, quizLog, loading, error, mutating,
     reload, createKnowledge, updateKnowledge,
   } = useKnowledgeData();
+  const dailyReview = useDailyReview();
   const [filters, setFilters] = useState<Filters>({
     search: "",
     category: ALL,
@@ -52,6 +60,57 @@ export default function App() {
   const currentPage = Math.min(page, totalPages);
   const rows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  const replaceRoute = useCallback((route: Parameters<typeof dashboardRoutePath>[1]) => {
+    window.history.replaceState(null, "", dashboardRoutePath(window.location.href, route));
+  }, []);
+
+  const applyDashboardRoute = useCallback((notify = true) => {
+    const route = parseDashboardRoute(window.location.href);
+    if (route.kind === "quiz") {
+      setSelected(null);
+      setArchiveOpen(false);
+      setQuizMode(route.mode);
+      setShowQuiz(true);
+      return;
+    }
+
+    setShowQuiz(false);
+    if (loading || error) return;
+
+    if (route.kind === "knowledge") {
+      const active = knowledge.find((item) => item.id === route.knowledgeId);
+      if (active) {
+        setArchiveOpen(false);
+        setSelected(active);
+        return;
+      }
+      const archived = archivedKnowledge.find((item) => item.id === route.knowledgeId);
+      setSelected(null);
+      replaceRoute({ kind: "dashboard" });
+      if (archived) {
+        setArchiveOpen(true);
+        if (notify) setNotice("対象のナレッジはアーカイブ済みです。アーカイブ一覧を表示します。");
+      } else {
+        setArchiveOpen(false);
+        if (notify) setNotice("対象のナレッジが見つかりません。一覧を表示します。");
+      }
+      return;
+    }
+
+    setSelected(null);
+    if (route.kind === "invalid-knowledge") {
+      replaceRoute({ kind: "dashboard" });
+      if (notify) setNotice("指定されたナレッジを開けません。一覧を表示します。");
+    }
+  }, [archivedKnowledge, error, knowledge, loading, replaceRoute]);
+
+  useEffect(() => {
+    applyDashboardRoute();
+    const handlePopState = () => applyDashboardRoute();
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [applyDashboardRoute]);
+
   const updateFilters = (patch: Partial<Filters>) => {
     setFilters((prev) => ({ ...prev, ...patch }));
     setPage(1);
@@ -74,12 +133,35 @@ export default function App() {
   const selectReview = (review: ReviewFilter) => updateFilters({ review });
   const selectCategory = (category: string) => updateFilters({ category, review: "all" });
 
-  const setQuizOpen = (open: boolean) => {
-    const url = new URL(window.location.href);
-    if (open) url.searchParams.set("view", "quiz");
-    else url.searchParams.delete("view");
-    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  const setQuizOpen = (open: boolean, mode: "daily" | "custom" = "custom") => {
+    replaceRoute(open ? { kind: "quiz", mode } : { kind: "dashboard" });
+    setSelected(null);
+    setQuizMode(mode);
     setShowQuiz(open);
+  };
+
+  const openKnowledge = (item: Knowledge) => {
+    setActionError(null);
+    setSelected(item);
+    window.history.pushState(
+      { dashboardRoute: "knowledge" },
+      "",
+      dashboardRoutePath(window.location.href, { kind: "knowledge", knowledgeId: item.id }),
+    );
+  };
+
+  const closeKnowledge = () => {
+    const route = parseDashboardRoute(window.location.href);
+    if (route.kind === "knowledge" && window.history.state?.dashboardRoute === "knowledge") {
+      window.history.back();
+      return;
+    }
+    setSelected(null);
+    replaceRoute({ kind: "dashboard" });
+  };
+
+  const reloadAfterReview = async () => {
+    await Promise.all([reload(), dailyReview.refresh()]);
   };
 
   const openNew = () => {
@@ -88,6 +170,7 @@ export default function App() {
   };
 
   const openEdit = (item: Knowledge) => {
+    replaceRoute({ kind: "dashboard" });
     setSelected(null);
     setActionError(null);
     setFormTarget(item);
@@ -116,6 +199,7 @@ export default function App() {
     setActionError(null);
     try {
       const archived = await updateKnowledge(item.id, item.content_version, { archived: true });
+      replaceRoute({ kind: "dashboard" });
       setSelected(null);
       setNotice("ナレッジをアーカイブしました。");
       setUndoArchived(archived);
@@ -143,7 +227,9 @@ export default function App() {
           knowledge={knowledge}
           quizLog={quizLog}
           onExit={() => setQuizOpen(false)}
-          onRecorded={reload}
+          autoStartDaily={quizMode === "daily"}
+          dailyStatus={dailyReview.status}
+          onRecorded={reloadAfterReview}
           onKnowledgeUpdate={updateKnowledge}
         />
       </Suspense>
@@ -154,28 +240,45 @@ export default function App() {
     <div className="app-page">
       <header className="app-header">
         <div className="head">
-          <div className="page-heading">
-            <span className="eyebrow">Personal knowledge</span>
-            <h1>ナレッジ</h1>
-            <p>学びを整理・確認</p>
+          <div className="dashboard-brand">
+            <span className="dashboard-brand-mark" aria-hidden="true">K</span>
+            <span>
+              <h1>Knowledge</h1>
+              <small>学びを整理・確認</small>
+            </span>
           </div>
           <div className="head-actions">
             <a className="hub-link" href="https://personal-dashboard-7md.pages.dev/">← Hub</a>
-            <button className="primary-button quiz-nav-button" onClick={() => setQuizOpen(true)}>▶ 復習する</button>
-            <button onClick={handleReload} disabled={loading || mutating}>↻ 更新</button>
-            <button
-              className="archive-button"
-              onClick={() => { setActionError(null); setArchiveOpen(true); }}
-              disabled={loading || mutating}
-            >
-              アーカイブ {archivedKnowledge.length}件
-            </button>
+            <details className="dashboard-switcher">
+              <summary>Dashboards</summary>
+              <nav aria-label="ダッシュボードを切り替え">
+                <a href="https://personal-dashboard-7md.pages.dev/compass/">Idea</a>
+                <a href="https://personal-dashboard-7md.pages.dev/writing/">Writing</a>
+                <a href="https://personal-dashboard-7md.pages.dev/habits/">Habits</a>
+                <a href="https://personal-dashboard-7md.pages.dev/go/financial">Finance</a>
+                <span aria-current="page">Knowledge</span>
+              </nav>
+            </details>
+            <span className={`source-badge ${error ? "error" : loading ? "loading" : "live"}`}>
+              {error ? "取得失敗" : loading ? "接続確認中" : "SUPABASE LIVE"}
+            </span>
+            <button className="refresh-button" onClick={handleReload} disabled={loading || mutating} aria-label="データを再読み込み" title="再読み込み">↻</button>
             <button className="primary-button" onClick={openNew} disabled={loading || mutating}>＋ ナレッジを追加</button>
           </div>
         </div>
       </header>
 
       <main className="wrap">
+
+      <div className="page-tools">
+        <button
+          className="archive-button"
+          onClick={() => { setActionError(null); setArchiveOpen(true); }}
+          disabled={loading || mutating}
+        >
+          アーカイブ {archivedKnowledge.length}件
+        </button>
+      </div>
 
       {loading && <div className="msg">読み込み中...</div>}
       {!loading && error && <div className="err">エラー: {error}</div>}
@@ -201,6 +304,12 @@ export default function App() {
 
       {!loading && !error && (
         <>
+          <DailyReviewPanel
+            status={dailyReview.status}
+            loading={dailyReview.loading}
+            error={dailyReview.error}
+            onStart={() => setQuizOpen(true, "daily")}
+          />
           <StatsCards knowledge={knowledge} quizLog={quizLog} />
           <ReviewInsights
             knowledge={knowledge}
@@ -218,7 +327,7 @@ export default function App() {
             resultCount={filtered.length}
             onChange={updateFilters}
           />
-          <KnowledgeTable rows={rows} sort={sort} onSort={handleSort} onOpen={setSelected} />
+          <KnowledgeTable rows={rows} sort={sort} onSort={handleSort} onOpen={openKnowledge} />
           <Pagination
             page={currentPage}
             totalPages={totalPages}
@@ -235,7 +344,7 @@ export default function App() {
           knowledge={selected}
           quizLog={quizLog}
           mutating={mutating}
-          onClose={() => setSelected(null)}
+          onClose={closeKnowledge}
           onEdit={() => openEdit(selected)}
           onArchive={() => void archiveKnowledge(selected)}
         />

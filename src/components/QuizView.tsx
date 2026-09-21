@@ -1,12 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_QUIZ_FORMAT, DEFAULT_QUIZ_LIMIT, QUIZ_FORMAT_OPTIONS, QUIZ_LIMIT_OPTIONS, useQuiz,
 } from "../hooks/useQuiz";
 import { PRIORITY_INTERVAL_HINTS, PRIORITY_ORDER } from "../constants";
+import { dashboardRoutePath } from "../lib/dashboardRoute";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import { KnowledgeFormModal } from "./KnowledgeFormModal";
 import type {
-  Knowledge, KnowledgeDraft, KnowledgePriority, QuizFormatRequest, QuizGradeResult, QuizLog,
+  DailyReviewStatus, Knowledge, KnowledgeDraft, KnowledgePriority, QuizFormatRequest, QuizGradeResult, QuizLog,
   QuizQuestion,
 } from "../types";
 
@@ -24,11 +25,32 @@ const VERDICT_CLASS: Record<string, string> = {
   不正解: "quiz-verdict-ng",
 };
 
+const QUALITY_INTERVAL_LABEL: Record<number, string> = {
+  0: "10分後",
+  1: "30分後",
+  2: "6時間後",
+  3: "12時間後",
+  4: "1日以上",
+  5: "3日以上",
+};
+
+function formatReviewTime(value: string): string {
+  return new Date(value).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 interface Props {
   knowledge: Knowledge[];
   quizLog: QuizLog[];
   onExit: () => void;
   onRecorded: () => void | Promise<void>;
+  autoStartDaily?: boolean;
+  dailyStatus: DailyReviewStatus | null;
   onKnowledgeUpdate: (
     id: string,
     expectedVersion: number,
@@ -44,7 +66,7 @@ type PriorityFeedback = {
 };
 
 export function QuizView({
-  knowledge, quizLog, onExit, onRecorded, onKnowledgeUpdate,
+  knowledge, quizLog, onExit, onRecorded, onKnowledgeUpdate, autoStartDaily = false, dailyStatus,
 }: Props) {
   const quiz = useQuiz(onRecorded);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -55,12 +77,19 @@ export function QuizView({
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [priorityFeedback, setPriorityFeedback] = useState<PriorityFeedback | null>(null);
+  const autoStarted = useRef(false);
 
   const categories = useMemo(
     () => [...new Set(knowledge.map((item) => item.category))].sort(),
     [knowledge],
   );
   const detail = knowledge.find((item) => item.id === detailId) ?? null;
+
+  useEffect(() => {
+    if (!autoStartDaily || autoStarted.current || quiz.stage !== "setup") return;
+    autoStarted.current = true;
+    void quiz.start([], dailyStatus?.limit ?? DEFAULT_QUIZ_LIMIT, DEFAULT_QUIZ_FORMAT, "daily");
+  }, [autoStartDaily, dailyStatus?.limit, quiz]);
 
   const toggleCategory = (category: string) => {
     setSelectedCategories((prev) => prev.includes(category)
@@ -126,7 +155,7 @@ export function QuizView({
     <div className="quiz-page">
       <header className="quiz-header">
         <button className="text-button" onClick={onExit}>← ダッシュボードへ戻る</button>
-        <h1>復習クイズ</h1>
+        <h1>復習</h1>
       </header>
 
       <main className="quiz-body">
@@ -134,7 +163,27 @@ export function QuizView({
 
         {quiz.stage === "setup" && (
           <div className="quiz-setup card">
-            <p>出題するカテゴリ・問題数・形式を選んでください。</p>
+            <div className="daily-quiz-start">
+              <div>
+                <strong>今日の復習キュー</strong>
+                <span>
+                  {dailyStatus
+                    ? `今日${dailyStatus.completed}件実施・今すぐ${dailyStatus.remaining}件`
+                    : "1回15件ずつ、復習対象がある限り続行"}
+                </span>
+              </div>
+              <button
+                className="primary-button"
+                disabled={dailyStatus?.remaining === 0}
+                onClick={() => void quiz.start([], dailyStatus?.limit ?? DEFAULT_QUIZ_LIMIT, format, "daily")}
+              >
+                {dailyStatus?.remaining
+                  ? `次の${Math.min(dailyStatus.limit, dailyStatus.remaining)}件を開始`
+                  : "今すぐの復習は完了"}
+              </button>
+            </div>
+            <div className="quiz-divider"><span>カスタム出題</span></div>
+            <p>カテゴリ・問題数・形式を指定して出題できます。</p>
             <div className="quiz-category-select" role="group" aria-label="出題カテゴリ">
               <button
                 aria-pressed={selectedCategories.length === 0}
@@ -178,7 +227,7 @@ export function QuizView({
             </p>
             <button
               className="primary-button quiz-start-button"
-              onClick={() => void quiz.start(selectedCategories, limit, format)}
+              onClick={() => void quiz.start(selectedCategories, limit, format, "custom")}
             >
               出題する
             </button>
@@ -191,7 +240,9 @@ export function QuizView({
           <div className="quiz-setup card">
             <p>
               {quiz.emptyReason === "done_today"
-                ? "本日の出題は終わっています。選んだカテゴリは全問採点済みです。"
+                ? dailyStatus?.retry_waiting
+                  ? `今すぐ復習できる問題はありません。${dailyStatus.retry_waiting}件が段階別の再復習時刻を待っています。`
+                  : "今すぐ復習できる問題はありません。"
                 : "選んだカテゴリに出題できるナレッジがありません。"}
             </p>
             <button className="primary-button" onClick={resetQuiz}>戻る</button>
@@ -225,6 +276,12 @@ export function QuizView({
               {quiz.questions.map((question) => {
                 const result = quiz.results.find((r) => r.id === question.id);
                 if (!result) return null;
+                const knowledgeHref = dashboardRoutePath(window.location.href, {
+                  kind: "knowledge",
+                  knowledgeId: result.id,
+                });
+                const userAnswer = quiz.answers[question.id] ?? "";
+                const hasUserAnswer = userAnswer.trim().length > 0;
                 const displayedPriority = priorityFeedback?.id === result.id
                   && priorityFeedback.status === "saving"
                   && priorityFeedback.priority
@@ -236,9 +293,15 @@ export function QuizView({
                       <span className={`badge ${VERDICT_CLASS[result.verdict] ?? ""}`}>{result.verdict}</span>
                       <span className="quiz-result-q">q{result.quality}</span>
                       <span className="quiz-result-format">{question.format}</span>
-                      {!result.recorded && <span className="muted">（本日分は記録済み）</span>}
+                      {!result.recorded && <span className="muted">（同じ回答はすでに記録済みです）</span>}
                     </div>
                     <p className="quiz-result-question">{question.question}</p>
+                    <div className="content-block quiz-user-answer-block">
+                      <h3>あなたの回答</h3>
+                      <p className={`quiz-user-answer${hasUserAnswer ? "" : " unanswered"}`}>
+                        {hasUserAnswer ? userAnswer : "（未回答）"}
+                      </p>
+                    </div>
                     <div className="content-block">
                       <h3>正解</h3>
                       <p>{result.correct_answer}</p>
@@ -254,6 +317,30 @@ export function QuizView({
                     <div className="content-block">
                       <h3>解説</h3>
                       <p>{result.explanation}</p>
+                    </div>
+                    <div className="quiz-knowledge-panel">
+                      <dl className="quiz-knowledge-meta">
+                        <div>
+                          <dt>ナレッジID</dt>
+                          <dd><code>{result.id}</code></dd>
+                        </div>
+                        <div>
+                          <dt>分類</dt>
+                          <dd>{result.category}</dd>
+                        </div>
+                      </dl>
+                      <div className="quiz-knowledge-actions">
+                        <a
+                          className="quiz-knowledge-link"
+                          href={knowledgeHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`${result.title}の詳細・編集画面を新しいタブで開く`}
+                        >
+                          詳細・編集を新しいタブで開く ↗
+                        </a>
+                        <span>習熟度の変更やアーカイブも行えます。</span>
+                      </div>
                     </div>
                     <div className="quiz-priority-panel">
                       <label className="quiz-priority-control">
@@ -273,11 +360,15 @@ export function QuizView({
                         </select>
                       </label>
                       <p className="quiz-priority-hint">
-                        {PRIORITY_INTERVAL_HINTS[displayedPriority]}。予定がある場合は次回復習日も更新されます。
+                        {PRIORITY_INTERVAL_HINTS[displayedPriority]}。優先度は出題順だけに使い、復習間隔は変えません。
                       </p>
-                      {result.next_review_on && (
-                        <p className="quiz-next-review">次回復習日: {result.next_review_on}</p>
-                      )}
+                      <p className="quiz-next-review">
+                        {result.schedule_updated
+                          ? `次回: ${formatReviewTime(result.next_review_at)}（${QUALITY_INTERVAL_LABEL[result.quality] ?? "定着間隔に応じて調整"}）`
+                          : `次回: ${formatReviewTime(result.next_review_at)}（期限前の正解のため予定は据え置き）`}
+                        {result.relearning_stage === "recognition" && "・次は四択で再認"}
+                        {result.relearning_stage === "recall" && "・次は一問一答で想起"}
+                      </p>
                       <div className="quiz-priority-feedback" aria-live="polite">
                         {priorityFeedback?.id === result.id && priorityFeedback.status === "saving" && "保存中…"}
                         {priorityFeedback?.id === result.id && priorityFeedback.status === "saved" && "保存しました。"}

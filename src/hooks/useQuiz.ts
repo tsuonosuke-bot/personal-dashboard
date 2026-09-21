@@ -9,7 +9,7 @@ export const DEFAULT_QUIZ_LIMIT = 15;
 
 /** 出題形式の選択肢。並び順がそのまま画面の並びになる。 */
 export const QUIZ_FORMAT_OPTIONS: { value: QuizFormatRequest; label: string; hint: string }[] = [
-  { value: "おまかせ", label: "おまかせ", hint: "習熟度に合わせて四択→一問一答→記述説明・産出と上げる" },
+  { value: "おまかせ", label: "おまかせ", hint: "再認→自由想起へ進め、知識の構造に合わせて一問一答・説明・産出を選ぶ" },
   { value: "四択", label: "四択", hint: "選択肢から選ぶ。思い出せない項目の足場向け" },
   { value: "一問一答", label: "一問一答", hint: "選択肢なしでキーワードを答える。標準" },
   { value: "記述説明", label: "記述説明", hint: "理由や使い分けを数文で説明する" },
@@ -33,11 +33,12 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
     categories: string[],
     limit: number,
     format: QuizFormatRequest,
+    mode: "daily" | "custom" = "custom",
   ) => {
     setStage("loading");
     setError(null);
     try {
-      const { items, reason, early: isEarly } = await startQuiz(categories, limit, format);
+      const { items, reason, early: isEarly } = await startQuiz(categories, limit, format, mode);
       if (items.length === 0) {
         setEmptyReason(reason);
         setStage("empty");
@@ -96,9 +97,13 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
       ? {
         ...result,
         title: updated.title,
+        category: updated.category,
         priority: updated.priority,
         content_version: updated.content_version,
         next_review_on: updated.next_review_on,
+        next_review_at: updated.next_review_at,
+        stability_hours: updated.stability_hours,
+        relearning_stage: updated.relearning_stage,
       }
       : result));
   }, []);

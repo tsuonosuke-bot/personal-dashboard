@@ -1,4 +1,3 @@
-import { getJstToday } from "../lib/knowledge";
 import type { Knowledge, SortKey, SortState } from "../types";
 
 interface Props {
@@ -18,7 +17,7 @@ const HEADERS: { key: SortKey; label: string }[] = [
 ];
 
 export function KnowledgeTable({ rows, sort, onSort, onOpen }: Props) {
-  const today = getJstToday();
+  const now = Date.now();
   return (
     <div className="card table-card">
       <table>
@@ -59,8 +58,11 @@ export function KnowledgeTable({ rows, sort, onSort, onOpen }: Props) {
                   </td>
                   <td><span className={`badge priority-${k.priority}`}>{k.priority}</span></td>
                   <td>{k.accuracy != null ? `${Math.round(k.accuracy * 100)}%` : "-"}</td>
-                  <td className={k.next_review_on && k.next_review_on < today ? "overdue-text" : ""}>
-                    {k.next_review_on ?? "-"}
+                  <td className={Date.parse(k.next_review_at) < now ? "overdue-text" : ""}>
+                    {new Date(k.next_review_at).toLocaleString("ja-JP", {
+                      timeZone: "Asia/Tokyo", month: "numeric", day: "numeric",
+                      hour: "2-digit", minute: "2-digit",
+                    })}
                   </td>
                   <td><button className="text-button" onClick={() => onOpen(k)}>詳細</button></td>
                 </tr>

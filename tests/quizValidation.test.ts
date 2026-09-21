@@ -40,11 +40,11 @@ test("JSON本文の構文を検証する", async () => {
 test("出題要求のcategories/limit/formatを検証し、既定値を補う", () => {
   assert.deepEqual(
     validateStartRequest({}),
-    { ok: true, value: { categories: [], limit: 15, format: "おまかせ" } },
+    { ok: true, value: { categories: [], limit: 15, format: "おまかせ", mode: "custom" } },
   );
   assert.deepEqual(
     validateStartRequest({ categories: ["英語", " 歴史 ", "英語"], limit: 5, format: "四択" }),
-    { ok: true, value: { categories: ["英語", "歴史"], limit: 5, format: "四択" } },
+    { ok: true, value: { categories: ["英語", "歴史"], limit: 5, format: "四択", mode: "custom" } },
   );
   assert.equal(validateStartRequest({ categories: "英語" }).ok, false);
   assert.equal(validateStartRequest({ categories: [""] }).ok, false);
@@ -59,6 +59,9 @@ test("出題要求のcategories/limit/formatを検証し、既定値を補う", 
   assert.equal(validateStartRequest({ format: "ソクラテス式" }).ok, false);
   assert.equal(validateStartRequest({ format: "穴埋め" }).ok, false);
   assert.equal(validateStartRequest({ format: 1 }).ok, false);
+  assert.equal(validateStartRequest({ mode: "daily" }).ok, true);
+  assert.equal(validateStartRequest({ mode: "daily", categories: ["英語"] }).ok, false);
+  assert.equal(validateStartRequest({ mode: "random" }).ok, false);
 });
 
 test("採点要求は署名トークンと回答だけを受理する", () => {
