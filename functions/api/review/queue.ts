@@ -22,6 +22,27 @@ function integer(record: Record<string, unknown>, key: string): number | null {
   return Number.isInteger(value) && value >= 0 ? value : null;
 }
 
+function categoryCounts(value: unknown, expectedTotal: number): { category: string; count: number }[] | null {
+  if (!Array.isArray(value)) return null;
+  const result: { category: string; count: number }[] = [];
+  const seen = new Set<string>();
+  let total = 0;
+  for (const item of value) {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) return null;
+    const record = item as Record<string, unknown>;
+    const category = record.category;
+    const count = Number(record.count);
+    if (
+      typeof category !== "string" || !category.trim() || seen.has(category)
+      || !Number.isSafeInteger(count) || count < 0
+    ) return null;
+    seen.add(category);
+    total += count;
+    result.push({ category, count });
+  }
+  return total === expectedTotal ? result : null;
+}
+
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
   if (context.request.method !== "GET") return methodNotAllowed("GET");
   const limit = readLimit(context.request);
@@ -46,11 +67,14 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const retryReady = integer(row, "retry_ready");
   const retryWaiting = integer(row, "retry_waiting");
   const nextRetryAt = row.next_retry_at;
+  const remainingByCategory = remaining === null
+    ? null
+    : categoryCounts(row.remaining_by_category, remaining);
   if (
     typeof reviewOn !== "string" || queueLimit === null || total === null || completed === null
     || completedUnique === null
     || remaining === null || dueTotal === null || overdueTotal === null
-    || retryReady === null || retryWaiting === null
+    || retryReady === null || retryWaiting === null || remainingByCategory === null
     || (nextRetryAt !== null && typeof nextRetryAt !== "string")
     || completed + remaining !== total
   ) return jsonResponse({ error: "日次復習キューの応答が正しくありません。" }, 502);
@@ -67,5 +91,6 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     retry_ready: retryReady,
     retry_waiting: retryWaiting,
     next_retry_at: nextRetryAt,
+    remaining_by_category: remainingByCategory,
   });
 };

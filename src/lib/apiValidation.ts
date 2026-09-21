@@ -1,5 +1,5 @@
 import type {
-  DailyReviewStatus, Knowledge, KnowledgePriority, Mastery, QuizEmptyReason, QuizFormat,
+  DailyReviewCategoryCount, DailyReviewStatus, Knowledge, KnowledgePriority, Mastery, QuizEmptyReason, QuizFormat,
   QuizGradeFailure, QuizGradeFailurePhase, QuizGradeResponse, QuizGradeResult, QuizLog, QuizQuestion,
   QuizStart, QuizVerdict, RecoveryPreview,
   RelearningStage,
@@ -176,6 +176,24 @@ function nonNegativeInteger(record: Record<string, unknown>, field: string, enti
   return value;
 }
 
+function categoryCountsValue(
+  record: Record<string, unknown>,
+  field: string,
+  entity: string,
+): DailyReviewCategoryCount[] {
+  const value = record[field];
+  if (!Array.isArray(value)) return fail(entity, field);
+  const seen = new Set<string>();
+  return value.map((item) => {
+    if (!isRecord(item)) return fail(entity, field);
+    const category = stringValue(item, "category", entity);
+    const count = nonNegativeInteger(item, "count", entity);
+    if (!category.trim() || seen.has(category)) return fail(entity, field);
+    seen.add(category);
+    return { category, count };
+  });
+}
+
 export function parseDailyReviewStatus(value: unknown): DailyReviewStatus {
   const entity = "日次復習キュー";
   if (!isRecord(value)) return fail(entity);
@@ -191,8 +209,14 @@ export function parseDailyReviewStatus(value: unknown): DailyReviewStatus {
     retry_ready: nonNegativeInteger(value, "retry_ready", entity),
     retry_waiting: nonNegativeInteger(value, "retry_waiting", entity),
     next_retry_at: nullableStringValue(value, "next_retry_at", entity),
+    remaining_by_category: categoryCountsValue(value, "remaining_by_category", entity),
   };
-  if (result.limit < 1 || result.limit > 30 || result.completed + result.remaining !== result.total) {
+  const categoryTotal = result.remaining_by_category.reduce((sum, item) => sum + item.count, 0);
+  if (
+    result.limit < 1 || result.limit > 30
+    || result.completed + result.remaining !== result.total
+    || categoryTotal !== result.remaining
+  ) {
     return fail(entity);
   }
   return result;

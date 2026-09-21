@@ -32,6 +32,11 @@ test("日次キュー状態は上限・進捗・期限超過総数を区別し�
       review_on: "2026-09-20", queue_limit: 15, queue_total: 41,
       completed: 30, completed_unique: 24, remaining: 11, due_total: 11, overdue_total: 8,
       retry_ready: 2, retry_waiting: 3, next_retry_at: "2026-09-20T03:10:00Z",
+      remaining_by_category: [
+        { category: "英語", count: 7 },
+        { category: "SAP", count: 4 },
+        { category: "経済", count: 0 },
+      ],
     }]);
   };
   try {
@@ -41,7 +46,31 @@ test("日次キュー状態は上限・進捗・期限超過総数を区別し�
       review_on: "2026-09-20", limit: 15, total: 41, completed: 30, completed_unique: 24,
       remaining: 11, due_total: 11, overdue_total: 8,
       retry_ready: 2, retry_waiting: 3, next_retry_at: "2026-09-20T03:10:00Z",
+      remaining_by_category: [
+        { category: "英語", count: 7 },
+        { category: "SAP", count: 4 },
+        { category: "経済", count: 0 },
+      ],
     });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("カテゴリ別残数の合計が全体の残数と違う応答は拒否する", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json([{
+    review_on: "2026-09-20", queue_limit: 15, queue_total: 11,
+    completed: 0, completed_unique: 0, remaining: 11, due_total: 11, overdue_total: 8,
+    retry_ready: 2, retry_waiting: 0, next_retry_at: null,
+    remaining_by_category: [{ category: "英語", count: 10 }],
+  }]);
+  try {
+    const response = await queueRoute({
+      request: new Request("https://dashboard.example/api/review/queue?limit=15"),
+      env,
+    });
+    assert.equal(response.status, 502);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -168,6 +197,18 @@ test("continuous review makes 15 a batch size and gives every quality a distinct
   assert.match(sql, /attempt_id/);
 });
 
+test("カテゴリ別残数は全アクティブカテゴリを今すぐ復習可能な条件で集計する", async () => {
+  const sql = await readFile(
+    new URL("../supabase/migrations/20260921120000_daily_review_category_counts.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(sql, /where k\.archived = false\s+group by k\.category/);
+  assert.match(sql, /count\(\*\) filter \(where k\.next_review_at <= now\(\)\)/);
+  assert.match(sql, /coalesce\(sum\(c\.remaining\), 0\)/);
+  assert.match(sql, /order by c\.remaining desc, c\.category/);
+  assert.match(sql, /remaining_by_category jsonb/);
+});
+
 test("日次キューは実施数、次バッチ、q別復習間隔を表示する", async () => {
   const source = await readFile(new URL("../src/components/DailyReviewPanel.tsx", import.meta.url), "utf8");
   assert.match(source, /今日の復習キュー/);
@@ -178,5 +219,6 @@ test("日次キューは実施数、次バッチ、q別復習間隔を表示す�
   assert.match(source, /q0=10分、q1=30分、q2=6時間、q3=12時間、q4=1日以上、q5=3日以上/);
   assert.match(source, /q4・q5は保持できた期間に応じて伸び/);
   assert.match(source, /再学習は最大10件/);
+  assert.match(source, /ReviewCategoryCounts/);
   assert.doesNotMatch(source, /この配分で更新/);
 });

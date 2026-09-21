@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  parseKnowledge, parsePageEnvelope, parseQuizGradeResponse, parseQuizLog, parseQuizStartResponse,
+  parseDailyReviewStatus, parseKnowledge, parsePageEnvelope, parseQuizGradeResponse, parseQuizLog,
+  parseQuizStartResponse,
 } from "../src/lib/apiValidation.ts";
 import { getKnowledge } from "../src/lib/api.ts";
 
@@ -132,6 +133,45 @@ test("採点結果の優先度と更新バージョンを検証する", () => {
       ],
     }),
     /failures/,
+  );
+});
+
+test("日次復習のカテゴリ別残数を検証する", () => {
+  const status = {
+    review_on: "2026-09-21",
+    limit: 15,
+    total: 18,
+    completed: 8,
+    completed_unique: 6,
+    remaining: 10,
+    due_total: 10,
+    overdue_total: 4,
+    retry_ready: 2,
+    retry_waiting: 1,
+    next_retry_at: null,
+    remaining_by_category: [
+      { category: "英語", count: 6 },
+      { category: "SAP", count: 4 },
+      { category: "経済", count: 0 },
+    ],
+  };
+  assert.deepEqual(parseDailyReviewStatus(status), status);
+  assert.throws(
+    () => parseDailyReviewStatus({
+      ...status,
+      remaining_by_category: [{ category: "英語", count: 9 }],
+    }),
+    /日次復習キュー/,
+  );
+  assert.throws(
+    () => parseDailyReviewStatus({
+      ...status,
+      remaining_by_category: [
+        { category: "英語", count: 6 },
+        { category: "英語", count: 4 },
+      ],
+    }),
+    /remaining_by_category/,
   );
 });
 

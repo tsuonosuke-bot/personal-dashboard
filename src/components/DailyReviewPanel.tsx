@@ -1,4 +1,5 @@
 import type { DailyReviewStatus } from "../types";
+import { ReviewCategoryCounts } from "./ReviewCategoryCounts";
 
 interface Props {
   status: DailyReviewStatus | null;
@@ -61,6 +62,7 @@ export function DailyReviewPanel({ status, loading, error, onStart, onCustomStar
           <div className="daily-progress" aria-label={`今日の復習作業 ${progress}%`}>
             <span style={{ width: `${progress}%` }} />
           </div>
+          <ReviewCategoryCounts items={status.remaining_by_category} total={status.remaining} />
           <div className="daily-review-note">
             <p>
               {status.limit}件は1日の上限ではなく、1回の出題数です。
