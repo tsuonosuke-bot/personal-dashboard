@@ -242,28 +242,45 @@ export default function App() {
     <div className="app-page">
       <header className="app-header">
         <div className="head">
-          <div className="page-heading">
-            <span className="eyebrow">Personal knowledge</span>
-            <h1>ナレッジ</h1>
-            <p>学びを整理・確認</p>
+          <div className="dashboard-brand">
+            <span className="dashboard-brand-mark" aria-hidden="true">K</span>
+            <span>
+              <h1>Knowledge</h1>
+              <small>学びを整理・確認</small>
+            </span>
           </div>
           <div className="head-actions">
             <a className="hub-link" href="https://personal-dashboard-7md.pages.dev/">← Hub</a>
-            <button className="primary-button quiz-nav-button" onClick={() => setQuizOpen(true, "daily")}>▶ 今日の復習</button>
-            <button onClick={handleReload} disabled={loading || mutating}>↻ 更新</button>
-            <button
-              className="archive-button"
-              onClick={() => { setActionError(null); setArchiveOpen(true); }}
-              disabled={loading || mutating}
-            >
-              アーカイブ {archivedKnowledge.length}件
-            </button>
+            <details className="dashboard-switcher">
+              <summary>Dashboards</summary>
+              <nav aria-label="ダッシュボードを切り替え">
+                <a href="https://personal-dashboard-7md.pages.dev/compass/">Idea</a>
+                <a href="https://personal-dashboard-7md.pages.dev/writing/">Writing</a>
+                <a href="https://personal-dashboard-7md.pages.dev/habits/">Habits</a>
+                <a href="https://personal-dashboard-7md.pages.dev/go/financial">Finance</a>
+                <span aria-current="page">Knowledge</span>
+              </nav>
+            </details>
+            <span className={`source-badge ${error ? "error" : loading ? "loading" : "live"}`}>
+              {error ? "取得失敗" : loading ? "接続確認中" : "SUPABASE LIVE"}
+            </span>
+            <button className="refresh-button" onClick={handleReload} disabled={loading || mutating} aria-label="データを再読み込み" title="再読み込み">↻</button>
             <button className="primary-button" onClick={openNew} disabled={loading || mutating}>＋ ナレッジを追加</button>
           </div>
         </div>
       </header>
 
       <main className="wrap">
+
+      <div className="page-tools">
+        <button
+          className="archive-button"
+          onClick={() => { setActionError(null); setArchiveOpen(true); }}
+          disabled={loading || mutating}
+        >
+          アーカイブ {archivedKnowledge.length}件
+        </button>
+      </div>
 
       {loading && <div className="msg">読み込み中...</div>}
       {!loading && error && <div className="err">エラー: {error}</div>}
