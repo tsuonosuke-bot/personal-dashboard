@@ -50,13 +50,15 @@ function validInput(overrides: Record<string, unknown> = {}) {
 }
 
 test("Writing rows preserve their Want relationship and sort by latest update", () => {
+  const preciseUpdatedAt = "2026-09-20T01:00:00.123456+00:00";
   const items = normalizeWritingRows([
     row({ id: 7, updated_at: "2026-09-19T00:00:00Z" }),
-    row({ id: 8, source_route_id: 18, source_want_id: 28, status: "completed", updated_at: "2026-09-20T01:00:00Z" }),
+    row({ id: 8, source_route_id: 18, source_want_id: 28, status: "completed", updated_at: preciseUpdatedAt }),
   ]);
   assert.deepEqual(items.map((item) => item.id), [8, 7]);
   assert.equal(items[0].sourceWantId, 28);
   assert.equal(items[0].status, "completed");
+  assert.equal(items[0].updatedAt, preciseUpdatedAt);
   assert.throws(() => normalizeWritingRows([row({ status: "unknown" })]), /invalid data/);
 });
 
@@ -125,6 +127,26 @@ test("Writing update uses id and updated_at for a conflict-safe write", async ()
     assert.equal(body.title, validInput().title);
     assert.deepEqual(Object.keys(body).sort(), ["question", "status", "title", "updated_at"]);
     assert.match(body.updated_at, /^\d{4}-\d{2}-\d{2}T/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Writing update preserves PostgreSQL microsecond precision in its conflict condition", async () => {
+  const originalFetch = globalThis.fetch;
+  const updatedAt = "2026-09-20T01:00:00.123456+00:00";
+  let seenUrl = "";
+  globalThis.fetch = async (input) => {
+    seenUrl = String(input);
+    return Response.json([row({ status: "drafting", updated_at: "2026-09-20T02:00:00.000Z" })]);
+  };
+  try {
+    const response = await writingRoute({
+      request: mutationRequest(validInput({ originalUpdatedAt: updatedAt })),
+      env,
+    });
+    assert.equal(response.status, 200);
+    assert.equal(new URL(seenUrl).searchParams.get("updated_at"), `eq.${updatedAt}`);
   } finally {
     globalThis.fetch = originalFetch;
   }

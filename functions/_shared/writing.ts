@@ -61,8 +61,11 @@ function positiveInteger(value: unknown): number | null {
 }
 
 function isoDate(value: unknown): string | null {
-  if (typeof value !== "string" || Number.isNaN(Date.parse(value))) return null;
-  return new Date(value).toISOString();
+  if (typeof value !== "string"
+    || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)
+    || Number.isNaN(Date.parse(value))) return null;
+  // Keep PostgreSQL's fractional-second precision intact for optimistic locking.
+  return value;
 }
 
 function isWritingStatus(value: unknown): value is WritingStatus {
