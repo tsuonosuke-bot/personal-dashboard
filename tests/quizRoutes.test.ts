@@ -698,10 +698,11 @@ test("quiz/grade は改ざんされた問題と四択の選択肢外回答を拒
 
 /** 採点3テストで共通の knowledge 応答。1件分の事実と採点後状態を返す。 */
 function gradeKnowledgeResponse(url: string) {
-  if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on") {
+  if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
     return Response.json([{
       id: ID_1, title: "There's room for A", priority: "高", content_version: 3,
-      next_review_on: "2026-09-27",
+      next_review_on: "2026-09-27", next_review_at: "2026-09-27T03:00:00Z",
+      stability_hours: 144, relearning_stage: null,
     }]);
   }
   return Response.json([{
@@ -739,7 +740,9 @@ test("quiz/grade は回答に無い引用を返した採点を捨てて再採点
       recordedQuality = (JSON.parse(String(init?.body)) as {
         p_answers: { quality: number }[];
       }).p_answers[0].quality;
-      return Response.json([{ id: ID_1, next_review_on: "2026-09-21", recorded: true }]);
+      return Response.json([{
+        id: ID_1, next_review_on: "2026-09-21", recorded: true, schedule_updated: true,
+      }]);
     }
     throw new Error(`unexpected fetch: ${url}`);
   };
@@ -777,7 +780,9 @@ test("quiz/grade は再採点でも引用が一致しなければ記録せず502
     }
     if (url.includes("/rest/v1/rpc/record_answers_batch_once")) {
       batchCalled = true;
-      return Response.json([{ id: ID_1, next_review_on: null, recorded: true }]);
+      return Response.json([{
+        id: ID_1, next_review_on: null, recorded: true, schedule_updated: true,
+      }]);
     }
     throw new Error(`unexpected fetch: ${url}`);
   };
@@ -813,7 +818,9 @@ test("quiz/grade は無回答をAIの判定に関わらずq0で記録する", as
       recordedQuality = (JSON.parse(String(init?.body)) as {
         p_answers: { quality: number }[];
       }).p_answers[0].quality;
-      return Response.json([{ id: ID_1, next_review_on: "2026-09-21", recorded: true }]);
+      return Response.json([{
+        id: ID_1, next_review_on: "2026-09-21", recorded: true, schedule_updated: true,
+      }]);
     }
     throw new Error(`unexpected fetch: ${url}`);
   };
@@ -845,10 +852,11 @@ test("quiz/grade は回答に書かれていない表現を根拠にした減点
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
-      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on") {
+      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
         return Response.json([{
           id: ID_1, title: "1W&1PとIPO", priority: "高", content_version: 2,
-          next_review_on: "2026-10-04",
+          next_review_on: "2026-10-04", next_review_at: "2026-10-04T03:00:00Z",
+          stability_hours: 312, relearning_stage: null,
         }]);
       }
       return Response.json([{
@@ -882,7 +890,9 @@ test("quiz/grade は回答に書かれていない表現を根拠にした減点
       recordedQuality = (JSON.parse(String(init?.body)) as {
         p_answers: { quality: number }[];
       }).p_answers[0].quality;
-      return Response.json([{ id: ID_1, next_review_on: "2026-10-04", recorded: true }]);
+      return Response.json([{
+        id: ID_1, next_review_on: "2026-10-04", recorded: true, schedule_updated: true,
+      }]);
     }
     throw new Error(`unexpected fetch: ${url}`);
   };
