@@ -117,7 +117,7 @@ export function QuizView({
     <div className="quiz-page">
       <header className="quiz-header">
         <button className="text-button" onClick={onExit}>← ダッシュボードへ戻る</button>
-        <h1>復習クイズ</h1>
+        <h1>復習</h1>
       </header>
 
       <main className="quiz-body">
