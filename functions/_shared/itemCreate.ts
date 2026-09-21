@@ -2,23 +2,40 @@ import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 
 const MAX_REQUEST_CHARS = 5_000;
 const MAX_CONTENT_CHARS = 2_000;
+const MAX_NOTE_CHARS = 2_000;
+const TOKYO_OFFSET_MS = 9 * 60 * 60 * 1_000;
 
 export interface ItemCreateDefinition {
   table: "wants";
   actionHeader: "want-create";
   select: string;
   status: "active";
+  type: "want";
 }
 
 export const WANT_CREATE: ItemCreateDefinition = {
   table: "wants",
   actionHeader: "want-create",
-  select: "id,content,status,created_at",
+  select: "id,content,status,type,revisit_on,note,created_at",
   status: "active",
+  type: "want",
 };
 
 export interface ItemCreateInput {
   content: string;
+  revisitOn: string | null;
+  note: string | null;
+}
+
+function isCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function todayInTokyo(): string {
+  return new Date(Date.now() + TOKYO_OFFSET_MS).toISOString().slice(0, 10);
 }
 
 type ValidationResult =
@@ -76,8 +93,8 @@ export async function readItemCreateInput(request: Request): Promise<ValidationR
   if (!isPlainObject(value)) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
-  const expectedKeys = ["content"];
-  if (Object.keys(value).some((key) => !expectedKeys.includes(key)) || expectedKeys.some((key) => !(key in value))) {
+  const optionalKeys = ["revisitOn", "note"];
+  if (Object.keys(value).some((key) => key !== "content" && !optionalKeys.includes(key)) || !("content" in value)) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
   if (typeof value.content !== "string" || value.content.trim().length === 0) {
@@ -87,7 +104,31 @@ export async function readItemCreateInput(request: Request): Promise<ValidationR
   if (content.length > MAX_CONTENT_CHARS) {
     return { ok: false, status: 400, error: `内容は${MAX_CONTENT_CHARS}文字以内で入力してください。` };
   }
-  return { ok: true, value: { content } };
+
+  let revisitOn: string | null = null;
+  if ("revisitOn" in value && value.revisitOn !== null) {
+    if (typeof value.revisitOn !== "string" || !isCalendarDate(value.revisitOn)) {
+      return { ok: false, status: 400, error: "再訪日はYYYY-MM-DD形式で入力してください。" };
+    }
+    if (value.revisitOn < todayInTokyo()) {
+      return { ok: false, status: 400, error: "再訪日は今日以降の日付を指定してください。" };
+    }
+    revisitOn = value.revisitOn;
+  }
+
+  let note: string | null = null;
+  if ("note" in value && value.note !== null) {
+    if (typeof value.note !== "string") {
+      return { ok: false, status: 400, error: "メモが正しくありません。" };
+    }
+    const trimmed = value.note.trim();
+    if (trimmed.length > MAX_NOTE_CHARS) {
+      return { ok: false, status: 400, error: `メモは${MAX_NOTE_CHARS}文字以内で入力してください。` };
+    }
+    note = trimmed || null;
+  }
+
+  return { ok: true, value: { content, revisitOn, note } };
 }
 
 export async function insertItem(
@@ -110,7 +151,9 @@ export async function insertItem(
   }
   endpoint.searchParams.set("select", definition.select);
 
-  const payload = { content: input.content, status: definition.status };
+  const payload: Record<string, string> = { content: input.content, status: definition.status, type: definition.type };
+  if (input.revisitOn) payload.revisit_on = input.revisitOn;
+  if (input.note) payload.note = input.note;
   let response: Response;
   try {
     response = await fetch(endpoint, {

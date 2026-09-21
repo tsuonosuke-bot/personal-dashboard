@@ -36,11 +36,57 @@ test("Inbox由来の内容をactive Wantとして登録する", async () => {
     });
     assert.equal(response.status, 201);
     assert.equal(new URL(seenUrl).pathname, "/rest/v1/wants");
-    assert.deepEqual(JSON.parse(String(seenInit?.body)), { content: "新しいWant", status: "active" });
+    assert.deepEqual(JSON.parse(String(seenInit?.body)), { content: "新しいWant", status: "active", type: "want" });
     assert.equal((seenInit?.headers as Record<string, string>).apikey, "secret-test-key");
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("寝かせるWantは再訪日とメモを一緒に登録する", async () => {
+  const originalFetch = globalThis.fetch;
+  let seenInit: RequestInit | undefined;
+  globalThis.fetch = async (_input, init) => {
+    seenInit = init;
+    return Response.json([{ id: 52, content: "後で考える", status: "active" }]);
+  };
+  const revisitOn = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  try {
+    const response = await wantRoute({
+      request: request("want-create", { content: "後で考える", revisitOn, note: "  今は動かさない  " }),
+      env,
+    });
+    assert.equal(response.status, 201);
+    assert.deepEqual(JSON.parse(String(seenInit?.body)), {
+      content: "後で考える",
+      status: "active",
+      type: "want",
+      revisit_on: revisitOn,
+      note: "今は動かさない",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("再訪日は日付形式と今日以降であることを検証する", async () => {
+  const malformed = await wantRoute({
+    request: request("want-create", { content: "後で考える", revisitOn: "2026/10/01" }),
+    env,
+  });
+  assert.equal(malformed.status, 400);
+
+  const past = await wantRoute({
+    request: request("want-create", { content: "後で考える", revisitOn: "2020-01-01" }),
+    env,
+  });
+  assert.equal(past.status, 400);
+
+  const impossible = await wantRoute({
+    request: request("want-create", { content: "後で考える", revisitOn: "2099-02-30" }),
+    env,
+  });
+  assert.equal(impossible.status, 400);
 });
 
 test("不正なOrigin、余分な項目を拒否する", async () => {

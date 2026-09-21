@@ -24,7 +24,8 @@ function request(body: unknown, headers: Record<string, string> = {}) {
 
 function body(overrides: Record<string, unknown> = {}) {
   return {
-    wantId: 10,
+    source: "want",
+    sourceId: 10,
     content: "AIと思考力について考えたい",
     answers: null,
     original: { content: "AIと思考力について考えたい", status: "active" },

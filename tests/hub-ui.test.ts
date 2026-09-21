@@ -140,7 +140,7 @@ test("Compass offers confirmation-safe quick routes for common Want destinations
   assert.match(script, /data-quick-route=/);
   assert.match(script, /function startQuickWantRoute\(item, key\)/);
   assert.match(script, /renderRouteForm\(item, quick\.intent, quick\.destination, \{\}, "quick"\)/);
-  assert.match(script, /origin === "quick"[\s\S]*renderDrawerItem\(item, "wants"\)/);
+  assert.match(script, /origin === "quick"[\s\S]*renderDrawerItem\(item, state\.triageSource\)/);
   assert.match(script, /function renderRoutePreview\(item, plan\)/);
   assert.match(style, /\.quick-route-actions\s*\{[^}]*grid-template-columns:\s*repeat\(3,/);
 });
@@ -158,9 +158,11 @@ test("Compass asks AI only on explicit action and sends suggestions through huma
 
   assert.match(script, /id="askAiTriageButton"/);
   assert.match(script, /askAiTriageButton"\)\.addEventListener\("click", \(\) => requestAiTriage\(item\)\)/);
-  assert.match(script, /押した時だけ、Want本文をClaude APIへ送信/);
+  assert.match(script, /押した時だけ、本文をClaude APIへ送信/);
   assert.match(script, /fetch\("\/api\/want-suggestions"/);
   assert.match(script, /X-Dashboard-Action": "want-ai-suggest"/);
+  assert.match(script, /source: sourceView === "inbox" \? "inbox" : "want"/);
+  assert.match(script, /sourceId: item\.id/);
   assert.match(script, /回答をもとに再提案/);
   assert.match(script, /この案を使う/);
   assert.match(script, /renderRouteForm\(item, suggestion\.intent, suggestion\.destination, suggestion\)/);
@@ -181,17 +183,35 @@ test("Compass closes actionable Inbox and Wants with conflict-safe updates", asy
   assert.match(script, /const refreshed = await loadDashboard\(\)/);
 });
 
-test("Compass promotes Inbox content to a Want", async () => {
+test("Compass triages an Inbox item without a detour through Wants", async () => {
   const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
 
-  assert.match(script, /id="createWantButton"/);
-  assert.match(script, /actionHeader: "want-create"/);
-  assert.match(script, /async function markInboxPromoted\(sourceItem\)/);
-  assert.match(script, /status: "done",\s+result: "Wantsに登録"/);
+  assert.match(script, /id="triageInboxButton"/);
+  assert.match(script, /data-inbox-route="\$\{key\}"/);
+  assert.match(script, /calendar: \{ label: "カレンダー"[\s\S]*destination: "calendar" \}/);
+  assert.match(script, /writing: \{ label: "Writing"[\s\S]*destination: "writing" \}/);
+  assert.match(script, /habit: \{ label: "Habits"[\s\S]*destination: "habit" \}/);
+  assert.match(script, /focus: \{ label: "Focus"[\s\S]*destination: "focus" \}/);
+  assert.match(script, /knowledge: \{ label: "Knowledge"[\s\S]*destination: "knowledge" \}/);
+  assert.match(script, /data-inbox-route="\$\{DEFER_ROUTE\}"/);
+  assert.match(script, /async function createWantFromSource\(sourceItem, extra = \{\}\)/);
+  assert.match(script, /async function markInboxTriaged\(sourceItem, result\)/);
   assert.match(script, /"X-Dashboard-Action": "inbox-update"/);
-  assert.match(script, /Wantは追加しましたが、Inboxを処理済みにできませんでした/);
-  assert.match(script, /Want追加後、元のInboxを処理済みにし/);
+  assert.match(script, /へ振り分け`\)/);
+  assert.doesNotMatch(script, /createWantButton|markInboxPromoted|Wantsに登録/);
   assert.doesNotMatch(script, /action-create|action-update|createActionButton|editActionButton/);
+});
+
+test("Compass defers an Inbox item with a required revisit date", async () => {
+  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+
+  assert.match(script, /function renderDeferForm\(sourceItem\)/);
+  assert.match(script, /id="deferRevisitOn" name="revisitOn" type="date"/);
+  assert.match(script, /function defaultRevisitDate\(\)/);
+  assert.match(script, /既定は1ヶ月後です。/);
+  assert.match(script, /再訪日は今日以降の日付を指定してください。/);
+  assert.match(script, /createWantFromSource\(\{ \.\.\.sourceItem, content \}, \{ revisitOn, note: note \|\| null \}\)/);
+  assert.match(script, /寝かせる（再訪 \$\{revisitOn\}）/);
 });
 
 test("Idea starts with utility actions and the summary, without a decorative hero or large date", async () => {
