@@ -298,6 +298,24 @@ function normalizeAnswerText(value: string): string {
   return value.normalize("NFKC").toLowerCase().replace(/\s+/gu, "");
 }
 
+const NO_RECALL_ANSWERS = new Set([
+  "わからない", "分からない", "判らない", "わかりません", "分かりません", "判りません",
+  "わからないです", "分からないです", "忘れた", "忘れました", "思い出せない", "思い出せません",
+  "知らない", "知りません", "不明", "unknown", "idk", "idontknow", "idon'tknow",
+]);
+
+/** 「思い出せない」という回答はAIの出力形式に依存せず、確実にq0として扱う。 */
+function isNoRecallAnswer(value: string): boolean {
+  const normalized = value
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase()
+    .replace(/[。、．.!！?？…]+$/gu, "")
+    .replace(/[’]/gu, "'")
+    .replace(/\s+/gu, "");
+  return normalized === "" || NO_RECALL_ANSWERS.has(normalized);
+}
+
 /**
  * AIがユーザーの回答を実際に読んだかを機械的に確かめる。回答に無い文字列を引用してきた採点は、
  * 正解側の語句を見て「答えられている」と書いたか、書いていない表現を「こう書いた」と決めつけた
@@ -502,47 +520,67 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   }));
   const answerById = new Map(gradableAnswers.map((a) => [a.id, a.answer]));
 
-  const firstPass = await requestGrades(
-    context.env,
-    gradableIds.map((id) => payloadById.get(id)!),
-    answerById,
-  );
   const rawById = new Map<string, RawGrade>();
   const gradingErrorById = new Map<string, string>();
-  if (firstPass.ok) {
-    for (const [id, entry] of firstPass.byId) rawById.set(id, entry);
-  } else {
-    for (const id of gradableIds) gradingErrorById.set(id, firstPass.error);
+  for (const answer of gradableAnswers) {
+    if (!isNoRecallAnswer(answer.answer)) continue;
+    const fact = factById.get(answer.id)!;
+    const correctAnswer = [fact.title, fact.explanation?.trim()]
+      .filter((part): part is string => Boolean(part))
+      .join(" — ")
+      .slice(0, 4_000);
+    rawById.set(answer.id, {
+      quality: 0,
+      correctAnswer,
+      explanation: answer.answer === ""
+        ? `回答が空欄のため、今回は思い出せなかったものとしてq0で記録しました。正解は「${fact.title}」です。`
+        : `「${answer.answer}」と回答したため、今回は思い出せなかったものとしてq0で記録しました。正解は「${fact.title}」です。`,
+      note: answer.answer === "" ? "無回答だった。" : `「${answer.answer}」と回答し、思い出せなかった。`,
+    });
   }
-  const needsRetry = gradableIds.filter((id) => !rawById.has(id));
-  if (needsRetry.length > 0) {
-    // AIの出力崩れだけでなく一時的な接続失敗も、未採点分だけをまとめて再試行する。
-    const retry = await requestGrades(
+
+  const aiGradeIds = gradableIds.filter((id) => !rawById.has(id));
+  if (aiGradeIds.length > 0) {
+    const firstPass = await requestGrades(
       context.env,
-      needsRetry.map((id) => payloadById.get(id)!),
+      aiGradeIds.map((id) => payloadById.get(id)!),
       answerById,
     );
-    if (retry.ok) {
-      for (const [id, entry] of retry.byId) rawById.set(id, entry);
+    if (firstPass.ok) {
+      for (const [id, entry] of firstPass.byId) rawById.set(id, entry);
     } else {
-      for (const id of needsRetry) gradingErrorById.set(id, retry.error);
+      for (const id of aiGradeIds) gradingErrorById.set(id, firstPass.error);
     }
-  }
-  const stillMissing = gradableIds.filter((id) => !rawById.has(id));
-  for (const id of stillMissing) {
-    // 複数件をまとめた応答では、一部の項目だけ欠落したり別回答の引用が混ざることがある。
-    // 最後は1問だけに絞って再依頼し、安全な引用照合を維持したまま回復させる。
-    const retry = await requestGrades(
-      context.env,
-      [payloadById.get(id)!],
-      new Map([[id, answerById.get(id)!]]),
-    );
-    if (retry.ok) {
-      const recovered = retry.byId.get(id);
-      if (recovered) rawById.set(id, recovered);
-      else gradingErrorById.set(id, "AIが回答を読み取った有効な採点結果を返しませんでした。");
-    } else {
-      gradingErrorById.set(id, retry.error);
+    const needsRetry = aiGradeIds.filter((id) => !rawById.has(id));
+    if (needsRetry.length > 0) {
+      // AIの出力崩れだけでなく一時的な接続失敗も、未採点分だけをまとめて再試行する。
+      const retry = await requestGrades(
+        context.env,
+        needsRetry.map((id) => payloadById.get(id)!),
+        answerById,
+      );
+      if (retry.ok) {
+        for (const [id, entry] of retry.byId) rawById.set(id, entry);
+      } else {
+        for (const id of needsRetry) gradingErrorById.set(id, retry.error);
+      }
+    }
+    const stillMissing = aiGradeIds.filter((id) => !rawById.has(id));
+    for (const id of stillMissing) {
+      // 複数件をまとめた応答では、一部の項目だけ欠落したり別回答の引用が混ざることがある。
+      // 最後は1問だけに絞って再依頼し、安全な引用照合を維持したまま回復させる。
+      const retry = await requestGrades(
+        context.env,
+        [payloadById.get(id)!],
+        new Map([[id, answerById.get(id)!]]),
+      );
+      if (retry.ok) {
+        const recovered = retry.byId.get(id);
+        if (recovered) rawById.set(id, recovered);
+        else gradingErrorById.set(id, "AIが回答を読み取った有効な採点結果を返しませんでした。");
+      } else {
+        gradingErrorById.set(id, retry.error);
+      }
     }
   }
   for (const answer of gradableAnswers) {
@@ -575,13 +613,9 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     let boundedQuality = trustedAnswer.format === "四択" ? Math.min(raw.quality, 4) : raw.quality;
     let normalizedExplanation = raw.explanation;
     let normalizedNote = raw.note;
-    if (trustedAnswer.answer === "") {
-      // 無回答はAIの判定より優先して0。空欄のまま提出した項目を習得済みへ進めない。
+    if (isNoRecallAnswer(trustedAnswer.answer)) {
+      // 無回答・「わからない」はAIを呼ばず0。思い出せなかった項目を習得済みへ進めない。
       boundedQuality = 0;
-      if (raw.quality > 0) {
-        normalizedExplanation = "回答が空欄のため不正解としました。正解を確認してください。";
-        normalizedNote = "無回答だった。";
-      }
     } else if (trustedAnswer.format === "四択" && choiceIsCorrect === true) {
       // 出題時に確定した正解との照合をClaudeの評価より優先し、誤判定をDBへ記録させない。
       boundedQuality = 4;

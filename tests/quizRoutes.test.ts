@@ -1115,10 +1115,12 @@ test("quiz/grade は一括再採点で残った項目を1問ずつ再採点し�
 test("quiz/grade は無回答をAIの判定に関わらずq0で記録する", async () => {
   const originalFetch = globalThis.fetch;
   let recordedQuality = -1;
+  let anthropicCalled = false;
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) return gradeKnowledgeResponse(url);
     if (url.includes("api.anthropic.com")) {
+      anthropicCalled = true;
       return anthropicToolResponse("submit_grades", {
         grades: [{
           id: ID_1, quality: 5, answer_quotes: [], correct_answer: "for が入る",
@@ -1151,6 +1153,52 @@ test("quiz/grade は無回答をAIの判定に関わらずq0で記録する", as
     assert.equal(body.results[0].verdict, "不正解");
     assert.match(body.results[0].explanation, /空欄/);
     assert.equal(recordedQuality, 0);
+    assert.equal(anthropicCalled, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/grade は「わからない」をAIに送らず確実にq0で記録する", async () => {
+  const originalFetch = globalThis.fetch;
+  let recordedQuality = -1;
+  let anthropicCalled = false;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) return gradeKnowledgeResponse(url);
+    if (url.includes("api.anthropic.com")) {
+      anthropicCalled = true;
+      throw new Error("わからない回答ではAIを呼ばない");
+    }
+    if (url.includes("/rest/v1/rpc/record_answers_batch_once")) {
+      recordedQuality = (JSON.parse(String(init?.body)) as {
+        p_answers: { quality: number }[];
+      }).p_answers[0].quality;
+      return Response.json([{
+        id: ID_1, next_review_on: "2026-09-21", recorded: true, schedule_updated: true,
+      }]);
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await gradeRoute({
+      request: quizPost("/api/quiz/grade", [await signedAnswer({
+        id: ID_1, question: "There's room ＿＿＿ improvement.", format: "一問一答", choices: null,
+      }, "わからない")]),
+      env,
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json() as {
+      results: { verdict: string; quality: number; correct_answer: string; explanation: string }[];
+      failures: unknown[];
+    };
+    assert.equal(body.results[0].quality, 0);
+    assert.equal(body.results[0].verdict, "不正解");
+    assert.match(body.results[0].correct_answer, /There's room for A/);
+    assert.match(body.results[0].explanation, /わからない/);
+    assert.equal(body.failures.length, 0);
+    assert.equal(recordedQuality, 0);
+    assert.equal(anthropicCalled, false);
   } finally {
     globalThis.fetch = originalFetch;
   }
