@@ -423,6 +423,7 @@ button.review-card { display: block; }
 .speaking-start-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 5px; }
 .speaking-start-row span { color: #71817f; font-size: 12px; }
 .speaking-start-row .primary-button { padding: 10px 24px; background: #157b6f; border-color: #157b6f; }
+.speaking-generation-note { margin: -12px 0 0; color: #71817f; font-size: 11px; text-align: center; }
 
 .speaking-card { display: grid; gap: 20px; min-height: 520px; padding: 26px; }
 .speaking-progress { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 11px; color: #71817f; font-size: 11px; }
@@ -432,6 +433,8 @@ button.review-card { display: block; }
 .speaking-task { display: grid; place-items: center; min-height: 170px; padding: 24px; border-radius: 14px; background: #f1f8f6; text-align: center; }
 .speaking-prompt { margin: 0; white-space: pre-line; font-size: 17px; line-height: 1.8; }
 .speaking-task blockquote { margin: 6px 0 0; color: #153f39; font-family: Georgia, "Times New Roman", serif; font-size: clamp(25px, 5vw, 38px); font-weight: 600; line-height: 1.4; }
+.speaking-task .speaking-japanese-prompt { color: #244b45; font-family: inherit; font-size: clamp(20px, 4vw, 28px); font-weight: 700; line-height: 1.65; }
+.speaking-translation { margin: 4px 0 0; color: #657572; font-size: 13px; line-height: 1.65; }
 .speaking-answer-area { display: grid; gap: 8px; }
 .speaking-answer-area label { color: #60716d; font-size: 12px; font-weight: 700; }
 .speaking-answer-area textarea { width: 100%; resize: vertical; font-size: 15px; line-height: 1.55; }

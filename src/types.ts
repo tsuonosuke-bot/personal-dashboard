@@ -52,8 +52,24 @@ export interface QuizLog {
 /** 復習スケジュールとは独立して記録する英会話練習の種別。 */
 export type SpeakingPracticeType = "instant_composition" | "read_aloud";
 
+export type SpeakingPracticeMode = "mixed" | SpeakingPracticeType;
+
 /** 英会話練習後の自己評価。 */
 export type SpeakingPracticeRating = "smooth" | "almost" | "retry";
+
+/** AIがナレッジを基に生成した、1件分の発話練習カード。 */
+export interface SpeakingPracticePrompt {
+  knowledge_id: string;
+  practice_type: SpeakingPracticeType;
+  /** 瞬間英作文では出題文、音読では英語例文の自然な日本語訳。 */
+  prompt_ja: string;
+  /** 元の表現を実際のビジネス場面で使った短い英語例文。 */
+  target_en: string;
+}
+
+export interface SpeakingPracticeStart {
+  items: SpeakingPracticePrompt[];
+}
 
 export interface SpeakingPracticeLog {
   id: number;

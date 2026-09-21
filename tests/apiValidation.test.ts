@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   parseDailyReviewStatus, parseKnowledge, parsePageEnvelope, parseQuizGradeResponse, parseQuizLog,
-  parseQuizStartResponse,
+  parseQuizStartResponse, parseSpeakingPracticeStart,
 } from "../src/lib/apiValidation.ts";
 import { ApiError, getKnowledge, startQuiz } from "../src/lib/api.ts";
 
@@ -172,6 +172,24 @@ test("日次復習のカテゴリ別残数を検証する", () => {
       ],
     }),
     /remaining_by_category/,
+  );
+});
+
+test("AI英会話出題の必須項目と重複IDを検証する", () => {
+  const item = {
+    knowledge_id: "123e4567-e89b-42d3-a456-426614174000",
+    practice_type: "instant_composition",
+    prompt_ja: "会議資料を確認していただけますか。",
+    target_en: "Would you mind reviewing the meeting materials?",
+  };
+  assert.deepEqual(parseSpeakingPracticeStart({ items: [item] }), { items: [item] });
+  assert.throws(
+    () => parseSpeakingPracticeStart({ items: [item, item] }),
+    /knowledge_id/,
+  );
+  assert.throws(
+    () => parseSpeakingPracticeStart({ items: [{ ...item, target_en: "" }] }),
+    /target_en/,
   );
 });
 

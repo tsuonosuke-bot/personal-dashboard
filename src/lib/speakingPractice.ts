@@ -4,16 +4,17 @@ import type {
   SpeakingPracticeType,
 } from "../types";
 
-export type SpeakingPracticeMode = "mixed" | SpeakingPracticeType;
+export type { SpeakingPracticeMode } from "../types";
 
 export interface SpeakingPracticeCard {
   knowledge: Knowledge;
   type: SpeakingPracticeType;
+  /** 瞬間英作文の日本語文、または音読例文の日本語訳。 */
   prompt: string;
+  /** AIが生成した短いビジネス英語例文。 */
   target: string;
 }
 
-const JAPANESE_PATTERN = /[ぁ-んァ-ヶ一-龠々]/;
 const ENGLISH_PATTERN = /[A-Za-z]/;
 const PRACTICE_TAG_PATTERN = /(英語|英会話|会話|フレーズ|表現|単語|business\s*english)/i;
 
@@ -27,31 +28,6 @@ export function speakingPracticeCandidates(knowledge: Knowledge[]): Knowledge[] 
   return knowledge.filter(isSpeakingPracticeCandidate);
 }
 
-function hideTarget(text: string, target: string): string {
-  const normalizedTarget = target.trim();
-  if (!normalizedTarget) return text;
-  const escaped = normalizedTarget.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return text.replace(new RegExp(escaped, "gi"), "＿＿");
-}
-
-/** 説明から日本語の短い意味ヒントを作り、答えそのものは隠す。 */
-export function instantCompositionPrompt(item: Knowledge): string {
-  const source = hideTarget(item.explanation?.trim() ?? "", item.title)
-    .replace(/https?:\/\/\S+/g, "")
-    .replace(/[`*_#]/g, "")
-    .trim();
-  const segments = source
-    .split(/(?:\r?\n|(?<=[。！？]))/)
-    .map((segment) => segment.trim())
-    .filter((segment) => segment && JAPANESE_PATTERN.test(segment));
-  // 日本語の説明中に例文や英単語が残っていても、答えを先に見せない。
-  const hint = (segments[0] ?? "登録された意味・場面に合う表現")
-    .replace(/[A-Za-z][A-Za-z0-9'’.,!?()/-]*(?:\s+[A-Za-z][A-Za-z0-9'’.,!?()/-]*)*/g, "＿＿")
-    .replace(/＿＿(?:\s*＿＿)+/g, "＿＿")
-    .slice(0, 220);
-  return `次の意味を英語で言ってください。\n${hint}`;
-}
-
 function shuffled<T>(items: T[], random: () => number): T[] {
   const result = [...items];
   for (let index = result.length - 1; index > 0; index--) {
@@ -61,28 +37,15 @@ function shuffled<T>(items: T[], random: () => number): T[] {
   return result;
 }
 
-/** 同じ項目の連続を避けながら、指定した形式と件数で練習カードを作る。 */
-export function buildSpeakingPracticeSession(
+/** AIに例文作成を依頼するナレッジを、重複なしで選ぶ。 */
+export function selectSpeakingPracticeKnowledge(
   knowledge: Knowledge[],
-  mode: SpeakingPracticeMode,
   limit: number,
   random: () => number = Math.random,
-): SpeakingPracticeCard[] {
+): Knowledge[] {
   const candidates = shuffled(speakingPracticeCandidates(knowledge), random);
   const safeLimit = Math.max(1, Math.min(15, Math.floor(limit)));
-  return candidates.slice(0, safeLimit).map((item, index) => {
-    const type: SpeakingPracticeType = mode === "mixed"
-      ? (index % 2 === 0 ? "instant_composition" : "read_aloud")
-      : mode;
-    return {
-      knowledge: item,
-      type,
-      prompt: type === "instant_composition"
-        ? instantCompositionPrompt(item)
-        : "表示された英語を、意味を意識しながら3回音読してください。",
-      target: item.title.trim(),
-    };
-  });
+  return candidates.slice(0, safeLimit);
 }
 
 export function speakingPracticeStats(logs: SpeakingPracticeLog[], now = new Date()) {

@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  buildSpeakingPracticeSession,
-  instantCompositionPrompt,
+  selectSpeakingPracticeKnowledge,
   speakingPracticeCandidates,
   speakingPracticeStats,
 } from "../src/lib/speakingPractice.ts";
@@ -49,27 +48,16 @@ test("英語カテゴリまたは英語系タグのアクティブ項目だけ�
   );
 });
 
-test("瞬間英作文のヒントは日本語を使い、登録表現そのものを隠す", () => {
-  const prompt = instantCompositionPrompt(knowledge());
-  assert.match(prompt, /相手に丁寧に依頼/);
-  assert.doesNotMatch(prompt, /Would you mind doing/i);
-  const alternatives = instantCompositionPrompt(knowledge({
-    title: "first half / last half",
-    explanation: "前半は first half、後半は last half と表現する。",
-  }));
-  assert.doesNotMatch(alternatives, /first half|last half/i);
-});
-
-test("ミックス練習は形式を交互にし、候補数を超えて重複させない", () => {
+test("AI生成に渡すナレッジは候補から重複なしで選ぶ", () => {
   const items = [
     knowledge(),
     knowledge({ id: "223e4567-e89b-42d3-a456-426614174000", title: "walk someone through" }),
     knowledge({ id: "323e4567-e89b-42d3-a456-426614174000", title: "at your earliest convenience" }),
   ];
-  const session = buildSpeakingPracticeSession(items, "mixed", 10, () => 0.99);
-  assert.equal(session.length, 3);
-  assert.deepEqual(session.map((item) => item.type), ["instant_composition", "read_aloud", "instant_composition"]);
-  assert.equal(new Set(session.map((item) => item.knowledge.id)).size, 3);
+  const selected = selectSpeakingPracticeKnowledge(items, 10, () => 0.99);
+  assert.equal(selected.length, 3);
+  assert.equal(new Set(selected.map((item) => item.id)).size, 3);
+  assert.deepEqual(new Set(selected.map((item) => item.id)), new Set(items.map((item) => item.id)));
 });
 
 test("練習集計はJSTの日付で今日の記録を数える", () => {

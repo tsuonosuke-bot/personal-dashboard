@@ -2,7 +2,8 @@ import type {
   DailyReviewCategoryCount, DailyReviewStatus, Knowledge, KnowledgePriority, Mastery, QuizEmptyReason, QuizFormat,
   QuizGradeFailure, QuizGradeFailurePhase, QuizGradeResponse, QuizGradeResult, QuizLog, QuizQuestion,
   QuizStart, QuizVerdict, RecoveryPreview,
-  RelearningStage, SpeakingPracticeLog, SpeakingPracticeRating, SpeakingPracticeType,
+  RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
+  SpeakingPracticeStart, SpeakingPracticeType,
 } from "../types";
 
 interface PageEnvelope {
@@ -376,4 +377,32 @@ export function parseSpeakingPracticeLog(value: unknown): SpeakingPracticeLog {
     repetitions,
     practiced_at: stringValue(value, "practiced_at", entity),
   };
+}
+
+export function parseSpeakingPracticeStart(value: unknown): SpeakingPracticeStart {
+  const entity = "英会話出題";
+  if (!isRecord(value) || !Array.isArray(value.items) || value.items.length < 1 || value.items.length > 15) {
+    return fail(entity);
+  }
+  const seen = new Set<string>();
+  const items = value.items.map((entry): SpeakingPracticePrompt => {
+    if (!isRecord(entry)) return fail(entity);
+    const knowledgeId = stringValue(entry, "knowledge_id", entity);
+    const type = stringValue(entry, "practice_type", entity);
+    const prompt = stringValue(entry, "prompt_ja", entity).trim();
+    const target = stringValue(entry, "target_en", entity).trim();
+    if (seen.has(knowledgeId)) return fail(entity, "knowledge_id");
+    seen.add(knowledgeId);
+    if (!SPEAKING_PRACTICE_TYPE_VALUES.has(type as SpeakingPracticeType)) {
+      return fail(entity, "practice_type");
+    }
+    if (!prompt || !target) return fail(entity, !prompt ? "prompt_ja" : "target_en");
+    return {
+      knowledge_id: knowledgeId,
+      practice_type: type as SpeakingPracticeType,
+      prompt_ja: prompt,
+      target_en: target,
+    };
+  });
+  return { items };
 }
