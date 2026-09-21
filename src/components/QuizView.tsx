@@ -6,6 +6,7 @@ import { PRIORITY_INTERVAL_HINTS, PRIORITY_ORDER } from "../constants";
 import { dashboardRoutePath } from "../lib/dashboardRoute";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import { KnowledgeFormModal } from "./KnowledgeFormModal";
+import { ReviewCategoryCounts } from "./ReviewCategoryCounts";
 import type {
   DailyReviewStatus, Knowledge, KnowledgeDraft, KnowledgePriority, QuizFormatRequest, QuizGradeResult, QuizLog,
   QuizQuestion,
@@ -220,6 +221,12 @@ export function QuizView({
                   : "今すぐの復習は完了"}
               </button>
             </div>
+            {dailyStatus && (
+              <ReviewCategoryCounts
+                items={dailyStatus.remaining_by_category}
+                total={dailyStatus.remaining}
+              />
+            )}
             <div className="quiz-divider"><span>カスタム出題</span></div>
             <p>カテゴリ・問題数・形式を指定して出題できます。</p>
             <div className="quiz-category-select" role="group" aria-label="出題カテゴリ">

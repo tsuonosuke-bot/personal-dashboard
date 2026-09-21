@@ -103,6 +103,16 @@ button:disabled { opacity: 0.4; cursor: default; }
 .daily-review-metrics strong { display: block; margin: 4px 0 2px; font-size: 21px; }
 .daily-progress { height: 8px; margin-top: 12px; overflow: hidden; border-radius: 999px; background: #ece9f2; }
 .daily-progress span { display: block; height: 100%; border-radius: inherit; background: #66558c; transition: width .2s ease; }
+.review-category-breakdown { margin-top: 14px; padding-top: 13px; border-top: 1px solid #ece8f2; }
+.review-category-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.review-category-heading h3 { margin: 0; font-size: 13px; }
+.review-category-heading > span { color: #7a879b; font-size: 11px; }
+.review-category-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.review-category-list li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 7px 9px; border-radius: 8px; background: #f7f6fa; font-size: 12px; }
+.review-category-list li > span { min-width: 0; overflow-wrap: anywhere; color: #5f6d80; }
+.review-category-list strong { flex: none; color: #44345f; font-size: 12px; }
+.review-category-list li.empty { opacity: .55; }
+.review-category-breakdown > .muted { margin: 0; font-size: 12px; }
 .daily-review-note { display: grid; gap: 4px; margin-top: 13px; }
 .daily-review-note p { margin: 0; color: #7a879b; font-size: 12px; }
 .recovery-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 13px; }

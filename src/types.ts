@@ -105,6 +105,11 @@ export interface QuizStart {
   early: boolean;
 }
 
+export interface DailyReviewCategoryCount {
+  category: string;
+  count: number;
+}
+
 export interface DailyReviewStatus {
   review_on: string;
   limit: number;
@@ -117,6 +122,7 @@ export interface DailyReviewStatus {
   retry_ready: number;
   retry_waiting: number;
   next_retry_at: string | null;
+  remaining_by_category: DailyReviewCategoryCount[];
 }
 
 export interface RecoveryPreviewDay {
