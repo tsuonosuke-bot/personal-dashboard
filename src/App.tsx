@@ -11,7 +11,7 @@ import { ALL, DEFAULT_PAGE_SIZE } from "./constants";
 import { useFilteredKnowledge } from "./hooks/useFilteredKnowledge";
 import { useKnowledgeData } from "./hooks/useKnowledgeData";
 import type {
-  Filters, Knowledge, KnowledgeDraft, KnowledgePriority, ReviewFilter, SortKey, SortState,
+  Filters, Knowledge, KnowledgeDraft, ReviewFilter, SortKey, SortState,
 } from "./types";
 
 const DashboardCharts = lazy(() => import("./components/DashboardCharts")
@@ -144,9 +144,7 @@ export default function App() {
           quizLog={quizLog}
           onExit={() => setQuizOpen(false)}
           onRecorded={reload}
-          onPriorityChange={(id: string, expectedVersion: number, priority: KnowledgePriority) => (
-            updateKnowledge(id, expectedVersion, { priority })
-          )}
+          onKnowledgeUpdate={updateKnowledge}
         />
       </Suspense>
     );

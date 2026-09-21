@@ -45,9 +45,15 @@ function pickedRow(id: string, category: string, overrides: Record<string, unkno
   };
 }
 
-async function signedAnswer(item: SignedQuizItem, answer: string) {
+async function signedAnswer(
+  item: SignedQuizItem & { correctChoice?: string | null },
+  answer: string,
+) {
   const request = quizPost("/api/quiz/grade", []);
-  const signed = await issueQuizToken(item, request, env);
+  const signed = await issueQuizToken({
+    ...item,
+    correctChoice: item.format === "四択" ? item.correctChoice ?? null : null,
+  }, request, env);
   assert.equal(signed.ok, true);
   if (!signed.ok) throw new Error(signed.error);
   return { token: signed.token, answer };
@@ -364,6 +370,43 @@ test("quiz/start は選択肢が崩れた項目だけをもう一度生成し直
   }
 });
 
+test("quiz/start は正解と矛盾する英語の語数指定を再生成する", async () => {
+  const originalFetch = globalThis.fetch;
+  let anthropicCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json([pickedRow(ID_1, "英語", { title: "before you knew it" })]);
+    }
+    if (url.includes("/rest/v1/knowledge")) return Response.json([{ id: ID_1, tags: ["熟語"] }]);
+    if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      anthropicCalls += 1;
+      return anthropicToolResponse("submit_questions", {
+        questions: [{
+          id: ID_1,
+          question: anthropicCalls === 1
+            ? "『気づいたら』という意味の3語の表現を英語で書いてください。"
+            : "『気づいたら』という意味の4語の表現を英語で書いてください。",
+        }],
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({
+      request: quizPost("/api/quiz/start", { format: "一問一答" }),
+      env,
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json() as { items: { question: string }[] };
+    assert.equal(anthropicCalls, 2);
+    assert.match(body.items[0].question, /4語/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("quiz/start は四択の選択肢がそろわなければ自由記述に落とさず失敗させる", async () => {
   const originalFetch = globalThis.fetch;
   let choices: unknown = ["ア", "イ", "ウ"];
@@ -484,7 +527,13 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
       return anthropicToolResponse("submit_grades", {
         grades: [
           { id: ID_1, quality: 5, correct_answer: "模範解答1", explanation: "よくできました", note: "完璧に回答した" },
-          { id: ID_2, quality: 5, correct_answer: "模範解答2", explanation: "正解", note: "正答を選んだ" },
+          {
+            id: ID_2,
+            quality: 0,
+            correct_answer: "模範解答2",
+            explanation: "選択肢の言葉をなぞっただけなので不正解",
+            note: "正解を選んだが誤って不正解判定した",
+          },
         ],
       });
     }
@@ -508,6 +557,7 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
           question: "出題した問題文2",
           format: "四択",
           choices: ["正解2", "誤答A", "誤答B", "誤答C"],
+          correctChoice: "正解2",
         }, "正解2"),
       ]),
       env,
@@ -522,7 +572,7 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
       },
       {
         id: ID_2, title: "正解2", verdict: "正解", quality: 4, correct_answer: "模範解答2",
-        explanation: "正解", priority: "高", content_version: 9,
+        explanation: "正しい選択肢「正解2」を選べています。", priority: "高", content_version: 9,
         next_review_on: "2026-10-01", recorded: true,
       },
     ]);
@@ -532,11 +582,78 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
     assert.equal(batch.p_answers[0].format, "産出");
     assert.equal(batch.p_answers[1].format, "四択");
     assert.equal((batch.p_answers[1] as { quality: number }).quality, 4);
-    assert.equal(batch.p_answers[1].note, "正答を選んだ");
+    assert.equal(batch.p_answers[1].note, "「正解2」を選択し、正解した。");
     // 採点は「この問いに答えられたか」で行うため、出題した問題文をAIに渡す。
     assert.equal(seenGradePrompts.length, 1);
     assert.match(seenGradePrompts[0], /出題した問題文1/);
     assert.match(seenGradePrompts[0], /出題した問題文2/);
+    assert.match(seenGradePrompts[0], /正解2/);
+    assert.match(seenGradePrompts[0], /choice_is_correct\\\":true/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/grade は誤った語数指定に従った1語不足を不正解として記録しない", async () => {
+  const originalFetch = globalThis.fetch;
+  let recordedQuality: number | null = null;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
+      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on") {
+        return Response.json([{
+          id: ID_1,
+          title: "before you knew it",
+          priority: "高",
+          content_version: 2,
+          next_review_on: "2026-09-22",
+        }]);
+      }
+      return Response.json([{
+        id: ID_1,
+        title: "before you knew it",
+        explanation: "気づいたら、あっという間に",
+        category: "英語",
+        tags: ["熟語"],
+        archived: false,
+      }]);
+    }
+    if (url.includes("api.anthropic.com")) {
+      return anthropicToolResponse("submit_grades", {
+        grades: [{
+          id: ID_1,
+          quality: 1,
+          correct_answer: "before you knew it",
+          explanation: "itが欠けています。",
+          note: "最後のitを忘れた。",
+        }],
+      });
+    }
+    if (url.includes("/rest/v1/rpc/record_answers_batch_once")) {
+      const body = JSON.parse(String(init?.body)) as { p_answers: { quality: number }[] };
+      recordedQuality = body.p_answers[0].quality;
+      return Response.json([{ id: ID_1, next_review_on: "2026-09-22", recorded: true }]);
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await gradeRoute({
+      request: quizPost("/api/quiz/grade", [await signedAnswer({
+        id: ID_1,
+        question: "『気づいたら』という意味の3語の表現を英語で書いてください。",
+        format: "一問一答",
+        choices: null,
+      }, "before you knew")]),
+      env,
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json() as {
+      results: { verdict: string; quality: number; explanation: string }[];
+    };
+    assert.equal(recordedQuality, 4);
+    assert.equal(body.results[0].verdict, "正解");
+    assert.equal(body.results[0].quality, 4);
+    assert.match(body.results[0].explanation, /設問側の指定に誤り/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -604,6 +721,7 @@ test("quiz/grade は改ざんされた問題と四択の選択肢外回答を拒
     question: "問題",
     format: "四択",
     choices: ["正解", "誤答A", "誤答B", "誤答C"],
+    correctChoice: "正解",
   }, "正解");
   const replacement = signed.token.at(-1) === "a" ? "b" : "a";
   const tampered = await gradeRoute({

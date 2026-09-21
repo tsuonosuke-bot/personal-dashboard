@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { PRIORITY_INTERVAL_HINTS } from "../constants";
 import { useModalDialog } from "../hooks/useModalDialog";
 import type { Knowledge, QuizLog } from "../types";
 
@@ -7,7 +8,7 @@ interface Props {
   quizLog: QuizLog[];
   mutating: boolean;
   onClose: () => void;
-  /** 復習クイズの結果から開くときは編集・アーカイブを出さないため省略できる。 */
+  /** 呼び出し元で許可する操作だけを表示できるよう省略可能にする。 */
   onEdit?: () => void;
   onArchive?: () => void;
 }
@@ -62,6 +63,15 @@ export function KnowledgeDetailModal({
           </div>
 
           <dl className="detail-list">
+            <div className="detail-priority-row">
+              <dt>優先度</dt>
+              <dd>
+                <span className={`badge priority-${knowledge.priority}`}>{knowledge.priority}</span>
+                <span className="detail-priority-hint">
+                  {PRIORITY_INTERVAL_HINTS[knowledge.priority]}
+                </span>
+              </dd>
+            </div>
             <div><dt>学習開始日</dt><dd>{knowledge.learned_on}</dd></div>
             <div><dt>最終出題日</dt><dd>{knowledge.last_asked_on ?? "-"}</dd></div>
             <div><dt>次回復習日</dt><dd>{knowledge.next_review_on ?? "-"}</dd></div>

@@ -20,7 +20,7 @@ export function KnowledgeFormModal({
   const [title, setTitle] = useState(knowledge?.title ?? "");
   const [category, setCategory] = useState(knowledge?.category ?? "");
   const [mastery, setMastery] = useState<Mastery>(knowledge?.mastery ?? "未学習");
-  const [priority, setPriority] = useState<KnowledgePriority>(knowledge?.priority ?? "高");
+  const [priority, setPriority] = useState<KnowledgePriority>(knowledge?.priority ?? "中");
   const [explanation, setExplanation] = useState(knowledge?.explanation ?? "");
   const [sourceNote, setSourceNote] = useState(knowledge?.source_note ?? "");
   const [tags, setTags] = useState((knowledge?.tags ?? []).join(", "));

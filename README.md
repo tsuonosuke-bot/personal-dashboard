@@ -70,10 +70,12 @@ Viteだけを起動するため `/api/*` は利用できない。
 - `POST /api/quiz/start` — 復習クイズを出題（`{ categories, limit }`。`categories` は登録済み
   カテゴリ名の配列で、空配列なら全カテゴリ）。DBの `pick_quiz` で候補を選び、カテゴリ・タグ・前回のつまずきメモを添えてClaude APIで問題文を
   生成する。応答は `{ id, question, format, choices, token }` の配列で、正解（タイトル・説明）は
-  返さない。`token` はID・問題文・形式・選択肢をサーバー署名した2時間有効の値
+  返さない。四択の正解は平文で含めず、回答照合用のHMACだけを`token`へ保存する。`token` は
+  ID・問題文・形式・選択肢をサーバー署名した2時間有効の値
 - `POST /api/quiz/grade` — 回答 `[{ token, answer }]` を採点。クライアント申告のID・問題文・形式は
-  信用せず、署名済みトークンとDBから正解を復元する。採点後は `record_answers_batch_once` RPCが
-  行ロック下で同日重複を判定し、未記録分だけを原子的にSM-2更新・履歴登録する
+  信用せず、署名済みトークンとDBから正解を復元する。四択の正誤は出題時のHMACとサーバー側で
+  照合し、Claudeのq値より優先する。採点後は `record_answers_batch_once` RPCが行ロック下で
+  同日重複を判定し、未記録分だけを原子的にSM-2更新・履歴登録する
 
 出題・採点は `claude-sonnet-5` を使う。問題文と講評の質が成果物そのものなので、
 コスト目的で軽量モデルへ落とさない。
