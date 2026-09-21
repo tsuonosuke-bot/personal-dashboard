@@ -88,6 +88,7 @@ test("採点結果の優先度と更新バージョンを検証する", () => {
   const result = {
     id: "123e4567-e89b-42d3-a456-426614174000",
     title: "テスト",
+    category: "技術",
     priority: "高",
     content_version: 3,
     verdict: "正解",
@@ -109,6 +110,10 @@ test("採点結果の優先度と更新バージョンを検証する", () => {
   assert.throws(
     () => parseQuizGradeResponse({ results: [{ ...result, content_version: 0 }] }),
     /content_version/,
+  );
+  assert.throws(
+    () => parseQuizGradeResponse({ results: [{ ...result, category: null }] }),
+    /category/,
   );
 });
 
