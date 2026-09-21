@@ -49,6 +49,34 @@ export interface QuizLog {
   created_at: string;
 }
 
+/** 復習スケジュールとは独立して記録する英会話練習の種別。 */
+export type SpeakingPracticeType = "instant_composition" | "read_aloud";
+
+/** 英会話練習後の自己評価。 */
+export type SpeakingPracticeRating = "smooth" | "almost" | "retry";
+
+export interface SpeakingPracticeLog {
+  id: number;
+  attempt_id: string;
+  session_id: string;
+  knowledge_id: string;
+  practice_type: SpeakingPracticeType;
+  rating: SpeakingPracticeRating;
+  answer_text: string | null;
+  repetitions: number;
+  practiced_at: string;
+}
+
+export interface SpeakingPracticeWrite {
+  attempt_id: string;
+  session_id: string;
+  knowledge_id: string;
+  practice_type: SpeakingPracticeType;
+  rating: SpeakingPracticeRating;
+  answer_text: string | null;
+  repetitions: number;
+}
+
 export type QuizVerdict = "正解" | "不正解" | "部分正解";
 
 export type ReviewFilter = "all" | "today" | "overdue" | "due";

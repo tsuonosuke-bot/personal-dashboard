@@ -1,6 +1,6 @@
 import type {
   DailyReviewStatus, Knowledge, KnowledgeDraft, QuizFormatRequest, QuizGradeResponse, QuizLog,
-  QuizStart, RecoveryPreview,
+  QuizStart, RecoveryPreview, SpeakingPracticeLog, SpeakingPracticeWrite,
 } from "../types";
 import {
   parseDailyReviewStatus,
@@ -10,6 +10,7 @@ import {
   parseQuizLog,
   parseQuizStartResponse,
   parseRecoveryPreview,
+  parseSpeakingPracticeLog,
 } from "./apiValidation.ts";
 
 interface ErrorBody {
@@ -124,6 +125,27 @@ export function getKnowledge(): Promise<Knowledge[]> {
 
 export function getQuizLog(): Promise<QuizLog[]> {
   return getAllPages("/api/quiz-log", parseQuizLog);
+}
+
+export function getSpeakingPracticeLog(from: string): Promise<SpeakingPracticeLog[]> {
+  return getAllPages(
+    `/api/speaking-practice?from=${encodeURIComponent(from)}`,
+    parseSpeakingPracticeLog,
+  );
+}
+
+export async function recordSpeakingPractice(
+  input: SpeakingPracticeWrite,
+): Promise<SpeakingPracticeLog> {
+  const data = await requestJson("/api/speaking-practice", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": "speaking-practice",
+    },
+    body: JSON.stringify(input),
+  });
+  return parseSpeakingPracticeLog(data);
 }
 
 async function writeKnowledge(

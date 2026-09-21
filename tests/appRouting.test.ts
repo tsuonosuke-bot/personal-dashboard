@@ -23,3 +23,11 @@ test("knowledge details follow direct URLs, history, and safe fallbacks", async 
   assert.match(source, /onOpen=\{openKnowledge\}/);
   assert.match(source, /onClose=\{closeKnowledge\}/);
 });
+
+test("speaking practice has an independent URL and dashboard entry", async () => {
+  const source = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+  assert.match(source, /initialRoute\.kind === "speaking"/);
+  assert.match(source, /replaceRoute\(open \? \{ kind: "speaking" \} : \{ kind: "dashboard" \}\)/);
+  assert.match(source, /<SpeakingPracticePanel/);
+  assert.match(source, /<SpeakingPracticeView/);
+});

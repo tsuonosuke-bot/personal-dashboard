@@ -8,6 +8,7 @@ import { KnowledgeFormModal } from "./components/KnowledgeFormModal";
 import { Pagination } from "./components/Pagination";
 import { ReviewInsights } from "./components/ReviewInsights";
 import { StatsCards } from "./components/StatsCards";
+import { SpeakingPracticePanel } from "./components/SpeakingPracticePanel";
 import { ALL, DEFAULT_PAGE_SIZE } from "./constants";
 import { useFilteredKnowledge } from "./hooks/useFilteredKnowledge";
 import { useDailyReview } from "./hooks/useDailyReview";
@@ -21,10 +22,13 @@ const DashboardCharts = lazy(() => import("./components/DashboardCharts")
   .then((module) => ({ default: module.DashboardCharts })));
 const QuizView = lazy(() => import("./components/QuizView")
   .then((module) => ({ default: module.QuizView })));
+const SpeakingPracticeView = lazy(() => import("./components/SpeakingPracticeView")
+  .then((module) => ({ default: module.SpeakingPracticeView })));
 
 export default function App() {
   const initialRoute = parseDashboardRoute(window.location.href);
   const [showQuiz, setShowQuiz] = useState(() => initialRoute.kind === "quiz");
+  const [showSpeaking, setShowSpeaking] = useState(() => initialRoute.kind === "speaking");
   const [quizMode, setQuizMode] = useState<"daily" | "custom">(() => (
     initialRoute.kind === "quiz" ? initialRoute.mode : "custom"
   ));
@@ -70,11 +74,21 @@ export default function App() {
       setSelected(null);
       setArchiveOpen(false);
       setQuizMode(route.mode);
+      setShowSpeaking(false);
       setShowQuiz(true);
       return;
     }
 
+    if (route.kind === "speaking") {
+      setSelected(null);
+      setArchiveOpen(false);
+      setShowQuiz(false);
+      setShowSpeaking(true);
+      return;
+    }
+
     setShowQuiz(false);
+    setShowSpeaking(false);
     if (loading || error) return;
 
     if (route.kind === "knowledge") {
@@ -137,7 +151,15 @@ export default function App() {
     replaceRoute(open ? { kind: "quiz", mode } : { kind: "dashboard" });
     setSelected(null);
     setQuizMode(mode);
+    setShowSpeaking(false);
     setShowQuiz(open);
+  };
+
+  const setSpeakingOpen = (open: boolean) => {
+    replaceRoute(open ? { kind: "speaking" } : { kind: "dashboard" });
+    setSelected(null);
+    setShowQuiz(false);
+    setShowSpeaking(open);
   };
 
   const openKnowledge = (item: Knowledge) => {
@@ -236,6 +258,19 @@ export default function App() {
     );
   }
 
+  if (showSpeaking) {
+    return (
+      <Suspense fallback={<div className="msg">読み込み中...</div>}>
+        <SpeakingPracticeView
+          knowledge={knowledge}
+          loading={loading}
+          error={error}
+          onExit={() => setSpeakingOpen(false)}
+        />
+      </Suspense>
+    );
+  }
+
   return (
     <div className="app-page">
       <header className="app-header">
@@ -316,6 +351,10 @@ export default function App() {
             error={dailyReview.error}
             onStart={() => setQuizOpen(true, "daily")}
             onCustomStart={() => setQuizOpen(true, "custom")}
+          />
+          <SpeakingPracticePanel
+            knowledge={knowledge}
+            onStart={() => setSpeakingOpen(true)}
           />
           <StatsCards knowledge={knowledge} quizLog={quizLog} />
           <ReviewInsights

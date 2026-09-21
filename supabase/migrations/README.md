@@ -13,6 +13,9 @@ build that depends on them.
   levels, treats the previous cadence as `高`, preserves an unscaled base
   interval, adjusts scheduled dates, and prefers higher-priority cards within
   the same quiz pool.
+- `20260921130000_speaking_practice.sql` adds an idempotent speaking-practice
+  log and write RPC. These records never update `quiz_log`, mastery, or the
+  review schedule.
 
 After applying a migration, verify its functions with `pg_get_functiondef` and
 verify the new column/trigger through `information_schema` before deploying the
