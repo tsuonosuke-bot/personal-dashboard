@@ -224,6 +224,14 @@ test("Hub and personal dashboards use the requested page names and shared shell"
   assert.match(idea, /dashboard-shell\.css/);
   assert.match(writing, /dashboard-shell\.css/);
   assert.match(habits, /dashboard-shell\.css/);
+  for (const page of [idea, writing, habits]) {
+    assert.match(page, /<summary aria-label="ページを切り替える">/);
+    assert.match(page, /class="dashboard-switcher-icon"/);
+  }
+  assert.doesNotMatch(shell, /content:\s*"▦"/);
+  assert.match(shell, /\.dashboard-switcher-icon/);
+  assert.match(shell, /\.dashboard-switcher summary \{ width: 40px; height: 40px; min-height: 40px;/);
+  assert.match(shell, /\.dashboard-hub, \.dashboard-switcher summary, \.dashboard-refresh, \.dashboard-primary \{ height: 40px; min-height: 40px; \}/);
   assert.match(shell, /--dashboard-width: 1240px/);
   assert.match(shell, /--dashboard-header-height: 68px/);
 });

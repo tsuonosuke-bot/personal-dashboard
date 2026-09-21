@@ -108,6 +108,16 @@
 .dashboard-switcher summary::-webkit-details-marker { display: none; }
 .dashboard-switcher summary::after { content: "⌄"; font-size: 11px; }
 .dashboard-switcher[open] summary::after { transform: rotate(180deg); }
+.dashboard-switcher-icon {
+  width: 18px;
+  height: 18px;
+  display: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .dashboard-switcher nav {
   position: absolute;
   top: calc(100% + 8px);
@@ -205,8 +215,9 @@
 @media (max-width: 900px) {
   .dashboard-header-inner { width: calc(100% - 20px); gap: 10px; }
   .dashboard-actions { gap: 5px; }
-  .dashboard-switcher summary { width: 40px; padding: 0; overflow: hidden; font-size: 0; }
-  .dashboard-switcher summary::before { content: "▦"; font-size: 17px; }
+  .dashboard-switcher summary { width: 40px; height: 40px; min-height: 40px; padding: 0; overflow: hidden; }
+  .dashboard-switcher summary > span { display: none; }
+  .dashboard-switcher-icon { display: block; }
   .dashboard-switcher summary::after { display: none; }
   .source-badge { max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
   .dashboard-main { width: calc(100% - 20px); padding-top: 14px; }
@@ -218,7 +229,7 @@
   .dashboard-brand h1 { font-size: 18px; }
   .dashboard-brand small, .source-badge { display: none; }
   .dashboard-actions .dashboard-switcher { display: block; }
-  .dashboard-hub, .dashboard-switcher summary, .dashboard-refresh { min-height: 38px; }
+  .dashboard-hub, .dashboard-switcher summary, .dashboard-refresh, .dashboard-primary { height: 40px; min-height: 40px; }
   .dashboard-hub { padding-inline: 9px; }
   .dashboard-primary { width: 40px; padding: 0; overflow: hidden; font-size: 0; }
   .dashboard-primary::before { content: "+"; font-size: 20px; }
@@ -228,6 +239,6 @@
 
 @media (max-width: 430px) {
   .dashboard-brand { gap: 7px; }
-  .dashboard-hub { font-size: 0; }
+  .dashboard-hub { width: 40px; padding: 0; font-size: 0; }
   .dashboard-hub::after { content: "←"; font-size: 17px; }
 }
