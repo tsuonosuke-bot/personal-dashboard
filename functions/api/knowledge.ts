@@ -18,7 +18,7 @@ interface FunctionContext {
 }
 
 const SELECT_COLUMNS =
-  "id,title,explanation,source_note,category,mastery,priority,ef,reps,interval_days,times_asked,times_correct,learned_on,last_asked_on,next_review_on,archived,created_at,accuracy,tags,mastery_streak,content_version";
+  "id,title,explanation,source_note,category,mastery,priority,ef,reps,interval_days,times_asked,times_correct,learned_on,last_asked_on,next_review_on,next_review_at,stability_hours,relearning_stage,last_reviewed_at,archived,created_at,accuracy,tags,mastery_streak,content_version";
 
 function readArchiveStatus(request: Request): "active" | "archived" | "all" | null {
   try {

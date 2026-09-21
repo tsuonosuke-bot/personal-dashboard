@@ -24,6 +24,10 @@ function validKnowledge() {
     tags: ["API"],
     accuracy: 2 / 3,
     next_review_on: "2026-09-10",
+    next_review_at: "2026-09-10T03:00:00Z",
+    stability_hours: 48,
+    relearning_stage: null,
+    last_reviewed_at: null,
     mastery_streak: 1,
     archived: false,
     content_version: 1,
@@ -91,6 +95,10 @@ test("採点結果の優先度と更新バージョンを検証する", () => {
     correct_answer: "模範解答",
     explanation: "解説",
     next_review_on: "2026-09-21",
+    next_review_at: "2026-09-21T03:00:00Z",
+    stability_hours: 72,
+    relearning_stage: null,
+    schedule_updated: true,
     recorded: true,
   };
   assert.deepEqual(parseQuizGradeResponse({ results: [result] }), [result]);

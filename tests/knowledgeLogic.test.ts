@@ -25,6 +25,10 @@ function knowledge(id: string, patch: Partial<Knowledge> = {}): Knowledge {
     learned_on: "2026-09-01",
     last_asked_on: null,
     next_review_on: null,
+    next_review_at: "2026-09-01T00:00:00Z",
+    stability_hours: 0,
+    relearning_stage: null,
+    last_reviewed_at: null,
     archived: false,
     created_at: "2026-09-01T00:00:00Z",
     accuracy: null,
@@ -50,19 +54,19 @@ test("JST基準の日付を返す", () => {
 
 test("今日・期限超過・本日までを正しく絞り込む", () => {
   const rows = [
-    knowledge("today", { next_review_on: "2026-09-09" }),
-    knowledge("overdue", { next_review_on: "2026-09-08" }),
-    knowledge("future", { next_review_on: "2026-09-10" }),
+    knowledge("today", { next_review_on: "2026-09-09", next_review_at: "2026-09-09T03:00:00Z" }),
+    knowledge("overdue", { next_review_on: "2026-09-08", next_review_at: "2026-09-08T03:00:00Z" }),
+    knowledge("future", { next_review_on: "2026-09-10", next_review_at: "2026-09-10T03:00:00Z" }),
   ];
   assert.deepEqual(
-    filterAndSortKnowledge(rows, { ...defaultFilters, review: "today" }, defaultSort, "2026-09-09").map((item) => item.id),
+    filterAndSortKnowledge(rows, { ...defaultFilters, review: "today" }, defaultSort, "2026-09-09", new Date("2026-09-09T06:00:00Z")).map((item) => item.id),
     ["today"],
   );
   assert.deepEqual(
-    filterAndSortKnowledge(rows, { ...defaultFilters, review: "overdue" }, defaultSort, "2026-09-09").map((item) => item.id),
+    filterAndSortKnowledge(rows, { ...defaultFilters, review: "overdue" }, defaultSort, "2026-09-09", new Date("2026-09-09T06:00:00Z")).map((item) => item.id),
     ["overdue"],
   );
-  assert.equal(getReviewCounts(rows, "2026-09-09").due, 2);
+  assert.equal(getReviewCounts(rows, "2026-09-09", new Date("2026-09-09T06:00:00Z")).due, 2);
 });
 
 test("タイトル・説明・出典・タグを検索して並び替える", () => {

@@ -1,8 +1,11 @@
 /** DB の knowledge.mastery 制約で許可されている値。 */
 export type Mastery = "未学習" | "学習中" | "習得中" | "定着";
 
-/** 復習頻度を調整するナレッジの優先度。 */
+/** 同じ期限内での出題順を調整するナレッジの優先度。 */
 export type KnowledgePriority = "最高" | "高" | "中" | "低" | "最低";
+
+/** 誤答後の再学習段階。recognition=再認、recall=自由想起。 */
+export type RelearningStage = "recognition" | "recall";
 
 export interface Knowledge {
   id: string;
@@ -22,6 +25,12 @@ export interface Knowledge {
   tags: string[];
   accuracy: number | null;
   next_review_on: string | null;
+  /** 時刻まで含む、実際の次回出題時刻。 */
+  next_review_at: string;
+  /** 現在保持している定着間隔（時間）。 */
+  stability_hours: number;
+  relearning_stage: RelearningStage | null;
+  last_reviewed_at: string | null;
   mastery_streak: number;
   archived: boolean;
   created_at: string;
@@ -101,9 +110,13 @@ export interface DailyReviewStatus {
   limit: number;
   total: number;
   completed: number;
+  completed_unique: number;
   remaining: number;
   due_total: number;
   overdue_total: number;
+  retry_ready: number;
+  retry_waiting: number;
+  next_retry_at: string | null;
 }
 
 export interface RecoveryPreviewDay {
@@ -143,5 +156,10 @@ export interface QuizGradeResult {
   correct_answer: string;
   explanation: string;
   next_review_on: string | null;
+  next_review_at: string;
+  stability_hours: number;
+  relearning_stage: RelearningStage | null;
+  /** 期限前の正解などで、予定を意図的に据え置いた場合はfalse。 */
+  schedule_updated: boolean;
   recorded: boolean;
 }

@@ -16,6 +16,18 @@ function displayDateTime(value: string): string {
   return new Date(value).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
 }
 
+function displayStability(hours: number): string {
+  if (hours < 1) return `${Math.round(hours * 60)}分`;
+  if (hours < 48) return `${Math.round(hours * 10) / 10}時間`;
+  return `${Math.round(hours / 2.4) / 10}日`;
+}
+
+function displayRelearning(stage: Knowledge["relearning_stage"]): string {
+  if (stage === "recognition") return "再認（四択）";
+  if (stage === "recall") return "想起（一問一答）";
+  return "通常復習";
+}
+
 export function KnowledgeDetailModal({
   knowledge, quizLog, mutating, onClose, onEdit, onArchive,
 }: Props) {
@@ -55,16 +67,17 @@ export function KnowledgeDetailModal({
           <div className="metric-grid">
             <div><span>正答率</span><strong>{knowledge.accuracy == null ? "-" : `${Math.round(knowledge.accuracy * 100)}%`}</strong></div>
             <div><span>回答</span><strong>{knowledge.times_correct} / {knowledge.times_asked}</strong></div>
-            <div><span>連続定着</span><strong>{knowledge.mastery_streak}</strong></div>
+            <div><span>昇格実績</span><strong>{knowledge.mastery_streak} / 3</strong></div>
             <div><span>反復回数</span><strong>{knowledge.reps}</strong></div>
-            <div><span>間隔</span><strong>{knowledge.interval_days}日</strong></div>
-            <div><span>EF</span><strong>{knowledge.ef}</strong></div>
+            <div><span>定着間隔</span><strong>{displayStability(knowledge.stability_hours)}</strong></div>
+            <div><span>復習段階</span><strong>{displayRelearning(knowledge.relearning_stage)}</strong></div>
           </div>
 
           <dl className="detail-list">
             <div><dt>学習開始日</dt><dd>{knowledge.learned_on}</dd></div>
             <div><dt>最終出題日</dt><dd>{knowledge.last_asked_on ?? "-"}</dd></div>
-            <div><dt>次回復習日</dt><dd>{knowledge.next_review_on ?? "-"}</dd></div>
+            <div><dt>最終回答時刻</dt><dd>{knowledge.last_reviewed_at ? displayDateTime(knowledge.last_reviewed_at) : "-"}</dd></div>
+            <div><dt>次回復習時刻</dt><dd>{displayDateTime(knowledge.next_review_at)}</dd></div>
             <div><dt>登録日時</dt><dd>{displayDateTime(knowledge.created_at)}</dd></div>
           </dl>
 

@@ -19,6 +19,8 @@ export interface QuizTokenIssueItem extends SignedQuizItem {
 export interface VerifiedQuizItem extends SignedQuizItem {
   /** 旧トークンには存在しないためnullを許容する。 */
   correctChoiceProof: string | null;
+  /** Signed, random idempotency key. It is never accepted from the request body directly. */
+  attempt_id: string;
 }
 
 interface QuizTokenPayload extends SignedQuizItem {
@@ -207,6 +209,7 @@ export async function verifyQuizToken(
         format: parsed.format,
         choices: parsed.choices,
         correctChoiceProof: parsed.correctChoiceProof ?? null,
+        attempt_id: parsed.nonce,
       },
     };
   } catch {

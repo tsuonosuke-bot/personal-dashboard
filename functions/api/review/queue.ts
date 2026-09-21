@@ -39,12 +39,19 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const queueLimit = integer(row, "queue_limit");
   const total = integer(row, "queue_total");
   const completed = integer(row, "completed");
+  const completedUnique = integer(row, "completed_unique");
   const remaining = integer(row, "remaining");
   const dueTotal = integer(row, "due_total");
   const overdueTotal = integer(row, "overdue_total");
+  const retryReady = integer(row, "retry_ready");
+  const retryWaiting = integer(row, "retry_waiting");
+  const nextRetryAt = row.next_retry_at;
   if (
     typeof reviewOn !== "string" || queueLimit === null || total === null || completed === null
+    || completedUnique === null
     || remaining === null || dueTotal === null || overdueTotal === null
+    || retryReady === null || retryWaiting === null
+    || (nextRetryAt !== null && typeof nextRetryAt !== "string")
     || completed + remaining !== total
   ) return jsonResponse({ error: "日次復習キューの応答が正しくありません。" }, 502);
 
@@ -53,8 +60,12 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     limit: queueLimit,
     total,
     completed,
+    completed_unique: completedUnique,
     remaining,
     due_total: dueTotal,
     overdue_total: overdueTotal,
+    retry_ready: retryReady,
+    retry_waiting: retryWaiting,
+    next_retry_at: nextRetryAt,
   });
 };
