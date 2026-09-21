@@ -5,6 +5,7 @@ interface Props {
   loading: boolean;
   error: string | null;
   onStart: () => void;
+  onCustomStart: () => void;
 }
 
 function retryTime(value: string | null): string | null {
@@ -18,7 +19,7 @@ function retryTime(value: string | null): string | null {
   });
 }
 
-export function DailyReviewPanel({ status, loading, error, onStart }: Props) {
+export function DailyReviewPanel({ status, loading, error, onStart, onCustomStart }: Props) {
   const progress = status && status.total > 0 ? Math.round((status.completed / status.total) * 100) : 0;
   const nextBatch = status ? Math.min(status.limit, status.remaining) : 0;
   const nextRetry = retryTime(status?.next_retry_at ?? null);
@@ -35,13 +36,16 @@ export function DailyReviewPanel({ status, loading, error, onStart }: Props) {
           <span className="eyebrow">Daily review</span>
           <h2 id="daily-review-heading">今日の復習キュー</h2>
         </div>
-        <button
-          className="primary-button"
-          disabled={loading || !status || status.remaining === 0}
-          onClick={onStart}
-        >
-          {buttonLabel}
-        </button>
+        <div className="daily-review-actions">
+          <button onClick={onCustomStart}>カテゴリ・問題数を選ぶ</button>
+          <button
+            className="primary-button"
+            disabled={loading || !status || status.remaining === 0}
+            onClick={onStart}
+          >
+            {buttonLabel}
+          </button>
+        </div>
       </div>
 
       {loading && <p className="muted">キューを確認中...</p>}

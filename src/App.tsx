@@ -309,6 +309,7 @@ export default function App() {
             loading={dailyReview.loading}
             error={dailyReview.error}
             onStart={() => setQuizOpen(true, "daily")}
+            onCustomStart={() => setQuizOpen(true, "custom")}
           />
           <StatsCards knowledge={knowledge} quizLog={quizLog} />
           <ReviewInsights

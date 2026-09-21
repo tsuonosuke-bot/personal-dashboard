@@ -171,6 +171,8 @@ test("continuous review makes 15 a batch size and gives every quality a distinct
 test("日次キューは実施数、次バッチ、q別復習間隔を表示する", async () => {
   const source = await readFile(new URL("../src/components/DailyReviewPanel.tsx", import.meta.url), "utf8");
   assert.match(source, /今日の復習キュー/);
+  assert.match(source, /カテゴリ・問題数を選ぶ/);
+  assert.match(source, /onClick=\{onCustomStart\}/);
   assert.match(source, /期限超過/);
   assert.match(source, /1日の上限ではなく/);
   assert.match(source, /q0=10分、q1=30分、q2=6時間、q3=12時間、q4=1日以上、q5=3日以上/);

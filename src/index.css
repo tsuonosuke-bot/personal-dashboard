@@ -96,6 +96,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .daily-review { margin-bottom: 16px; }
 .daily-review-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .daily-review-head h2 { margin: 3px 0 0; font-size: 18px; }
+.daily-review-actions { display: flex; align-items: center; gap: 8px; }
 .daily-review-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
 .daily-review-metrics > div { padding: 11px 12px; border-radius: 10px; background: #f7f6fa; }
 .daily-review-metrics span, .daily-review-metrics small { display: block; color: #7a879b; font-size: 10px; }
@@ -208,6 +209,7 @@ button.review-card { display: block; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .detail-list { grid-template-columns: 1fr; }
   .daily-review-head, .recovery-actions { align-items: stretch; flex-direction: column; }
+  .daily-review-actions { align-items: stretch; flex-direction: column; }
   .daily-review-metrics { grid-template-columns: repeat(2, 1fr); }
   .recovery-sample li { align-items: flex-start; flex-direction: column; gap: 3px; }
   .pager { justify-content: center; }
