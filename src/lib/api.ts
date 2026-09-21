@@ -14,6 +14,43 @@ import {
 
 interface ErrorBody {
   error?: unknown;
+  stage?: unknown;
+  reason?: unknown;
+  action?: unknown;
+  details?: unknown;
+  reference?: unknown;
+}
+
+export interface ApiErrorContext {
+  stage?: string;
+  reason?: string;
+  action?: string;
+  details?: string[];
+  reference?: string;
+}
+
+export class ApiError extends Error {
+  readonly status: number;
+  readonly stage?: string;
+  readonly reason?: string;
+  readonly action?: string;
+  readonly details: string[];
+  readonly reference?: string;
+
+  constructor(message: string, status: number, context: ApiErrorContext = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.stage = context.stage;
+    this.reason = context.reason;
+    this.action = context.action;
+    this.details = context.details ?? [];
+    this.reference = context.reference;
+  }
+}
+
+function nonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 async function requestJson(path: string, init: RequestInit): Promise<unknown> {
@@ -25,13 +62,23 @@ async function requestJson(path: string, init: RequestInit): Promise<unknown> {
 
   if (!response.ok) {
     let message = `APIエラー (${response.status})`;
+    let context: ApiErrorContext = {};
     try {
       const body = (await response.json()) as ErrorBody;
-      if (typeof body.error === "string") message = body.error;
+      message = nonEmptyString(body.error) ?? message;
+      context = {
+        stage: nonEmptyString(body.stage),
+        reason: nonEmptyString(body.reason),
+        action: nonEmptyString(body.action),
+        details: Array.isArray(body.details)
+          ? body.details.flatMap((detail) => nonEmptyString(detail) ?? []).slice(0, 30)
+          : [],
+        reference: nonEmptyString(body.reference),
+      };
     } catch {
       // JSONでないエラーレスポンスではステータスを表示する。
     }
-    throw new Error(message);
+    throw new ApiError(message, response.status, context);
   }
 
   return response.json() as Promise<unknown>;

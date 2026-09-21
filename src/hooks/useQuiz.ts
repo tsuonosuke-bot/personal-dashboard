@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { gradeQuiz, startQuiz } from "../lib/api";
+import { ApiError, gradeQuiz, startQuiz } from "../lib/api";
 import type {
   Knowledge, QuizEmptyReason, QuizFormatRequest, QuizGradeFailure, QuizGradeResult, QuizQuestion,
 } from "../types";
@@ -19,6 +19,32 @@ export const DEFAULT_QUIZ_FORMAT: QuizFormatRequest = "おまかせ";
 
 export type QuizStage = "setup" | "loading" | "empty" | "quiz" | "grading" | "results";
 
+export interface QuizDisplayError {
+  message: string;
+  stage?: string;
+  reason?: string;
+  action?: string;
+  details: string[];
+  reference?: string;
+}
+
+function displayError(caught: unknown, fallback: string): QuizDisplayError {
+  if (caught instanceof ApiError) {
+    return {
+      message: caught.message,
+      stage: caught.stage,
+      reason: caught.reason,
+      action: caught.action,
+      details: caught.details,
+      reference: caught.reference,
+    };
+  }
+  return {
+    message: caught instanceof Error ? caught.message : fallback,
+    details: [],
+  };
+}
+
 export function useQuiz(onRecorded?: () => void | Promise<void>) {
   const [stage, setStage] = useState<QuizStage>("setup");
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -26,7 +52,7 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
   const [index, setIndex] = useState(0);
   const [results, setResults] = useState<QuizGradeResult[]>([]);
   const [failures, setFailures] = useState<QuizGradeFailure[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<QuizDisplayError | null>(null);
   const [emptyReason, setEmptyReason] = useState<QuizEmptyReason | null>(null);
   const [early, setEarly] = useState(false);
 
@@ -53,7 +79,7 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
       setEarly(isEarly);
       setStage("quiz");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "出題に失敗しました。");
+      setError(displayError(caught, "出題に失敗しました。"));
       setStage("setup");
     }
   }, []);
@@ -93,7 +119,7 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
       }
       setStage("results");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "採点に失敗しました。");
+      setError(displayError(caught, "採点に失敗しました。"));
       setStage("quiz");
     }
   }, [questions, answers, onRecorded]);
