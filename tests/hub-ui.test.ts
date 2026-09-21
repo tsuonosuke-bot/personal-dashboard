@@ -202,6 +202,23 @@ test("Compass triages an Inbox item without a detour through Wants", async () =>
   assert.doesNotMatch(script, /action-create|action-update|createActionButton|editActionButton/);
 });
 
+test("Compass separates Knowledge-bound items from other triage outcomes", async () => {
+  const [script, html, style] = await Promise.all([
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(script, /function triageChips\(item, view\)/);
+  assert.match(script, /route-chip route-chip-pending">Knowledge登録待ち/);
+  assert.match(script, /function isKnowledgePending\(item, view\)/);
+  assert.match(script, /state\.metricFilter === "knowledge"/);
+  assert.match(script, /sourceInboxId: sourceItem\.id/);
+  assert.match(html, /id="knowledgeFilter"/);
+  assert.match(html, /id="knowledgePendingCount"/);
+  assert.match(style, /\.route-chip-pending \{[^}]*var\(--orange\)/);
+});
+
 test("Compass defers an Inbox item with a required revisit date", async () => {
   const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
 

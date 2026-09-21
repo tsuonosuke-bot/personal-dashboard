@@ -98,6 +98,8 @@ Browser
 - 振り分け先への登録に失敗した場合は元Wantを `active` のまま残し、同じ処理IDで安全に再試行
 - Inboxから振り分けた場合は履歴用のWantを1件作成して `want_routes` へ紐付け、元のInboxを処理済み（処理結果: 振り分け先名）にする
 - 「寝かせる」はWantsへ `revisit_on`（既定1ヶ月後・必須）付きで登録し、元のInboxを処理済み（処理結果: 寝かせる（再訪 日付））にする
+- Inbox由来のWantは `source_inbox_id` で元のInboxと結び付け、一覧カードに振り分け先・再訪日を表示
+- Knowledge・GitHub・Journalは計画保存のままのため「登録待ち」として区別し、「Knowledge登録待ち」で絞り込み（`?filter=knowledge`）
 - 検索、ステータス絞り込み、詳細ドロワー、再読込
 - `/compass/?view=wants&filter=untriaged` で未整理のActive Wantsへ直接移動（既存URLとの互換名）
 - `/api/health` による接続状態確認

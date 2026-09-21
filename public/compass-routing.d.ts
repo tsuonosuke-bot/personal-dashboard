@@ -1,7 +1,7 @@
 export interface CompassRoute {
   view: "inbox" | "wants";
   id: number | null;
-  filter: "untriaged" | null;
+  filter: "untriaged" | "knowledge" | null;
   error: "invalid-target" | null;
 }
 
@@ -10,5 +10,5 @@ export function compassRoutePath(
   value: string | URL,
   view: "inbox" | "wants",
   id?: number | null,
-  filter?: "untriaged" | null,
+  filter?: "untriaged" | "knowledge" | null,
 ): string;

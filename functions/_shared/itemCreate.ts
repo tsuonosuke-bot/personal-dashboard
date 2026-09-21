@@ -16,7 +16,7 @@ export interface ItemCreateDefinition {
 export const WANT_CREATE: ItemCreateDefinition = {
   table: "wants",
   actionHeader: "want-create",
-  select: "id,content,status,type,revisit_on,note,created_at",
+  select: "id,content,status,type,revisit_on,note,source_inbox_id,created_at",
   status: "active",
   type: "want",
 };
@@ -25,6 +25,7 @@ export interface ItemCreateInput {
   content: string;
   revisitOn: string | null;
   note: string | null;
+  sourceInboxId: number | null;
 }
 
 function isCalendarDate(value: string): boolean {
@@ -93,7 +94,7 @@ export async function readItemCreateInput(request: Request): Promise<ValidationR
   if (!isPlainObject(value)) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
-  const optionalKeys = ["revisitOn", "note"];
+  const optionalKeys = ["revisitOn", "note", "sourceInboxId"];
   if (Object.keys(value).some((key) => key !== "content" && !optionalKeys.includes(key)) || !("content" in value)) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
@@ -128,7 +129,15 @@ export async function readItemCreateInput(request: Request): Promise<ValidationR
     note = trimmed || null;
   }
 
-  return { ok: true, value: { content, revisitOn, note } };
+  let sourceInboxId: number | null = null;
+  if ("sourceInboxId" in value && value.sourceInboxId !== null) {
+    if (!Number.isSafeInteger(value.sourceInboxId) || Number(value.sourceInboxId) <= 0) {
+      return { ok: false, status: 400, error: "元のInbox IDが正しくありません。" };
+    }
+    sourceInboxId = Number(value.sourceInboxId);
+  }
+
+  return { ok: true, value: { content, revisitOn, note, sourceInboxId } };
 }
 
 export async function insertItem(
@@ -151,9 +160,14 @@ export async function insertItem(
   }
   endpoint.searchParams.set("select", definition.select);
 
-  const payload: Record<string, string> = { content: input.content, status: definition.status, type: definition.type };
+  const payload: Record<string, string | number> = {
+    content: input.content,
+    status: definition.status,
+    type: definition.type,
+  };
   if (input.revisitOn) payload.revisit_on = input.revisitOn;
   if (input.note) payload.note = input.note;
+  if (input.sourceInboxId) payload.source_inbox_id = input.sourceInboxId;
   let response: Response;
   try {
     response = await fetch(endpoint, {

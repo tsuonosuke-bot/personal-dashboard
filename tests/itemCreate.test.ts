@@ -53,7 +53,7 @@ test("寝かせるWantは再訪日とメモを一緒に登録する", async () =
   const revisitOn = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   try {
     const response = await wantRoute({
-      request: request("want-create", { content: "後で考える", revisitOn, note: "  今は動かさない  " }),
+      request: request("want-create", { content: "後で考える", revisitOn, note: "  今は動かさない  ", sourceInboxId: 12 }),
       env,
     });
     assert.equal(response.status, 201);
@@ -63,6 +63,7 @@ test("寝かせるWantは再訪日とメモを一緒に登録する", async () =
       type: "want",
       revisit_on: revisitOn,
       note: "今は動かさない",
+      source_inbox_id: 12,
     });
   } finally {
     globalThis.fetch = originalFetch;

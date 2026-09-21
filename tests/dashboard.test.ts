@@ -32,6 +32,7 @@ test("dashboard summary and future navigation are normalized", () => {
     untriagedWants: 1,
     completedWants: 1,
     dueForReview: 0,
+    knowledgePending: 0,
   });
   assert.equal(dashboard.wants[0].routes.length, 1);
   assert.equal(dashboard.wants[1].routes[0].status, "failed");
@@ -41,6 +42,43 @@ test("dashboard summary and future navigation are normalized", () => {
   assert.equal(dashboard.navigation.find((item) => item.id === "knowledge")?.url, "/go/knowledge");
   assert.equal(dashboard.navigation.find((item) => item.id === "financial")?.url, "/go/financial");
   assert.equal(dashboard.navigation.find((item) => item.id === "task-board")?.url, "http://127.0.0.1:4173/");
+});
+
+test("Inbox rows carry where they were routed, from the linked Want or the result text", () => {
+  const dashboard = normalizeDashboard(
+    [
+      { id: 1, content: "Knowledgeで確かめたい", status: "done", result: "Knowledge候補へ振り分け", created_at: "2026-09-20T00:00:00Z" },
+      { id: 2, content: "書きたい", status: "done", result: "Writingへ振り分け", created_at: "2026-09-20T00:00:00Z" },
+      { id: 3, content: "今は動かさない", status: "done", result: "寝かせる（再訪 2099-01-01）", created_at: "2026-09-20T00:00:00Z" },
+      { id: 4, content: "未整理", status: "pending", created_at: "2026-09-20T00:00:00Z" },
+      { id: 5, content: "旧データ", status: "done", result: "Wantsに登録", created_at: "2026-09-01T00:00:00Z" },
+    ],
+    [
+      { id: 20, content: "Knowledgeで確かめたい", status: "completed", source_inbox_id: 1, created_at: "2026-09-20T00:00:00Z" },
+      { id: 21, content: "今は動かさない", status: "active", revisit_on: "2099-01-01", source_inbox_id: 3, created_at: "2026-09-20T00:00:00Z" },
+    ],
+    {},
+    [
+      { id: 80, want_id: 20, intent: "explore", destination: "knowledge", status: "planned", title: "Knowledgeで確かめたい", created_at: "2026-09-20T01:00:00Z" },
+    ],
+  );
+
+  const [knowledge, writing, deferred, untriaged, legacy] = dashboard.inbox;
+  assert.deepEqual(knowledge.triage, {
+    destinations: [{ destination: "knowledge", status: "planned" }],
+    revisitOn: null,
+    source: "route",
+  });
+  assert.deepEqual(writing.triage, {
+    destinations: [{ destination: "writing", status: "created" }],
+    revisitOn: null,
+    source: "result",
+  });
+  assert.deepEqual(deferred.triage, { destinations: [], revisitOn: "2099-01-01", source: "route" });
+  assert.deepEqual(untriaged.triage, { destinations: [], revisitOn: null, source: null });
+  assert.deepEqual(legacy.triage, { destinations: [], revisitOn: null, source: null });
+  assert.equal(dashboard.summary.knowledgePending, 1);
+  assert.equal(dashboard.wants[0].sourceInboxId, 1);
 });
 
 test("dashboard route sends the secret key only in server-side headers", async () => {

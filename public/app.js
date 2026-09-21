@@ -17,7 +17,7 @@ const els = Object.fromEntries([
   "sourceBadge", "refreshButton",
   "pendingInbox", "inboxTotal", "activeWants", "completedWants",
   "inboxTabCount", "wantsTabCount", "listTitle", "searchInput",
-  "statusFilter", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
+  "statusFilter", "knowledgeFilter", "knowledgePendingCount", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher", "dashboardNav",
   "addInboxButton", "inboxModal", "inboxModalClose", "inboxCancelButton", "inboxForm",
   "inboxContent", "inboxCharacterCount", "inboxFormError", "inboxSubmitButton", "toast",
@@ -202,6 +202,9 @@ function currentItems() {
   if (state.view === "wants" && state.metricFilter === "untriaged") {
     items = items.filter((item) => item.status === "active");
   }
+  if (state.metricFilter === "knowledge") {
+    items = items.filter((item) => isKnowledgePending(item, state.view));
+  }
   const needle = state.search.trim().toLocaleLowerCase("ja");
   if (needle) {
     items = items.filter((item) => [item.content, item.result, item.note]
@@ -220,6 +223,7 @@ function updateStatusOptions() {
 
 function renderSummary() {
   const { summary } = state.data;
+  els.knowledgePendingCount.textContent = summary.knowledgePending ?? 0;
   els.pendingInbox.textContent = summary.pendingInbox;
   els.inboxTotal.textContent = summary.inboxTotal;
   els.activeWants.textContent = summary.activeWants;
@@ -253,16 +257,48 @@ function canCloseItem(item, view) {
   return !closedStatusesByView[view]?.has(item.status);
 }
 
+function triageEntries(item, view) {
+  if (view === "inbox") {
+    const triage = item.triage || { destinations: [], revisitOn: null };
+    return { destinations: triage.destinations || [], revisitOn: triage.revisitOn || null };
+  }
+  const destinations = new Map();
+  (item.routes || []).forEach((route) => {
+    if (route.status !== "planned" && route.status !== "created") return;
+    if (destinations.get(route.destination) !== "created") destinations.set(route.destination, route.status);
+  });
+  return {
+    destinations: [...destinations].map(([destination, status]) => ({ destination, status })),
+    revisitOn: item.status === "active" ? item.revisitOn || null : null,
+  };
+}
+
+function isKnowledgePending(item, view) {
+  return triageEntries(item, view).destinations
+    .some((entry) => entry.destination === "knowledge" && entry.status === "planned");
+}
+
+function triageChips(item, view) {
+  const { destinations, revisitOn } = triageEntries(item, view);
+  const chips = destinations.map((entry) => {
+    const label = routeDestinationMeta[entry.destination]?.label || entry.destination;
+    if (entry.destination === "knowledge" && entry.status === "planned") {
+      return '<span class="route-chip route-chip-pending">Knowledge登録待ち</span>';
+    }
+    const pending = entry.status === "planned" ? "登録待ち" : "";
+    return `<span class="route-chip">${escapeHtml(label)}${pending ? ` · ${pending}` : ""}</span>`;
+  });
+  if (revisitOn) chips.push(`<span class="route-chip route-chip-revisit">再訪 ${escapeHtml(formatDate(revisitOn))}</span>`);
+  if (chips.length > 0) return chips.join("");
+  if (view === "wants" && item.status === "active") return '<span class="route-chip route-chip-quiet">未振り分け</span>';
+  return "";
+}
+
 function cardMarkup(item) {
-  const routes = state.view === "wants" ? (item.routes || []) : [];
-  const activeRoutes = routes.filter((route) => route.status === "planned" || route.status === "created");
-  const routeSummary = activeRoutes.length > 0
-    ? `<span>${activeRoutes.length}件を振り分け済み</span>`
-    : state.view === "wants" && item.status === "active" ? "<span>未振り分け</span>" : "";
   return `<button class="item-card" type="button" data-id="${item.id}">
     <div class="item-top"><span class="item-id">${viewMeta[state.view].singular.toUpperCase()} · ${item.id ?? "?"}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(statusLabel(item.status))}</span></div>
     <h3>${escapeHtml(item.content || "内容なし")}</h3>
-    <div class="item-footer"><span>${formatDate(item.createdAt)}</span>${routeSummary}</div>
+    <div class="item-footer"><span>${formatDate(item.createdAt)}</span><span class="route-chips">${triageChips(item, state.view)}</span></div>
   </button>`;
 }
 
@@ -272,6 +308,9 @@ function renderList() {
   els.listTitle.textContent = viewMeta[state.view].title;
   els.resultCount.textContent = `${items.length}件を表示`;
   els.clearFilter.hidden = !(state.status || state.search || state.metricFilter);
+  const knowledgeActive = state.metricFilter === "knowledge";
+  els.knowledgeFilter.classList.toggle("active", knowledgeActive);
+  els.knowledgeFilter.setAttribute("aria-pressed", String(knowledgeActive));
   document.querySelectorAll(".tab").forEach((tab) => {
     const active = tab.dataset.view === state.view;
     tab.classList.toggle("active", active);
@@ -1013,7 +1052,7 @@ async function createWantFromSource(sourceItem, extra = {}) {
       "Content-Type": "application/json",
       "X-Dashboard-Action": "want-create",
     },
-    body: JSON.stringify({ content: sourceItem.content, ...extra }),
+    body: JSON.stringify({ content: sourceItem.content, sourceInboxId: sourceItem.id, ...extra }),
   });
   const payload = await response.json().catch(() => ({}));
   const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
@@ -1256,17 +1295,17 @@ function setView(view, filter = defaultStatusByView[view], sync = true) {
   hideDrawer();
   state.view = view;
   state.metricFilter = filter;
-  state.status = filter === "untriaged" ? "active" : filter || "";
+  state.status = filter === "untriaged" ? "active" : filter === "knowledge" ? "" : filter || "";
   updateStatusOptions();
   renderList();
-  if (sync) syncCompassRoute(view, null, "push", filter === "untriaged" ? filter : null);
+  if (sync) syncCompassRoute(view, null, "push", filter === "untriaged" || filter === "knowledge" ? filter : null);
 }
 
 function applyCompassRoute(notify = true) {
   if (!state.data) return;
   const route = parseCompassRoute(window.location.href);
   state.view = route.view;
-  state.status = defaultStatusByView[route.view];
+  state.status = route.filter === "knowledge" ? "" : defaultStatusByView[route.view];
   state.metricFilter = route.filter || "";
   state.search = "";
   els.searchInput.value = "";
@@ -1339,6 +1378,9 @@ els.statusFilter.addEventListener("change", () => {
 els.clearFilter.addEventListener("click", () => {
   state.status = ""; state.search = ""; state.metricFilter = "";
   els.searchInput.value = ""; updateStatusOptions(); renderList(); syncCompassRoute(state.view);
+});
+els.knowledgeFilter.addEventListener("click", () => {
+  setView(state.view, state.metricFilter === "knowledge" ? defaultStatusByView[state.view] : "knowledge");
 });
 els.refreshButton.addEventListener("click", loadDashboard);
 els.addInboxButton.addEventListener("click", () => setModalOpen(true));

@@ -22,6 +22,27 @@ test("Compass direct route accepts only the untriaged Wants filter", () => {
   assert.equal(parseCompassRoute("https://hub.example/compass/?view=wants&filter=unknown").error, "invalid-target");
 });
 
+test("Compass direct route accepts the Knowledge pending filter on both tabs", () => {
+  assert.deepEqual(parseCompassRoute("https://hub.example/compass/?filter=knowledge"), {
+    view: "inbox",
+    id: null,
+    filter: "knowledge",
+    error: null,
+  });
+  assert.deepEqual(parseCompassRoute("https://hub.example/compass/?view=wants&filter=knowledge"), {
+    view: "wants",
+    id: null,
+    filter: "knowledge",
+    error: null,
+  });
+  assert.equal(parseCompassRoute("https://hub.example/compass/?view=bogus&filter=knowledge").error, "invalid-target");
+  assert.equal(compassRoutePath("https://hub.example/compass/", "inbox", null, "knowledge"), "/compass/?filter=knowledge");
+  assert.equal(
+    compassRoutePath("https://hub.example/compass/", "wants", null, "knowledge"),
+    "/compass/?view=wants&filter=knowledge",
+  );
+});
+
 test("Compass direct route rejects unsafe or incomplete targets", () => {
   assert.equal(parseCompassRoute("https://hub.example/compass/?id=42").error, "invalid-target");
   assert.equal(parseCompassRoute("https://hub.example/compass/?view=wants&id=-1").error, "invalid-target");

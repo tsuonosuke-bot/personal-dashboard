@@ -118,6 +118,16 @@ footer { display: flex; justify-content: space-between; width: min(1180px, calc(
 .detail-box strong { font-size: 13px; }
 .detail-section { margin-top: 26px; }
 .detail-section p { margin: 0; color: #3e4a43; font-size: 14px; line-height: 1.75; white-space: pre-wrap; }
+.route-chips { display: inline-flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
+.route-chip { padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .02em; }
+.route-chip-pending { border-color: var(--orange); color: var(--orange); background: var(--orange-soft); }
+.route-chip-revisit { border-color: var(--green); color: var(--green); background: var(--green-soft); }
+.route-chip-quiet { border-style: dashed; }
+.filter-chip { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--muted); font-size: 11px; font-weight: 700; cursor: pointer; }
+.filter-chip b { color: var(--ink); font-size: 11px; }
+.filter-chip:hover { border-color: var(--orange); color: var(--orange); }
+.filter-chip.active { border-color: var(--orange); background: var(--orange-soft); color: var(--orange); }
+.filter-chip.active b { color: var(--orange); }
 .quick-route-section > p { color: var(--muted); font-size: 11px; line-height: 1.55; }
 .quick-route-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 10px; }
 .quick-route-action { min-height: 62px; display: grid; place-content: center; gap: 4px; padding: 8px 6px; border: 1px solid var(--line); border-radius: 9px; background: #fff; text-align: center; cursor: pointer; }
