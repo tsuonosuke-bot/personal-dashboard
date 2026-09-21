@@ -239,6 +239,7 @@ button.review-card { display: block; }
 .dashboard-switcher summary { min-height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #334155; font-size: 12px; font-weight: 700; list-style: none; cursor: pointer; }
 .dashboard-switcher summary::-webkit-details-marker { display: none; }
 .dashboard-switcher summary::after { content: "⌄"; font-size: 11px; }
+.dashboard-switcher-icon { width: 18px; height: 18px; display: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .dashboard-switcher nav { position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; width: 210px; display: grid; gap: 3px; padding: 8px; border: 1px solid #e1dfe4; border-radius: 11px; background: #fff; box-shadow: 0 16px 42px rgba(49, 41, 62, .16); }
 .dashboard-switcher nav a, .dashboard-switcher nav span { display: flex; align-items: center; min-height: 36px; padding: 7px 9px; border-radius: 7px; color: #29242d; font-size: 12px; font-weight: 700; text-decoration: none; }
 .dashboard-switcher nav a:hover { background: #f4f1fa; }
@@ -260,11 +261,13 @@ button.review-card { display: block; }
   .dashboard-brand-mark { width: 34px; height: 34px; border-radius: 9px; }
   .dashboard-brand h1 { font-size: 18px; }
   .head-actions { flex-direction: row; align-items: center; gap: 5px; }
-  .head-actions button, .hub-link { min-height: 38px; padding-inline: 10px; }
-  .head-actions .primary-button { width: 40px; padding: 0; overflow: hidden; font-size: 0; }
+  .head-actions button, .hub-link { height: 40px; min-height: 40px; padding-inline: 10px; }
+  .head-actions .refresh-button, .head-actions .primary-button { width: 40px; padding: 0; }
+  .head-actions .primary-button { overflow: hidden; font-size: 0; }
   .head-actions .primary-button::after { content: "+"; font-size: 20px; }
-  .dashboard-switcher summary { width: 38px; justify-content: center; padding: 0; overflow: hidden; font-size: 0; }
-  .dashboard-switcher summary::before { content: "▦"; font-size: 17px; }
+  .dashboard-switcher summary { width: 40px; height: 40px; min-height: 40px; justify-content: center; padding: 0; overflow: hidden; }
+  .dashboard-switcher summary > span { display: none; }
+  .dashboard-switcher-icon { display: block; }
   .dashboard-switcher summary::after { display: none; }
   .dashboard-switcher nav { position: fixed; top: 68px; right: 10px; left: 10px; width: auto; }
   .wrap { padding: 14px 10px 50px; }

@@ -250,7 +250,13 @@ export default function App() {
           <div className="head-actions">
             <a className="hub-link" href="https://personal-dashboard-7md.pages.dev/">← Hub</a>
             <details className="dashboard-switcher">
-              <summary>Dashboards</summary>
+              <summary aria-label="ページを切り替える">
+                <svg className="dashboard-switcher-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="5" cy="6" r="1" /><circle cx="5" cy="12" r="1" /><circle cx="5" cy="18" r="1" />
+                  <path d="M9 6h10M9 12h10M9 18h10" />
+                </svg>
+                <span>Dashboards</span>
+              </summary>
               <nav aria-label="ダッシュボードを切り替え">
                 <a href="https://personal-dashboard-7md.pages.dev/compass/">Idea</a>
                 <a href="https://personal-dashboard-7md.pages.dev/writing/">Writing</a>
