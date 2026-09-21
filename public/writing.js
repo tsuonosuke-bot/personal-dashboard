@@ -126,7 +126,7 @@ function renderList() {
   });
   if (!items.length) {
     const message = state.view === "completed" ? "書き上げたテーマはまだありません" : "Pomeraで書くテーマはありません";
-    els.topicList.innerHTML = `<div class="empty"><span>✎</span><h3>${message}</h3><p>CompassでWantをWritingへ振り分けると、ここに追加されます。</p><a href="/compass/?view=wants">Compassを開く →</a></div>`;
+    els.topicList.innerHTML = `<div class="empty"><span>✎</span><h3>${message}</h3><p>IdeaでWantをWritingへ振り分けると、ここに追加されます。</p><a href="/compass/?view=wants">Ideaを開く →</a></div>`;
   } else {
     els.topicList.innerHTML = items.map(cardMarkup).join("");
   }

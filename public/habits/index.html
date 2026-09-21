@@ -7,20 +7,32 @@
     <meta name="theme-color" content="#f7f1eb" />
     <title>Habits — Personal Dashboard</title>
     <link rel="stylesheet" href="/habits.css" />
+    <link rel="stylesheet" href="/dashboard-shell.css" />
   </head>
   <body>
     <div class="shell">
-      <header class="topbar">
-        <a class="brand" href="/" aria-label="Personal Hubへ戻る"><span class="brand-mark">H</span><span><b>Habits</b><small>小さな実施記録</small></span></a>
-        <div class="topbar-actions">
-          <a class="hub-link" href="/">← Hub</a>
-          <button class="primary-button topbar-add" id="addHabitButton" type="button"><span aria-hidden="true">＋</span><b>習慣を追加</b></button>
-          <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
-          <button class="icon-button" id="refreshButton" type="button" aria-label="再読み込み" title="再読み込み">↻</button>
+      <header class="dashboard-header">
+        <div class="dashboard-header-inner">
+          <div class="dashboard-brand">
+            <span class="dashboard-brand-mark habits" aria-hidden="true">✓</span>
+            <span><h1>Habits</h1><small>小さな実施記録</small></span>
+          </div>
+          <div class="dashboard-actions">
+            <a class="dashboard-hub" href="/">← Hub</a>
+            <details class="dashboard-switcher">
+              <summary>Dashboards</summary>
+              <nav aria-label="ダッシュボードを切り替え">
+                <a href="/compass/">Idea</a><a href="/writing/">Writing</a><span aria-current="page">Habits</span><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a>
+              </nav>
+            </details>
+            <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
+            <button class="dashboard-refresh" id="refreshButton" type="button" aria-label="データを再読み込み" title="再読み込み">↻</button>
+            <button class="dashboard-primary" id="addHabitButton" type="button"><span aria-hidden="true">＋</span><span>習慣を追加</span></button>
+          </div>
         </div>
       </header>
 
-      <main>
+      <main class="dashboard-main">
         <section class="summary-grid" aria-label="Habitサマリー">
           <div class="summary-card"><span>今日できた</span><strong id="completedToday">—</strong><small>実施記録</small></div>
           <div class="summary-card accent"><span>今日・今週の残り</span><strong id="remainingToday">—</strong><small>自由頻度は除く</small></div>

@@ -5,29 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#f4f1ea" />
-    <title>Compass — Inbox & Wants</title>
+    <title>Idea — Inbox & Wants</title>
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/dashboard-shell.css" />
   </head>
   <body>
     <div class="shell">
-      <header class="topbar">
-        <a class="brand" href="/" aria-label="Personal Hubへ戻る">
-          <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M24 5 30.5 18 43 24l-12.5 6L24 43l-6.5-13L5 24l12.5-6L24 5Z"/><circle cx="24" cy="24" r="4"/></svg></span>
-          <span><b>Compass</b><small>Inbox & Wants</small></span>
-        </a>
-        <div class="topbar-actions">
-          <a class="hub-link" href="/">← Hub</a>
-          <a class="calendar-connect-link" href="/api/google-calendar-connect" title="Google Calendarを接続または再接続">Calendar再接続</a>
-          <details class="dashboard-switcher" id="dashboardSwitcher">
-            <summary>Dashboards <span aria-hidden="true">⌄</span></summary>
-            <nav id="dashboardNav" aria-label="ダッシュボードを切り替え"><span class="nav-loading">リンクを確認中</span></nav>
-          </details>
-          <span class="source-badge" id="sourceBadge"><i></i>接続確認中</span>
-          <button class="icon-button" id="refreshButton" type="button" title="再読込" aria-label="データを再読込"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.8-4M4 4v4h4M4 13a8 8 0 0 0 14.8 4M20 20v-4h-4"/></svg></button>
+      <header class="dashboard-header">
+        <div class="dashboard-header-inner">
+          <div class="dashboard-brand">
+            <span class="dashboard-brand-mark idea" aria-hidden="true">↗</span>
+            <span><h1>Idea</h1><small>Inbox & Wants</small></span>
+          </div>
+          <div class="dashboard-actions">
+            <a class="dashboard-hub" href="/">← Hub</a>
+            <details class="dashboard-switcher" id="dashboardSwitcher">
+              <summary>Dashboards</summary>
+              <nav id="dashboardNav" aria-label="ダッシュボードを切り替え"><span class="nav-loading">リンクを確認中</span></nav>
+            </details>
+            <span class="source-badge" id="sourceBadge"><i></i>接続確認中</span>
+            <button class="dashboard-refresh" id="refreshButton" type="button" title="再読み込み" aria-label="データを再読み込み">↻</button>
+            <button class="dashboard-primary" id="addInboxButton" type="button"><span aria-hidden="true">＋</span><span>Inboxを追加</span></button>
+          </div>
         </div>
       </header>
 
-      <main>
+      <main class="dashboard-main">
+        <div class="page-utility-toolbar">
+          <a class="dashboard-secondary" href="/api/google-calendar-connect" title="Google Calendarを接続または再接続">Calendar再接続</a>
+        </div>
         <section class="metrics" aria-label="サマリー">
           <button class="metric metric-inbox" type="button" data-view="inbox" data-filter="pending"><span class="metric-icon">↘</span><span class="metric-label">未整理のInbox</span><strong id="pendingInbox">—</strong><small><span id="inboxTotal">—</span>件のうち</small></button>
           <button class="metric metric-wants" type="button" data-view="wants" data-filter="active"><span class="metric-icon">✦</span><span class="metric-label">未整理のWants</span><strong id="activeWants">—</strong><small>次の扱いを決める</small></button>
@@ -38,7 +44,6 @@
           <div class="workspace-head">
             <div><p class="section-kicker">YOUR MAP</p><h2 id="listTitle">Inbox</h2></div>
             <div class="workspace-tools">
-              <button class="primary-action" id="addInboxButton" type="button"><span aria-hidden="true">＋</span> Inboxを追加</button>
               <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><span class="sr-only">検索</span><input id="searchInput" type="search" placeholder="キーワードで検索" autocomplete="off" /></label>
               <select id="statusFilter" aria-label="ステータスで絞り込み"><option value="">すべてのステータス</option></select>
             </div>
@@ -51,7 +56,7 @@
           <div class="card-list" id="cardList" aria-live="polite"><div class="loading"><span></span><p>Supabaseから読み込んでいます</p></div></div>
         </section>
       </main>
-      <footer><span>Compass v1.1</span><span>Supabaseと同期</span></footer>
+      <footer><span>Idea v1.1</span><span>Supabaseと同期</span></footer>
     </div>
 
     <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>

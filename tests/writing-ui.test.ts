@@ -3,10 +3,11 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("Writing page manages themes separately from completed work", async () => {
-  const [html, script, css] = await Promise.all([
+  const [html, script, css, shell] = await Promise.all([
     readFile(new URL("../public/writing/index.html", import.meta.url), "utf8"),
     readFile(new URL("../public/writing.js", import.meta.url), "utf8"),
     readFile(new URL("../public/writing.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/dashboard-shell.css", import.meta.url), "utf8"),
   ]);
   assert.match(html, /<h1>Writing<\/h1>/);
   assert.match(html, /data-view="active"/);
@@ -32,7 +33,8 @@ test("Writing page manages themes separately from completed work", async () => {
   assert.match(script, /window\.addEventListener\("popstate"/);
   assert.match(script, /指定されたWritingテーマを開けません/);
   assert.match(css, /--accent: #7a3f62/);
-  assert.match(css, /\.brand span \{[^}]*background: var\(--accent\)/);
+  assert.match(html, /class="dashboard-brand-mark writing"/);
+  assert.match(shell, /\.dashboard-brand-mark\.writing \{ background: #7a3f62/);
   assert.match(css, /\.topic-status\.drafting \{ background: var\(--accent-soft\); color: var\(--accent\); \}/);
   assert.doesNotMatch(css, /--green: #245949/);
   assert.match(css, /@media \(max-width: 760px\)/);

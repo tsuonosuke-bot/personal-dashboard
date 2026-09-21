@@ -6,23 +6,32 @@
     <meta name="theme-color" content="#f3f2ed" />
     <title>Writing — Personal Hub</title>
     <link rel="stylesheet" href="/writing.css" />
+    <link rel="stylesheet" href="/dashboard-shell.css" />
   </head>
   <body>
     <div class="page-shell">
-      <header class="topbar">
-        <a class="brand" href="/" aria-label="Personal Hubへ戻る"><span aria-hidden="true">W</span><b>Writing</b></a>
-        <nav aria-label="主要ページ">
-          <a href="/">Hub</a><a href="/compass/">Compass</a><a href="/habits/">Habits</a>
-        </nav>
-        <button class="refresh-button" id="refreshButton" type="button">↻ 更新</button>
+      <header class="dashboard-header">
+        <div class="dashboard-header-inner">
+          <div class="dashboard-brand">
+            <span class="dashboard-brand-mark writing" aria-hidden="true">W</span>
+            <span><h1>Writing</h1><small>Pomera writing queue</small></span>
+          </div>
+          <div class="dashboard-actions">
+            <a class="dashboard-hub" href="/">← Hub</a>
+            <details class="dashboard-switcher">
+              <summary>Dashboards</summary>
+              <nav aria-label="ダッシュボードを切り替え">
+                <a href="/compass/">Idea</a><span aria-current="page">Writing</span><a href="/habits/">Habits</a><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a>
+              </nav>
+            </details>
+            <span class="source-badge" id="sourceBadge">接続確認中</span>
+            <button class="dashboard-refresh" id="refreshButton" type="button" title="再読み込み" aria-label="データを再読み込み">↻</button>
+            <a class="dashboard-primary" href="/compass/?view=wants"><span aria-hidden="true">＋</span><span>テーマを追加</span></a>
+          </div>
+        </div>
       </header>
 
-      <main>
-        <section class="page-heading">
-          <div><span class="eyebrow">POMERA WRITING QUEUE</span><h1>Writing</h1><p>Pomeraで書くテーマを選び、書き上げるまでを管理する</p></div>
-          <a class="primary-link" href="/compass/?view=wants">Compassでテーマを追加 →</a>
-        </section>
-
+      <main class="dashboard-main">
         <section class="summary-grid" aria-label="Writingサマリー">
           <button type="button" data-summary-status="candidate"><span>アイデア</span><strong id="candidateCount">—</strong><small>Pomeraで書く候補</small></button>
           <button type="button" data-summary-status="drafting"><span>Pomeraで執筆中</span><strong id="draftingCount">—</strong><small>今書いているテーマ</small></button>
@@ -32,7 +41,6 @@
         <section class="writing-board" aria-labelledby="boardTitle">
           <header class="board-header">
               <div><span class="eyebrow">TOPICS</span><h2 id="boardTitle">Pomeraで書くテーマ</h2></div>
-            <span class="source-badge" id="sourceBadge">接続確認中</span>
           </header>
           <div class="tabs" role="tablist" aria-label="表示するWritingテーマ">
             <button class="active" type="button" role="tab" aria-selected="true" data-view="active">進行中 <b id="activeTabCount">—</b></button>

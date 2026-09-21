@@ -121,10 +121,10 @@ test("Compass previews every route and requires explicit confirmation for Google
   assert.doesNotMatch(script, /元のWantは自動で完了にしません/);
 });
 
-test("Compass keeps Google Calendar reconnection available from the main screen", async () => {
+test("Idea keeps Google Calendar reconnection available from the main screen", async () => {
   const html = await readFile(new URL("../public/compass/index.html", import.meta.url), "utf8");
 
-  assert.match(html, /class="calendar-connect-link"/);
+  assert.match(html, /class="dashboard-secondary"/);
   assert.match(html, /href="\/api\/google-calendar-connect"/);
   assert.match(html, />Calendar再接続<\/a>/);
 });
@@ -170,7 +170,7 @@ test("Compass promotes Inbox content to a Want", async () => {
   assert.doesNotMatch(script, /action-create|action-update|createActionButton|editActionButton/);
 });
 
-test("Compass starts with the summary and omits the decorative hero and large date", async () => {
+test("Idea starts with utility actions and the summary, without a decorative hero or large date", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
     readFile(new URL("../public/app.js", import.meta.url), "utf8"),
@@ -178,7 +178,30 @@ test("Compass starts with the summary and omits the decorative hero and large da
 
   assert.doesNotMatch(html, /class="hero"|PERSONAL DIRECTION|頭の中を、|hero-date|dayLabel|dateLabel|updatedLabel/);
   assert.doesNotMatch(script, /setClock|dayLabel|dateLabel|updatedLabel/);
-  assert.match(html, /<main>\s*<section class="metrics"/);
+  assert.match(html, /<main class="dashboard-main">/);
+  assert.match(html, /<section class="metrics"/);
+});
+
+test("Hub and personal dashboards use the requested page names and shared shell", async () => {
+  const [hub, idea, writing, habits, shell] = await Promise.all([
+    readFile(new URL("../public/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/writing/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/habits/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/dashboard-shell.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(hub, /<h2>Idea<\/h2>/);
+  assert.match(hub, /<h2>Finance<\/h2>/);
+  assert.match(hub, /<h2>Knowledge<\/h2>/);
+  assert.match(idea, /<h1>Idea<\/h1>/);
+  assert.match(writing, /<h1>Writing<\/h1>/);
+  assert.match(habits, /<h1>Habits<\/h1>/);
+  assert.match(idea, /dashboard-shell\.css/);
+  assert.match(writing, /dashboard-shell\.css/);
+  assert.match(habits, /dashboard-shell\.css/);
+  assert.match(shell, /--dashboard-width: 1240px/);
+  assert.match(shell, /--dashboard-header-height: 68px/);
 });
 
 test("Compass defaults each tab to actionable items and counts the filtered results", async () => {

@@ -155,17 +155,19 @@ test("週次Habitは同じ週の2回目を拒否する", async () => {
 });
 
 test("Habit画面は今日・今週・7日履歴とモバイル操作を備える", async () => {
-  const [html, script, css] = await Promise.all([
+  const [html, script, css, shell] = await Promise.all([
     readFile(new URL("../public/habits/index.html", import.meta.url), "utf8"),
     readFile(new URL("../public/habits.js", import.meta.url), "utf8"),
     readFile(new URL("../public/habits.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/dashboard-shell.css", import.meta.url), "utf8"),
   ]);
   assert.match(html, /id="todayList"/);
   assert.match(html, /id="weeklyList"/);
   assert.match(html, /id="historyTable"/);
-  assert.match(html, /class="primary-button topbar-add" id="addHabitButton"/);
+  assert.match(html, /class="dashboard-primary" id="addHabitButton"/);
   assert.doesNotMatch(html, /続けたいことを、軽く残す|id="dateLabel"|class="page-heading"/);
   assert.match(script, /X-Dashboard-Action": "habit-log"/);
   assert.match(script, /original: \{ updatedAt: editing\.updatedAt \}/);
   assert.match(css, /@media \(max-width: 620px\)/);
+  assert.match(shell, /@media \(max-width: 680px\)/);
 });

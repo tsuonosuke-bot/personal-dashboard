@@ -1,6 +1,6 @@
 # Personal Hub
 
-家計簿、ナレッジ、Compass（Inbox / Wants）、Writing、Habits、Journalの振り返りを束ねる個人用Hubです。ルートに全体サマリーを表示し、Compassは `/compass/`、Writingは `/writing/`、Habitsは `/habits/` で利用できます。
+Finance、Knowledge、Idea（Inbox / Wants）、Writing、Habits、Journalの振り返りを束ねる個人用Hubです。ルートに全体サマリーを表示し、Ideaは `/compass/`、Writingは `/writing/`、Habitsは `/habits/` で利用できます。
 
 - Production: https://personal-dashboard-7md.pages.dev/
 
@@ -44,12 +44,12 @@ Browser
 
 ## Hubの機能
 
-- Compass、Writing、Habits、家計簿、ナレッジへの入口
+- Idea、Writing、Habits、Finance、Knowledgeへの入口
 - 今日の復習進捗と開始導線、期限超過、未整理Wantsのスナップショット
 - Knowledge Dashboardの当日固定キューを直接開始するショートカット
 - 未整理のActive Wantsの件数と最古の滞留日数を表示
 - 未整理のActive Wantsを古い順で最大3件表示
-- 未整理件数と一覧からCompassの絞り込み表示へ直接移動
+- 未整理件数と一覧からIdeaの絞り込み表示へ直接移動
 - Wantから選んだFocusを最大5件、指定順で固定表示
 - Focusの言葉・補足の編集、表示解除／再表示、並び替え
 - 直近5件の家計簿レコード
@@ -71,14 +71,14 @@ Browser
 
 ## Writingの機能
 
-- CompassでWantを「掘り下げる → Writing」に振り分けるとテーマを作成
+- IdeaでWantを「掘り下げる → Writing」に振り分けるとテーマを作成
 - アイデア・Pomeraで執筆中・書き上げ、の3状態だけを管理
 - 本文と構成はPomeraを正本とし、Dashboardではタイトルと短い論点だけを編集
 - 書き上げたテーマは進行中の一覧から外し、Writingとしての役目を終了
 - 元Wantへのリンクを常に保持し、Writingの直リンクでも編集画面を復元
 - `updated_at` を使って別画面からの上書きを409で防止
 
-## Compassの機能
+## Ideaの機能
 
 - Inbox総数・未整理件数
 - 未整理のActive Wants

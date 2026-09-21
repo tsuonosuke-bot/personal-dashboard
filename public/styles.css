@@ -235,6 +235,8 @@ footer { display: flex; justify-content: space-between; width: min(1180px, calc(
   --blue: #496b7b;
   --blue-soft: #e7eef1;
   --shadow: 0 12px 32px rgba(32, 40, 34, .08);
+  --page-accent: var(--green);
+  --page-accent-soft: var(--green-soft);
   font-family: Inter, "Segoe UI", "Yu Gothic UI", Meiryo, sans-serif;
 }
 body { background: var(--paper); }
@@ -255,7 +257,7 @@ body { background: var(--paper); }
 .source-badge { min-height: 34px; padding: 7px 10px; font-size: 10px; }
 .icon-button { width: 34px; height: 34px; border-radius: 9px; }
 main { width: min(1240px, calc(100% - 28px)); }
-.eyebrow, .section-kicker { margin-bottom: 7px; color: var(--green); font-size: 9px; letter-spacing: .15em; }
+.eyebrow, .section-kicker { margin-bottom: 7px; color: var(--green); font-size: 11px; letter-spacing: .15em; }
 .metrics { gap: 9px; margin: 16px 0 14px; }
 .metric {
   min-height: 102px;
@@ -267,9 +269,9 @@ main { width: min(1240px, calc(100% - 28px)); }
 .metric:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 .metric::after { display: none; }
 .metric-icon { top: 12px; right: 12px; width: 26px; height: 26px; font-size: 14px; }
-.metric-label { font-size: 10px; }
+.metric-label { font-size: 12px; }
 .metric strong { margin: 9px 0 3px; font: 700 30px/1 Inter, "Segoe UI", sans-serif; }
-.metric small { font-size: 9px; }
+.metric small { font-size: 11px; }
 .workspace { padding: 20px; border-color: var(--line); border-radius: 12px; background: var(--card); box-shadow: none; }
 .workspace h2 { font: 700 24px/1.2 Inter, "Segoe UI", sans-serif; }
 .workspace-tools { flex-wrap: wrap; justify-content: flex-end; }

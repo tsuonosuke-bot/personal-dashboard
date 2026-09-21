@@ -217,11 +217,11 @@ export function normalizeDashboard(
     source: { system: "supabase", state: "live", fetchedAt: new Date().toISOString() },
     navigation: [
       { id: "hub", label: "Hub", url: "/", current: false },
-      { id: "compass", label: "Compass", url: null, current: true },
+      { id: "compass", label: "Idea", url: null, current: true },
       { id: "habits", label: "Habits", url: "/habits/", current: false },
       { id: "writing", label: "Writing", url: "/writing/", current: false },
-      { id: "knowledge", label: "Knowledge DB", url: "/go/knowledge", current: false },
-      { id: "financial", label: "Financial", url: "/go/financial", current: false },
+      { id: "knowledge", label: "Knowledge", url: "/go/knowledge", current: false },
+      { id: "financial", label: "Finance", url: "/go/financial", current: false },
       { id: "task-board", label: "Task Board", url: safeNavigationUrl(env.NAV_TASK_BOARD_URL), current: false },
     ],
     summary: {
