@@ -524,10 +524,14 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
       seenGradePrompts.push(String(init?.body));
       return anthropicToolResponse("submit_grades", {
         grades: [
-          { id: ID_1, quality: 5, correct_answer: "模範解答1", explanation: "よくできました", note: "完璧に回答した" },
+          {
+            id: ID_1, quality: 5, answer_quotes: ["完璧な回答"], correct_answer: "模範解答1",
+            explanation: "よくできました", note: "完璧に回答した",
+          },
           {
             id: ID_2,
             quality: 0,
+            answer_quotes: ["正解2"],
             correct_answer: "模範解答2",
             explanation: "選択肢の言葉をなぞっただけなので不正解",
             note: "正解を選んだが誤って不正解判定した",
@@ -620,7 +624,10 @@ test("quiz/grade はDBの原子的な重複判定をそのまま返す", async (
     }
     if (url.includes("api.anthropic.com")) {
       return anthropicToolResponse("submit_grades", {
-        grades: [{ id: ID_1, quality: 4, correct_answer: "模範解答", explanation: "OK", note: "note" }],
+        grades: [{
+          id: ID_1, quality: 4, answer_quotes: ["回答"], correct_answer: "模範解答",
+          explanation: "OK", note: "note",
+        }],
       });
     }
     if (url.includes("/rest/v1/rpc/record_answers_batch_once")) {
@@ -669,10 +676,13 @@ test("quiz/grade は改ざんされた問題と四択の選択肢外回答を拒
     choices: ["正解", "誤答A", "誤答B", "誤答C"],
     correctChoice: "正解",
   }, "正解");
-  const replacement = signed.token.at(-1) === "a" ? "b" : "a";
+  // 署名末尾の文字は下位ビットが捨てられ、書き換えても同じバイト列に戻ることがある。
+  // 必ず署名バイトが変わる先頭文字を差し替える。
+  const [encodedPayload, encodedSignature] = signed.token.split(".");
+  const replacement = encodedSignature[0] === "A" ? "B" : "A";
   const tampered = await gradeRoute({
     request: quizPost("/api/quiz/grade", [{
-      token: `${signed.token.slice(0, -1)}${replacement}`,
+      token: `${encodedPayload}.${replacement}${encodedSignature.slice(1)}`,
       answer: "正解",
     }]),
     env,
@@ -684,4 +694,212 @@ test("quiz/grade は改ざんされた問題と四択の選択肢外回答を拒
     env,
   });
   assert.equal(offList.status, 400);
+});
+
+/** 採点3テストで共通の knowledge 応答。1件分の事実と採点後状態を返す。 */
+function gradeKnowledgeResponse(url: string) {
+  if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on") {
+    return Response.json([{
+      id: ID_1, title: "There's room for A", priority: "高", content_version: 3,
+      next_review_on: "2026-09-27",
+    }]);
+  }
+  return Response.json([{
+    id: ID_1, title: "There's room for A", explanation: "Aの余地がある", category: "英語",
+    tags: ["前置詞"], archived: false,
+  }]);
+}
+
+test("quiz/grade は回答に無い引用を返した採点を捨てて再採点させる", async () => {
+  const originalFetch = globalThis.fetch;
+  const seenGradePrompts: string[] = [];
+  let recordedQuality = -1;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) return gradeKnowledgeResponse(url);
+    if (url.includes("api.anthropic.com")) {
+      seenGradePrompts.push(String(init?.body));
+      // 1回目は回答(of)を読まず、正解のforを答えたことにしてしまった採点。
+      if (seenGradePrompts.length === 1) {
+        return anthropicToolResponse("submit_grades", {
+          grades: [{
+            id: ID_1, quality: 5, answer_quotes: ["for"], correct_answer: "for が入る",
+            explanation: "正しい前置詞forを即答できている。", note: "forを即答した",
+          }],
+        });
+      }
+      return anthropicToolResponse("submit_grades", {
+        grades: [{
+          id: ID_1, quality: 0, answer_quotes: ["of"], correct_answer: "for が入る",
+          explanation: "of ではなく for が入ります。", note: "ofと誤答した",
+        }],
+      });
+    }
+    if (url.includes("/rest/v1/rpc/record_answers_batch_once")) {
+      recordedQuality = (JSON.parse(String(init?.body)) as {
+        p_answers: { quality: number }[];
+      }).p_answers[0].quality;
+      return Response.json([{ id: ID_1, next_review_on: "2026-09-21", recorded: true }]);
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await gradeRoute({
+      request: quizPost("/api/quiz/grade", [await signedAnswer({
+        id: ID_1, question: "There's room ＿＿＿ improvement.", format: "一問一答", choices: null,
+      }, "of")]),
+      env,
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json() as { results: { verdict: string; quality: number }[] };
+    assert.equal(seenGradePrompts.length, 2);
+    assert.equal(body.results[0].verdict, "不正解");
+    assert.equal(body.results[0].quality, 0);
+    assert.equal(recordedQuality, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/grade は再採点でも引用が一致しなければ記録せず502を返す", async () => {
+  const originalFetch = globalThis.fetch;
+  let batchCalled = false;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) return gradeKnowledgeResponse(url);
+    if (url.includes("api.anthropic.com")) {
+      return anthropicToolResponse("submit_grades", {
+        grades: [{
+          id: ID_1, quality: 5, answer_quotes: ["for"], correct_answer: "for が入る",
+          explanation: "forを即答できている。", note: "forを即答した",
+        }],
+      });
+    }
+    if (url.includes("/rest/v1/rpc/record_answers_batch_once")) {
+      batchCalled = true;
+      return Response.json([{ id: ID_1, next_review_on: null, recorded: true }]);
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await gradeRoute({
+      request: quizPost("/api/quiz/grade", [await signedAnswer({
+        id: ID_1, question: "There's room ＿＿＿ improvement.", format: "一問一答", choices: null,
+      }, "of")]),
+      env,
+    });
+    assert.equal(response.status, 502);
+    assert.equal(batchCalled, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/grade は無回答をAIの判定に関わらずq0で記録する", async () => {
+  const originalFetch = globalThis.fetch;
+  let recordedQuality = -1;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) return gradeKnowledgeResponse(url);
+    if (url.includes("api.anthropic.com")) {
+      return anthropicToolResponse("submit_grades", {
+        grades: [{
+          id: ID_1, quality: 5, answer_quotes: [], correct_answer: "for が入る",
+          explanation: "完璧です。", note: "即答した",
+        }],
+      });
+    }
+    if (url.includes("/rest/v1/rpc/record_answers_batch_once")) {
+      recordedQuality = (JSON.parse(String(init?.body)) as {
+        p_answers: { quality: number }[];
+      }).p_answers[0].quality;
+      return Response.json([{ id: ID_1, next_review_on: "2026-09-21", recorded: true }]);
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await gradeRoute({
+      request: quizPost("/api/quiz/grade", [await signedAnswer({
+        id: ID_1, question: "There's room ＿＿＿ improvement.", format: "一問一答", choices: null,
+      }, "")]),
+      env,
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json() as {
+      results: { verdict: string; quality: number; explanation: string }[];
+    };
+    assert.equal(body.results[0].quality, 0);
+    assert.equal(body.results[0].verdict, "不正解");
+    assert.match(body.results[0].explanation, /空欄/);
+    assert.equal(recordedQuality, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/grade は回答に書かれていない表現を根拠にした減点を捨てて再採点させる", async () => {
+  const originalFetch = globalThis.fetch;
+  const answer = "Input（前工程からの入力）・Process（実施内容）・Output（成果物）の頭文字。";
+  let attempts = 0;
+  let recordedQuality = -1;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
+      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on") {
+        return Response.json([{
+          id: ID_1, title: "1W&1PとIPO", priority: "高", content_version: 2,
+          next_review_on: "2026-10-04",
+        }]);
+      }
+      return Response.json([{
+        id: ID_1, title: "1W&1PとIPO", explanation: "Input・Process・Outputを定義する",
+        category: "ビジネス", tags: [], archived: false,
+      }]);
+    }
+    if (url.includes("api.anthropic.com")) {
+      attempts += 1;
+      // 1回目は回答に無い「前提作業」を書いたことにして減点した採点。
+      if (attempts === 1) {
+        return anthropicToolResponse("submit_grades", {
+          grades: [{
+            id: ID_1, quality: 3, answer_quotes: ["Inputを前提作業"],
+            correct_answer: "Input・Process・Outputの頭文字。",
+            explanation: "Inputを「前提作業」としているのはやや不正確。",
+            note: "Inputの説明が不正確だった",
+          }],
+        });
+      }
+      return anthropicToolResponse("submit_grades", {
+        grades: [{
+          id: ID_1, quality: 5, answer_quotes: ["前工程からの入力", "成果物"],
+          correct_answer: "Input・Process・Outputの頭文字。",
+          explanation: "3要素をいずれも正しく説明できています。",
+          note: "3要素を正しく答えた",
+        }],
+      });
+    }
+    if (url.includes("/rest/v1/rpc/record_answers_batch_once")) {
+      recordedQuality = (JSON.parse(String(init?.body)) as {
+        p_answers: { quality: number }[];
+      }).p_answers[0].quality;
+      return Response.json([{ id: ID_1, next_review_on: "2026-10-04", recorded: true }]);
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await gradeRoute({
+      request: quizPost("/api/quiz/grade", [await signedAnswer({
+        id: ID_1, question: "IPOとは何の頭文字か？", format: "記述説明", choices: null,
+      }, answer)]),
+      env,
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json() as { results: { quality: number; explanation: string }[] };
+    assert.equal(attempts, 2);
+    assert.equal(body.results[0].quality, 5);
+    assert.equal(recordedQuality, 5);
+    assert.doesNotMatch(body.results[0].explanation, /前提作業/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
