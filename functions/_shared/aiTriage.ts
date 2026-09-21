@@ -25,16 +25,22 @@ const allowedDestinations: Record<Intent, ReadonlySet<Destination>> = {
   discard: new Set(["archive"]),
 };
 
-interface WantSnapshot {
+const SOURCE_TABLES = { want: "wants", inbox: "idea_inbox" } as const;
+const SOURCE_STATUSES = { want: "active", inbox: "pending" } as const;
+
+type TriageSource = keyof typeof SOURCE_TABLES;
+
+interface SourceSnapshot {
   content: string;
-  status: "active";
+  status: "active" | "pending";
 }
 
 export interface AiTriageInput {
-  wantId: number;
+  source: TriageSource;
+  sourceId: number;
   content: string;
   answers: string | null;
-  original: WantSnapshot;
+  original: SourceSnapshot;
 }
 
 export interface AiRouteSuggestion {
@@ -99,33 +105,40 @@ export async function readAiTriageInput(request: Request): Promise<ValidationRes
   } catch {
     return { ok: false, status: 400, error: "JSONの形式が正しくありません。" };
   }
-  if (!isPlainObject(value) || !hasOnlyKeys(value, ["wantId", "content", "answers", "original"])) {
+  if (!isPlainObject(value) || !hasOnlyKeys(value, ["source", "sourceId", "content", "answers", "original"])) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
-  if (!Number.isSafeInteger(value.wantId) || Number(value.wantId) <= 0) {
-    return { ok: false, status: 400, error: "Want IDが正しくありません。" };
+  if (typeof value.source !== "string" || !(value.source in SOURCE_TABLES)) {
+    return { ok: false, status: 400, error: "整理する対象の種類が正しくありません。" };
+  }
+  const source = value.source as TriageSource;
+  const expectedStatus = SOURCE_STATUSES[source];
+  if (!Number.isSafeInteger(value.sourceId) || Number(value.sourceId) <= 0) {
+    return { ok: false, status: 400, error: "対象IDが正しくありません。" };
   }
   if (typeof value.content !== "string" || value.content.trim().length === 0 || value.content.length > MAX_CONTENT_CHARS) {
-    return { ok: false, status: 400, error: "Wantの内容が正しくありません。" };
+    return { ok: false, status: 400, error: "整理する内容が正しくありません。" };
   }
   if (value.answers !== null && (typeof value.answers !== "string" || value.answers.length > MAX_ANSWERS_CHARS)) {
     return { ok: false, status: 400, error: "回答内容が正しくありません。" };
   }
   if (!isPlainObject(value.original) || !hasOnlyKeys(value.original, ["content", "status"]) ||
-      typeof value.original.content !== "string" || value.original.content.length > MAX_CONTENT_CHARS || value.original.status !== "active") {
-    return { ok: false, status: 400, error: "整理前のWant情報が正しくありません。" };
+      typeof value.original.content !== "string" || value.original.content.length > MAX_CONTENT_CHARS
+      || value.original.status !== expectedStatus) {
+    return { ok: false, status: 400, error: "整理前の情報が正しくありません。" };
   }
   if (value.content !== value.original.content) {
-    return { ok: false, status: 400, error: "Wantの内容が一致しません。" };
+    return { ok: false, status: 400, error: "整理する内容が一致しません。" };
   }
   const answers = typeof value.answers === "string" && value.answers.trim().length > 0 ? value.answers.trim() : null;
   return {
     ok: true,
     value: {
-      wantId: Number(value.wantId),
+      source,
+      sourceId: Number(value.sourceId),
       content: value.content.trim(),
       answers,
-      original: { content: value.original.content, status: "active" },
+      original: { content: value.original.content, status: expectedStatus },
     },
   };
 }
@@ -144,27 +157,28 @@ function supabaseConnection(env: DashboardEnv): { url: URL; key: string } {
   return { url, key };
 }
 
-async function verifyWant(env: DashboardEnv, input: AiTriageInput): Promise<void> {
+async function verifySource(env: DashboardEnv, input: AiTriageInput): Promise<void> {
   const connection = supabaseConnection(env);
-  const endpoint = new URL("/rest/v1/wants", connection.url);
+  const table = SOURCE_TABLES[input.source];
+  const endpoint = new URL(`/rest/v1/${table}`, connection.url);
   endpoint.searchParams.set("select", "id");
-  endpoint.searchParams.set("id", `eq.${input.wantId}`);
+  endpoint.searchParams.set("id", `eq.${input.sourceId}`);
   endpoint.searchParams.set("content", `eq.${input.original.content}`);
-  endpoint.searchParams.set("status", "eq.active");
+  endpoint.searchParams.set("status", `eq.${input.original.status}`);
   endpoint.searchParams.set("limit", "1");
   let response: Response;
   try {
     response = await fetch(endpoint, { headers: { Accept: "application/json", apikey: connection.key } });
   } catch {
-    throw new DashboardError("SUPABASE_UNAVAILABLE", "Could not reach wants.");
+    throw new DashboardError("SUPABASE_UNAVAILABLE", `Could not reach ${table}.`);
   }
   if (!response.ok) {
     const code = response.status === 401 || response.status === 403 ? "SUPABASE_ACCESS_DENIED" : "SUPABASE_REQUEST_FAILED";
-    throw new DashboardError(code, `wants returned ${response.status}.`);
+    throw new DashboardError(code, `${table} returned ${response.status}.`);
   }
   const rows: unknown = await response.json();
-  if (!Array.isArray(rows)) throw new DashboardError("SUPABASE_RESPONSE_INVALID", "wants returned invalid data.");
-  if (rows.length !== 1) throw new DashboardError("WANT_UPDATE_CONFLICT", "Want changed before AI triage.", 409);
+  if (!Array.isArray(rows)) throw new DashboardError("SUPABASE_RESPONSE_INVALID", `${table} returned invalid data.`);
+  if (rows.length !== 1) throw new DashboardError("WANT_UPDATE_CONFLICT", "Source changed before AI triage.", 409);
 }
 
 const suggestionSchema = {
@@ -279,7 +293,7 @@ export async function suggestWantRoutes(env: DashboardEnv, input: AiTriageInput)
   const model = env.ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL;
   const workspaceId = env.ANTHROPIC_WORKSPACE_ID?.trim();
   if (!apiKey) throw new DashboardError("AI_NOT_CONFIGURED", "Claude is not configured.", 503);
-  await verifyWant(env, input);
+  await verifySource(env, input);
 
   const userPayload = {
     want: input.content,

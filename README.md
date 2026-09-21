@@ -86,7 +86,8 @@ Browser
 - Inboxの新規登録
 - Inboxの本文・ステータス・整理結果を編集
 - Wantsの本文・ステータスを編集
-- 未整理Wantを1件ずつ「行動する・継続する・掘り下げる・残す・見送る」で整理
+- 未整理Inboxをカレンダー・Writing・Habits・Focus・Knowledge・寝かせるのクイック操作から直接整理
+- 未整理Inboxまたは再訪で浮上したWantを1件ずつ「行動する・継続する・掘り下げる・残す・見送る」で整理
 - 「AIに整理案を聞く」を押した時だけ、分類・登録先・下書きの提案を取得
 - AIから確認質問がある場合は、回答後に明示的に再提案を依頼
 - 振り分け内容をプレビューし、確定後に `want_routes` へ履歴を保存
@@ -95,7 +96,8 @@ Browser
 - GitHub・Knowledge DB・Journalは未送信の計画として保存（接続は別途合意後）
 - 振り分けの登録または計画保存に成功すると、元Wantを自動的に `completed` へ更新
 - 振り分け先への登録に失敗した場合は元Wantを `active` のまま残し、同じ処理IDで安全に再試行
-- InboxからWantを追加すると元のInboxを処理済み（処理結果: Wantsに登録）にする
+- Inboxから振り分けた場合は履歴用のWantを1件作成して `want_routes` へ紐付け、元のInboxを処理済み（処理結果: 振り分け先名）にする
+- 「寝かせる」はWantsへ `revisit_on`（既定1ヶ月後・必須）付きで登録し、元のInboxを処理済み（処理結果: 寝かせる（再訪 日付））にする
 - 検索、ステータス絞り込み、詳細ドロワー、再読込
 - `/compass/?view=wants&filter=untriaged` で未整理のActive Wantsへ直接移動（既存URLとの互換名）
 - `/api/health` による接続状態確認

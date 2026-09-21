@@ -7,6 +7,8 @@ const state = {
   search: "",
   metricFilter: "",
   drawerItem: null,
+  triageSource: "wants",
+  inboxWant: null,
   aiRequestToken: 0,
   calendarConnection: null,
 };
@@ -66,17 +68,14 @@ const closeMeta = {
   },
 };
 
-const createFlowMeta = {
-  inbox: {
-    title: "Wantとして追加",
-    targetView: "wants",
-    endpoint: "/api/wants",
-    actionHeader: "want-create",
-    submit: "Wantに追加",
-    sourceLabel: "元のInbox",
-    note: "Want追加後、元のInboxを処理済みにし、処理結果を「Wantsに登録」と記録します。",
-    success: "Wantを追加し、Inboxを処理済みにしました。",
-  },
+const DEFER_ROUTE = "defer";
+
+const inboxQuickRoutes = {
+  calendar: { label: "カレンダー", description: "日付を決めて動く", intent: "act", destination: "calendar" },
+  writing: { label: "Writing", description: "文章に育てる", intent: "explore", destination: "writing" },
+  habit: { label: "Habits", description: "習慣にする", intent: "continue", destination: "habit" },
+  focus: { label: "Focus", description: "意識し続ける", intent: "keep", destination: "focus" },
+  knowledge: { label: "Knowledge", description: "調べて確かめる", intent: "explore", destination: "knowledge" },
 };
 
 const routeIntentMeta = {
@@ -286,7 +285,32 @@ function renderList() {
   els.cardList.querySelectorAll(".item-card").forEach((card) => card.addEventListener("click", () => openDrawer(Number(card.dataset.id))));
 }
 
+function triageSourceLabel(view = state.triageSource) {
+  return view === "inbox" ? "元のInbox" : "元のWant";
+}
+
+function triageKicker(item, view = state.triageSource) {
+  return `${viewMeta[view].singular} · ${item.id}`;
+}
+
+function triageCompletionNote(view = state.triageSource) {
+  return view === "inbox" ? "元のInboxを整理済みにします。" : "元のWantも完了します。";
+}
+
+function defaultRevisitDate() {
+  const today = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const day = today.getUTCDate();
+  const target = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, day));
+  if (target.getUTCDate() !== day) target.setUTCDate(0);
+  return target.toISOString().slice(0, 10);
+}
+
+function todayInTokyo() {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 function renderDrawerItem(item, view) {
+  state.triageSource = view;
   els.drawerKicker.textContent = `${viewMeta[view].singular} · ${item.id}`;
   els.drawerTitle.textContent = item.content || "内容なし";
   let body = `<div class="detail-grid">
@@ -294,11 +318,22 @@ function renderDrawerItem(item, view) {
     <div class="detail-box"><span>Created</span><strong>${escapeHtml(formatDate(item.createdAt, true))}</strong></div>
   </div>`;
   if (view === "inbox") {
+    const quickRouteMarkup = item.status === "pending"
+      ? `<div class="detail-section quick-route-section">
+          <span>扱いを決める</span>
+          <p>選ぶとそのまま入力画面へ進みます。迷う場合は「整理する」。</p>
+          <div class="quick-route-actions" role="group" aria-label="Inboxの扱い">
+            ${Object.entries(inboxQuickRoutes).map(([key, quick]) => `<button class="quick-route-action" type="button" data-inbox-route="${key}"><strong>${escapeHtml(quick.label)}</strong><small>${escapeHtml(quick.description)}</small></button>`).join("")}
+            <button class="quick-route-action" type="button" data-inbox-route="${DEFER_ROUTE}"><strong>寝かせる</strong><small>再訪日を決めて置く</small></button>
+          </div>
+        </div>`
+      : "";
     body += `<div class="detail-section"><span>整理結果</span><p>${escapeHtml(item.result || "まだ整理されていません")}</p></div>
+      ${quickRouteMarkup}
       <div class="drawer-actions">
         <button class="secondary-action" id="editInboxButton" type="button">Inboxを編集</button>
         ${canCloseItem(item, view) ? '<button class="close-action" id="closeItemButton" type="button">Inboxをクローズ</button>' : ""}
-        <button class="primary-action" id="createWantButton" type="button">Wantとして追加</button>
+        ${item.status === "pending" ? '<button class="primary-action" id="triageInboxButton" type="button">整理する</button>' : ""}
       </div>
       <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
   }
@@ -336,7 +371,8 @@ function renderDrawerItem(item, view) {
   }
   els.drawerBody.innerHTML = body;
   document.getElementById("editInboxButton")?.addEventListener("click", () => renderInboxEditForm(item));
-  document.getElementById("createWantButton")?.addEventListener("click", () => renderCreateFlowForm(item, "inbox"));
+  document.getElementById("triageInboxButton")?.addEventListener("click", () => renderTriageStart(item));
+  els.drawerBody.querySelectorAll("[data-inbox-route]").forEach((button) => button.addEventListener("click", () => startInboxRoute(item, button.dataset.inboxRoute)));
   document.getElementById("editWantButton")?.addEventListener("click", () => renderItemEditForm(item, "wants"));
   document.getElementById("triageWantButton")?.addEventListener("click", () => renderTriageStart(item));
   els.drawerBody.querySelectorAll("[data-quick-route]").forEach((button) => button.addEventListener("click", () => startQuickWantRoute(item, button.dataset.quickRoute)));
@@ -349,16 +385,27 @@ function startQuickWantRoute(item, key) {
   renderRouteForm(item, quick.intent, quick.destination, {}, "quick");
 }
 
+function startInboxRoute(item, key) {
+  if (item.status !== "pending") return;
+  if (key === DEFER_ROUTE) {
+    renderDeferForm(item);
+    return;
+  }
+  const quick = inboxQuickRoutes[key];
+  if (!quick) return;
+  renderRouteForm(item, quick.intent, quick.destination, {}, "quick");
+}
+
 function renderTriageStart(item) {
-  els.drawerKicker.textContent = `Want · ${item.id}`;
-  els.drawerTitle.textContent = "このWantをどう扱いますか？";
+  els.drawerKicker.textContent = triageKicker(item);
+  els.drawerTitle.textContent = `この${viewMeta[state.triageSource].singular}をどう扱いますか？`;
   els.drawerBody.innerHTML = `<div class="source-context">
-      <span>元のWant</span>
+      <span>${escapeHtml(triageSourceLabel())}</span>
       <p>${escapeHtml(item.content)}</p>
     </div>
     <div class="ai-triage-entry">
       <button class="ai-triage-button" id="askAiTriageButton" type="button">AIに整理案を聞く</button>
-      <p class="ai-data-note">押した時だけ、Want本文をClaude APIへ送信します。AIは案を作るだけで、外部登録は行いません。</p>
+      <p class="ai-data-note">押した時だけ、本文をClaude APIへ送信します。AIは案を作るだけで、外部登録は行いません。</p>
     </div>
     <div class="triage-divider"><span>または自分で選ぶ</span></div>
     <div class="triage-options" id="triageIntentOptions">
@@ -367,15 +414,16 @@ function renderTriageStart(item) {
     <div class="drawer-actions"><button class="secondary-action" id="cancelTriage" type="button">戻る</button></div>`;
   document.getElementById("askAiTriageButton").addEventListener("click", () => requestAiTriage(item));
   document.querySelectorAll("[data-intent]").forEach((button) => button.addEventListener("click", () => renderDestinationStep(item, button.dataset.intent)));
-  document.getElementById("cancelTriage").addEventListener("click", () => renderDrawerItem(item, "wants"));
+  document.getElementById("cancelTriage").addEventListener("click", () => renderDrawerItem(item, state.triageSource));
 }
 
 async function requestAiTriage(item, answers = null) {
   const requestToken = ++state.aiRequestToken;
-  els.drawerKicker.textContent = `Want · ${item.id}`;
+  const sourceView = state.triageSource;
+  els.drawerKicker.textContent = triageKicker(item, sourceView);
   els.drawerTitle.textContent = "AIが整理案を作成中";
   els.drawerBody.innerHTML = `<div class="source-context">
-      <span>元のWant</span>
+      <span>${escapeHtml(triageSourceLabel(sourceView))}</span>
       <p>${escapeHtml(item.content)}</p>
     </div>
     <div class="ai-loading" role="status"><span aria-hidden="true"></span><p>内容に合う振り分け先を考えています…</p></div>`;
@@ -389,7 +437,8 @@ async function requestAiTriage(item, answers = null) {
         "X-Dashboard-Action": "want-ai-suggest",
       },
       body: JSON.stringify({
-        wantId: item.id,
+        source: sourceView === "inbox" ? "inbox" : "want",
+        sourceId: item.id,
         content: item.content,
         answers,
         original: { content: item.content, status: item.status },
@@ -398,17 +447,17 @@ async function requestAiTriage(item, answers = null) {
     const payload = await response.json().catch(() => ({}));
     const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
     if (!response.ok) throw new Error(message || "AI整理案を取得できませんでした。");
-    if (requestToken !== state.aiRequestToken || state.drawerItem?.id !== item.id || state.drawerItem?.view !== "wants") return;
+    if (requestToken !== state.aiRequestToken || state.drawerItem?.id !== item.id || state.drawerItem?.view !== sourceView) return;
     renderAiSuggestion(item, payload);
   } catch (error) {
-    if (requestToken !== state.aiRequestToken || state.drawerItem?.id !== item.id || state.drawerItem?.view !== "wants") return;
+    if (requestToken !== state.aiRequestToken || state.drawerItem?.id !== item.id || state.drawerItem?.view !== sourceView) return;
     els.drawerTitle.textContent = "AI整理案を取得できませんでした";
     els.drawerBody.innerHTML = `<div class="source-context">
-        <span>元のWant</span>
+        <span>${escapeHtml(triageSourceLabel(sourceView))}</span>
         <p>${escapeHtml(item.content)}</p>
       </div>
       <p class="form-error" role="alert">${escapeHtml(error instanceof Error ? error.message : "AI整理案を取得できませんでした。")}</p>
-      <p class="ai-data-note">Wantは変更されていません。手動の振り分けはそのまま利用できます。</p>
+      <p class="ai-data-note">${escapeHtml(viewMeta[sourceView].singular)}は変更されていません。手動の振り分けはそのまま利用できます。</p>
       <div class="drawer-actions"><button class="secondary-action" id="manualTriageAfterAiError" type="button">手動で選ぶ</button><button class="primary-action" id="retryAiTriage" type="button">もう一度聞く</button></div>`;
     document.getElementById("manualTriageAfterAiError").addEventListener("click", () => renderTriageStart(item));
     document.getElementById("retryAiTriage").addEventListener("click", () => requestAiTriage(item, answers));
@@ -421,10 +470,10 @@ function renderAiSuggestion(item, result) {
   if (suggestions.length === 0) {
     throw new Error("AI整理案を安全に読み取れませんでした。");
   }
-  els.drawerKicker.textContent = `Want · ${item.id}`;
+  els.drawerKicker.textContent = triageKicker(item);
   els.drawerTitle.textContent = "AIからの整理案";
   els.drawerBody.innerHTML = `<div class="source-context">
-      <span>元のWant</span>
+      <span>${escapeHtml(triageSourceLabel())}</span>
       <p>${escapeHtml(item.content)}</p>
     </div>
     <div class="ai-summary"><span>読み取り</span><p>${escapeHtml(result.summary || "整理案を作成しました。")}</p></div>
@@ -523,7 +572,7 @@ function renderRouteForm(item, intent, destination, initial = {}, origin = initi
     <p class="calendar-time-zone">タイムゾーン: Asia/Tokyo</p>` : "";
   els.drawerTitle.textContent = destinationMeta.label;
   els.drawerBody.innerHTML = `<form class="edit-form" id="routeForm">
-    <div class="source-context"><span>元のWant</span><p>${escapeHtml(item.content)}</p></div>
+    <div class="source-context"><span>${escapeHtml(triageSourceLabel())}</span><p>${escapeHtml(item.content)}</p></div>
     ${routeBoundary ? `<p class="route-boundary">${escapeHtml(routeBoundary)}</p>` : ""}
     <label class="form-field" for="routeTitle"><span>タイトル</span><textarea id="routeTitle" name="title" rows="3" maxlength="240" required>${escapeHtml(title)}</textarea><small><b id="routeTitleCount">${title.length}</b> / 240</small></label>
     <label class="form-field" for="routeDetail"><span>${escapeHtml(detailLabel)} <small>空欄可</small></span><textarea id="routeDetail" name="detail" rows="6" maxlength="2000">${escapeHtml(detail)}</textarea><small><b id="routeDetailCount">${detail.length}</b> / 2000</small></label>
@@ -551,7 +600,7 @@ function renderRouteForm(item, intent, destination, initial = {}, origin = initi
     refreshGoogleCalendarConnection(document.getElementById("calendarConnectionStatus"), formSubmit);
   }
   document.getElementById("backToDestination").addEventListener("click", () => {
-    if (origin === "quick") renderDrawerItem(item, "wants");
+    if (origin === "quick") renderDrawerItem(item, state.triageSource);
     else renderDestinationStep(item, intent);
   });
   form.addEventListener("submit", (event) => {
@@ -609,7 +658,7 @@ function renderRoutePreview(item, plan) {
   const destinationMeta = routeDestinationMeta[plan.destination];
   els.drawerTitle.textContent = "振り分け内容を確認";
   els.drawerBody.innerHTML = `<div class="route-preview">
-      <div><span>元のWant</span><p>${escapeHtml(item.content)}</p></div>
+      <div><span>${escapeHtml(triageSourceLabel())}</span><p>${escapeHtml(item.content)}</p></div>
       <div><span>扱い</span><strong>${escapeHtml(intentMeta.label)}</strong></div>
       <div><span>振り分け先</span><strong>${escapeHtml(destinationMeta.label)}</strong></div>
       <div><span>タイトル</span><p>${escapeHtml(plan.title)}</p></div>
@@ -617,7 +666,7 @@ function renderRoutePreview(item, plan) {
       ${plan.cadence ? `<div><span>頻度</span><strong>${escapeHtml(cadenceLabels[plan.cadence])}</strong></div>` : ""}
       ${plan.calendar ? `<div><span>予定日時</span><strong>${escapeHtml(formatCalendarSchedule(plan.calendar))}</strong><small>メインカレンダー · Asia/Tokyo</small></div>` : ""}
     </div>
-    <p class="flow-note">${plan.destination === "calendar" ? "登録するとGoogle Calendarへ予定を作成し、確認後に元のWantも完了します。" : destinationMeta.internal ? "確定するとPersonal Dashboard内の管理先へ登録し、元のWantも完了します。" : "確定すると振り分け計画を保存し、元のWantも完了します。外部システムへの送信は、接続方法の合意後に別途行います。"}</p>
+    <p class="flow-note">${escapeHtml(plan.destination === "calendar" ? `登録するとGoogle Calendarへ予定を作成し、${triageCompletionNote()}` : destinationMeta.internal ? `確定するとPersonal Dashboard内の管理先へ登録し、${triageCompletionNote()}` : `確定すると振り分け計画を保存し、${triageCompletionNote()}外部システムへの送信は、接続方法の合意後に別途行います。`)}</p>
     <p class="form-error" id="routeSaveError" role="alert" hidden></p>
     <div class="drawer-actions"><button class="secondary-action" id="editRoutePlan" type="button">修正する</button><button class="primary-action" id="confirmRoutePlan" type="button">${routeConfirmationLabel(plan.destination)}</button></div>`;
   document.getElementById("editRoutePlan").addEventListener("click", () => renderRouteForm(item, plan.intent, plan.destination, plan, plan.origin));
@@ -636,7 +685,12 @@ async function saveWantRoute(item, plan) {
   edit.disabled = true;
   submit.textContent = plan.destination === "calendar" ? "Calendarへ登録中…" : "保存中…";
   errorElement.hidden = true;
+  const fromInbox = state.triageSource === "inbox";
   try {
+    if (fromInbox && state.inboxWant?.sourceId !== item.id) {
+      state.inboxWant = { sourceId: item.id, want: await createWantFromSource(item) };
+    }
+    const target = fromInbox ? state.inboxWant.want : { id: item.id, content: item.content, status: item.status };
     const response = await fetch("/api/want-routes", {
       method: "POST",
       credentials: "same-origin",
@@ -646,7 +700,7 @@ async function saveWantRoute(item, plan) {
         "X-Dashboard-Action": "want-route-create",
       },
       body: JSON.stringify({
-        wantId: item.id,
+        wantId: target.id,
         intent: plan.intent,
         destination: plan.destination,
         title: plan.title,
@@ -654,21 +708,33 @@ async function saveWantRoute(item, plan) {
         cadence: plan.cadence,
         calendar: plan.calendar || null,
         idempotencyKey: plan.idempotencyKey,
-        original: { content: item.content, status: item.status },
+        original: { content: target.content, status: target.status },
       }),
     });
     const payload = await response.json().catch(() => ({}));
     const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
     if (!response.ok) throw new Error(message || "振り分けを保存できませんでした。");
+
+    let inboxWarning = "";
+    if (fromInbox) {
+      state.inboxWant = null;
+      try {
+        await markInboxTriaged(item, `${routeDestinationMeta[plan.destination]?.label || plan.destination}へ振り分け`);
+      } catch {
+        inboxWarning = "振り分けは完了しましたが、元のInboxを整理済みにできませんでした。Inboxを再読込して確認してください。";
+      }
+    }
+
     const refreshed = await loadDashboard();
     if (!refreshed) {
       errorElement.textContent = "振り分けは保存しましたが、最新状態を再読み込みできませんでした。再読込してください。";
       errorElement.hidden = false;
       return;
     }
-    showToast(plan.destination === "calendar" && payload.status === "created"
-      ? "Google Calendarへ予定を登録し、Wantを完了しました。"
-      : payload.status === "created" ? "振り分け先へ登録し、Wantを完了しました。" : "振り分け計画を保存し、Wantを完了しました。外部への登録はまだ行っていません。");
+    const closedLabel = fromInbox ? "Inboxを整理済みにしました" : "Wantを完了しました";
+    showToast(inboxWarning || (plan.destination === "calendar" && payload.status === "created"
+      ? `Google Calendarへ予定を登録し、${closedLabel}。`
+      : payload.status === "created" ? `振り分け先へ登録し、${closedLabel}。` : `振り分け計画を保存し、${closedLabel}。外部への登録はまだ行っていません。`));
   } catch (error) {
     errorElement.textContent = error instanceof Error ? error.message : "振り分けを保存できませんでした。";
     errorElement.hidden = false;
@@ -938,46 +1004,29 @@ async function saveItem(event, item, view) {
   }
 }
 
-function renderCreateFlowForm(sourceItem, sourceView) {
-  const meta = createFlowMeta[sourceView];
-  if (!meta) return;
-  const initialContent = sourceView === "inbox" ? sourceItem.content : "";
-  els.drawerTitle.textContent = meta.title;
-  els.drawerBody.innerHTML = `<form class="edit-form" id="createFlowForm">
-    <div class="source-context">
-      <span>${escapeHtml(meta.sourceLabel)}</span>
-      <p>${escapeHtml(sourceItem.content)}</p>
-    </div>
-    <p class="flow-note">${escapeHtml(meta.note)}</p>
-    <label class="form-field" for="createFlowContent">
-      <span>内容</span>
-      <textarea id="createFlowContent" name="content" rows="7" maxlength="2000" required placeholder="Wantの内容">${escapeHtml(initialContent)}</textarea>
-      <small><b id="createFlowContentCount">${initialContent.length}</b> / 2000</small>
-    </label>
-    <p class="form-error" id="createFlowError" role="alert" hidden></p>
-    <div class="drawer-actions">
-      <button class="secondary-action" id="cancelCreateFlow" type="button">キャンセル</button>
-      <button class="primary-action" id="saveCreateFlow" type="submit">${escapeHtml(meta.submit)}</button>
-    </div>
-  </form>`;
-
-  const form = document.getElementById("createFlowForm");
-  const content = document.getElementById("createFlowContent");
-  content.addEventListener("input", () => { document.getElementById("createFlowContentCount").textContent = content.value.length; });
-  document.getElementById("cancelCreateFlow").addEventListener("click", () => renderDrawerItem(sourceItem, sourceView));
-  form.addEventListener("submit", (event) => saveCreateFlow(event, sourceItem, sourceView));
-  content.focus();
-  content.setSelectionRange(content.value.length, content.value.length);
+async function createWantFromSource(sourceItem, extra = {}) {
+  const response = await fetch("/api/wants", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": "want-create",
+    },
+    body: JSON.stringify({ content: sourceItem.content, ...extra }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+  if (!response.ok) throw new Error(message || "Wantを作成できませんでした。");
+  if (!Number.isSafeInteger(Number(payload.id))) throw new Error("保存結果を確認できませんでした。");
+  return {
+    id: Number(payload.id),
+    content: typeof payload.content === "string" ? payload.content : sourceItem.content,
+    status: "active",
+  };
 }
 
-function setCreateFlowError(message) {
-  const error = document.getElementById("createFlowError");
-  if (!error) return;
-  error.textContent = message;
-  error.hidden = !message;
-}
-
-async function markInboxPromoted(sourceItem) {
+async function markInboxTriaged(sourceItem, result) {
   const response = await fetch("/api/inbox", {
     method: "PATCH",
     credentials: "same-origin",
@@ -990,7 +1039,7 @@ async function markInboxPromoted(sourceItem) {
       id: sourceItem.id,
       content: sourceItem.content,
       status: "done",
-      result: "Wantsに登録",
+      result,
       original: {
         content: sourceItem.content,
         status: sourceItem.status,
@@ -1000,73 +1049,103 @@ async function markInboxPromoted(sourceItem) {
   });
   const payload = await response.json().catch(() => ({}));
   const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
-  if (!response.ok) throw new Error(message || "元のInboxを処理済みにできませんでした。");
+  if (!response.ok) throw new Error(message || "元のInboxを整理済みにできませんでした。");
 }
 
-async function saveCreateFlow(event, sourceItem, sourceView) {
+function renderDeferForm(sourceItem) {
+  const revisitOn = defaultRevisitDate();
+  els.drawerKicker.textContent = triageKicker(sourceItem, "inbox");
+  els.drawerTitle.textContent = "寝かせる";
+  els.drawerBody.innerHTML = `<form class="edit-form" id="deferForm">
+    <div class="source-context"><span>元のInbox</span><p>${escapeHtml(sourceItem.content)}</p></div>
+    <p class="route-boundary">振り分け先は決めず、次に考える日だけ決めてWantsへ置きます。再訪日が来ると未整理のWantsとして浮上します。</p>
+    <label class="form-field" for="deferContent">
+      <span>内容</span>
+      <textarea id="deferContent" name="content" rows="6" maxlength="2000" required>${escapeHtml(sourceItem.content)}</textarea>
+      <small><b id="deferContentCount">${sourceItem.content.length}</b> / 2000</small>
+    </label>
+    <label class="form-field" for="deferRevisitOn">
+      <span>再訪日</span>
+      <input id="deferRevisitOn" name="revisitOn" type="date" value="${escapeHtml(revisitOn)}" min="${escapeHtml(todayInTokyo())}" required>
+      <small>既定は1ヶ月後です。</small>
+    </label>
+    <label class="form-field" for="deferNote">
+      <span>メモ <small>空欄可</small></span>
+      <textarea id="deferNote" name="note" rows="4" maxlength="2000" placeholder="今は動かさない理由、再訪時に思い出したいこと"></textarea>
+    </label>
+    <p class="form-error" id="deferError" role="alert" hidden></p>
+    <div class="drawer-actions">
+      <button class="secondary-action" id="cancelDefer" type="button">戻る</button>
+      <button class="primary-action" id="saveDeferButton" type="submit">寝かせる</button>
+    </div>
+  </form>`;
+
+  const form = document.getElementById("deferForm");
+  const content = document.getElementById("deferContent");
+  content.addEventListener("input", () => { document.getElementById("deferContentCount").textContent = content.value.length; });
+  document.getElementById("cancelDefer").addEventListener("click", () => renderDrawerItem(sourceItem, "inbox"));
+  form.addEventListener("submit", (event) => saveDefer(event, sourceItem));
+  content.focus();
+  content.setSelectionRange(content.value.length, content.value.length);
+}
+
+function setDeferError(message) {
+  const error = document.getElementById("deferError");
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+}
+
+async function saveDefer(event, sourceItem) {
   event.preventDefault();
   const form = event.currentTarget;
-  const meta = createFlowMeta[sourceView];
   const content = form.elements.content.value.trim();
+  const revisitOn = form.elements.revisitOn.value;
+  const note = form.elements.note.value.trim();
   if (!content) {
-    setCreateFlowError("内容を入力してください。");
+    setDeferError("内容を入力してください。");
     form.elements.content.focus();
     return;
   }
+  if (!revisitOn) {
+    setDeferError("再訪日を入力してください。");
+    form.elements.revisitOn.focus();
+    return;
+  }
+  if (revisitOn < todayInTokyo()) {
+    setDeferError("再訪日は今日以降の日付を指定してください。");
+    form.elements.revisitOn.focus();
+    return;
+  }
 
-  const submit = document.getElementById("saveCreateFlow");
-  const cancel = document.getElementById("cancelCreateFlow");
+  const submit = document.getElementById("saveDeferButton");
+  const cancel = document.getElementById("cancelDefer");
   submit.disabled = true;
   cancel.disabled = true;
   submit.textContent = "保存中…";
-  setCreateFlowError("");
+  setDeferError("");
 
   try {
-    const requestBody = { content };
-    const response = await fetch(meta.endpoint, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-Dashboard-Action": meta.actionHeader,
-      },
-      body: JSON.stringify(requestBody),
-    });
-    const payload = await response.json().catch(() => ({}));
-    const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
-    if (!response.ok) throw new Error(message || `${meta.title}に失敗しました。`);
-    if (!Number.isSafeInteger(Number(payload.id))) throw new Error("保存結果を確認できませんでした。");
-
-    let sourceUpdateWarning = "";
-    if (sourceView === "inbox") {
-      try {
-        await markInboxPromoted(sourceItem);
-      } catch {
-        sourceUpdateWarning = "Wantは追加しましたが、Inboxを処理済みにできませんでした。Inboxを再読込して確認してください。";
-      }
+    await createWantFromSource({ ...sourceItem, content }, { revisitOn, note: note || null });
+    let inboxWarning = "";
+    try {
+      await markInboxTriaged(sourceItem, `寝かせる（再訪 ${revisitOn}）`);
+    } catch {
+      inboxWarning = "Wantsへ置きましたが、元のInboxを整理済みにできませんでした。Inboxを再読込して確認してください。";
     }
-
-    state.view = meta.targetView;
-    state.status = defaultStatusByView[meta.targetView];
-    state.search = "";
-    state.metricFilter = "";
-    els.searchInput.value = "";
-    state.drawerItem = { id: Number(payload.id), view: meta.targetView };
-    syncCompassRoute(meta.targetView, Number(payload.id));
     const refreshed = await loadDashboard();
     if (!refreshed) {
-      setCreateFlowError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
+      setDeferError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
       return;
     }
-    showToast(sourceUpdateWarning || meta.success);
+    showToast(inboxWarning || `${revisitOn}に再訪するWantとして寝かせ、Inboxを整理済みにしました。`);
   } catch (error) {
-    setCreateFlowError(error instanceof Error ? error.message : `${meta.title}に失敗しました。`);
+    setDeferError(error instanceof Error ? error.message : "寝かせることができませんでした。");
   } finally {
     if (submit.isConnected) {
       submit.disabled = false;
       cancel.disabled = false;
-      submit.textContent = meta.submit;
+      submit.textContent = "寝かせる";
     }
   }
 }
