@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { getSpeakingPracticeLog, recordSpeakingPractice } from "../lib/api";
 import {
-  buildSpeakingPracticeSession,
+  ApiError,
+  getSpeakingPracticeLog,
+  recordSpeakingPractice,
+  startSpeakingPractice,
+} from "../lib/api";
+import {
+  selectSpeakingPracticeKnowledge,
   speakingPracticeCandidates,
   speakingPracticeStats,
   type SpeakingPracticeCard,
@@ -40,6 +45,13 @@ function recentFrom(): string {
   return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 }
 
+function generationErrorMessage(caught: unknown): string {
+  if (!(caught instanceof ApiError)) {
+    return caught instanceof Error ? caught.message : "AI例文を生成できませんでした。";
+  }
+  return [caught.message, caught.reason, caught.action].filter(Boolean).join(" ");
+}
+
 export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Props) {
   const candidates = useMemo(() => speakingPracticeCandidates(knowledge), [knowledge]);
   const [mode, setMode] = useState<SpeakingPracticeMode>("mixed");
@@ -52,6 +64,7 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
   const [answer, setAnswer] = useState("");
   const [repetitions, setRepetitions] = useState(0);
   const [ratings, setRatings] = useState<SpeakingPracticeRating[]>([]);
+  const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [logs, setLogs] = useState<SpeakingPracticeLog[]>([]);
@@ -74,21 +87,42 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
   const current = cards[index];
   const canRate = current?.type === "instant_composition" ? revealed : repetitions >= 3;
 
-  const start = () => {
-    const nextCards = buildSpeakingPracticeSession(knowledge, mode, limit).map((card) => ({
-      ...card,
-      attemptId: crypto.randomUUID(),
-    }));
-    if (nextCards.length === 0) return;
-    setCards(nextCards);
-    setSessionId(crypto.randomUUID());
-    setIndex(0);
-    setRevealed(false);
-    setAnswer("");
-    setRepetitions(0);
-    setRatings([]);
+  const start = async () => {
+    if (generating) return;
+    const selected = selectSpeakingPracticeKnowledge(knowledge, limit);
+    if (selected.length === 0) return;
+    setGenerating(true);
     setActionError(null);
-    setPhase("practice");
+    try {
+      const generated = await startSpeakingPractice(selected.map((item) => item.id), mode);
+      const selectedById = new Map(selected.map((item) => [item.id, item]));
+      const nextCards: SessionCard[] = generated.items.map((item) => {
+        const source = selectedById.get(item.knowledge_id);
+        if (!source) throw new Error("AI例文と元のナレッジを対応できませんでした。");
+        return {
+          knowledge: source,
+          type: item.practice_type,
+          prompt: item.prompt_ja,
+          target: item.target_en,
+          attemptId: crypto.randomUUID(),
+        };
+      });
+      if (nextCards.length !== selected.length) {
+        throw new Error("AI例文の件数がナレッジと一致しませんでした。");
+      }
+      setCards(nextCards);
+      setSessionId(crypto.randomUUID());
+      setIndex(0);
+      setRevealed(false);
+      setAnswer("");
+      setRepetitions(0);
+      setRatings([]);
+      setPhase("practice");
+    } catch (caught) {
+      setActionError(generationErrorMessage(caught));
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const speakSample = () => {
@@ -153,7 +187,7 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
             <div className="speaking-setup-intro">
               <span className="speaking-kicker">PRACTICE, NOT REVIEW</span>
               <h2>声に出すための練習</h2>
-              <p>英語ナレッジの意味から表現を思い出す練習と、表示されたフレーズを3回読む練習です。採点や次回復習日は変更しません。</p>
+              <p>AIが英語ナレッジから短いビジネス例文を作ります。平易な日本語からの瞬間英作文と、実際の仕事場面に合う例文の音読を練習できます。</p>
             </div>
 
             <div className="speaking-history" aria-label="最近の練習記録">
@@ -197,10 +231,16 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
 
             <div className="speaking-start-row">
               <span>練習候補 {candidates.length}件</span>
-              <button className="primary-button" onClick={start} disabled={candidates.length === 0}>
-                この内容で始める
+              <button
+                className="primary-button"
+                onClick={() => void start()}
+                disabled={candidates.length === 0 || generating}
+              >
+                {generating ? "AIが例文を作成中..." : "AIで例文を作って始める"}
               </button>
             </div>
+            {generating && <p className="speaking-generation-note">ナレッジの意味を確認しています。数秒かかることがあります。</p>}
+            {actionError && <div className="err compact" role="alert">{actionError}</div>}
             {candidates.length === 0 && (
               <div className="msg">カテゴリまたはタグが「英語」で、英字タイトルを持つナレッジがありません。</div>
             )}
@@ -216,9 +256,19 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
             </div>
 
             <div className={`speaking-task ${current.type}`}>
-              <p className="speaking-prompt">{current.prompt}</p>
+              <p className="speaking-prompt">
+                {current.type === "instant_composition"
+                  ? "次の日本語を英語で言ってください。"
+                  : "次の短いビジネス例文を3回音読してください。"}
+              </p>
+              {current.type === "instant_composition" && (
+                <blockquote className="speaking-japanese-prompt" lang="ja">{current.prompt}</blockquote>
+              )}
               {current.type === "read_aloud" && (
-                <blockquote lang="en">{current.target}</blockquote>
+                <>
+                  <blockquote lang="en">{current.target}</blockquote>
+                  <p className="speaking-translation">意味: {current.prompt}</p>
+                </>
               )}
             </div>
 
@@ -239,9 +289,9 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
 
             {current.type === "instant_composition" && revealed && (
               <div className="speaking-reveal" role="status">
-                <span>登録されている表現</span>
+                <span>AIが作成したビジネス例文</span>
                 <strong lang="en">{current.target}</strong>
-                {current.knowledge.explanation && <p>{current.knowledge.explanation.slice(0, 800)}</p>}
+                <p>使ったナレッジ: <span lang="en">{current.knowledge.title}</span></p>
                 <button className="secondary-button" onClick={speakSample}>🔊 お手本を聞く</button>
               </div>
             )}

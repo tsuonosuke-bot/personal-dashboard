@@ -2,7 +2,9 @@ import { isUuid, readJsonBody } from "./knowledgeValidation.ts";
 
 export const SPEAKING_PRACTICE_ACTION_HEADER = "speaking-practice";
 const MAX_REQUEST_CHARS = 4_000;
+const MAX_START_ITEMS = 15;
 const PRACTICE_TYPES = new Set(["instant_composition", "read_aloud"]);
+const PRACTICE_MODES = new Set(["mixed", ...PRACTICE_TYPES]);
 const RATINGS = new Set(["smooth", "almost", "retry"]);
 
 export interface SpeakingPracticeInput {
@@ -13,6 +15,11 @@ export interface SpeakingPracticeInput {
   rating: "smooth" | "almost" | "retry";
   answer_text: string | null;
   repetitions: number;
+}
+
+export interface SpeakingPracticeStartInput {
+  knowledge_ids: string[];
+  mode: "mixed" | "instant_composition" | "read_aloud";
 }
 
 type ValidationResult =
@@ -95,5 +102,31 @@ export function validateSpeakingPracticeInput(input: unknown): ValidationResult 
       answer_text: answerText || null,
       repetitions: input.repetitions as number,
     },
+  };
+}
+
+export function validateSpeakingPracticeStartInput(
+  input: unknown,
+): { ok: true; value: SpeakingPracticeStartInput } | { ok: false; error: string } {
+  if (!isRecord(input)) return { ok: false, error: "入力内容の形式が正しくありません。" };
+  const allowed = new Set(["knowledge_ids", "mode"]);
+  const unknown = Object.keys(input).find((key) => !allowed.has(key));
+  if (unknown) return { ok: false, error: `出題に使えない項目が含まれています: ${unknown}` };
+  if (!Array.isArray(input.knowledge_ids) || input.knowledge_ids.length < 1 || input.knowledge_ids.length > MAX_START_ITEMS) {
+    return { ok: false, error: `ナレッジIDは1〜${MAX_START_ITEMS}件で指定してください。` };
+  }
+  const ids: string[] = [];
+  for (const raw of input.knowledge_ids) {
+    if (typeof raw !== "string" || !isUuid(raw) || ids.includes(raw)) {
+      return { ok: false, error: "ナレッジIDが正しくないか、重複しています。" };
+    }
+    ids.push(raw);
+  }
+  if (typeof input.mode !== "string" || !PRACTICE_MODES.has(input.mode)) {
+    return { ok: false, error: "練習モードが正しくありません。" };
+  }
+  return {
+    ok: true,
+    value: { knowledge_ids: ids, mode: input.mode as SpeakingPracticeStartInput["mode"] },
   };
 }

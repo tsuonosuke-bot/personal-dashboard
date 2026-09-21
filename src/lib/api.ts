@@ -1,6 +1,7 @@
 import type {
   DailyReviewStatus, Knowledge, KnowledgeDraft, QuizFormatRequest, QuizGradeResponse, QuizLog,
-  QuizStart, RecoveryPreview, SpeakingPracticeLog, SpeakingPracticeWrite,
+  QuizStart, RecoveryPreview, SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
+  SpeakingPracticeWrite,
 } from "../types";
 import {
   parseDailyReviewStatus,
@@ -11,6 +12,7 @@ import {
   parseQuizStartResponse,
   parseRecoveryPreview,
   parseSpeakingPracticeLog,
+  parseSpeakingPracticeStart,
 } from "./apiValidation.ts";
 
 interface ErrorBody {
@@ -146,6 +148,21 @@ export async function recordSpeakingPractice(
     body: JSON.stringify(input),
   });
   return parseSpeakingPracticeLog(data);
+}
+
+export async function startSpeakingPractice(
+  knowledgeIds: string[],
+  mode: SpeakingPracticeMode,
+): Promise<SpeakingPracticeStart> {
+  const data = await requestJson("/api/speaking-practice/start", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": "speaking-practice",
+    },
+    body: JSON.stringify({ knowledge_ids: knowledgeIds, mode }),
+  });
+  return parseSpeakingPracticeStart(data);
 }
 
 async function writeKnowledge(
