@@ -37,6 +37,11 @@ const NOTES_PER_ITEM = 2;
 /** 四択の選択肢数。DBにもUIにも持たせず、ここだけを基準にする。 */
 const CHOICE_COUNT = 4;
 
+const JAPANESE_WORD_COUNTS = new Map([
+  ["一", 1], ["二", 2], ["三", 3], ["四", 4], ["五", 5],
+  ["六", 6], ["七", 7], ["八", 8], ["九", 9], ["十", 10],
+]);
+
 interface QuizItem {
   id: string;
   question: string;
@@ -67,6 +72,33 @@ function normalizeChoiceSet(value: unknown, correctChoice: unknown): ChoiceSet |
   return trimmed.includes(normalizedCorrectChoice)
     ? { choices: trimmed, correctChoice: normalizedCorrectChoice }
     : null;
+}
+
+/** 「3語」「三語」「3 words」のような、問題文で明示された英語の語数を取り出す。 */
+function requestedWordCount(question: string): number | null {
+  const normalized = question.replace(/[０-９]/g, (digit) =>
+    String.fromCharCode(digit.charCodeAt(0) - 0xfee0));
+  const match = normalized.match(/(?:(\d{1,2})|([一二三四五六七八九十]))\s*語|\b(\d{1,2})\s*words?\b/iu);
+  if (!match) return null;
+  if (match[1] || match[3]) return Number(match[1] ?? match[3]);
+  return JAPANESE_WORD_COUNTS.get(match[2]) ?? null;
+}
+
+/** タイトルが英語の語句そのものなら、空白区切りの語数を返す。説明文などは判定対象にしない。 */
+function englishTitleWordCount(title: string): number | null {
+  const trimmed = title.trim().replace(/[.!?]+$/u, "");
+  if (!trimmed || !/^[A-Za-z][A-Za-z'\u2019-]*(?:\s+[A-Za-z][A-Za-z'\u2019-]*)*$/u.test(trimmed)) {
+    return null;
+  }
+  return trimmed.split(/\s+/u).length;
+}
+
+/** 語学問題に語数指定を入れた場合、正解タイトルの実語数と一致していることを機械的に確認する。 */
+function hasConsistentWordCount(item: PickedItem, question: string): boolean {
+  if (!PRODUCTION_CATEGORIES.has(item.category)) return true;
+  const requested = requestedWordCount(question);
+  const actual = englishTitleWordCount(item.title);
+  return requested === null || actual === null || requested === actual;
 }
 
 /** 「使わせる」問い方が成立する、語学系のカテゴリ。 */
@@ -189,6 +221,8 @@ const SYSTEM_PROMPT = `あなたはナレッジDBの復習クイズの出題者�
 
 - 一問一答: 選択肢なしで、答えを一語〜一文で言わせる。答えられる粒度にし、
   「〜について説明してください」だけの漠然とした問題文にしない。
+  「3語で」のように語数・文字数を指定するなら、想定解を実際に数えて完全に一致させる。
+  少しでも不確かな場合は語数・文字数を問題文に書かない。
 - 四択: 問い方は一問一答と同じで、choices を必ず${CHOICE_COUNT}件付け、正解と完全一致する文面を
   correct_choiceにも入れる。choicesは正解1件と、紛らわしい誤答3件。
   誤答は同じカテゴリ・同じ粒度・同じくらいの長さで作る（長い選択肢が正解という癖をつけない）。
@@ -213,24 +247,27 @@ choices は選んだformatが四択の項目にだけ付ける。他の形式で
 
 ## 出力前の自己チェック
 
-各問を自分で読み返し、次の2点を確認する。どちらかに当てはまったら作り直すこと。
+各問を自分で読み返し、次の3点を確認する。どれかに当てはまったら作り直すこと。
 
 - 答えが書いてある: 答えの語句（英単語・熟語・人名・年号など）が問題文に含まれている。
 - 答えが定まらない: 想定した答え以外を入れても問題文が成り立つ。手がかりを足して一つに絞る。
+- 形式指定が誤っている: 語数・文字数・頭文字・品詞・時制などの指定が想定解と一致していない。
+  例: 正解が「before you knew it」なら4語であり、「3語の表現」と書いてはいけない。
 
 与えられたid一つにつき、questionsに必ず1件、同じidで出力する。`;
 
-/** 1件でも選択肢が崩れたときに、その項目だけをもう一度生成させる。 */
+/** 1件でも選択肢や問題文の形式指定が崩れたときに、その項目だけをもう一度生成させる。 */
 const RETRY_SYSTEM_SUFFIX = `
 
 ## 再生成の注意
 
-これは一部の項目だけの再生成依頼です。前回、choicesが次のいずれかで不採用になりました。
+これは一部の項目だけの再生成依頼です。前回、問題文またはchoicesが次のいずれかで不採用になりました。
+- 問題文で指定した英語の語数が、titleの実際の語数と一致していなかった
 - 件数が${CHOICE_COUNT}件ちょうどでなかった
 - 同じ文言が重複していた
 - 空文字が含まれていた
 - correct_choiceがchoices内の1件と完全一致していなかった
-今回は必ず条件を満たすchoicesとcorrect_choiceを付けること。`;
+語数に確信がなければ語数指定を削除すること。四択では必ず条件を満たすchoicesとcorrect_choiceを付けること。`;
 
 interface QuestionToolInput {
   id: string;
@@ -458,6 +495,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const isGenerated = (item: PickedItem): boolean => {
     const generatedItem = byId.get(item.id);
     if (!generatedItem) return false;
+    if (!hasConsistentWordCount(item, generatedItem.question)) return false;
     return generatedItem.format !== "四択" || generatedItem.choices !== null;
   };
 
@@ -476,6 +514,9 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     const itemFormat = generatedItem?.format;
     if (!generatedItem) {
       return jsonResponse({ error: "AIが一部の問題を生成しませんでした。" }, 502);
+    }
+    if (!hasConsistentWordCount(item, generatedItem.question)) {
+      return jsonResponse({ error: "AIが正解と矛盾する語数指定の問題を生成しました。" }, 502);
     }
     // 四択は選択肢がそろって初めて成立するので、欠けていたら黙って自由記述にはしない。
     if (!itemFormat || itemFormat === "四択" && !generatedItem.choices) {

@@ -86,6 +86,64 @@ function verdictForQuality(quality: number): "正解" | "部分正解" | "不正
   return "不正解";
 }
 
+const JAPANESE_WORD_COUNTS = new Map([
+  ["一", 1], ["二", 2], ["三", 3], ["四", 4], ["五", 5],
+  ["六", 6], ["七", 7], ["八", 8], ["九", 9], ["十", 10],
+]);
+
+function requestedWordCount(question: string): number | null {
+  const normalized = question.replace(/[０-９]/g, (digit) =>
+    String.fromCharCode(digit.charCodeAt(0) - 0xfee0));
+  const match = normalized.match(/(?:(\d{1,2})|([一二三四五六七八九十]))\s*語|\b(\d{1,2})\s*words?\b/iu);
+  if (!match) return null;
+  if (match[1] || match[3]) return Number(match[1] ?? match[3]);
+  return JAPANESE_WORD_COUNTS.get(match[2]) ?? null;
+}
+
+function englishWords(value: string): string[] | null {
+  const trimmed = value.trim().replace(/[.!?]+$/u, "");
+  if (!trimmed || !/^[A-Za-z][A-Za-z'\u2019-]*(?:\s+[A-Za-z][A-Za-z'\u2019-]*)*$/u.test(trimmed)) {
+    return null;
+  }
+  return trimmed.toLocaleLowerCase("en-US").replace(/\u2019/gu, "'").split(/\s+/u);
+}
+
+/** 1語の欠落・追加・置換までを検出する、小さな語単位Levenshtein距離。 */
+function wordEditDistance(left: string[], right: string[]): number {
+  let previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= left.length; i += 1) {
+    const current = [i];
+    for (let j = 1; j <= right.length; j += 1) {
+      current[j] = Math.min(
+        current[j - 1] + 1,
+        previous[j] + 1,
+        previous[j - 1] + (left[i - 1] === right[j - 1] ? 0 : 1),
+      );
+    }
+    previous = current;
+  }
+  return previous[right.length];
+}
+
+/** 設問側の誤った語数指定に従ったため、正解から1語だけずれた回答かを判定する。 */
+function followedDefectiveWordCount(
+  fact: KnowledgeFact,
+  question: string,
+  userAnswer: string,
+): { requested: number; actual: number } | null {
+  if (fact.category !== "英語" && fact.category !== "単語") return null;
+  const requested = requestedWordCount(question);
+  const expectedWords = englishWords(fact.title);
+  const answerWords = englishWords(userAnswer);
+  if (
+    requested === null || !expectedWords || !answerWords
+    || requested === expectedWords.length
+    || answerWords.length !== requested
+    || wordEditDistance(expectedWords, answerWords) > 1
+  ) return null;
+  return { requested, actual: expectedWords.length };
+}
+
 const SYSTEM_PROMPT = `あなたはナレッジDBの復習クイズの採点者です。各項目について、実際に出題した
 問題文(question)・正解（タイトルと説明）・ユーザーの回答を照合し、q値(0〜5)を判定してください。
 
@@ -121,6 +179,8 @@ const SYSTEM_PROMPT = `あなたはナレッジDBの復習クイズの採点者�
   正解とする。参考解答よりユーザー回答のほうが一般的または自然な場合は減点せず、その旨を説明する。
 - 例: 「the least of my ＿＿＿」に concerns と答えた場合、単数形 concern だけを登録解答が示していても、
   「複数ある懸念のうち最小のもの」という標準的な表現を完成させているため正解とする。
+- questionの語数・文字数・頭文字・品詞・時制などの指定が正解自体と矛盾している場合は設問不備である。
+  ユーザーがその誤った指定に従ったことで生じた不足を減点せず、正解扱いにする。
 - 核心を外していれば、部分的に合っていても2以下。
 - 減点するなら、user_answer の該当箇所を answer_quotes に引用して根拠を示す。引用できない
   （回答にそう書かれていない）指摘は減点理由にしない。
@@ -415,6 +475,17 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
         normalizedExplanation = `選択した「${trustedAnswer.answer}」は正解選択肢ではありません。正答を確認してください。`;
         normalizedNote = `「${trustedAnswer.answer}」を選択したが、不正解だった。`;
       }
+    }
+    const defectiveWordCount = followedDefectiveWordCount(
+      factById.get(id)!,
+      trustedAnswer.question,
+      trustedAnswer.answer,
+    );
+    if (trustedAnswer.format !== "四択" && defectiveWordCount && boundedQuality < 4) {
+      // 出題側の誤りで要求語数に合わせた回答を、ユーザーの知識不足として記録しない。
+      boundedQuality = 4;
+      normalizedExplanation = `問題文は${defectiveWordCount.requested}語と指定していましたが、正解は${defectiveWordCount.actual}語で、設問側の指定に誤りがありました。回答はその指定に従っており、正解の表現とも1語差なので正解扱いにします。`;
+      normalizedNote = `設問の語数指定（${defectiveWordCount.requested}語）が正解（${defectiveWordCount.actual}語）と矛盾していたため、指定に従った回答を正解扱いにした。`;
     }
     gradeById.set(id, {
       id,

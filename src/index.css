@@ -166,6 +166,9 @@ button.review-card { display: block; }
 .detail-list div { display: grid; grid-template-columns: 110px 1fr; padding: 9px 0; border-bottom: 1px solid #edf1f6; }
 .detail-list dt { color: #7a879b; font-size: 12px; }
 .detail-list dd { margin: 0; font-size: 12px; }
+.detail-list .detail-priority-row { grid-column: 1 / -1; }
+.detail-priority-row dd { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.detail-priority-hint { color: #7a879b; font-size: 11px; }
 .history-section { margin-bottom: 22px; }
 .history-section h3 span { color: #94a3b8; font-weight: 500; }
 .history-table-wrap { max-height: 220px; overflow: auto; border: 1px solid #edf1f6; border-radius: 10px; }

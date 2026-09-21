@@ -5,8 +5,9 @@ import {
 import { PRIORITY_INTERVAL_HINTS, PRIORITY_ORDER } from "../constants";
 import { dashboardRoutePath } from "../lib/dashboardRoute";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
+import { KnowledgeFormModal } from "./KnowledgeFormModal";
 import type {
-  DailyReviewStatus, Knowledge, KnowledgePriority, QuizFormatRequest, QuizGradeResult, QuizLog,
+  DailyReviewStatus, Knowledge, KnowledgeDraft, KnowledgePriority, QuizFormatRequest, QuizGradeResult, QuizLog,
   QuizQuestion,
 } from "../types";
 
@@ -50,10 +51,10 @@ interface Props {
   onRecorded: () => void | Promise<void>;
   autoStartDaily?: boolean;
   dailyStatus: DailyReviewStatus | null;
-  onPriorityChange: (
+  onKnowledgeUpdate: (
     id: string,
     expectedVersion: number,
-    priority: KnowledgePriority,
+    changes: Partial<KnowledgeDraft>,
   ) => Promise<Knowledge>;
 }
 
@@ -65,13 +66,16 @@ type PriorityFeedback = {
 };
 
 export function QuizView({
-  knowledge, quizLog, onExit, onRecorded, onPriorityChange, autoStartDaily = false, dailyStatus,
+  knowledge, quizLog, onExit, onRecorded, onKnowledgeUpdate, autoStartDaily = false, dailyStatus,
 }: Props) {
   const quiz = useQuiz(onRecorded);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [limit, setLimit] = useState<number>(DEFAULT_QUIZ_LIMIT);
   const [format, setFormat] = useState<QuizFormatRequest>(DEFAULT_QUIZ_FORMAT);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<Knowledge | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
   const [priorityFeedback, setPriorityFeedback] = useState<PriorityFeedback | null>(null);
   const autoStarted = useRef(false);
 
@@ -102,7 +106,7 @@ export function QuizView({
     if (priority === result.priority || priorityFeedback?.status === "saving") return;
     setPriorityFeedback({ id: result.id, status: "saving", priority });
     try {
-      const updated = await onPriorityChange(result.id, result.content_version, priority);
+      const updated = await onKnowledgeUpdate(result.id, result.content_version, { priority });
       quiz.syncKnowledgeResult(updated);
       setPriorityFeedback({ id: result.id, status: "saved" });
     } catch (caught) {
@@ -111,6 +115,39 @@ export function QuizView({
         status: "error",
         message: caught instanceof Error ? caught.message : "優先度の保存に失敗しました。",
       });
+    }
+  };
+
+  const openEdit = (item: Knowledge) => {
+    setDetailId(null);
+    setEditError(null);
+    setEditTarget(item);
+  };
+
+  const closeEdit = () => {
+    const id = editTarget?.id ?? null;
+    setEditTarget(null);
+    setEditError(null);
+    setDetailId(id);
+  };
+
+  const saveEdit = async (draft: KnowledgeDraft) => {
+    if (!editTarget || editSaving) return;
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const updated = await onKnowledgeUpdate(
+        editTarget.id,
+        editTarget.content_version,
+        draft,
+      );
+      quiz.syncKnowledgeResult(updated);
+      setEditTarget(null);
+      setDetailId(updated.id);
+    } catch (caught) {
+      setEditError(caught instanceof Error ? caught.message : "保存に失敗しました。");
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -358,6 +395,18 @@ export function QuizView({
           quizLog={quizLog}
           mutating={false}
           onClose={() => setDetailId(null)}
+          onEdit={() => openEdit(detail)}
+        />
+      )}
+      {editTarget && (
+        <KnowledgeFormModal
+          key={editTarget.id}
+          knowledge={editTarget}
+          categories={categories}
+          saving={editSaving}
+          error={editError}
+          onClose={closeEdit}
+          onSave={saveEdit}
         />
       )}
     </div>

@@ -14,7 +14,7 @@ import { useDailyReview } from "./hooks/useDailyReview";
 import { useKnowledgeData } from "./hooks/useKnowledgeData";
 import { dashboardRoutePath, parseDashboardRoute } from "./lib/dashboardRoute";
 import type {
-  Filters, Knowledge, KnowledgeDraft, KnowledgePriority, ReviewFilter, SortKey, SortState,
+  Filters, Knowledge, KnowledgeDraft, ReviewFilter, SortKey, SortState,
 } from "./types";
 
 const DashboardCharts = lazy(() => import("./components/DashboardCharts")
@@ -230,9 +230,7 @@ export default function App() {
           autoStartDaily={quizMode === "daily"}
           dailyStatus={dailyReview.status}
           onRecorded={reloadAfterReview}
-          onPriorityChange={(id: string, expectedVersion: number, priority: KnowledgePriority) => (
-            updateKnowledge(id, expectedVersion, { priority })
-          )}
+          onKnowledgeUpdate={updateKnowledge}
         />
       </Suspense>
     );
