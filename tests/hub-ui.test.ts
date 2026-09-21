@@ -65,6 +65,11 @@ test("Hub keeps five primary destinations readable on desktop and mobile", async
   assert.match(css, /\.dashboard-card \{ min-height: 88px;/);
   assert.match(css, /\.metric-grid \{ grid-template-columns: 1fr 1fr;/);
   assert.match(css, /\.metric-grid \{ display: grid; grid-template-columns: repeat\(3, 1fr\);/);
+  assert.match(css, /box-shadow: inset 0 3px 0 var\(--metric-accent\)/);
+  assert.match(css, /\.review-shortcut \{ --metric-accent: var\(--violet\);/);
+  assert.match(css, /\.want-metric \{ --metric-accent: var\(--green\);/);
+  assert.match(css, /\.habit-shortcut \{ --metric-accent: var\(--rust\);/);
+  assert.doesNotMatch(css, /\.want-metric \{[^}]*background: var\(--orange-soft\)/);
   assert.match(css, /\.journal-list \{ grid-template-columns: 1fr; \}/);
 });
 

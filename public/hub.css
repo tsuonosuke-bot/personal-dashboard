@@ -93,21 +93,15 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 
 .snapshot { padding: 9px 0; }
 .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
-.metric { min-height: 72px; display: block; padding: 11px 12px; border: 1px solid rgba(49,70,58,.11); border-radius: 11px; background: rgba(255,254,250,.72); text-decoration: none; transition: border-color .18s ease, background .18s ease; }
-.metric:hover { border-color: rgba(36,89,73,.45); background: var(--surface); }
+.metric { --metric-accent: var(--green); --metric-tint: #f7faf8; min-height: 72px; display: block; overflow: hidden; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.86); box-shadow: inset 0 3px 0 var(--metric-accent), 0 1px 2px rgba(32,40,34,.03); text-decoration: none; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
+.metric:hover { transform: translateY(-1px); border-color: var(--metric-accent); background: var(--metric-tint); }
 .metric span, .metric strong, .metric small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.metric span { color: var(--muted); font-size: 9px; font-weight: 750; }
-.metric strong { margin: 5px 0 3px; font: 700 18px/1 Inter, "Segoe UI", sans-serif; }
+.metric span { color: var(--metric-accent); font-size: 9px; font-weight: 750; }
+.metric strong { margin: 5px 0 3px; color: var(--ink); font: 700 18px/1 Inter, "Segoe UI", sans-serif; }
 .metric small { color: #89918c; font-size: 8px; }
-.review-shortcut { border-color: rgba(102,85,140,.22); background: var(--violet-soft); }
-.review-shortcut:hover { border-color: var(--violet); background: #f2eff8; }
-.review-shortcut span, .review-shortcut small { color: var(--violet); }
-.review-shortcut strong { color: #4f406f; font-size: 15px; }
-.habit-shortcut { border-color: rgba(154,77,46,.22); background: var(--rust-soft); }
-.habit-shortcut:hover { border-color: var(--rust); background: #f8ebe4; }
-.habit-shortcut span, .habit-shortcut small, .habit-shortcut strong { color: var(--rust); }
-.want-metric { border-color: rgba(201,104,55,.22); background: var(--orange-soft); }
-.want-metric span, .want-metric small, .want-metric strong { color: #9a4b25; }
+.review-shortcut { --metric-accent: var(--violet); --metric-tint: #faf9fc; }
+.want-metric { --metric-accent: var(--green); --metric-tint: #f7faf8; }
+.habit-shortcut { --metric-accent: var(--rust); --metric-tint: #fcf8f6; }
 
 .state-card { min-height: 150px; display: grid; place-items: center; align-content: center; margin: 3px 0 12px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,254,250,.75); color: var(--muted); }
 .state-card p { margin: 10px 0 0; font-size: 10px; }
