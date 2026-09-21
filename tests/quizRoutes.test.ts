@@ -597,6 +597,9 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
     assert.match(seenGradePrompts[0], /出題した問題文2/);
     assert.match(seenGradePrompts[0], /正解2/);
     assert.match(seenGradePrompts[0], /choice_is_correct\\\":true/);
+    assert.match(seenGradePrompts[0], /同じ語の単数・複数、時制、活用、比較級/);
+    assert.match(seenGradePrompts[0], /the least of my ＿＿＿/);
+    assert.match(seenGradePrompts[0], /concerns/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -795,6 +798,58 @@ test("quiz/grade は再採点でも引用が一致しなければ記録せず502
     });
     assert.equal(response.status, 502);
     assert.equal(batchCalled, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/grade は一括再採点で残った項目を1問ずつ再採点して回復する", async () => {
+  const originalFetch = globalThis.fetch;
+  let attempts = 0;
+  let batchCalled = false;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) return gradeKnowledgeResponse(url);
+    if (url.includes("api.anthropic.com")) {
+      attempts += 1;
+      if (attempts < 3) {
+        return anthropicToolResponse("submit_grades", {
+          grades: [{
+            id: ID_1, quality: 5, answer_quotes: ["for"], correct_answer: "for が入る",
+            explanation: "forを即答できている。", note: "forを即答した",
+          }],
+        });
+      }
+      const requestBody = JSON.parse(String(init?.body)) as {
+        messages: { content: string }[];
+      };
+      const items = JSON.parse(requestBody.messages[0].content) as unknown[];
+      assert.equal(items.length, 1);
+      return anthropicToolResponse("submit_grades", {
+        grades: [{
+          id: ID_1, quality: 0, answer_quotes: ["of"], correct_answer: "for が入る",
+          explanation: "of ではなく for が入ります。", note: "ofと誤答した",
+        }],
+      });
+    }
+    if (url.includes("/rest/v1/rpc/record_answers_batch_once")) {
+      batchCalled = true;
+      return Response.json([{
+        id: ID_1, next_review_on: "2026-09-21", recorded: true, schedule_updated: true,
+      }]);
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await gradeRoute({
+      request: quizPost("/api/quiz/grade", [await signedAnswer({
+        id: ID_1, question: "There's room ＿＿＿ improvement.", format: "一問一答", choices: null,
+      }, "of")]),
+      env,
+    });
+    assert.equal(response.status, 200);
+    assert.equal(attempts, 3);
+    assert.equal(batchCalled, true);
   } finally {
     globalThis.fetch = originalFetch;
   }
