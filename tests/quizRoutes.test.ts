@@ -342,15 +342,14 @@ test("quiz/start は段階で形式を絞り、複数候補は知識構造に合
   }
 });
 
-test("quiz/start は単一の許可形式をサーバーで固定し、形式違反の詳細を再生成へ渡す", async () => {
+test("quiz/start は形式違反を追加生成せず、原因を返す", async () => {
   const originalFetch = globalThis.fetch;
   let anthropicCalls = 0;
-  const sentItems: Array<Array<{
+  let sentItem: {
     id: string;
     required_format: string | null;
     allowed_formats: string[];
-    previous_error: string | null;
-  }>> = [];
+  } | null = null;
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("/rest/v1/rpc/pick_quiz")) {
@@ -361,13 +360,12 @@ test("quiz/start は単一の許可形式をサーバーで固定し、形式違
     if (url.includes("api.anthropic.com")) {
       anthropicCalls += 1;
       const body = JSON.parse(String(init?.body)) as { messages: { content: string }[] };
-      sentItems.push(JSON.parse(body.messages[0].content));
+      sentItem = (JSON.parse(body.messages[0].content) as typeof sentItem[])[0];
       return anthropicToolResponse("submit_questions", {
         questions: [{
           id: ID_1,
-          question: anthropicCalls === 1 ? "問題1" : "問題1（再生成）",
-          // 初回も再生成もAIが誤った形式を申告しても、最終形式はサーバーが固定する。
-          format: anthropicCalls === 1 ? "記述説明" : "産出",
+          question: "問題1",
+          format: "記述説明",
         }],
       });
     }
@@ -378,18 +376,15 @@ test("quiz/start は単一の許可形式をサーバーで固定し、形式違
       request: quizPost("/api/quiz/start", { format: "おまかせ" }),
       env,
     });
-    assert.equal(response.status, 200);
-    assert.equal(anthropicCalls, 2);
-    assert.equal(sentItems[0][0].required_format, "一問一答");
-    assert.deepEqual(sentItems[0][0].allowed_formats, ["一問一答"]);
-    assert.equal(sentItems[0][0].previous_error, null);
-    assert.equal(sentItems[1][0].required_format, "一問一答");
-    assert.match(sentItems[1][0].previous_error ?? "", /許可形式「一問一答」/);
-    assert.match(sentItems[1][0].previous_error ?? "", /AI応答は「記述説明」/);
-
-    const body = await response.json() as { items: { question: string; format: string }[] };
-    assert.equal(body.items[0].question, "問題1（再生成）");
-    assert.equal(body.items[0].format, "一問一答");
+    assert.equal(response.status, 502);
+    assert.equal(anthropicCalls, 1);
+    assert.equal(sentItem?.required_format, "一問一答");
+    assert.deepEqual(sentItem?.allowed_formats, ["一問一答"]);
+    const body = await response.json() as { reason: string; action: string; details: string[] };
+    assert.match(body.reason, /1問すべて/);
+    assert.match(body.action, /追加のAI再生成は行っていません/);
+    assert.match(body.details[0], /許可形式「一問一答」/);
+    assert.match(body.details[0], /AI応答は「記述説明」/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -419,7 +414,7 @@ test("quiz/start は複数候補にない形式が続いた場合、許可形式
       env,
     });
     assert.equal(response.status, 502);
-    assert.equal(anthropicCalls, 2);
+    assert.equal(anthropicCalls, 1);
     const body = await response.json() as { details: string[] };
     assert.equal(body.details.length, 1);
     assert.match(body.details[0], /許可形式「一問一答 \/ 記述説明」/);
@@ -429,11 +424,10 @@ test("quiz/start は複数候補にない形式が続いた場合、許可形式
   }
 });
 
-test("quiz/start は選択肢が崩れた項目だけをもう一度生成し直して救う", async () => {
+test("quiz/start は壊れた問題だけをスキップし、正常な問題を返す", async () => {
   const originalFetch = globalThis.fetch;
   let anthropicCalls = 0;
-  const retryRequestIds: string[][] = [];
-  globalThis.fetch = async (input, init) => {
+  globalThis.fetch = async (input) => {
     const url = String(input);
     if (url.includes("/rest/v1/rpc/pick_quiz")) {
       return Response.json([
@@ -447,26 +441,11 @@ test("quiz/start は選択肢が崩れた項目だけをもう一度生成し直
     if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
     if (url.includes("api.anthropic.com")) {
       anthropicCalls++;
-      const body = JSON.parse(String(init?.body)) as { messages: { content: string }[] };
-      const sentIds = (JSON.parse(body.messages[0].content) as { id: string }[]).map((i) => i.id);
-      if (anthropicCalls === 1) {
-        // 1回目はID_1の選択肢が3件しかなく不採用、ID_2は正常。
-        return anthropicToolResponse("submit_questions", {
-          questions: [
-            { id: ID_1, question: "問題1", choices: ["ア", "イ", "ウ"], correct_choice: "ア" },
-            { id: ID_2, question: "問題2", choices: ["A", "B", "C", "D"], correct_choice: "A" },
-          ],
-        });
-      }
-      // 2回目（再生成）はID_1だけが送られてくるはず。
-      retryRequestIds.push(sentIds);
       return anthropicToolResponse("submit_questions", {
-        questions: [{
-          id: ID_1,
-          question: "問題1（再生成）",
-          choices: ["カ", "キ", "ク", "ケ"],
-          correct_choice: "カ",
-        }],
+        questions: [
+          { id: ID_1, question: "問題1", choices: ["ア", "イ", "ウ"], correct_choice: "ア" },
+          { id: ID_2, question: "問題2", choices: ["A", "B", "C", "D"], correct_choice: "A" },
+        ],
       });
     }
     throw new Error(`unexpected fetch: ${url}`);
@@ -477,20 +456,71 @@ test("quiz/start は選択肢が崩れた項目だけをもう一度生成し直
       env,
     });
     assert.equal(response.status, 200);
-    assert.equal(anthropicCalls, 2);
-    assert.deepEqual(retryRequestIds, [[ID_1]]);
-    const body = await response.json() as { items: { id: string; question: string; choices: string[] | null }[] };
-    const item1 = body.items.find((item) => item.id === ID_1)!;
-    const item2 = body.items.find((item) => item.id === ID_2)!;
-    assert.equal(item1.question, "問題1（再生成）");
-    assert.deepEqual([...item1.choices!].sort(), ["カ", "キ", "ク", "ケ"]);
+    assert.equal(anthropicCalls, 1);
+    const body = await response.json() as {
+      items: { id: string; question: string; choices: string[] | null }[];
+      requested_count: number;
+      generation_failures: { position: number; category: string; reason: string }[];
+    };
+    assert.equal(body.requested_count, 2);
+    assert.deepEqual(body.items.map((item) => item.id), [ID_2]);
+    const item2 = body.items[0];
     assert.deepEqual([...item2.choices!].sort(), ["A", "B", "C", "D"]);
+    assert.equal(body.generation_failures.length, 1);
+    assert.equal(body.generation_failures[0].position, 1);
+    assert.equal(body.generation_failures[0].category, "ビジネス");
+    assert.match(body.generation_failures[0].reason, /3件/);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("quiz/start は正解と矛盾する英語の語数指定を再生成する", async () => {
+test("quiz/start は15問中2問が欠落しても、AIを再実行せず13問を返す", async () => {
+  const originalFetch = globalThis.fetch;
+  const ids = Array.from({ length: 15 }, (_, index) =>
+    `123e4567-e89b-42d3-a456-${String(index + 1).padStart(12, "0")}`);
+  let anthropicCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json(ids.map((id, index) => pickedRow(id, index % 2 === 0 ? "ビジネス" : "歴史")));
+    }
+    if (url.includes("/rest/v1/knowledge")) {
+      return Response.json(ids.map((id) => ({ id, tags: [] })));
+    }
+    if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      anthropicCalls += 1;
+      return anthropicToolResponse("submit_questions", {
+        questions: ids.flatMap((id, index) => [2, 9].includes(index)
+          ? []
+          : [{ id, question: `${index + 1}問目の問題`, format: "一問一答" }]),
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({
+      request: quizPost("/api/quiz/start", { limit: 15, format: "一問一答" }),
+      env,
+    });
+    assert.equal(response.status, 200);
+    assert.equal(anthropicCalls, 1);
+    const body = await response.json() as {
+      items: { id: string }[];
+      requested_count: number;
+      generation_failures: { position: number; category: string; reason: string }[];
+    };
+    assert.equal(body.requested_count, 15);
+    assert.equal(body.items.length, 13);
+    assert.deepEqual(body.generation_failures.map((failure) => failure.position), [3, 10]);
+    assert.ok(body.generation_failures.every((failure) => /含まれていません/.test(failure.reason)));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start は正解と矛盾する英語の語数指定を再生成しない", async () => {
   const originalFetch = globalThis.fetch;
   let anthropicCalls = 0;
   globalThis.fetch = async (input) => {
@@ -505,9 +535,7 @@ test("quiz/start は正解と矛盾する英語の語数指定を再生成する
       return anthropicToolResponse("submit_questions", {
         questions: [{
           id: ID_1,
-          question: anthropicCalls === 1
-            ? "『気づいたら』という意味の3語の表現を英語で書いてください。"
-            : "『気づいたら』という意味の4語の表現を英語で書いてください。",
+          question: "『気づいたら』という意味の3語の表現を英語で書いてください。",
         }],
       });
     }
@@ -518,39 +546,43 @@ test("quiz/start は正解と矛盾する英語の語数指定を再生成する
       request: quizPost("/api/quiz/start", { format: "一問一答" }),
       env,
     });
-    assert.equal(response.status, 200);
-    const body = await response.json() as { items: { question: string }[] };
-    assert.equal(anthropicCalls, 2);
-    assert.match(body.items[0].question, /4語/);
+    assert.equal(response.status, 502);
+    const body = await response.json() as { action: string; details: string[] };
+    assert.equal(anthropicCalls, 1);
+    assert.match(body.action, /追加のAI再生成は行っていません/);
+    assert.match(body.details[0], /3語/);
+    assert.match(body.details[0], /正解は4語/);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-test("quiz/start は問題文に正解タイトルが出ていたら、その問題だけを再生成する", async () => {
+test("quiz/start は答えが漏れた問題を再生成せず、正常な問題だけを返す", async () => {
   const originalFetch = globalThis.fetch;
   let anthropicCalls = 0;
-  let retryError = "";
-  globalThis.fetch = async (input, init) => {
+  globalThis.fetch = async (input) => {
     const url = String(input);
     if (url.includes("/rest/v1/rpc/pick_quiz")) {
-      return Response.json([pickedRow(ID_1, "英語", { title: "due to" })]);
+      return Response.json([
+        pickedRow(ID_1, "英語", { title: "due to" }),
+        pickedRow(ID_2, "歴史", { title: "秘密の答え" }),
+      ]);
     }
-    if (url.includes("/rest/v1/knowledge")) return Response.json([{ id: ID_1, tags: ["熟語"] }]);
+    if (url.includes("/rest/v1/knowledge")) {
+      return Response.json([{ id: ID_1, tags: ["熟語"] }, { id: ID_2, tags: [] }]);
+    }
     if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
     if (url.includes("api.anthropic.com")) {
       anthropicCalls += 1;
-      const body = JSON.parse(String(init?.body)) as { messages: { content: string }[] };
-      const sent = JSON.parse(body.messages[0].content) as { previous_error: string | null }[];
-      retryError = sent[0].previous_error ?? retryError;
       return anthropicToolResponse("submit_questions", {
-        questions: [{
-          id: ID_1,
-          question: anthropicCalls === 1
-            ? "「due to」を用いて、空所を埋めてください: I'll be late ＿＿＿ a train delay."
-            : "『電車の遅延のため』という意味になるよう空所を埋めてください: I'll be late ＿＿＿ a train delay.",
-          format: "産出",
-        }],
+        questions: [
+          {
+            id: ID_1,
+            question: "「due to」を用いて、空所を埋めてください: I'll be late ＿＿＿ a train delay.",
+            format: "産出",
+          },
+          { id: ID_2, question: "1453年に起きた出来事は？", format: "産出" },
+        ],
       });
     }
     throw new Error(`unexpected fetch: ${url}`);
@@ -561,10 +593,14 @@ test("quiz/start は問題文に正解タイトルが出ていたら、その問
       env,
     });
     assert.equal(response.status, 200);
-    assert.equal(anthropicCalls, 2);
-    assert.match(retryError, /titleの語句/);
-    const body = await response.json() as { items: { question: string }[] };
-    assert.doesNotMatch(body.items[0].question, /due to/i);
+    assert.equal(anthropicCalls, 1);
+    const body = await response.json() as {
+      items: { id: string; question: string }[];
+      generation_failures: { position: number; category: string; reason: string }[];
+    };
+    assert.deepEqual(body.items.map((item) => item.id), [ID_2]);
+    assert.equal(body.generation_failures[0].position, 1);
+    assert.match(body.generation_failures[0].reason, /titleの語句/);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -613,7 +649,7 @@ test("quiz/start は四択の選択肢がそろわなければ自由記述に落
       };
       assert.equal(body.error, "問題生成に失敗しました。");
       assert.equal(body.stage, "AI応答の確認");
-      assert.match(body.reason, /再生成後も1問/);
+      assert.match(body.reason, /1問すべて/);
       assert.equal(body.details.length, 1);
       assert.match(body.details[0], broken.reason);
       assert.match(body.action, /もう一度出題/);

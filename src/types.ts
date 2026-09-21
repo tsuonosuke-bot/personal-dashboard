@@ -141,12 +141,24 @@ export interface QuizQuestion {
 
 export type QuizEmptyReason = "no_knowledge" | "done_today";
 
+export interface QuizGenerationFailure {
+  /** DBが選んだ元の出題順（1始まり）。 */
+  position: number;
+  category: string;
+  /** 利用者へ表示できる、検証済みの失敗理由。 */
+  reason: string;
+}
+
 export interface QuizStart {
   items: QuizQuestion[];
   /** 出題対象が0件だった理由。1件以上あるときはnull。 */
   reason: QuizEmptyReason | null;
   /** 全問が復習期限前の前倒し出題であることを示す。 */
   early: boolean;
+  /** AIへ最初に依頼した問題数。 */
+  requestedCount: number;
+  /** 出題条件を満たさず、追加生成せずに除外した問題。 */
+  generationFailures: QuizGenerationFailure[];
 }
 
 export interface DailyReviewCategoryCount {

@@ -8,8 +8,8 @@ import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import { KnowledgeFormModal } from "./KnowledgeFormModal";
 import { ReviewCategoryCounts } from "./ReviewCategoryCounts";
 import type {
-  DailyReviewStatus, Knowledge, KnowledgeDraft, KnowledgePriority, QuizFormatRequest, QuizGradeResult, QuizLog,
-  QuizQuestion,
+  DailyReviewStatus, Knowledge, KnowledgeDraft, KnowledgePriority, QuizFormatRequest, QuizGenerationFailure,
+  QuizGradeResult, QuizLog, QuizQuestion,
 } from "../types";
 
 /** 形式ごとに、どこまで書けばよいかを入力欄のプレースホルダで伝える。 */
@@ -298,6 +298,14 @@ export function QuizView({
           <p className="quiz-early-note">本日期限の分はないので、復習日が近い順に出します。</p>
         )}
 
+        {quiz.stage === "quiz" && quiz.generationFailures.length > 0 && (
+          <GenerationFailureNotice
+            requestedCount={quiz.requestedCount}
+            deliveredCount={quiz.questions.length}
+            failures={quiz.generationFailures}
+          />
+        )}
+
         {quiz.stage === "quiz" && quiz.questions[quiz.index] && (
           <QuizQuestionCard
             key={quiz.questions[quiz.index].id}
@@ -319,6 +327,13 @@ export function QuizView({
 
         {quiz.stage === "results" && (
           <div className="quiz-results">
+            {quiz.generationFailures.length > 0 && (
+              <GenerationFailureNotice
+                requestedCount={quiz.requestedCount}
+                deliveredCount={quiz.questions.length}
+                failures={quiz.generationFailures}
+              />
+            )}
             {quiz.failures.length > 0 && (
               <div className="quiz-partial-summary" role="status">
                 <strong>
@@ -513,6 +528,33 @@ export function QuizView({
           onSave={saveEdit}
         />
       )}
+    </div>
+  );
+}
+
+function GenerationFailureNotice({
+  requestedCount, deliveredCount, failures,
+}: {
+  requestedCount: number;
+  deliveredCount: number;
+  failures: QuizGenerationFailure[];
+}) {
+  return (
+    <div className="quiz-generation-summary" role="status">
+      <strong>
+        {requestedCount}問中{deliveredCount}問を出題します。{failures.length}問は生成エラーのためスキップしました。
+      </strong>
+      <span>追加のAI再生成は行っていません。</span>
+      <details>
+        <summary>エラー原因を表示</summary>
+        <ul>
+          {failures.map((failure) => (
+            <li key={`${failure.position}-${failure.category}`}>
+              {failure.position}問目（{failure.category}）: {failure.reason}
+            </li>
+          ))}
+        </ul>
+      </details>
     </div>
   );
 }

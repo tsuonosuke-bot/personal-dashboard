@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { ApiError, gradeQuiz, startQuiz } from "../lib/api";
 import type {
-  Knowledge, QuizEmptyReason, QuizFormatRequest, QuizGradeFailure, QuizGradeResult, QuizQuestion,
+  Knowledge, QuizEmptyReason, QuizFormatRequest, QuizGenerationFailure, QuizGradeFailure, QuizGradeResult, QuizQuestion,
 } from "../types";
 
 export const QUIZ_LIMIT_OPTIONS = [5, 10, 15, 20, 30] as const;
@@ -56,6 +56,8 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
   const [error, setError] = useState<QuizDisplayError | null>(null);
   const [emptyReason, setEmptyReason] = useState<QuizEmptyReason | null>(null);
   const [early, setEarly] = useState(false);
+  const [requestedCount, setRequestedCount] = useState(0);
+  const [generationFailures, setGenerationFailures] = useState<QuizGenerationFailure[]>([]);
 
   const start = useCallback(async (
     categories: string[],
@@ -67,8 +69,12 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
     setError(null);
     setResults([]);
     setFailures([]);
+    setRequestedCount(0);
+    setGenerationFailures([]);
     try {
-      const { items, reason, early: isEarly } = await startQuiz(categories, limit, format, mode);
+      const {
+        items, reason, early: isEarly, requestedCount: requested, generationFailures: generationErrors,
+      } = await startQuiz(categories, limit, format, mode);
       if (items.length === 0) {
         setEmptyReason(reason);
         setStage("empty");
@@ -79,6 +85,8 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
       setSkipped(Object.fromEntries(items.map((item) => [item.id, false])));
       setIndex(0);
       setEarly(isEarly);
+      setRequestedCount(requested);
+      setGenerationFailures(generationErrors);
       setStage("quiz");
     } catch (caught) {
       setError(displayError(caught, "出題に失敗しました。"));
@@ -170,10 +178,13 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
     setError(null);
     setEmptyReason(null);
     setEarly(false);
+    setRequestedCount(0);
+    setGenerationFailures([]);
   }, []);
 
   return {
     stage, questions, answers, skipped, index, results, failures, error, emptyReason, early,
+    requestedCount, generationFailures,
     start, answerCurrent, skipCurrent, goNext, goBack, submit, reset, syncKnowledgeResult,
   };
 }

@@ -52,3 +52,16 @@ test("各問題を採点と復習履歴の対象外にできる", async () => {
   assert.match(hook, /if \(submitted\.length === 0\)/);
   assert.match(hook, /index: submitted\[failure\.index\]\?\.questionIndex/);
 });
+
+test("出題生成エラーは正常な問題を止めず、件数と原因を表示する", async () => {
+  const [view, hook] = await Promise.all([
+    readFile(new URL("../src/components/QuizView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/hooks/useQuiz.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(hook, /requestedCount: requested, generationFailures: generationErrors/);
+  assert.match(view, /問は生成エラーのためスキップしました/);
+  assert.match(view, /追加のAI再生成は行っていません/);
+  assert.match(view, /<summary>エラー原因を表示<\/summary>/);
+  assert.match(view, /failure\.position.*failure\.category.*failure\.reason/s);
+});

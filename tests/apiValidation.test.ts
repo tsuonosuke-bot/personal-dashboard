@@ -70,7 +70,16 @@ test("クイズ判定の許可値を検証する", () => {
 test("出題の形式と選択肢の食い違いを受理しない", () => {
   const token = "signed-token".repeat(3);
   const free = { id: "a", question: "問題", format: "記述説明", choices: null, token };
-  assert.deepEqual(parseQuizStartResponse({ items: [free] }).items, [free]);
+  const partial = parseQuizStartResponse({
+    items: [free],
+    requested_count: 2,
+    generation_failures: [{ position: 2, category: "英語", reason: "問題文に正解が含まれています。" }],
+  });
+  assert.deepEqual(partial.items, [free]);
+  assert.equal(partial.requestedCount, 2);
+  assert.deepEqual(partial.generationFailures, [
+    { position: 2, category: "英語", reason: "問題文に正解が含まれています。" },
+  ]);
 
   const choice = {
     id: "a", question: "問題", format: "四択", choices: ["ア", "イ", "ウ", "エ"], token,
@@ -83,6 +92,14 @@ test("出題の形式と選択肢の食い違いを受理しない", () => {
   assert.throws(() => parseQuizStartResponse({ items: [{ ...free, choices: ["ア"] }] }), /choices/);
   assert.throws(() => parseQuizStartResponse({ items: [{ ...choice, choices: ["ア", "ア", "ウ", "エ"] }] }), /choices/);
   assert.throws(() => parseQuizStartResponse({ items: [{ ...free, token: "" }] }), /token/);
+  assert.throws(() => parseQuizStartResponse({
+    items: [free], requested_count: 3,
+    generation_failures: [{ position: 2, category: "英語", reason: "失敗" }],
+  }), /requested_count/);
+  assert.throws(() => parseQuizStartResponse({
+    items: [free], requested_count: 2,
+    generation_failures: [{ position: 0, category: "英語", reason: "失敗" }],
+  }), /position/);
 });
 
 test("採点結果の優先度と更新バージョンを検証する", () => {

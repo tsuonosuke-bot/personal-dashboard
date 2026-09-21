@@ -349,23 +349,6 @@ choices は選んだformatが四択の項目にだけ付ける。他の形式で
 
 与えられたid一つにつき、questionsに必ず1件、同じidで出力する。`;
 
-/** 1件でも選択肢や問題文の形式指定が崩れたときに、その項目だけをもう一度生成させる。 */
-const RETRY_SYSTEM_SUFFIX = `
-
-## 再生成の注意
-
-これは一部の項目だけの再生成依頼です。前回、問題文またはchoicesが次のいずれかで不採用になりました。
-- required_formatまたはallowed_formatsに含まれないformatを返した
-- 問題文で指定した英語の語数が、titleの実際の語数と一致していなかった
-- 件数が${CHOICE_COUNT}件ちょうどでなかった
-- 同じ文言が重複していた
-- 空文字が含まれていた
-- correct_choiceがchoices内の1件と完全一致していなかった
-- 正解であるtitleの語句を問題文に含めていた
-各項目のprevious_errorを確認し、同じ違反を繰り返さないこと。
-required_formatがnullでなければ、問題文・format・choicesを必ずその形式に合わせること。
-語数に確信がなければ語数指定を削除すること。四択では必ず条件を満たすchoicesとcorrect_choiceを付けること。`;
-
 interface QuestionToolInput {
   id: string;
   question: string;
@@ -417,7 +400,6 @@ function buildUserText(
   allowedById: Map<string, QuizFormat[]>,
   tagsById: Map<string, string[]>,
   notesById: Map<string, { asked_on: string; verdict: string; note: string }[]>,
-  validationErrors?: Map<string, string>,
 ): string {
   return JSON.stringify(items.map((item) => {
     const allowed = allowedById.get(item.id) ?? [];
@@ -431,7 +413,6 @@ function buildUserText(
       times_asked: item.times_asked,
       required_format: allowed.length === 1 ? allowed[0] : null,
       allowed_formats: allowed,
-      previous_error: validationErrors?.get(item.id) ?? null,
       past_notes: notesById.get(item.id) ?? [],
     };
   }));
@@ -444,8 +425,6 @@ async function generateQuestions(
   allowedById: Map<string, QuizFormat[]>,
   tagsById: Map<string, string[]>,
   notesById: Map<string, { asked_on: string; verdict: string; note: string }[]>,
-  isRetry: boolean,
-  validationErrors?: Map<string, string>,
 ): Promise<
   | {
     ok: true;
@@ -456,8 +435,8 @@ async function generateQuestions(
 > {
   const generated = await callAnthropicTool(env, {
     model: QUIZ_MODEL,
-    system: isRetry ? SYSTEM_PROMPT + RETRY_SYSTEM_SUFFIX : SYSTEM_PROMPT,
-    userText: buildUserText(items, allowedById, tagsById, notesById, validationErrors),
+    system: SYSTEM_PROMPT,
+    userText: buildUserText(items, allowedById, tagsById, notesById),
     maxTokens: QUIZ_MAX_TOKENS,
     tool: QUESTION_TOOL,
   });
@@ -508,9 +487,8 @@ async function generateQuestions(
       issueById.set(id, `許可形式「${allowed.join(" / ")}」から出題形式が選ばれていませんでした。`);
       continue;
     }
-    // 初回は形式違反を再生成対象にし、具体的な違反内容をAIへ返す。
-    // 単一候補の再生成では、申告値が再び違っても最終形式はサーバー側の正本を使う。
-    if (formatMismatch && (!isRetry || allowed.length > 1)) {
+    // 許可されていない形式は再生成せず、この問題だけを除外する。
+    if (formatMismatch) {
       issueById.set(id, formatMismatch);
       continue;
     }
@@ -567,12 +545,6 @@ function generationIssue(
     return parserIssue ?? "四択の選択肢を確認できませんでした。";
   }
   return null;
-}
-
-function diagnosticItemLabel(item: PickedItem, index: number): string {
-  const normalized = item.title.replace(/\s+/gu, " ").trim();
-  const title = normalized.length > 48 ? `${normalized.slice(0, 47)}…` : normalized;
-  return `${index + 1}問目「${title || "タイトルなし"}」`;
 }
 
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
@@ -700,7 +672,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
 
   const allowedById = new Map(items.map((item) => [item.id, allowedFormats(item, format)]));
 
-  const first = await generateQuestions(context.env, items, allowedById, tagsById, notesById, false);
+  const first = await generateQuestions(context.env, items, allowedById, tagsById, notesById);
   if (!first.ok) return first.response;
   const byId = first.byId;
   const issueById = first.issueById;
@@ -710,53 +682,36 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     return generationIssue(item, byId.get(item.id), issueById.get(item.id)) === null;
   };
 
-  // AIの出力は確率的なので、崩れた項目だけをもう一度まとめて生成し直す。
-  // それでも崩れていたら、黙って自由記述に落とさず失敗させる。
-  const needsRetry = items.filter((item) => !isGenerated(item));
-  if (needsRetry.length > 0) {
-    const validationErrors = new Map(needsRetry.map((item) => [
-      item.id,
-      generationIssue(item, byId.get(item.id), issueById.get(item.id))
-        ?? "問題生成結果が出題条件を満たしませんでした。",
-    ]));
-    const retry = await generateQuestions(
-      context.env,
-      needsRetry,
-      allowedById,
-      tagsById,
-      notesById,
-      true,
-      validationErrors,
-    );
-    if (!retry.ok) return retry.response;
-    for (const item of needsRetry) {
-      // 1回目の不正な結果を残すと、再生成で欠落した項目を成功扱いする可能性がある。
-      byId.delete(item.id);
-      issueById.delete(item.id);
-    }
-    for (const [id, entry] of retry.byId) byId.set(id, entry);
-    for (const [id, issue] of retry.issueById) issueById.set(id, issue);
-  }
-
-  const invalidDetails = items.flatMap((item, index) => {
+  // 正常な問題を捨てず、条件を満たさない項目だけを除外する。
+  // 自動再生成はAIクレジットを追加消費するため行わない。
+  const generationFailures = items.flatMap((item, index) => {
     const issue = generationIssue(item, byId.get(item.id), issueById.get(item.id));
-    return issue ? [`${diagnosticItemLabel(item, index)}: ${issue}`] : [];
+    return issue ? [{ position: index + 1, category: item.category, reason: issue }] : [];
   });
-  if (invalidDetails.length > 0) {
+  const validItems = items.filter(isGenerated);
+  if (validItems.length === 0) {
     return quizStartError({
       stage: "AI応答の確認",
-      reason: `再生成後も${invalidDetails.length}問が出題条件を満たしませんでした。`,
-      action: "同じ条件でもう一度出題してください。繰り返す場合は、下記のナレッジ内容またはAI設定を確認してください。",
-      details: invalidDetails,
+      reason: `生成した${items.length}問すべてが出題条件を満たしませんでした。`,
+      action: "追加のAI再生成は行っていません。下記の原因を確認して、必要な場合だけもう一度出題してください。",
+      details: generationFailures.map((failure) =>
+        `${failure.position}問目（${failure.category || "カテゴリなし"}）: ${failure.reason}`),
+    });
+  }
+  if (generationFailures.length > 0) {
+    console.warn("Quiz generation skipped invalid items", {
+      requestedCount: items.length,
+      deliveredCount: validItems.length,
+      skippedCount: generationFailures.length,
     });
   }
 
   const responseItems: QuizItem[] = [];
-  for (const item of items) {
+  for (const item of validItems) {
     const generatedItem = byId.get(item.id);
     const itemFormat = generatedItem?.format;
     if (!generatedItem) {
-      // invalidDetailsで検出済み。ここへ到達した場合はサーバー側の整合性エラー。
+      // validItemsで検証済み。ここへ到達した場合はサーバー側の整合性エラー。
       return quizStartError({
         stage: "問題データの組み立て",
         reason: "検証済みの問題データを取得できませんでした。",
@@ -802,8 +757,10 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
 
   return jsonResponse({
     items: responseItems,
+    requested_count: items.length,
+    generation_failures: generationFailures,
     // プールFは期限前の前倒し出題。画面で一言添えるために知らせる。
-    early: items.every((item) => item.pool === "F"),
+    early: validItems.every((item) => item.pool === "F"),
     mode,
   });
 };

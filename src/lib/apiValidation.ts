@@ -1,6 +1,6 @@
 import type {
   DailyReviewCategoryCount, DailyReviewStatus, Knowledge, KnowledgePriority, Mastery, QuizEmptyReason, QuizFormat,
-  QuizGradeFailure, QuizGradeFailurePhase, QuizGradeResponse, QuizGradeResult, QuizLog, QuizQuestion,
+  QuizGenerationFailure, QuizGradeFailure, QuizGradeFailurePhase, QuizGradeResponse, QuizGradeResult, QuizLog, QuizQuestion,
   QuizStart, QuizVerdict, RecoveryPreview,
   RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
   SpeakingPracticeStart, SpeakingPracticeType,
@@ -170,10 +170,31 @@ export function parseQuizStartResponse(value: unknown): QuizStart {
   if (reason !== undefined && reason !== "no_knowledge" && reason !== "done_today") {
     return fail(entity, "reason");
   }
+  const items = value.items.map(parseQuizQuestion);
+  const rawFailures = value.generation_failures ?? [];
+  if (!Array.isArray(rawFailures) || rawFailures.length > 30) return fail(entity, "generation_failures");
+  const generationFailures: QuizGenerationFailure[] = rawFailures.map((entry) => {
+    if (!isRecord(entry)) return fail(entity, "generation_failures");
+    const position = numberValue(entry, "position", entity);
+    const category = stringValue(entry, "category", entity);
+    const failureReason = stringValue(entry, "reason", entity);
+    if (!Number.isSafeInteger(position) || position < 1 || position > 30) return fail(entity, "position");
+    if (category.length > 100 || failureReason.length > 2_000) return fail(entity, "generation_failures");
+    return { position, category, reason: failureReason };
+  });
+  const requestedCount = value.requested_count === undefined
+    ? items.length + generationFailures.length
+    : numberValue(value, "requested_count", entity);
+  if (
+    !Number.isSafeInteger(requestedCount) || requestedCount < items.length
+    || requestedCount > 30 || requestedCount !== items.length + generationFailures.length
+  ) return fail(entity, "requested_count");
   return {
-    items: value.items.map(parseQuizQuestion),
+    items,
     reason: (reason as QuizEmptyReason | undefined) ?? null,
     early: value.early === true,
+    requestedCount,
+    generationFailures,
   };
 }
 
