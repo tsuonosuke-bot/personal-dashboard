@@ -777,7 +777,7 @@ test("quiz/grade はDBの原子的な重複判定をそのまま返す", async (
   }
 });
 
-test("quiz/grade は改ざんされた問題と四択の選択肢外回答を拒否する", async () => {
+test("quiz/grade は改ざんされた問題と四択の選択肢外回答を問題単位で拒否する", async () => {
   const signed = await signedAnswer({
     id: ID_1,
     question: "問題",
@@ -796,13 +796,22 @@ test("quiz/grade は改ざんされた問題と四択の選択肢外回答を拒
     }]),
     env,
   });
-  assert.equal(tampered.status, 400);
+  assert.equal(tampered.status, 200);
+  assert.deepEqual((await tampered.json() as { results: unknown[]; failures: { index: number; phase: string }[] }), {
+    results: [],
+    failures: [{
+      index: 0, id: null, phase: "verification", error: "クイズトークンが正しくありません。", recorded: false,
+    }],
+  });
 
   const offList = await gradeRoute({
     request: quizPost("/api/quiz/grade", [{ ...signed, answer: "提示されていない回答" }]),
     env,
   });
-  assert.equal(offList.status, 400);
+  assert.equal(offList.status, 200);
+  const offListBody = await offList.json() as { results: unknown[]; failures: { error: string }[] };
+  assert.equal(offListBody.results.length, 0);
+  assert.match(offListBody.failures[0].error, /提示された選択肢/);
 });
 
 /** 採点3テストで共通の knowledge 応答。1件分の事実と採点後状態を返す。 */
@@ -873,7 +882,7 @@ test("quiz/grade は回答に無い引用を返した採点を捨てて再採点
   }
 });
 
-test("quiz/grade は再採点でも引用が一致しなければ記録せず502を返す", async () => {
+test("quiz/grade は再採点でも引用が一致しない問題だけを失敗として返す", async () => {
   const originalFetch = globalThis.fetch;
   let batchCalled = false;
   globalThis.fetch = async (input) => {
@@ -902,8 +911,150 @@ test("quiz/grade は再採点でも引用が一致しなければ記録せず502
       }, "of")]),
       env,
     });
-    assert.equal(response.status, 502);
+    assert.equal(response.status, 200);
+    const body = await response.json() as {
+      results: unknown[];
+      failures: { index: number; id: string; phase: string; recorded: boolean; error: string }[];
+    };
+    assert.equal(body.results.length, 0);
+    assert.deepEqual(body.failures, [{
+      index: 0,
+      id: ID_1,
+      phase: "grading",
+      error: "AIが回答を読み取った有効な採点結果を返しませんでした。",
+      recorded: false,
+    }]);
     assert.equal(batchCalled, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/grade は1問の採点が壊れても正常な問題を保存して部分完了する", async () => {
+  const originalFetch = globalThis.fetch;
+  let gradeAttempts = 0;
+  let recordedIds: string[] = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
+      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
+        return Response.json([{
+          id: ID_1, title: "正解1", priority: "高", content_version: 4,
+          next_review_on: "2026-09-23", next_review_at: "2026-09-23T03:00:00Z",
+          stability_hours: 48, relearning_stage: null,
+        }]);
+      }
+      return Response.json([
+        { id: ID_1, title: "正解1", explanation: "説明1", category: "英語", tags: [], archived: false },
+        { id: ID_2, title: "正解2", explanation: "説明2", category: "技術", tags: [], archived: false },
+      ]);
+    }
+    if (url.includes("api.anthropic.com")) {
+      gradeAttempts += 1;
+      const valid = {
+        id: ID_1, quality: 5, answer_quotes: ["回答1"], correct_answer: "正解1",
+        explanation: "回答1で正解です。", note: "回答1と答えた。",
+      };
+      const invalid = {
+        id: ID_2, quality: 5, answer_quotes: ["回答にない引用"], correct_answer: "正解2",
+        explanation: "誤った引用です。", note: "誤った引用。",
+      };
+      return anthropicToolResponse("submit_grades", {
+        grades: gradeAttempts === 1 ? [valid, invalid] : [invalid],
+      });
+    }
+    if (url.includes("/rest/v1/rpc/record_answers_batch_once")) {
+      const body = JSON.parse(String(init?.body)) as { p_answers: { id: string }[] };
+      recordedIds = body.p_answers.map((answer) => answer.id);
+      return Response.json([{ id: ID_1, recorded: true, schedule_updated: true }]);
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await gradeRoute({
+      request: quizPost("/api/quiz/grade", [
+        await signedAnswer({ id: ID_1, question: "問題1", format: "一問一答", choices: null }, "回答1"),
+        await signedAnswer({ id: ID_2, question: "問題2", format: "一問一答", choices: null }, "回答2"),
+      ]),
+      env,
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json() as {
+      results: { id: string }[];
+      failures: { index: number; id: string; phase: string; recorded: boolean }[];
+    };
+    assert.deepEqual(body.results.map((result) => result.id), [ID_1]);
+    assert.deepEqual(recordedIds, [ID_1]);
+    assert.equal(gradeAttempts, 3);
+    assert.deepEqual(body.failures, [{
+      index: 1,
+      id: ID_2,
+      phase: "grading",
+      error: "AIが回答を読み取った有効な採点結果を返しませんでした。",
+      recorded: false,
+    }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/grade は一括DB記録が失敗したら1問ずつ分離して保存する", async () => {
+  const originalFetch = globalThis.fetch;
+  const rpcBodies: string[][] = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
+      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
+        return Response.json([{
+          id: ID_1, title: "正解1", priority: "中", content_version: 5,
+          next_review_on: "2026-09-24", next_review_at: "2026-09-24T03:00:00Z",
+          stability_hours: 72, relearning_stage: null,
+        }]);
+      }
+      return Response.json([
+        { id: ID_1, title: "正解1", explanation: "説明1", category: "英語", tags: [], archived: false },
+        { id: ID_2, title: "正解2", explanation: "説明2", category: "技術", tags: [], archived: false },
+      ]);
+    }
+    if (url.includes("api.anthropic.com")) {
+      return anthropicToolResponse("submit_grades", { grades: [
+        {
+          id: ID_1, quality: 5, answer_quotes: ["回答1"], correct_answer: "正解1",
+          explanation: "正解です。", note: "回答1と答えた。",
+        },
+        {
+          id: ID_2, quality: 4, answer_quotes: ["回答2"], correct_answer: "正解2",
+          explanation: "正解です。", note: "回答2と答えた。",
+        },
+      ] });
+    }
+    if (url.includes("/rest/v1/rpc/record_answers_batch_once")) {
+      const ids = (JSON.parse(String(init?.body)) as { p_answers: { id: string }[] })
+        .p_answers.map((answer) => answer.id);
+      rpcBodies.push(ids);
+      if (ids.length === 2 || ids[0] === ID_2) return Response.json({ message: "db error" }, { status: 500 });
+      return Response.json([{ id: ID_1, recorded: true, schedule_updated: true }]);
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await gradeRoute({
+      request: quizPost("/api/quiz/grade", [
+        await signedAnswer({ id: ID_1, question: "問題1", format: "一問一答", choices: null }, "回答1"),
+        await signedAnswer({ id: ID_2, question: "問題2", format: "一問一答", choices: null }, "回答2"),
+      ]),
+      env,
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json() as {
+      results: { id: string }[];
+      failures: { index: number; id: string; phase: string; recorded: boolean | null }[];
+    };
+    assert.deepEqual(rpcBodies, [[ID_1, ID_2], [ID_1], [ID_2]]);
+    assert.deepEqual(body.results.map((result) => result.id), [ID_1]);
+    assert.deepEqual(body.failures, [{
+      index: 1, id: ID_2, phase: "recording", error: "DBの処理に失敗しました。", recorded: null,
+    }]);
   } finally {
     globalThis.fetch = originalFetch;
   }

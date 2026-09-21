@@ -1,6 +1,7 @@
 import type {
   DailyReviewStatus, Knowledge, KnowledgePriority, Mastery, QuizEmptyReason, QuizFormat,
-  QuizGradeResult, QuizLog, QuizQuestion, QuizStart, QuizVerdict, RecoveryPreview,
+  QuizGradeFailure, QuizGradeFailurePhase, QuizGradeResponse, QuizGradeResult, QuizLog, QuizQuestion,
+  QuizStart, QuizVerdict, RecoveryPreview,
   RelearningStage,
 } from "../types";
 
@@ -16,6 +17,9 @@ const PRIORITY_VALUES = new Set<KnowledgePriority>(["最高", "高", "中", "低
 const VERDICT_VALUES = new Set<QuizVerdict>(["正解", "不正解", "部分正解"]);
 const QUIZ_FORMAT_VALUES = new Set<QuizFormat>(["一問一答", "四択", "記述説明", "産出"]);
 const RELEARNING_STAGE_VALUES = new Set<RelearningStage>(["recognition", "recall"]);
+const GRADE_FAILURE_PHASE_VALUES = new Set<QuizGradeFailurePhase>([
+  "verification", "grading", "recording", "confirmation",
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -266,10 +270,35 @@ export function parseQuizGradeResult(value: unknown): QuizGradeResult {
   };
 }
 
-export function parseQuizGradeResponse(value: unknown): QuizGradeResult[] {
+function parseQuizGradeFailure(value: unknown): QuizGradeFailure {
+  const entity = "採点エラー";
+  if (!isRecord(value)) return fail(entity);
+  const index = numberValue(value, "index", entity);
+  if (!Number.isSafeInteger(index) || index < 0) return fail(entity, "index");
+  const id = nullableStringValue(value, "id", entity);
+  const phase = stringValue(value, "phase", entity);
+  if (!GRADE_FAILURE_PHASE_VALUES.has(phase as QuizGradeFailurePhase)) return fail(entity, "phase");
+  if (value.recorded !== null && typeof value.recorded !== "boolean") return fail(entity, "recorded");
+  return {
+    index,
+    id,
+    phase: phase as QuizGradeFailurePhase,
+    error: stringValue(value, "error", entity),
+    recorded: value.recorded as boolean | null,
+  };
+}
+
+export function parseQuizGradeResponse(value: unknown): QuizGradeResponse {
   const entity = "採点応答";
-  if (!isRecord(value) || !Array.isArray(value.results)) return fail(entity);
-  return value.results.map(parseQuizGradeResult);
+  if (!isRecord(value) || !Array.isArray(value.results) || !Array.isArray(value.failures)) {
+    return fail(entity);
+  }
+  const results = value.results.map(parseQuizGradeResult);
+  const failures = value.failures.map(parseQuizGradeFailure);
+  if (new Set(failures.map((failure) => failure.index)).size !== failures.length) {
+    return fail(entity, "failures");
+  }
+  return { results, failures };
 }
 
 export function parseQuizLog(value: unknown): QuizLog {

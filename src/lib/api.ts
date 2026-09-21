@@ -1,5 +1,5 @@
 import type {
-  DailyReviewStatus, Knowledge, KnowledgeDraft, QuizFormatRequest, QuizGradeResult, QuizLog,
+  DailyReviewStatus, Knowledge, KnowledgeDraft, QuizFormatRequest, QuizGradeResponse, QuizLog,
   QuizStart, RecoveryPreview,
 } from "../types";
 import {
@@ -133,7 +133,7 @@ export async function startQuiz(
 
 export async function gradeQuiz(
   answers: { token: string; answer: string }[],
-): Promise<QuizGradeResult[]> {
+): Promise<QuizGradeResponse> {
   const data = await postQuiz("/api/quiz/grade", answers);
   return parseQuizGradeResponse(data);
 }

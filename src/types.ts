@@ -165,3 +165,20 @@ export interface QuizGradeResult {
   schedule_updated: boolean;
   recorded: boolean;
 }
+
+export type QuizGradeFailurePhase = "verification" | "grading" | "recording" | "confirmation";
+
+export interface QuizGradeFailure {
+  /** 元の提出配列における問題番号。署名を検証できない場合も画面上の問題へ対応付けられる。 */
+  index: number;
+  id: string | null;
+  phase: QuizGradeFailurePhase;
+  error: string;
+  /** nullはDB保存の成否を確認できなかったことを示す。 */
+  recorded: boolean | null;
+}
+
+export interface QuizGradeResponse {
+  results: QuizGradeResult[];
+  failures: QuizGradeFailure[];
+}

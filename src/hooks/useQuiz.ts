@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { gradeQuiz, startQuiz } from "../lib/api";
 import type {
-  Knowledge, QuizEmptyReason, QuizFormatRequest, QuizGradeResult, QuizQuestion,
+  Knowledge, QuizEmptyReason, QuizFormatRequest, QuizGradeFailure, QuizGradeResult, QuizQuestion,
 } from "../types";
 
 export const QUIZ_LIMIT_OPTIONS = [5, 10, 15, 20, 30] as const;
@@ -25,6 +25,7 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [index, setIndex] = useState(0);
   const [results, setResults] = useState<QuizGradeResult[]>([]);
+  const [failures, setFailures] = useState<QuizGradeFailure[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [emptyReason, setEmptyReason] = useState<QuizEmptyReason | null>(null);
   const [early, setEarly] = useState(false);
@@ -37,6 +38,8 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
   ) => {
     setStage("loading");
     setError(null);
+    setResults([]);
+    setFailures([]);
     try {
       const { items, reason, early: isEarly } = await startQuiz(categories, limit, format, mode);
       if (items.length === 0) {
@@ -78,12 +81,15 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
         answer: answers[q.id] ?? "",
       }));
       const graded = await gradeQuiz(payload);
-      setResults(graded);
+      setResults(graded.results);
+      setFailures(graded.failures);
       // 採点直後の再読込と結果画面からの優先度更新を競合させない。
-      try {
-        await onRecorded?.();
-      } catch {
-        // 再読込側がエラーを表示する。採点自体は確定済みなので結果は表示する。
+      if (graded.results.length > 0 || graded.failures.some((failure) => failure.recorded === true)) {
+        try {
+          await onRecorded?.();
+        } catch {
+          // 再読込側がエラーを表示する。採点自体は確定済みなので結果は表示する。
+        }
       }
       setStage("results");
     } catch (caught) {
@@ -114,13 +120,14 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
     setAnswers({});
     setIndex(0);
     setResults([]);
+    setFailures([]);
     setError(null);
     setEmptyReason(null);
     setEarly(false);
   }, []);
 
   return {
-    stage, questions, answers, index, results, error, emptyReason, early,
+    stage, questions, answers, index, results, failures, error, emptyReason, early,
     start, answerCurrent, goNext, goBack, submit, reset, syncKnowledgeResult,
   };
 }

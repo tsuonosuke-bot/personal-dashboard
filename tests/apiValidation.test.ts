@@ -102,18 +102,36 @@ test("採点結果の優先度と更新バージョンを検証する", () => {
     schedule_updated: true,
     recorded: true,
   };
-  assert.deepEqual(parseQuizGradeResponse({ results: [result] }), [result]);
+  assert.deepEqual(parseQuizGradeResponse({ results: [result], failures: [] }), {
+    results: [result], failures: [],
+  });
   assert.throws(
-    () => parseQuizGradeResponse({ results: [{ ...result, priority: "最優先" }] }),
+    () => parseQuizGradeResponse({ results: [{ ...result, priority: "最優先" }], failures: [] }),
     /priority/,
   );
   assert.throws(
-    () => parseQuizGradeResponse({ results: [{ ...result, content_version: 0 }] }),
+    () => parseQuizGradeResponse({ results: [{ ...result, content_version: 0 }], failures: [] }),
     /content_version/,
   );
   assert.throws(
-    () => parseQuizGradeResponse({ results: [{ ...result, category: null }] }),
+    () => parseQuizGradeResponse({ results: [{ ...result, category: null }], failures: [] }),
     /category/,
+  );
+  assert.deepEqual(parseQuizGradeResponse({
+    results: [],
+    failures: [{
+      index: 1, id: result.id, phase: "grading", error: "採点できませんでした。", recorded: false,
+    }],
+  }).failures[0].phase, "grading");
+  assert.throws(
+    () => parseQuizGradeResponse({
+      results: [],
+      failures: [
+        { index: 0, id: null, phase: "grading", error: "a", recorded: false },
+        { index: 0, id: null, phase: "grading", error: "b", recorded: false },
+      ],
+    }),
+    /failures/,
   );
 });
 

@@ -23,3 +23,19 @@ test("復習結果にナレッジID・分類と新規タブの管理導線を表
   assert.match(appSource, /onEdit=\{\(\) => openEdit\(selected\)\}/);
   assert.match(appSource, /onArchive=\{\(\) => void archiveKnowledge\(selected\)\}/);
 });
+
+test("復習結果は正常な採点を残し、失敗した問題にだけ原因と保存状態を表示する", async () => {
+  const [view, hook] = await Promise.all([
+    readFile(new URL("../src/components/QuizView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/hooks/useQuiz.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(hook, /setResults\(graded\.results\)/);
+  assert.match(hook, /setFailures\(graded\.failures\)/);
+  assert.match(hook, /setStage\("results"\)/);
+  assert.match(view, /quiz\.failures\.find\(\(item\) => item\.index === questionIndex\)/);
+  assert.match(view, /正常な問題の採点は完了しています/);
+  assert.match(view, /<h3>原因<\/h3>/);
+  assert.match(view, /この問題の採点結果は保存されていません/);
+  assert.match(view, /保存成否を確認できませんでした/);
+});

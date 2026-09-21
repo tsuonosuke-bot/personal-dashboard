@@ -18,6 +18,7 @@ const ANSWER_PLACEHOLDER: Record<string, string> = {
   記述説明: "理由や使い分けまで含めて説明する",
   産出: "覚えた知識を実際に使って書く",
 };
+const MAX_QUIZ_ANSWER_CHARS = 2_000;
 
 const VERDICT_CLASS: Record<string, string> = {
   正解: "quiz-verdict-ok",
@@ -32,6 +33,13 @@ const QUALITY_INTERVAL_LABEL: Record<number, string> = {
   3: "12時間後",
   4: "1日以上",
   5: "3日以上",
+};
+
+const FAILURE_PHASE_LABEL: Record<string, string> = {
+  verification: "問題の確認",
+  grading: "AI採点",
+  recording: "採点結果の保存",
+  confirmation: "保存後の確認",
 };
 
 function formatReviewTime(value: string): string {
@@ -272,16 +280,56 @@ export function QuizView({
 
         {quiz.stage === "results" && (
           <div className="quiz-results">
+            {quiz.failures.length > 0 && (
+              <div className="quiz-partial-summary" role="status">
+                <strong>
+                  採点結果を{quiz.results.length}問表示し、{quiz.failures.length}問でエラーが発生しました。
+                </strong>
+                <span>正常な問題の採点は完了しています。エラー原因は該当する問題にだけ表示します。</span>
+              </div>
+            )}
             <ul className="quiz-result-list">
-              {quiz.questions.map((question) => {
+              {quiz.questions.map((question, questionIndex) => {
                 const result = quiz.results.find((r) => r.id === question.id);
-                if (!result) return null;
+                const failure = quiz.failures.find((item) => item.index === questionIndex);
+                const userAnswer = quiz.answers[question.id] ?? "";
+                const hasUserAnswer = userAnswer.trim().length > 0;
+                if (!result) {
+                  if (!failure) return null;
+                  return (
+                    <li key={question.id} className="quiz-result-item quiz-result-failure card">
+                      <div className="quiz-result-head">
+                        <span className="badge quiz-verdict-error">採点エラー</span>
+                        <span className="quiz-result-format">{question.format}</span>
+                        <span className="quiz-failure-phase">
+                          {FAILURE_PHASE_LABEL[failure.phase] ?? failure.phase}
+                        </span>
+                      </div>
+                      <p className="quiz-result-question">{question.question}</p>
+                      <div className="content-block quiz-user-answer-block">
+                        <h3>あなたの回答</h3>
+                        <p className={`quiz-user-answer${hasUserAnswer ? "" : " unanswered"}`}>
+                          {hasUserAnswer ? userAnswer : "（未回答）"}
+                        </p>
+                      </div>
+                      <div className="content-block quiz-failure-reason" role="alert">
+                        <h3>原因</h3>
+                        <p>{failure.error}</p>
+                        <p className="muted">
+                          {failure.recorded === true
+                            ? "採点結果は保存済みです。"
+                            : failure.recorded === false
+                              ? "この問題の採点結果は保存されていません。"
+                              : "通信結果が不明なため、保存成否を確認できませんでした。"}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                }
                 const knowledgeHref = dashboardRoutePath(window.location.href, {
                   kind: "knowledge",
                   knowledgeId: result.id,
                 });
-                const userAnswer = quiz.answers[question.id] ?? "";
-                const hasUserAnswer = userAnswer.trim().length > 0;
                 const displayedPriority = priorityFeedback?.id === result.id
                   && priorityFeedback.status === "saving"
                   && priorityFeedback.priority
@@ -456,6 +504,7 @@ function QuizQuestionCard({
           className="quiz-answer-input"
           rows={question.format === "一問一答" ? 3 : 6}
           value={answer}
+          maxLength={MAX_QUIZ_ANSWER_CHARS}
           placeholder={ANSWER_PLACEHOLDER[question.format]}
           autoFocus
           onChange={(event) => onAnswer(event.target.value)}

@@ -301,10 +301,16 @@ button.review-card { display: block; }
 .quiz-choice input { margin-top: 3px; accent-color: #66558c; }
 .quiz-question-actions { display: flex; justify-content: space-between; gap: 10px; }
 .quiz-results { display: grid; gap: 14px; }
+.quiz-partial-summary { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid #fed7aa; border-radius: 10px; background: #fff7ed; color: #9a3412; font-size: 13px; }
+.quiz-partial-summary span { color: #7c2d12; }
 .quiz-result-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
 .quiz-result-item { display: grid; gap: 10px; }
 .quiz-result-head { display: flex; align-items: center; gap: 8px; }
 .quiz-result-q { font-size: 12px; font-weight: 700; color: #66558c; }
+.quiz-verdict-error { background: #fff1f2; color: #b91c1c; }
+.quiz-failure-phase { color: #b45309; font-size: 12px; font-weight: 700; }
+.quiz-result-failure { border-color: #fecaca; }
+.quiz-failure-reason { border-color: #fecaca; background: #fff8f8; }
 .quiz-result-question { margin: 0; color: #526079; font-size: 13px; }
 .quiz-user-answer-block { border-color: #dbeafe; background: #f8fbff; }
 .quiz-user-answer { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }

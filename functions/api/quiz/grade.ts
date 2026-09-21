@@ -52,6 +52,47 @@ interface KnowledgeReviewState {
   relearning_stage: "recognition" | "recall" | null;
 }
 
+type GradeFailurePhase = "verification" | "grading" | "recording" | "confirmation";
+
+interface GradeFailure {
+  index: number;
+  id: string | null;
+  phase: GradeFailurePhase;
+  error: string;
+  /** nullは、通信切断などでDBへの保存成否を確認できなかったことを表す。 */
+  recorded: boolean | null;
+}
+
+async function responseError(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = await response.clone().json() as { error?: unknown };
+    if (typeof body.error === "string" && body.error.trim()) return body.error.trim();
+  } catch {
+    // JSONでないエラー応答は、利用者向けの安全な既定文へ落とす。
+  }
+  return fallback;
+}
+
+interface RecordedState {
+  recorded: boolean;
+  schedule_updated: boolean;
+}
+
+function parseRecordedRows(data: unknown, allowedIds: Set<string>): Map<string, RecordedState> {
+  const rows = new Map<string, RecordedState>();
+  if (!Array.isArray(data)) return rows;
+  for (const row of data) {
+    if (typeof row !== "object" || row === null) continue;
+    const { id, recorded, schedule_updated } = row as Record<string, unknown>;
+    if (
+      typeof id !== "string" || !allowedIds.has(id) || rows.has(id)
+      || typeof recorded !== "boolean" || typeof schedule_updated !== "boolean"
+    ) continue;
+    rows.set(id, { recorded, schedule_updated });
+  }
+  return rows;
+}
+
 function isKnowledgeFact(value: unknown): value is KnowledgeFact {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
@@ -331,6 +372,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const validated = validateGradeRequest(json.value);
   if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
   const answers = [] as {
+    index: number;
     id: string;
     answer: string;
     question: string;
@@ -339,12 +381,29 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     correctChoiceProof: string | null;
     attempt_id: string;
   }[];
+  const failuresByIndex = new Map<number, GradeFailure>();
   const seenIds = new Set<string>();
-  for (const submitted of validated.value) {
+  for (const [index, submitted] of validated.value.entries()) {
     const verified = await verifyQuizToken(submitted.token, context.request, context.env);
-    if (!verified.ok) return jsonResponse({ error: verified.error }, verified.status);
+    if (!verified.ok) {
+      failuresByIndex.set(index, {
+        index,
+        id: null,
+        phase: "verification",
+        error: verified.error,
+        recorded: false,
+      });
+      continue;
+    }
     if (seenIds.has(verified.value.id)) {
-      return jsonResponse({ error: "同じ問題への回答が重複しています。" }, 400);
+      failuresByIndex.set(index, {
+        index,
+        id: verified.value.id,
+        phase: "verification",
+        error: "同じ問題への回答が重複しています。",
+        recorded: false,
+      });
+      continue;
     }
     seenIds.add(verified.value.id);
     if (
@@ -352,11 +411,25 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       && submitted.answer !== ""
       && !verified.value.choices?.includes(submitted.answer)
     ) {
-      return jsonResponse({ error: "四択の回答が提示された選択肢と一致しません。" }, 400);
+      failuresByIndex.set(index, {
+        index,
+        id: verified.value.id,
+        phase: "verification",
+        error: "四択の回答が提示された選択肢と一致しません。",
+        recorded: false,
+      });
+      continue;
     }
-    answers.push({ ...verified.value, answer: submitted.answer });
+    answers.push({ index, ...verified.value, answer: submitted.answer });
   }
   const ids = answers.map((a) => a.id);
+
+  const finish = (results: unknown[]) => jsonResponse({
+    results,
+    failures: [...failuresByIndex.values()].sort((left, right) => left.index - right.index),
+  });
+
+  if (answers.length === 0) return finish([]);
 
   const knowledgeResult = await requestSupabaseRows(context.env, {
     table: "knowledge",
@@ -365,18 +438,44 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       select: "id,title,explanation,category,tags,archived",
     }),
   });
-  if (!knowledgeResult.ok) return knowledgeResult.response;
+  if (!knowledgeResult.ok) {
+    const error = await responseError(knowledgeResult.response, "採点対象のナレッジを取得できませんでした。");
+    for (const answer of answers) {
+      failuresByIndex.set(answer.index, {
+        index: answer.index,
+        id: answer.id,
+        phase: "verification",
+        error,
+        recorded: false,
+      });
+    }
+    return finish([]);
+  }
   const facts = knowledgeResult.rows.filter(isKnowledgeFact);
-  if (facts.length !== ids.length || facts.length !== knowledgeResult.rows.length) {
-    return jsonResponse({ error: "対象のナレッジが見つかりません。" }, 400);
-  }
-  if (facts.some((fact) => fact.archived)) {
-    return jsonResponse({ error: "アーカイブ済みのナレッジは採点できません。" }, 409);
-  }
   const factById = new Map(facts.map((f) => [f.id, f]));
+  const gradableAnswers = answers.filter((answer) => {
+    const fact = factById.get(answer.id);
+    const error = !fact
+      ? "対象のナレッジが見つかりません。"
+      : fact.archived
+        ? "アーカイブ済みのナレッジは採点できません。"
+        : null;
+    if (!error) return true;
+    failuresByIndex.set(answer.index, {
+      index: answer.index,
+      id: answer.id,
+      phase: "verification",
+      error,
+      recorded: false,
+    });
+    return false;
+  });
+
+  if (gradableAnswers.length === 0) return finish([]);
+  const gradableIds = gradableAnswers.map((answer) => answer.id);
 
   const choiceCorrectById = new Map<string, boolean | null>();
-  for (const answer of answers) {
+  for (const answer of gradableAnswers) {
     choiceCorrectById.set(
       answer.id,
       answer.format === "四択"
@@ -385,7 +484,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     );
   }
 
-  const payloadById = new Map(answers.map((a) => {
+  const payloadById = new Map(gradableAnswers.map((a) => {
     const fact = factById.get(a.id)!;
     return [a.id, {
       id: a.id,
@@ -401,27 +500,35 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       user_answer: a.answer,
     }];
   }));
-  const answerById = new Map(answers.map((a) => [a.id, a.answer]));
+  const answerById = new Map(gradableAnswers.map((a) => [a.id, a.answer]));
 
   const firstPass = await requestGrades(
     context.env,
-    ids.map((id) => payloadById.get(id)!),
+    gradableIds.map((id) => payloadById.get(id)!),
     answerById,
   );
-  if (!firstPass.ok) return jsonResponse({ error: firstPass.error }, firstPass.status);
-  const rawById = firstPass.byId;
-  const needsRetry = ids.filter((id) => !rawById.has(id));
+  const rawById = new Map<string, RawGrade>();
+  const gradingErrorById = new Map<string, string>();
+  if (firstPass.ok) {
+    for (const [id, entry] of firstPass.byId) rawById.set(id, entry);
+  } else {
+    for (const id of gradableIds) gradingErrorById.set(id, firstPass.error);
+  }
+  const needsRetry = gradableIds.filter((id) => !rawById.has(id));
   if (needsRetry.length > 0) {
-    // AIの出力は確率的なので、崩れた項目だけをもう一度まとめて採点し直す。
+    // AIの出力崩れだけでなく一時的な接続失敗も、未採点分だけをまとめて再試行する。
     const retry = await requestGrades(
       context.env,
       needsRetry.map((id) => payloadById.get(id)!),
       answerById,
     );
-    if (!retry.ok) return jsonResponse({ error: retry.error }, retry.status);
-    for (const [id, entry] of retry.byId) rawById.set(id, entry);
+    if (retry.ok) {
+      for (const [id, entry] of retry.byId) rawById.set(id, entry);
+    } else {
+      for (const id of needsRetry) gradingErrorById.set(id, retry.error);
+    }
   }
-  const stillMissing = ids.filter((id) => !rawById.has(id));
+  const stillMissing = gradableIds.filter((id) => !rawById.has(id));
   for (const id of stillMissing) {
     // 複数件をまとめた応答では、一部の項目だけ欠落したり別回答の引用が混ざることがある。
     // 最後は1問だけに絞って再依頼し、安全な引用照合を維持したまま回復させる。
@@ -430,13 +537,25 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       [payloadById.get(id)!],
       new Map([[id, answerById.get(id)!]]),
     );
-    if (!retry.ok) return jsonResponse({ error: retry.error }, retry.status);
-    const recovered = retry.byId.get(id);
-    if (recovered) rawById.set(id, recovered);
+    if (retry.ok) {
+      const recovered = retry.byId.get(id);
+      if (recovered) rawById.set(id, recovered);
+      else gradingErrorById.set(id, "AIが回答を読み取った有効な採点結果を返しませんでした。");
+    } else {
+      gradingErrorById.set(id, retry.error);
+    }
   }
-  if (ids.some((id) => !rawById.has(id))) {
-    // 回答を読んでいない採点をDBへ残さない。黙って記録するより採点をやり直させる。
-    return jsonResponse({ error: "AIが回答を読み取った採点結果を返しませんでした。" }, 502);
+  for (const answer of gradableAnswers) {
+    if (rawById.has(answer.id)) continue;
+    // 回答を読んでいない採点をDBへ残さない一方、他の問題の有効な採点は失わせない。
+    failuresByIndex.set(answer.index, {
+      index: answer.index,
+      id: answer.id,
+      phase: "grading",
+      error: gradingErrorById.get(answer.id)
+        ?? "AIが回答を読み取った有効な採点結果を返しませんでした。",
+      recorded: false,
+    });
   }
 
   interface Grade {
@@ -448,9 +567,10 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     note: string;
   }
   const gradeById = new Map<string, Grade>();
-  for (const id of ids) {
+  for (const id of gradableIds) {
+    if (!rawById.has(id)) continue;
     const raw = rawById.get(id)!;
-    const trustedAnswer = answers.find((answer) => answer.id === id)!;
+    const trustedAnswer = gradableAnswers.find((answer) => answer.id === id)!;
     const choiceIsCorrect = choiceCorrectById.get(id) ?? null;
     let boundedQuality = trustedAnswer.format === "四択" ? Math.min(raw.quality, 4) : raw.quality;
     let normalizedExplanation = raw.explanation;
@@ -497,62 +617,104 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     });
   }
 
-  const recordedById = new Map<string, { recorded: boolean; schedule_updated: boolean }>();
-  if (answers.length > 0) {
-    const batchArgs = answers.map((a) => {
-      const grade = gradeById.get(a.id)!;
-      return {
-        id: a.id,
-        quality: grade.quality,
-        verdict: grade.verdict,
-        note: grade.note,
-        format: a.format,
-        attempt_id: a.attempt_id,
-      };
-    });
+  const gradedAnswers = gradableAnswers.filter((answer) => gradeById.has(answer.id));
+  const batchArgById = new Map(gradedAnswers.map((answer) => {
+    const grade = gradeById.get(answer.id)!;
+    return [answer.id, {
+      id: answer.id,
+      quality: grade.quality,
+      verdict: grade.verdict,
+      note: grade.note,
+      format: answer.format,
+      attempt_id: answer.attempt_id,
+    }];
+  }));
+  const recordedById = new Map<string, RecordedState>();
+  if (gradedAnswers.length > 0) {
+    const gradedIds = gradedAnswers.map((answer) => answer.id);
+    const batchArgs = gradedIds.map((id) => batchArgById.get(id)!);
     const recorded = await requestSupabaseFunction(context.env, "record_answers_batch_once", {
       p_answers: batchArgs,
     });
-    if (!recorded.ok) return recorded.response;
-    if (!Array.isArray(recorded.data)) {
-      return jsonResponse({ error: "DBから想定外の応答を受信しました。" }, 502);
+    if (recorded.ok) {
+      for (const [id, state] of parseRecordedRows(recorded.data, new Set(gradedIds))) {
+        recordedById.set(id, state);
+      }
     }
-    for (const row of recorded.data) {
-      if (typeof row !== "object" || row === null) continue;
-      const { id, recorded: wasRecorded, schedule_updated } = row as Record<string, unknown>;
-      if (
-        typeof id !== "string" || typeof wasRecorded !== "boolean"
-        || typeof schedule_updated !== "boolean" || recordedById.has(id)
-      ) continue;
-      recordedById.set(id, {
-        recorded: wasRecorded,
-        schedule_updated,
+
+    const unresolvedIds = gradedIds.filter((id) => !recordedById.has(id));
+    for (const id of unresolvedIds) {
+      // 一括記録が失敗・不完全でも、同じattempt_idで1問ずつ再実行する。
+      // DB側の一意制約により、応答だけ失われた場合も二重記録せず成否を回収できる。
+      const single = await requestSupabaseFunction(context.env, "record_answers_batch_once", {
+        p_answers: [batchArgById.get(id)!],
       });
-    }
-    if (recordedById.size !== ids.length || ids.some((id) => !recordedById.has(id))) {
-      return jsonResponse({ error: "DBの記録結果を完全に確認できませんでした。" }, 502);
+      if (single.ok) {
+        const row = parseRecordedRows(single.data, new Set([id])).get(id);
+        if (row) {
+          recordedById.set(id, row);
+          continue;
+        }
+      }
+      const answer = gradedAnswers.find((item) => item.id === id)!;
+      failuresByIndex.set(answer.index, {
+        index: answer.index,
+        id,
+        phase: "recording",
+        error: single.ok
+          ? "DBの記録結果を確認できませんでした。"
+          : await responseError(single.response, "DBへの採点記録に失敗しました。"),
+        recorded: null,
+      });
     }
   }
 
+  const recordedIds = gradedAnswers
+    .filter((answer) => recordedById.has(answer.id))
+    .map((answer) => answer.id);
+
+  if (recordedIds.length === 0) return finish([]);
+
   // record_answerで版番号と復習日が変わるため、優先度編集に使う最新状態を読み直す。
+  const reviewStateSelect = "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage";
   const reviewStateResult = await requestSupabaseRows(context.env, {
     table: "knowledge",
     params: new URLSearchParams({
-      id: inFilter(ids),
-      select: "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage",
+      id: inFilter(recordedIds),
+      select: reviewStateSelect,
     }),
   });
-  if (!reviewStateResult.ok) return reviewStateResult.response;
-  const reviewStates = reviewStateResult.rows.filter(isKnowledgeReviewState);
-  if (reviewStates.length !== ids.length || reviewStates.length !== reviewStateResult.rows.length) {
-    return jsonResponse({ error: "採点後のナレッジ状態を確認できませんでした。" }, 502);
-  }
+  const reviewStates = reviewStateResult.ok
+    ? reviewStateResult.rows.filter(isKnowledgeReviewState)
+    : [];
   const reviewStateById = new Map(reviewStates.map((state) => [state.id, state]));
-  if (reviewStateById.size !== ids.length || ids.some((id) => !reviewStateById.has(id))) {
-    return jsonResponse({ error: "採点後のナレッジ状態を完全に確認できませんでした。" }, 502);
+  for (const id of recordedIds.filter((itemId) => !reviewStateById.has(itemId))) {
+    const singleState = await requestSupabaseRows(context.env, {
+      table: "knowledge",
+      params: new URLSearchParams({ id: `eq.${id}`, select: reviewStateSelect }),
+    });
+    if (!singleState.ok) continue;
+    const state = singleState.rows.find(
+      (row): row is KnowledgeReviewState => isKnowledgeReviewState(row) && row.id === id,
+    );
+    if (state) reviewStateById.set(id, state);
+  }
+  const missingStateIds = recordedIds.filter((id) => !reviewStateById.has(id));
+  for (const id of missingStateIds) {
+    const answer = gradedAnswers.find((item) => item.id === id)!;
+    failuresByIndex.set(answer.index, {
+      index: answer.index,
+      id,
+      phase: "confirmation",
+      error: reviewStateResult.ok
+        ? "採点は保存済みですが、採点後の状態を確認できませんでした。"
+        : `${await responseError(reviewStateResult.response, "採点後の状態を取得できませんでした。")} 採点結果は保存済みです。`,
+      recorded: true,
+    });
   }
 
-  const results = ids.map((id) => {
+  const resultIds = recordedIds.filter((id) => reviewStateById.has(id));
+  const results = resultIds.map((id) => {
     const grade = gradeById.get(id)!;
     const fact = factById.get(id)!;
     const recorded = recordedById.get(id);
@@ -576,5 +738,5 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     };
   });
 
-  return jsonResponse({ results });
+  return finish(results);
 };
