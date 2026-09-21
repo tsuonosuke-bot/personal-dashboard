@@ -111,11 +111,16 @@ const SYSTEM_PROMPT = `あなたはナレッジDBの復習クイズの採点者�
 - 採点するのは question で問われたことに答えられているかどうか。ナレッジ全体を説明できたかでは
   採点しない。空所補充や一問一答で答えの語句が合っていれば、意味やニュアンスの説明がなくても5。
   question が問うていない範囲を減点理由にしない（補足として説明を添えるのは構わない）。
-- 空所補充・語彙選択・前置詞や助詞の選択のように、語そのものが問われている問題では、正解と
-  違う語を答えていれば0か1。for を of と答えるような別語の取り違えは表記の揺れではない。
+- 空所補充・語彙選択・前置詞や助詞の選択のように、語そのものが問われている問題では、意味や
+  文法上の働きが異なる別語を答えていれば0か1。for を of と答えるような取り違えは表記の揺れではない。
+  ただし、同じ語の単数・複数、時制、活用、比較級などの語形差は、それだけで別語や0点として
+  扱わない。完成した文が問題の意味を満たし、文法的かつ自然なら正解とする。
 - 表現が違っても意味が合っていれば正解とする。語句の完全一致は求めない。大文字小文字や送り仮名、
-  冠詞の有無、全角半角のような表記の揺れだけで減点しない。この寛容さは同じ語の書き方の違いに
-  だけ適用し、別の語に置き換わっている場合には適用しない。
+  冠詞の有無、全角半角のような表記の揺れだけで減点しない。登録されたtitle・explanationも参考解答で
+  あり、常に唯一の正解とは限らない。ユーザーの回答が、問題文の意味を保つ標準的・自然な別表現なら
+  正解とする。参考解答よりユーザー回答のほうが一般的または自然な場合は減点せず、その旨を説明する。
+- 例: 「the least of my ＿＿＿」に concerns と答えた場合、単数形 concern だけを登録解答が示していても、
+  「複数ある懸念のうち最小のもの」という標準的な表現を完成させているため正解とする。
 - 核心を外していれば、部分的に合っていても2以下。
 - 減点するなら、user_answer の該当箇所を answer_quotes に引用して根拠を示す。引用できない
   （回答にそう書かれていない）指摘は減点理由にしない。
@@ -347,7 +352,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const rawById = firstPass.byId;
   const needsRetry = ids.filter((id) => !rawById.has(id));
   if (needsRetry.length > 0) {
-    // AIの出力は確率的なので、崩れた項目だけをもう一度まとめて採点し直す（1回だけ）。
+    // AIの出力は確率的なので、崩れた項目だけをもう一度まとめて採点し直す。
     const retry = await requestGrades(
       context.env,
       needsRetry.map((id) => payloadById.get(id)!),
@@ -355,6 +360,19 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     );
     if (!retry.ok) return jsonResponse({ error: retry.error }, retry.status);
     for (const [id, entry] of retry.byId) rawById.set(id, entry);
+  }
+  const stillMissing = ids.filter((id) => !rawById.has(id));
+  for (const id of stillMissing) {
+    // 複数件をまとめた応答では、一部の項目だけ欠落したり別回答の引用が混ざることがある。
+    // 最後は1問だけに絞って再依頼し、安全な引用照合を維持したまま回復させる。
+    const retry = await requestGrades(
+      context.env,
+      [payloadById.get(id)!],
+      new Map([[id, answerById.get(id)!]]),
+    );
+    if (!retry.ok) return jsonResponse({ error: retry.error }, retry.status);
+    const recovered = retry.byId.get(id);
+    if (recovered) rawById.set(id, recovered);
   }
   if (ids.some((id) => !rawById.has(id))) {
     // 回答を読んでいない採点をDBへ残さない。黙って記録するより採点をやり直させる。
