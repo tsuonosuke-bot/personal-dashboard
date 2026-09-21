@@ -102,6 +102,8 @@ button:disabled { opacity: 0.4; cursor: default; }
 .daily-review-metrics strong { display: block; margin: 4px 0 2px; font-size: 21px; }
 .daily-progress { height: 8px; margin-top: 12px; overflow: hidden; border-radius: 999px; background: #ece9f2; }
 .daily-progress span { display: block; height: 100%; border-radius: inherit; background: #66558c; transition: width .2s ease; }
+.daily-review-note { display: grid; gap: 4px; margin-top: 13px; }
+.daily-review-note p { margin: 0; color: #7a879b; font-size: 12px; }
 .recovery-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 13px; }
 .recovery-actions p { margin: 0; color: #7a879b; font-size: 12px; }
 .recovery-preview { margin-top: 16px; padding: 16px; border: 1px solid #ded7eb; border-radius: 10px; background: #fbfaff; }

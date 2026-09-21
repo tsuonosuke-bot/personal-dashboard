@@ -23,6 +23,25 @@ const VERDICT_CLASS: Record<string, string> = {
   不正解: "quiz-verdict-ng",
 };
 
+const QUALITY_INTERVAL_LABEL: Record<number, string> = {
+  0: "10分後",
+  1: "30分後",
+  2: "6時間後",
+  3: "12時間後",
+  4: "1日以上",
+  5: "3日以上",
+};
+
+function formatReviewTime(value: string): string {
+  return new Date(value).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 interface Props {
   knowledge: Knowledge[];
   quizLog: QuizLog[];
@@ -111,8 +130,8 @@ export function QuizView({
                 <strong>今日の復習キュー</strong>
                 <span>
                   {dailyStatus
-                    ? `${dailyStatus.completed}/${dailyStatus.total}件完了・残り${dailyStatus.remaining}件`
-                    : "今日の上限内で優先順に出題"}
+                    ? `今日${dailyStatus.completed}件実施・今すぐ${dailyStatus.remaining}件`
+                    : "1回15件ずつ、復習対象がある限り続行"}
                 </span>
               </div>
               <button
@@ -120,7 +139,9 @@ export function QuizView({
                 disabled={dailyStatus?.remaining === 0}
                 onClick={() => void quiz.start([], dailyStatus?.limit ?? DEFAULT_QUIZ_LIMIT, format, "daily")}
               >
-                今日の復習を開始
+                {dailyStatus?.remaining
+                  ? `次の${Math.min(dailyStatus.limit, dailyStatus.remaining)}件を開始`
+                  : "今すぐの復習は完了"}
               </button>
             </div>
             <div className="quiz-divider"><span>カスタム出題</span></div>
@@ -181,7 +202,9 @@ export function QuizView({
           <div className="quiz-setup card">
             <p>
               {quiz.emptyReason === "done_today"
-                ? "本日の復習キューは完了しています。"
+                ? dailyStatus?.retry_waiting
+                  ? `今すぐ復習できる問題はありません。${dailyStatus.retry_waiting}件が段階別の再復習時刻を待っています。`
+                  : "今すぐ復習できる問題はありません。"
                 : "選んだカテゴリに出題できるナレッジがありません。"}
             </p>
             <button className="primary-button" onClick={resetQuiz}>戻る</button>
@@ -226,7 +249,7 @@ export function QuizView({
                       <span className={`badge ${VERDICT_CLASS[result.verdict] ?? ""}`}>{result.verdict}</span>
                       <span className="quiz-result-q">q{result.quality}</span>
                       <span className="quiz-result-format">{question.format}</span>
-                      {!result.recorded && <span className="muted">（本日分は記録済み）</span>}
+                      {!result.recorded && <span className="muted">（同じ回答はすでに記録済みです）</span>}
                     </div>
                     <p className="quiz-result-question">{question.question}</p>
                     <div className="content-block">
@@ -263,11 +286,15 @@ export function QuizView({
                         </select>
                       </label>
                       <p className="quiz-priority-hint">
-                        {PRIORITY_INTERVAL_HINTS[displayedPriority]}。予定がある場合は次回復習日も更新されます。
+                        {PRIORITY_INTERVAL_HINTS[displayedPriority]}。優先度は出題順だけに使い、復習間隔は変えません。
                       </p>
-                      {result.next_review_on && (
-                        <p className="quiz-next-review">次回復習日: {result.next_review_on}</p>
-                      )}
+                      <p className="quiz-next-review">
+                        {result.schedule_updated
+                          ? `次回: ${formatReviewTime(result.next_review_at)}（${QUALITY_INTERVAL_LABEL[result.quality] ?? "定着間隔に応じて調整"}）`
+                          : `次回: ${formatReviewTime(result.next_review_at)}（期限前の正解のため予定は据え置き）`}
+                        {result.relearning_stage === "recognition" && "・次は四択で再認"}
+                        {result.relearning_stage === "recall" && "・次は一問一答で想起"}
+                      </p>
                       <div className="quiz-priority-feedback" aria-live="polite">
                         {priorityFeedback?.id === result.id && priorityFeedback.status === "saving" && "保存中…"}
                         {priorityFeedback?.id === result.id && priorityFeedback.status === "saved" && "保存しました。"}

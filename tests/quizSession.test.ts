@@ -28,6 +28,8 @@ test("クイズトークンは正解を漏らさず署名し、四択回答を�
   const verified = await verifyQuizToken(issued.token, request, env, Date.UTC(2026, 8, 20));
   assert.equal(verified.ok, true);
   if (!verified.ok) return;
+  const { attempt_id } = verified.value;
+  assert.match(attempt_id, /^[A-Za-z0-9_-]{20,64}$/);
   assert.deepEqual(
     {
       id: verified.value.id,

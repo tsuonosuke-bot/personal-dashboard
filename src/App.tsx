@@ -308,18 +308,9 @@ export default function App() {
         <>
           <DailyReviewPanel
             status={dailyReview.status}
-            preview={dailyReview.preview}
             loading={dailyReview.loading}
-            mutating={dailyReview.mutating}
             error={dailyReview.error}
             onStart={() => setQuizOpen(true, "daily")}
-            onPreview={() => { void dailyReview.createPreview(); }}
-            onApply={dailyReview.applyPreview}
-            onCancelPreview={dailyReview.clearPreview}
-            onApplied={(updated) => {
-              setNotice(`${updated}件の復習日を再配分しました。`);
-              void reload();
-            }}
           />
           <StatsCards knowledge={knowledge} quizLog={quizLog} />
           <ReviewInsights

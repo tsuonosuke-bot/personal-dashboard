@@ -1,6 +1,7 @@
 import type {
   DailyReviewStatus, Knowledge, KnowledgePriority, Mastery, QuizEmptyReason, QuizFormat,
   QuizGradeResult, QuizLog, QuizQuestion, QuizStart, QuizVerdict, RecoveryPreview,
+  RelearningStage,
 } from "../types";
 
 interface PageEnvelope {
@@ -14,6 +15,7 @@ const MASTERY_VALUES = new Set<Mastery>(["未学習", "学習中", "習得中", 
 const PRIORITY_VALUES = new Set<KnowledgePriority>(["最高", "高", "中", "低", "最低"]);
 const VERDICT_VALUES = new Set<QuizVerdict>(["正解", "不正解", "部分正解"]);
 const QUIZ_FORMAT_VALUES = new Set<QuizFormat>(["一問一答", "四択", "記述説明", "産出"]);
+const RELEARNING_STAGE_VALUES = new Set<RelearningStage>(["recognition", "recall"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -91,6 +93,10 @@ export function parseKnowledge(value: unknown): Knowledge {
   if (typeof value.archived !== "boolean") return fail(entity, "archived");
   const contentVersion = numberValue(value, "content_version", entity);
   if (!Number.isSafeInteger(contentVersion) || contentVersion < 1) return fail(entity, "content_version");
+  const relearningStage = nullableStringValue(value, "relearning_stage", entity);
+  if (relearningStage !== null && !RELEARNING_STAGE_VALUES.has(relearningStage as RelearningStage)) {
+    return fail(entity, "relearning_stage");
+  }
   return {
     id: stringValue(value, "id", entity),
     title: stringValue(value, "title", entity),
@@ -109,6 +115,10 @@ export function parseKnowledge(value: unknown): Knowledge {
     tags: stringArrayValue(value, "tags", entity),
     accuracy: nullableNumberValue(value, "accuracy", entity),
     next_review_on: nullableStringValue(value, "next_review_on", entity),
+    next_review_at: stringValue(value, "next_review_at", entity),
+    stability_hours: numberValue(value, "stability_hours", entity),
+    relearning_stage: relearningStage as RelearningStage | null,
+    last_reviewed_at: nullableStringValue(value, "last_reviewed_at", entity),
     mastery_streak: numberValue(value, "mastery_streak", entity),
     archived: value.archived,
     created_at: stringValue(value, "created_at", entity),
@@ -170,9 +180,13 @@ export function parseDailyReviewStatus(value: unknown): DailyReviewStatus {
     limit: nonNegativeInteger(value, "limit", entity),
     total: nonNegativeInteger(value, "total", entity),
     completed: nonNegativeInteger(value, "completed", entity),
+    completed_unique: nonNegativeInteger(value, "completed_unique", entity),
     remaining: nonNegativeInteger(value, "remaining", entity),
     due_total: nonNegativeInteger(value, "due_total", entity),
     overdue_total: nonNegativeInteger(value, "overdue_total", entity),
+    retry_ready: nonNegativeInteger(value, "retry_ready", entity),
+    retry_waiting: nonNegativeInteger(value, "retry_waiting", entity),
+    next_retry_at: nullableStringValue(value, "next_retry_at", entity),
   };
   if (result.limit < 1 || result.limit > 30 || result.completed + result.remaining !== result.total) {
     return fail(entity);
@@ -224,6 +238,11 @@ export function parseQuizGradeResult(value: unknown): QuizGradeResult {
     return fail(entity, "content_version");
   }
   if (typeof value.recorded !== "boolean") return fail(entity, "recorded");
+  if (typeof value.schedule_updated !== "boolean") return fail(entity, "schedule_updated");
+  const relearningStage = nullableStringValue(value, "relearning_stage", entity);
+  if (relearningStage !== null && !RELEARNING_STAGE_VALUES.has(relearningStage as RelearningStage)) {
+    return fail(entity, "relearning_stage");
+  }
   return {
     id: stringValue(value, "id", entity),
     title: stringValue(value, "title", entity),
@@ -238,6 +257,10 @@ export function parseQuizGradeResult(value: unknown): QuizGradeResult {
     correct_answer: stringValue(value, "correct_answer", entity),
     explanation: stringValue(value, "explanation", entity),
     next_review_on: nullableStringValue(value, "next_review_on", entity),
+    next_review_at: stringValue(value, "next_review_at", entity),
+    stability_hours: numberValue(value, "stability_hours", entity),
+    relearning_stage: relearningStage as RelearningStage | null,
+    schedule_updated: value.schedule_updated,
     recorded: value.recorded,
   };
 }

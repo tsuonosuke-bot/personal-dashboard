@@ -46,6 +46,9 @@ interface KnowledgeReviewState {
   priority: "最高" | "高" | "中" | "低" | "最低";
   content_version: number;
   next_review_on: string | null;
+  next_review_at: string;
+  stability_hours: number;
+  relearning_stage: "recognition" | "recall" | null;
 }
 
 function isKnowledgeFact(value: unknown): value is KnowledgeFact {
@@ -68,7 +71,11 @@ function isKnowledgeReviewState(value: unknown): value is KnowledgeReviewState {
     && typeof record.content_version === "number"
     && Number.isSafeInteger(record.content_version)
     && record.content_version >= 1
-    && (record.next_review_on === null || typeof record.next_review_on === "string");
+    && (record.next_review_on === null || typeof record.next_review_on === "string")
+    && typeof record.next_review_at === "string"
+    && typeof record.stability_hours === "number"
+    && (record.relearning_stage === null || record.relearning_stage === "recognition"
+      || record.relearning_stage === "recall");
 }
 
 /** q値の基準に従って正誤を機械的に決める。AIの判定に任せずサーバー側でCHECK制約と整合させる。 */
@@ -147,6 +154,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     format: QuizFormat;
     choices: string[] | null;
     correctChoiceProof: string | null;
+    attempt_id: string;
   }[];
   const seenIds = new Set<string>();
   for (const submitted of validated.value) {
@@ -298,7 +306,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     if (!gradeById.has(id)) return jsonResponse({ error: "AIが一部の採点結果を生成しませんでした。" }, 502);
   }
 
-  const recordedById = new Map<string, { next_review_on: string | null; recorded: boolean }>();
+  const recordedById = new Map<string, { recorded: boolean; schedule_updated: boolean }>();
   if (answers.length > 0) {
     const batchArgs = answers.map((a) => {
       const grade = gradeById.get(a.id)!;
@@ -308,6 +316,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
         verdict: grade.verdict,
         note: grade.note,
         format: a.format,
+        attempt_id: a.attempt_id,
       };
     });
     const recorded = await requestSupabaseFunction(context.env, "record_answers_batch_once", {
@@ -319,11 +328,14 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     }
     for (const row of recorded.data) {
       if (typeof row !== "object" || row === null) continue;
-      const { id, next_review_on, recorded: wasRecorded } = row as Record<string, unknown>;
-      if (typeof id !== "string" || typeof wasRecorded !== "boolean" || recordedById.has(id)) continue;
+      const { id, recorded: wasRecorded, schedule_updated } = row as Record<string, unknown>;
+      if (
+        typeof id !== "string" || typeof wasRecorded !== "boolean"
+        || typeof schedule_updated !== "boolean" || recordedById.has(id)
+      ) continue;
       recordedById.set(id, {
-        next_review_on: typeof next_review_on === "string" ? next_review_on : null,
         recorded: wasRecorded,
+        schedule_updated,
       });
     }
     if (recordedById.size !== ids.length || ids.some((id) => !recordedById.has(id))) {
@@ -336,7 +348,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     table: "knowledge",
     params: new URLSearchParams({
       id: inFilter(ids),
-      select: "id,title,priority,content_version,next_review_on",
+      select: "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage",
     }),
   });
   if (!reviewStateResult.ok) return reviewStateResult.response;
@@ -363,6 +375,10 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       correct_answer: grade.correctAnswer,
       explanation: grade.explanation,
       next_review_on: state.next_review_on,
+      next_review_at: state.next_review_at,
+      stability_hours: state.stability_hours,
+      relearning_stage: state.relearning_stage,
+      schedule_updated: recorded?.schedule_updated ?? false,
       recorded: recorded?.recorded ?? false,
     };
   });

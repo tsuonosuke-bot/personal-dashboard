@@ -41,6 +41,8 @@ function pickedRow(id: string, category: string, overrides: Record<string, unkno
     mastery: "学習中",
     times_asked: 3,
     pool: "A",
+    stability_hours: 48,
+    relearning_stage: null,
     ...overrides,
   };
 }
@@ -223,6 +225,37 @@ test("quiz/start は同じカテゴリが連続しないよう出題順を入れ
   }
 });
 
+test("quiz/start はカテゴリを散らしても再学習プールRを先に保つ", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json([
+        pickedRow(ID_1, "英語", { pool: "R" }),
+        pickedRow(ID_2, "英語", { pool: "A" }),
+        pickedRow(ID_3, "歴史", { pool: "A" }),
+      ]);
+    }
+    if (url.includes("/rest/v1/knowledge")) return Response.json([]);
+    if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      return anthropicToolResponse("submit_questions", {
+        questions: [
+          { id: ID_1, question: "再学習" }, { id: ID_2, question: "通常1" }, { id: ID_3, question: "通常2" },
+        ],
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({ request: quizPost("/api/quiz/start", {}), env });
+    const body = await response.json() as { items: { id: string }[] };
+    assert.deepEqual(body.items.map((item) => item.id), [ID_1, ID_3, ID_2]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("quiz/start は0件の理由を本日出題済みと対象なしで切り分ける", async () => {
   const originalFetch = globalThis.fetch;
   let knowledgeTotal = "0-0/7";
@@ -259,9 +292,9 @@ test("quiz/start は同一オリジン・専用ヘッダーを要求する", asy
   assert.equal(response.status, 403);
 });
 
-test("quiz/start はおまかせ指定のとき習熟度とカテゴリから形式を割り当てる", async () => {
+test("quiz/start は段階で形式を絞り、複数候補は知識構造に合わせてAIが選ぶ", async () => {
   const originalFetch = globalThis.fetch;
-  let sentItems: { id: string; format: string }[] = [];
+  let sentItems: { id: string; allowed_formats: string[] }[] = [];
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("/rest/v1/rpc/pick_quiz")) {
@@ -277,12 +310,12 @@ test("quiz/start はおまかせ指定のとき習熟度とカテゴリから形
     if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
     if (url.includes("api.anthropic.com")) {
       const body = JSON.parse(String(init?.body)) as { messages: { content: string }[] };
-      sentItems = JSON.parse(body.messages[0].content) as { id: string; format: string }[];
+      sentItems = JSON.parse(body.messages[0].content) as { id: string; allowed_formats: string[] }[];
       return anthropicToolResponse("submit_questions", {
         questions: [
-          { id: ID_1, question: "問題1", choices: ["ア", "イ", "ウ", "エ"], correct_choice: "ア" },
-          { id: ID_2, question: "問題2" },
-          { id: ID_3, question: "問題3" },
+          { id: ID_1, question: "問題1", format: "四択", choices: ["ア", "イ", "ウ", "エ"], correct_choice: "ア" },
+          { id: ID_2, question: "問題2", format: "記述説明" },
+          { id: ID_3, question: "問題3", format: "産出" },
         ],
       });
     }
@@ -294,10 +327,10 @@ test("quiz/start はおまかせ指定のとき習熟度とカテゴリから形
       env,
     });
     assert.equal(response.status, 200);
-    const formatOf = (id: string) => sentItems.find((item) => item.id === id)?.format;
-    assert.equal(formatOf(ID_1), "四択");
-    assert.equal(formatOf(ID_2), "記述説明");
-    assert.equal(formatOf(ID_3), "産出");
+    const formatsOf = (id: string) => sentItems.find((item) => item.id === id)?.allowed_formats;
+    assert.deepEqual(formatsOf(ID_1), ["四択"]);
+    assert.deepEqual(formatsOf(ID_2), ["一問一答", "記述説明"]);
+    assert.deepEqual(formatsOf(ID_3), ["産出"]);
 
     const body = await response.json() as { items: { id: string; choices: string[] | null }[] };
     const choiceItem = body.items.find((item) => item.id === ID_1)!;
@@ -462,15 +495,17 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
-      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on") {
+      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
         return Response.json([
           {
             id: ID_1, title: "正解1", priority: "最高", content_version: 7,
-            next_review_on: "2026-10-03",
+            next_review_on: "2026-10-03", next_review_at: "2026-10-03T03:00:00Z",
+            stability_hours: 288, relearning_stage: null,
           },
           {
             id: ID_2, title: "正解2", priority: "高", content_version: 9,
-            next_review_on: "2026-10-01",
+            next_review_on: "2026-10-01", next_review_at: "2026-10-01T03:00:00Z",
+            stability_hours: 240, relearning_stage: "recall",
           },
         ]);
       }
@@ -503,8 +538,8 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
     if (url.includes("/rest/v1/rpc/record_answers_batch_once")) {
       seenBatchBodies.push(JSON.parse(String(init?.body)));
       return Response.json([
-        { id: ID_1, next_review_on: "2026-10-03", recorded: true },
-        { id: ID_2, next_review_on: "2026-10-01", recorded: true },
+        { id: ID_1, next_review_on: "2026-10-03", recorded: true, schedule_updated: true },
+        { id: ID_2, next_review_on: "2026-10-01", recorded: true, schedule_updated: true },
       ]);
     }
     throw new Error(`unexpected fetch: ${url}`);
@@ -531,21 +566,27 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
       {
         id: ID_1, title: "正解1", verdict: "正解", quality: 5, correct_answer: "模範解答1",
         explanation: "よくできました", priority: "最高", content_version: 7,
-        next_review_on: "2026-10-03", recorded: true,
+        next_review_on: "2026-10-03", next_review_at: "2026-10-03T03:00:00Z",
+        stability_hours: 288, relearning_stage: null, schedule_updated: true, recorded: true,
       },
       {
         id: ID_2, title: "正解2", verdict: "正解", quality: 4, correct_answer: "模範解答2",
         explanation: "正しい選択肢「正解2」を選べています。", priority: "高", content_version: 9,
-        next_review_on: "2026-10-01", recorded: true,
+        next_review_on: "2026-10-01", next_review_at: "2026-10-01T03:00:00Z",
+        stability_hours: 240, relearning_stage: "recall", schedule_updated: true, recorded: true,
       },
     ]);
     assert.equal(seenBatchBodies.length, 1);
-    const batch = seenBatchBodies[0] as { p_answers: { id: string; format: string; note: string }[] };
+    const batch = seenBatchBodies[0] as {
+      p_answers: { id: string; format: string; note: string; attempt_id: string }[];
+    };
     assert.equal(batch.p_answers.length, 2);
     assert.equal(batch.p_answers[0].format, "産出");
     assert.equal(batch.p_answers[1].format, "四択");
     assert.equal((batch.p_answers[1] as { quality: number }).quality, 4);
     assert.equal(batch.p_answers[1].note, "「正解2」を選択し、正解した。");
+    assert.match(batch.p_answers[0].attempt_id, /^[A-Za-z0-9_-]{20,64}$/);
+    assert.notEqual(batch.p_answers[0].attempt_id, batch.p_answers[1].attempt_id);
     // 採点は「この問いに答えられたか」で行うため、出題した問題文をAIに渡す。
     assert.equal(seenGradePrompts.length, 1);
     assert.match(seenGradePrompts[0], /出題した問題文1/);
@@ -563,10 +604,11 @@ test("quiz/grade はDBの原子的な重複判定をそのまま返す", async (
   globalThis.fetch = async (input) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
-      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on") {
+      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
         return Response.json([{
           id: ID_1, title: "正解1", priority: "中", content_version: 4,
-          next_review_on: "2026-09-20",
+          next_review_on: "2026-09-20", next_review_at: "2026-09-20T03:00:00Z",
+          stability_hours: 72, relearning_stage: null,
         }]);
       }
       return Response.json([
@@ -583,7 +625,9 @@ test("quiz/grade はDBの原子的な重複判定をそのまま返す", async (
     }
     if (url.includes("/rest/v1/rpc/record_answers_batch_once")) {
       batchCalled = true;
-      return Response.json([{ id: ID_1, next_review_on: "2026-09-20", recorded: false }]);
+      return Response.json([{
+        id: ID_1, next_review_on: "2026-09-20", recorded: false, schedule_updated: false,
+      }]);
     }
     throw new Error(`unexpected fetch: ${url}`);
   };
@@ -599,12 +643,16 @@ test("quiz/grade はDBの原子的な重複判定をそのまま返す", async (
       results: {
         recorded: boolean;
         next_review_on: string | null;
+        next_review_at: string;
+        schedule_updated: boolean;
         priority: string;
         content_version: number;
       }[];
     };
     assert.equal(body.results[0].recorded, false);
     assert.equal(body.results[0].next_review_on, "2026-09-20");
+    assert.equal(body.results[0].next_review_at, "2026-09-20T03:00:00Z");
+    assert.equal(body.results[0].schedule_updated, false);
     assert.equal(body.results[0].priority, "中");
     assert.equal(body.results[0].content_version, 4);
     assert.equal(batchCalled, true);

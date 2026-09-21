@@ -29,16 +29,18 @@ test("日次キュー状態は上限・進捗・期限超過総数を区別し�
     assert.match(String(input), /\/rpc\/get_daily_review_status$/);
     assert.deepEqual(JSON.parse(String(init?.body)), { p_limit: 15 });
     return Response.json([{
-      review_on: "2026-09-20", queue_limit: 15, queue_total: 15,
-      completed: 4, remaining: 11, due_total: 371, overdue_total: 318,
+      review_on: "2026-09-20", queue_limit: 15, queue_total: 41,
+      completed: 30, completed_unique: 24, remaining: 11, due_total: 11, overdue_total: 8,
+      retry_ready: 2, retry_waiting: 3, next_retry_at: "2026-09-20T03:10:00Z",
     }]);
   };
   try {
     const response = await queueRoute({ request: new Request("https://dashboard.example/api/review/queue?limit=15"), env });
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {
-      review_on: "2026-09-20", limit: 15, total: 15, completed: 4,
-      remaining: 11, due_total: 371, overdue_total: 318,
+      review_on: "2026-09-20", limit: 15, total: 41, completed: 30, completed_unique: 24,
+      remaining: 11, due_total: 11, overdue_total: 8,
+      retry_ready: 2, retry_waiting: 3, next_retry_at: "2026-09-20T03:10:00Z",
     });
   } finally {
     globalThis.fetch = originalFetch;
@@ -53,7 +55,7 @@ test("今日のキューが完了済みならAIを呼ばず空状態を返す", 
     seen.push(url);
     if (url.endsWith("/rpc/pick_daily_review_queue")) return Response.json([]);
     if (url.endsWith("/rpc/get_daily_review_status")) {
-      return Response.json([{ queue_total: 15, completed: 15, remaining: 0 }]);
+      return Response.json([{ queue_total: 15, completed: 15, remaining: 0, retry_waiting: 0 }]);
     }
     throw new Error(`unexpected request: ${url}`);
   };
@@ -146,11 +148,33 @@ test("reference counts and recovery use the same active review-date rules as the
   assert.doesNotMatch(sql, /k\.times_asked > 0\s+and k\.next_review_on < v_today/);
 });
 
-test("日次キューと回復UIは主要件数、進捗、プレビュー、明示更新を表示する", async () => {
+test("continuous review makes 15 a batch size and gives every quality a distinct cadence", async () => {
+  const sql = await readFile(
+    new URL("../supabase/migrations/20260921100000_continuous_review_queue.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(sql, /next_review_at timestamptz/);
+  assert.match(sql, /stability_hours numeric/);
+  assert.match(sql, /when 0 then 10\.0 \/ 60/);
+  assert.match(sql, /when 1 then 30\.0 \/ 60/);
+  assert.match(sql, /when 2 then 6/);
+  assert.match(sql, /else 12/);
+  assert.match(sql, /v_stability \* 1\.40/);
+  assert.match(sql, /v_stability \* 1\.80/);
+  assert.match(sql, /p\.batch_limit - least\(5, c\.normal_count, p\.batch_limit\)/);
+  assert.match(sql, /p_format = '四択'/);
+  assert.match(sql, /v_was_early and p_quality >= 4/);
+  assert.match(sql, /c\.completed \+ c\.remaining/);
+  assert.match(sql, /attempt_id/);
+});
+
+test("日次キューは実施数、次バッチ、q別復習間隔を表示する", async () => {
   const source = await readFile(new URL("../src/components/DailyReviewPanel.tsx", import.meta.url), "utf8");
   assert.match(source, /今日の復習キュー/);
   assert.match(source, /期限超過/);
-  assert.match(source, /回復プランをプレビュー/);
-  assert.match(source, /window\.confirm/);
-  assert.match(source, /この配分で更新/);
+  assert.match(source, /1日の上限ではなく/);
+  assert.match(source, /q0=10分、q1=30分、q2=6時間、q3=12時間、q4=1日以上、q5=3日以上/);
+  assert.match(source, /q4・q5は保持できた期間に応じて伸び/);
+  assert.match(source, /再学習は最大10件/);
+  assert.doesNotMatch(source, /この配分で更新/);
 });
