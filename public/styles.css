@@ -118,6 +118,12 @@ footer { display: flex; justify-content: space-between; width: min(1180px, calc(
 .detail-box strong { font-size: 13px; }
 .detail-section { margin-top: 26px; }
 .detail-section p { margin: 0; color: #3e4a43; font-size: 14px; line-height: 1.75; white-space: pre-wrap; }
+.quick-route-section > p { color: var(--muted); font-size: 11px; line-height: 1.55; }
+.quick-route-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 10px; }
+.quick-route-action { min-height: 62px; display: grid; place-content: center; gap: 4px; padding: 8px 6px; border: 1px solid var(--line); border-radius: 9px; background: #fff; text-align: center; cursor: pointer; }
+.quick-route-action:hover { border-color: var(--green); background: var(--green-soft); }
+.quick-route-action strong { color: var(--ink); font-size: 11px; }
+.quick-route-action small { color: var(--muted); font-size: 9px; line-height: 1.35; }
 .drawer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 24px; }
 .edit-form { display: grid; gap: 18px; margin-top: 24px; }
 .edit-form .form-field > span small { font-size: 10px; font-weight: 500; }

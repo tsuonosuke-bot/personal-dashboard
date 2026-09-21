@@ -106,6 +106,12 @@ const destinationsByIntent = {
   discard: ["archive"],
 };
 
+const quickWantRoutes = {
+  writing: { label: "Writing", description: "文章に育てる", intent: "explore", destination: "writing" },
+  habit: { label: "Habits", description: "習慣にする", intent: "continue", destination: "habit" },
+  archive: { label: "Archive", description: "今回は見送る", intent: "discard", destination: "archive" },
+};
+
 const cadenceLabels = {
   daily: "毎日",
   weekdays: "平日",
@@ -298,6 +304,15 @@ function renderDrawerItem(item, view) {
   }
   if (view === "wants") {
     const routes = item.routes || [];
+    const quickRouteMarkup = item.status === "active"
+      ? `<div class="detail-section quick-route-section">
+          <span>クイック操作</span>
+          <p>よく使う振り分け先から、入力画面へ直接進めます。</p>
+          <div class="quick-route-actions" role="group" aria-label="よく使う振り分け">
+            ${Object.entries(quickWantRoutes).map(([key, quick]) => `<button class="quick-route-action" type="button" data-quick-route="${key}"><strong>${escapeHtml(quick.label)}</strong><small>${escapeHtml(quick.description)}</small></button>`).join("")}
+          </div>
+        </div>`
+      : "";
     const routeMarkup = routes.length > 0
       ? `<ul class="route-list">${routes.map((route) => {
           const meta = routeDestinationMeta[route.destination] || { label: route.destination, internal: false };
@@ -310,6 +325,7 @@ function renderDrawerItem(item, view) {
         }).join("")}</ul>`
       : '<p class="route-empty">まだ振り分けられていません。</p>';
     body += `${item.note ? `<div class="detail-section"><span>メモ</span><p>${escapeHtml(item.note)}</p></div>` : ""}
+      ${quickRouteMarkup}
       <div class="detail-section"><span>振り分け履歴</span>${routeMarkup}</div>
       <div class="drawer-actions">
         <button class="secondary-action" id="editWantButton" type="button">Wantを編集</button>
@@ -323,7 +339,14 @@ function renderDrawerItem(item, view) {
   document.getElementById("createWantButton")?.addEventListener("click", () => renderCreateFlowForm(item, "inbox"));
   document.getElementById("editWantButton")?.addEventListener("click", () => renderItemEditForm(item, "wants"));
   document.getElementById("triageWantButton")?.addEventListener("click", () => renderTriageStart(item));
+  els.drawerBody.querySelectorAll("[data-quick-route]").forEach((button) => button.addEventListener("click", () => startQuickWantRoute(item, button.dataset.quickRoute)));
   document.getElementById("closeItemButton")?.addEventListener("click", () => closeItem(item, view));
+}
+
+function startQuickWantRoute(item, key) {
+  const quick = quickWantRoutes[key];
+  if (item.status !== "active" || !quick) return;
+  renderRouteForm(item, quick.intent, quick.destination, {}, "quick");
 }
 
 function renderTriageStart(item) {
@@ -463,7 +486,7 @@ function renderDestinationStep(item, intent) {
   document.getElementById("backToIntent").addEventListener("click", () => renderTriageStart(item));
 }
 
-function renderRouteForm(item, intent, destination, initial = {}) {
+function renderRouteForm(item, intent, destination, initial = {}, origin = initial.origin || "triage") {
   const destinationMeta = routeDestinationMeta[destination];
   if (!destinationMeta) return renderDestinationStep(item, intent);
   const title = initial.title ?? item.content.slice(0, 240);
@@ -527,7 +550,10 @@ function renderRouteForm(item, intent, destination, initial = {}) {
     updateTimeFields();
     refreshGoogleCalendarConnection(document.getElementById("calendarConnectionStatus"), formSubmit);
   }
-  document.getElementById("backToDestination").addEventListener("click", () => renderDestinationStep(item, intent));
+  document.getElementById("backToDestination").addEventListener("click", () => {
+    if (origin === "quick") renderDrawerItem(item, "wants");
+    else renderDestinationStep(item, intent);
+  });
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const nextTitle = form.elements.title.value.trim();
@@ -572,6 +598,7 @@ function renderRouteForm(item, intent, destination, initial = {}) {
       cadence: destination === "habit" ? form.elements.cadence.value : null,
       calendar: nextCalendar,
       idempotencyKey: crypto.randomUUID(),
+      origin,
     });
   });
   titleInput.focus();
@@ -592,9 +619,13 @@ function renderRoutePreview(item, plan) {
     </div>
     <p class="flow-note">${plan.destination === "calendar" ? "登録するとGoogle Calendarへ予定を作成し、確認後に元のWantも完了します。" : destinationMeta.internal ? "確定するとPersonal Dashboard内の管理先へ登録し、元のWantも完了します。" : "確定すると振り分け計画を保存し、元のWantも完了します。外部システムへの送信は、接続方法の合意後に別途行います。"}</p>
     <p class="form-error" id="routeSaveError" role="alert" hidden></p>
-    <div class="drawer-actions"><button class="secondary-action" id="editRoutePlan" type="button">修正する</button><button class="primary-action" id="confirmRoutePlan" type="button">${plan.destination === "calendar" ? "Google Calendarに登録" : "振り分けを確定"}</button></div>`;
-  document.getElementById("editRoutePlan").addEventListener("click", () => renderRouteForm(item, plan.intent, plan.destination, plan));
+    <div class="drawer-actions"><button class="secondary-action" id="editRoutePlan" type="button">修正する</button><button class="primary-action" id="confirmRoutePlan" type="button">${routeConfirmationLabel(plan.destination)}</button></div>`;
+  document.getElementById("editRoutePlan").addEventListener("click", () => renderRouteForm(item, plan.intent, plan.destination, plan, plan.origin));
   document.getElementById("confirmRoutePlan").addEventListener("click", () => saveWantRoute(item, plan));
+}
+
+function routeConfirmationLabel(destination) {
+  return destination === "calendar" ? "Google Calendarに登録して完了" : "振り分けて完了";
 }
 
 async function saveWantRoute(item, plan) {
@@ -645,7 +676,7 @@ async function saveWantRoute(item, plan) {
     if (submit.isConnected) {
       submit.disabled = false;
       edit.disabled = false;
-      submit.textContent = plan.destination === "calendar" ? "Google Calendarに登録" : "振り分けを確定";
+      submit.textContent = routeConfirmationLabel(plan.destination);
     }
   }
 }

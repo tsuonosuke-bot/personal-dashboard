@@ -123,7 +123,26 @@ test("Compass previews every route and requires explicit confirmation for Google
   assert.match(script, /href="\/api\/google-calendar-connect"/);
   assert.match(script, /calendar: plan\.calendar \|\| null/);
   assert.match(script, /元のWantも完了します/);
+  assert.match(script, /Google Calendarに登録して完了/);
+  assert.match(script, /振り分けて完了/);
   assert.doesNotMatch(script, /元のWantは自動で完了にしません/);
+});
+
+test("Compass offers confirmation-safe quick routes for common Want destinations", async () => {
+  const [script, style] = await Promise.all([
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(script, /writing:\s*\{[^}]*intent: "explore", destination: "writing"/);
+  assert.match(script, /habit:\s*\{[^}]*intent: "continue", destination: "habit"/);
+  assert.match(script, /archive:\s*\{[^}]*intent: "discard", destination: "archive"/);
+  assert.match(script, /data-quick-route=/);
+  assert.match(script, /function startQuickWantRoute\(item, key\)/);
+  assert.match(script, /renderRouteForm\(item, quick\.intent, quick\.destination, \{\}, "quick"\)/);
+  assert.match(script, /origin === "quick"[\s\S]*renderDrawerItem\(item, "wants"\)/);
+  assert.match(script, /function renderRoutePreview\(item, plan\)/);
+  assert.match(style, /\.quick-route-actions\s*\{[^}]*grid-template-columns:\s*repeat\(3,/);
 });
 
 test("Idea keeps Google Calendar reconnection available from the main screen", async () => {
