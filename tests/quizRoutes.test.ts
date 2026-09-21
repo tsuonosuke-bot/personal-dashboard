@@ -342,6 +342,93 @@ test("quiz/start は段階で形式を絞り、複数候補は知識構造に合
   }
 });
 
+test("quiz/start は単一の許可形式をサーバーで固定し、形式違反の詳細を再生成へ渡す", async () => {
+  const originalFetch = globalThis.fetch;
+  let anthropicCalls = 0;
+  const sentItems: Array<Array<{
+    id: string;
+    required_format: string | null;
+    allowed_formats: string[];
+    previous_error: string | null;
+  }>> = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json([pickedRow(ID_1, "歴史", { mastery: "学習中" })]);
+    }
+    if (url.includes("/rest/v1/knowledge")) return Response.json([{ id: ID_1, tags: [] }]);
+    if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      anthropicCalls += 1;
+      const body = JSON.parse(String(init?.body)) as { messages: { content: string }[] };
+      sentItems.push(JSON.parse(body.messages[0].content));
+      return anthropicToolResponse("submit_questions", {
+        questions: [{
+          id: ID_1,
+          question: anthropicCalls === 1 ? "問題1" : "問題1（再生成）",
+          // 初回も再生成もAIが誤った形式を申告しても、最終形式はサーバーが固定する。
+          format: anthropicCalls === 1 ? "記述説明" : "産出",
+        }],
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({
+      request: quizPost("/api/quiz/start", { format: "おまかせ" }),
+      env,
+    });
+    assert.equal(response.status, 200);
+    assert.equal(anthropicCalls, 2);
+    assert.equal(sentItems[0][0].required_format, "一問一答");
+    assert.deepEqual(sentItems[0][0].allowed_formats, ["一問一答"]);
+    assert.equal(sentItems[0][0].previous_error, null);
+    assert.equal(sentItems[1][0].required_format, "一問一答");
+    assert.match(sentItems[1][0].previous_error ?? "", /許可形式「一問一答」/);
+    assert.match(sentItems[1][0].previous_error ?? "", /AI応答は「記述説明」/);
+
+    const body = await response.json() as { items: { question: string; format: string }[] };
+    assert.equal(body.items[0].question, "問題1（再生成）");
+    assert.equal(body.items[0].format, "一問一答");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start は複数候補にない形式が続いた場合、許可形式とAI応答を表示する", async () => {
+  const originalFetch = globalThis.fetch;
+  let anthropicCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json([pickedRow(ID_1, "歴史", { mastery: "習得中" })]);
+    }
+    if (url.includes("/rest/v1/knowledge")) return Response.json([{ id: ID_1, tags: [] }]);
+    if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      anthropicCalls += 1;
+      return anthropicToolResponse("submit_questions", {
+        questions: [{ id: ID_1, question: "問題1", format: "産出" }],
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({
+      request: quizPost("/api/quiz/start", { format: "おまかせ" }),
+      env,
+    });
+    assert.equal(response.status, 502);
+    assert.equal(anthropicCalls, 2);
+    const body = await response.json() as { details: string[] };
+    assert.equal(body.details.length, 1);
+    assert.match(body.details[0], /許可形式「一問一答 \/ 記述説明」/);
+    assert.match(body.details[0], /AI応答は「産出」/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("quiz/start は選択肢が崩れた項目だけをもう一度生成し直して救う", async () => {
   const originalFetch = globalThis.fetch;
   let anthropicCalls = 0;
