@@ -3,7 +3,7 @@
 Supabase のナレッジDB（学習カード + クイズ履歴）を自分専用で管理する
 ダッシュボード。Vite + React + TypeScript、グラフは recharts。
 ブラウザはSupabaseへ直接接続せず、Basic認証済みのCloudflare Pages Functions APIを使う。
-ナレッジの追加・編集・アーカイブ・復元を行える。クイズ履歴と学習統計は読み取り専用。
+ナレッジの追加・編集・アーカイブ・復元を行える。復習とは独立した英会話練習も記録する。
 
 ## コマンド
 
@@ -61,6 +61,15 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - 他: `knowledge_id`, `asked_on`, `quality`, `note`, `attempt_id`（署名済み出題nonce）、
   `was_early`、`schedule_updated`
 
+### `speaking_practice_log`
+
+- 英会話練習専用。`quiz_log`、習熟度、次回復習日を変更しない
+- `practice_type` は `instant_composition` / `read_aloud`
+- `rating` は `smooth` / `almost` / `retry`
+- 他: `attempt_id`（冪等キー）、`session_id`, `knowledge_id`, `answer_text`,
+  `repetitions`, `practiced_at`
+- 音声データは保存しない
+
 ### DBアクセス
 
 Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは次だけ。
@@ -70,6 +79,8 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `PATCH /api/knowledge/:id`: UUIDと`content_version`で特定した1件の編集、アーカイブ、復元。
   競合時は409で止め、後勝ち上書きをしない
 - `GET /api/quiz-log`: 明示した列を新しい順に制限付きページング
+- `GET /api/speaking-practice`: 指定期間の英会話練習履歴を新しい順に取得
+- `POST /api/speaking-practice`: 検証済みの1練習を`attempt_id`で冪等記録
 - `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す。
   `categories`（登録済みカテゴリ名の配列。空配列は全カテゴリ）、`limit`、`format` で絞り込む
 - `POST /api/quiz/grade`: 署名済み出題トークンと`knowledge`を照合してClaude APIで採点し、
@@ -161,7 +172,8 @@ src/
     useFilteredKnowledge.ts 検索・カテゴリ・習熟度での絞り込み
     useModalDialog.ts       モーダルのフォーカス管理
     useQuiz.ts              復習クイズの出題・回答・採点フロー管理
-  components/               表示、編集、詳細、アーカイブ復元、復習クイズ画面（QuizView）
+  components/               表示、編集、詳細、アーカイブ復元、復習クイズ画面（QuizView）、
+                            英会話練習画面（SpeakingPracticeView）
 functions/
   _middleware.ts            全リクエストのBasic認証とセキュリティヘッダー
   _shared/supabaseRest.ts   Supabase REST API / RPC呼び出し
@@ -174,6 +186,7 @@ functions/
   api/quiz-log.ts           クイズ履歴読み取りAPI
   api/quiz/start.ts         復習クイズの出題API
   api/quiz/grade.ts         復習クイズの採点・記録API
+  api/speaking-practice.ts  復習とは独立した英会話練習履歴API
 public/
   manifest.webmanifest      PWA用マニフェスト
   sw.js                     ホーム画面起動のための最小限のService Worker（キャッシュしない）

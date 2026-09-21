@@ -2,7 +2,7 @@ import type {
   DailyReviewCategoryCount, DailyReviewStatus, Knowledge, KnowledgePriority, Mastery, QuizEmptyReason, QuizFormat,
   QuizGradeFailure, QuizGradeFailurePhase, QuizGradeResponse, QuizGradeResult, QuizLog, QuizQuestion,
   QuizStart, QuizVerdict, RecoveryPreview,
-  RelearningStage,
+  RelearningStage, SpeakingPracticeLog, SpeakingPracticeRating, SpeakingPracticeType,
 } from "../types";
 
 interface PageEnvelope {
@@ -19,6 +19,12 @@ const QUIZ_FORMAT_VALUES = new Set<QuizFormat>(["一問一答", "四択", "記�
 const RELEARNING_STAGE_VALUES = new Set<RelearningStage>(["recognition", "recall"]);
 const GRADE_FAILURE_PHASE_VALUES = new Set<QuizGradeFailurePhase>([
   "verification", "grading", "recording", "confirmation",
+]);
+const SPEAKING_PRACTICE_TYPE_VALUES = new Set<SpeakingPracticeType>([
+  "instant_composition", "read_aloud",
+]);
+const SPEAKING_PRACTICE_RATING_VALUES = new Set<SpeakingPracticeRating>([
+  "smooth", "almost", "retry",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -339,5 +345,35 @@ export function parseQuizLog(value: unknown): QuizLog {
     format: stringValue(value, "format", entity),
     note: nullableStringValue(value, "note", entity),
     created_at: stringValue(value, "created_at", entity),
+  };
+}
+
+export function parseSpeakingPracticeLog(value: unknown): SpeakingPracticeLog {
+  const entity = "英会話練習履歴";
+  if (!isRecord(value)) return fail(entity);
+  const type = stringValue(value, "practice_type", entity);
+  const rating = stringValue(value, "rating", entity);
+  if (!SPEAKING_PRACTICE_TYPE_VALUES.has(type as SpeakingPracticeType)) {
+    return fail(entity, "practice_type");
+  }
+  if (!SPEAKING_PRACTICE_RATING_VALUES.has(rating as SpeakingPracticeRating)) {
+    return fail(entity, "rating");
+  }
+  const id = numberValue(value, "id", entity);
+  const repetitions = numberValue(value, "repetitions", entity);
+  if (!Number.isSafeInteger(id) || id < 1) return fail(entity, "id");
+  if (!Number.isSafeInteger(repetitions) || repetitions < 1 || repetitions > 20) {
+    return fail(entity, "repetitions");
+  }
+  return {
+    id,
+    attempt_id: stringValue(value, "attempt_id", entity),
+    session_id: stringValue(value, "session_id", entity),
+    knowledge_id: stringValue(value, "knowledge_id", entity),
+    practice_type: type as SpeakingPracticeType,
+    rating: rating as SpeakingPracticeRating,
+    answer_text: nullableStringValue(value, "answer_text", entity),
+    repetitions,
+    practiced_at: stringValue(value, "practiced_at", entity),
   };
 }
