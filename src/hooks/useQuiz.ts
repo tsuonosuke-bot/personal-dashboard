@@ -97,6 +97,7 @@ export function useQuiz(onRecorded?: () => void | Promise<void>) {
       ? {
         ...result,
         title: updated.title,
+        category: updated.category,
         priority: updated.priority,
         content_version: updated.content_version,
         next_review_on: updated.next_review_on,

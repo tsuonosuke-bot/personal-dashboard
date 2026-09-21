@@ -246,6 +246,7 @@ export function parseQuizGradeResult(value: unknown): QuizGradeResult {
   return {
     id: stringValue(value, "id", entity),
     title: stringValue(value, "title", entity),
+    category: stringValue(value, "category", entity),
     priority: priority as KnowledgePriority,
     content_version: contentVersion,
     verdict: verdict as QuizVerdict,

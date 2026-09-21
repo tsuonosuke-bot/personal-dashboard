@@ -568,13 +568,13 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
     const body = await response.json() as { results: unknown[] };
     assert.deepEqual(body.results, [
       {
-        id: ID_1, title: "正解1", verdict: "正解", quality: 5, correct_answer: "模範解答1",
+        id: ID_1, title: "正解1", category: "英語", verdict: "正解", quality: 5, correct_answer: "模範解答1",
         explanation: "よくできました", priority: "最高", content_version: 7,
         next_review_on: "2026-10-03", next_review_at: "2026-10-03T03:00:00Z",
         stability_hours: 288, relearning_stage: null, schedule_updated: true, recorded: true,
       },
       {
-        id: ID_2, title: "正解2", verdict: "正解", quality: 4, correct_answer: "模範解答2",
+        id: ID_2, title: "正解2", category: "歴史", verdict: "正解", quality: 4, correct_answer: "模範解答2",
         explanation: "正しい選択肢「正解2」を選べています。", priority: "高", content_version: 9,
         next_review_on: "2026-10-01", next_review_at: "2026-10-01T03:00:00Z",
         stability_hours: 240, relearning_stage: "recall", schedule_updated: true, recorded: true,

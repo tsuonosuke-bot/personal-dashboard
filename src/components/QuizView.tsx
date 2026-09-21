@@ -3,6 +3,7 @@ import {
   DEFAULT_QUIZ_FORMAT, DEFAULT_QUIZ_LIMIT, QUIZ_FORMAT_OPTIONS, QUIZ_LIMIT_OPTIONS, useQuiz,
 } from "../hooks/useQuiz";
 import { PRIORITY_INTERVAL_HINTS, PRIORITY_ORDER } from "../constants";
+import { dashboardRoutePath } from "../lib/dashboardRoute";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import type {
   DailyReviewStatus, Knowledge, KnowledgePriority, QuizFormatRequest, QuizGradeResult, QuizLog,
@@ -238,6 +239,10 @@ export function QuizView({
               {quiz.questions.map((question) => {
                 const result = quiz.results.find((r) => r.id === question.id);
                 if (!result) return null;
+                const knowledgeHref = dashboardRoutePath(window.location.href, {
+                  kind: "knowledge",
+                  knowledgeId: result.id,
+                });
                 const displayedPriority = priorityFeedback?.id === result.id
                   && priorityFeedback.status === "saving"
                   && priorityFeedback.priority
@@ -267,6 +272,30 @@ export function QuizView({
                     <div className="content-block">
                       <h3>解説</h3>
                       <p>{result.explanation}</p>
+                    </div>
+                    <div className="quiz-knowledge-panel">
+                      <dl className="quiz-knowledge-meta">
+                        <div>
+                          <dt>ナレッジID</dt>
+                          <dd><code>{result.id}</code></dd>
+                        </div>
+                        <div>
+                          <dt>分類</dt>
+                          <dd>{result.category}</dd>
+                        </div>
+                      </dl>
+                      <div className="quiz-knowledge-actions">
+                        <a
+                          className="quiz-knowledge-link"
+                          href={knowledgeHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`${result.title}の詳細・編集画面を新しいタブで開く`}
+                        >
+                          詳細・編集を新しいタブで開く ↗
+                        </a>
+                        <span>習熟度の変更やアーカイブも行えます。</span>
+                      </div>
                     </div>
                     <div className="quiz-priority-panel">
                       <label className="quiz-priority-control">

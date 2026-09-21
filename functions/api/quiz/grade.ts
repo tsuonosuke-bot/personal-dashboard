@@ -465,11 +465,13 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
 
   const results = ids.map((id) => {
     const grade = gradeById.get(id)!;
+    const fact = factById.get(id)!;
     const recorded = recordedById.get(id);
     const state = reviewStateById.get(id)!;
     return {
       id,
       title: state.title,
+      category: fact.category,
       priority: state.priority,
       content_version: state.content_version,
       verdict: grade.verdict,

@@ -147,6 +147,8 @@ export interface RecoveryPreview {
 export interface QuizGradeResult {
   id: string;
   title: string;
+  /** 解説画面で出典ナレッジを識別する分類。 */
+  category: string;
   /** 採点記録後の最新値。結果画面から安全に優先度を更新するために使う。 */
   priority: KnowledgePriority;
   /** 採点記録後の競合検出用バージョン。 */
