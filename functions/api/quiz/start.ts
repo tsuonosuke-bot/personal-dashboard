@@ -443,7 +443,8 @@ async function generateQuestions(
   if (!generated.ok) return {
     ok: false,
     response: quizStartError({
-      stage: "AIへの接続",
+      // 打ち切りは接続できた後に起きるため、同じ「AIへの接続」では原因を誤らせる。
+      stage: generated.truncated ? "AI応答の確認" : "AIへの接続",
       reason: generated.error,
       action: generated.action ?? "時間を置いて、もう一度出題してください。",
       reference: generated.reference,

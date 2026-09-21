@@ -346,7 +346,12 @@ async function requestGrades(
       input_schema: Record<string, unknown>;
     },
   });
-  if (!graded.ok) return { ok: false, status: graded.status, error: graded.error };
+  // 採点側は失敗を1つの文字列で持つため、対処方法があるときは同じ文へまとめる。
+  if (!graded.ok) return {
+    ok: false,
+    status: graded.status,
+    error: graded.action ? `${graded.error}${graded.action}` : graded.error,
+  };
 
   const grades = (graded.input as { grades?: unknown })?.grades;
   if (!Array.isArray(grades)) {

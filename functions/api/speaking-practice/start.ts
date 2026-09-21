@@ -204,7 +204,7 @@ async function generate(
     ok: false,
     response: jsonResponse({
       error: "英会話の例文生成に失敗しました。",
-      stage: "AIへの接続",
+      stage: result.truncated ? "AI応答の確認" : "AIへの接続",
       reason: result.error,
       action: result.action ?? "時間を置いて、もう一度開始してください。",
       reference: result.reference,

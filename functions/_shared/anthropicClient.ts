@@ -16,6 +16,8 @@ export type AnthropicToolCallResult =
     error: string;
     action?: string;
     reference?: string;
+    /** 接続や認証ではなく、応答が上限トークン数で切れたことを表す。処理段階の表示に使う。 */
+    truncated?: true;
   };
 
 const API_URL = "https://api.anthropic.com/v1/messages";
@@ -136,6 +138,23 @@ export async function callAnthropicTool(
     return { ok: false, status: 502, error: "AIの応答を読み取れませんでした。" };
   }
 
+  // max_tokensで打ち切られると未完成のJSONは捨てられ、tool_useのinputが空で返る。
+  // 呼び出し側から見ると「配列が無い」としか分からないため、打ち切り自体をここで報告する。
+  const stopReason = (body as { stop_reason?: unknown })?.stop_reason;
+  if (stopReason === "max_tokens") {
+    console.error(
+      "Anthropic API response truncated by max_tokens",
+      `model=${options.model} max_tokens=${options.maxTokens}`,
+    );
+    return {
+      ok: false,
+      status: 502,
+      error: `AIの応答が上限トークン数（${options.maxTokens}）に達し、途中で打ち切られました。`,
+      action: "件数を減らして、もう一度実行してください。",
+      truncated: true,
+    };
+  }
+
   const content = (body as { content?: unknown })?.content;
   if (!Array.isArray(content)) {
     return { ok: false, status: 502, error: "AIの応答形式が正しくありません。" };
@@ -147,7 +166,14 @@ export async function callAnthropicTool(
       && (block as { name?: unknown }).name === options.tool.name,
   );
   if (!toolUse) {
-    return { ok: false, status: 502, error: "AIがツール呼び出しを返しませんでした。" };
+    // stop_reasonは原因の切り分け（安全側の停止か、単なる生成失敗か）に効くので画面まで返す。
+    const reported = typeof stopReason === "string" ? stopReason : "不明";
+    console.error("Anthropic API returned no tool_use block", `stop_reason=${reported}`);
+    return {
+      ok: false,
+      status: 502,
+      error: `AIがツール呼び出しを返しませんでした（stop_reason: ${reported}）。`,
+    };
   }
   return { ok: true, input: toolUse.input };
 }

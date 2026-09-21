@@ -694,6 +694,68 @@ test("quiz/start はAI APIの失敗原因と問い合わせ用IDを安全に返�
   }
 });
 
+test("quiz/start は上限トークン数での打ち切りを「questions配列が無い」と報告しない", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json([pickedRow(ID_1, "ビジネス")]);
+    }
+    if (url.includes("/rest/v1/knowledge")) return Response.json([{ id: ID_1, tags: [] }]);
+    if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      // 打ち切られた応答は未完成のJSONが捨てられ、inputが空のtool_useだけが残る。
+      return Response.json({
+        stop_reason: "max_tokens",
+        content: [{ type: "tool_use", name: "submit_questions", input: {} }],
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({
+      request: quizPost("/api/quiz/start", { format: "一問一答" }),
+      env,
+    });
+    assert.equal(response.status, 502);
+    const body = await response.json() as Record<string, unknown>;
+    assert.equal(body.error, "問題生成に失敗しました。");
+    assert.equal(body.stage, "AI応答の確認");
+    assert.match(String(body.reason), /上限トークン数（16000）/);
+    assert.equal(String(body.reason).includes("questions"), false);
+    assert.match(String(body.action), /件数を減らして/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start はツール呼び出しが無い理由としてstop_reasonを返す", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) {
+      return Response.json([pickedRow(ID_1, "ビジネス")]);
+    }
+    if (url.includes("/rest/v1/knowledge")) return Response.json([{ id: ID_1, tags: [] }]);
+    if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      return Response.json({ stop_reason: "refusal", content: [{ type: "text", text: "" }] });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await startRoute({
+      request: quizPost("/api/quiz/start", { format: "一問一答" }),
+      env,
+    });
+    assert.equal(response.status, 502);
+    const body = await response.json() as Record<string, unknown>;
+    assert.match(String(body.reason), /stop_reason: refusal/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("quiz/start はDB障害が発生した処理段階を返す", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
@@ -1505,6 +1567,52 @@ test("quiz/grade は回答に書かれていない表現を根拠にした減点
     assert.equal(body.results[0].quality, 5);
     assert.equal(recordedQuality, 5);
     assert.doesNotMatch(body.results[0].explanation, /前提作業/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/grade は上限トークン数での打ち切りを対処方法つきで返す", async () => {
+  const originalFetch = globalThis.fetch;
+  let aiCalls = 0;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
+      return Response.json([{
+        id: ID_1, title: "正解1", explanation: "説明1", category: "英語", tags: [],
+        next_review_on: "2026-09-20", archived: false,
+      }]);
+    }
+    if (url.includes("api.anthropic.com")) {
+      aiCalls += 1;
+      return Response.json({
+        stop_reason: "max_tokens",
+        content: [{ type: "tool_use", name: "submit_grades", input: {} }],
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+  try {
+    const response = await gradeRoute({
+      request: quizPost("/api/quiz/grade", [
+        await signedAnswer({
+          id: ID_1, question: "出題した問題文1", format: "産出", choices: null,
+        }, "回答"),
+      ]),
+      env,
+    });
+    assert.equal(response.status, 200);
+    const body = await response.json() as {
+      results: unknown[];
+      failures: { phase: string; error: string; recorded: boolean | null }[];
+    };
+    assert.equal(body.results.length, 0);
+    assert.equal(body.failures.length, 1);
+    assert.equal(body.failures[0].phase, "grading");
+    assert.equal(body.failures[0].recorded, false);
+    assert.match(body.failures[0].error, /上限トークン数（16000）/);
+    assert.match(body.failures[0].error, /件数を減らして/);
+    assert.equal(aiCalls > 0, true);
   } finally {
     globalThis.fetch = originalFetch;
   }
