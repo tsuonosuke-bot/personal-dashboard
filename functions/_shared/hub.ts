@@ -18,7 +18,12 @@ export interface HubAvailability {
 
 type TableName = "idea_inbox" | "wants" | "focus_items" | "expenses" | "knowledge" | "daily_journal";
 
-interface InboxRow { status?: unknown }
+interface InboxRow {
+  id?: unknown;
+  content?: unknown;
+  status?: unknown;
+  created_at?: unknown;
+}
 interface WantRow {
   id?: unknown;
   content?: unknown;
@@ -467,32 +472,33 @@ export function normalizeHub(
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
   const previousDate = new Date(Date.UTC(year, month - 1, 1));
   const previousMonth = `${previousDate.getUTCFullYear()}-${String(previousDate.getUTCMonth() + 1).padStart(2, "0")}`;
-  const wants = wantRows.map((row) => {
-    const id = integer(row.id);
-    return {
-      id,
-      url: id !== null && id > 0 ? `/compass/?view=wants&id=${id}` : "/compass/?view=wants",
-      content: text(row.content) || "内容なし",
-      status: text(row.status).toLowerCase(),
-      type: text(row.type).toLowerCase() || "want",
-      revisitOn: plainDate(row.revisit_on),
-      createdAt: date(row.created_at),
-    };
-  });
-  const activeWants = wants
-    .filter((want) => want.status === "active")
-    .map((want) => {
-      const createdDate = jstPlainDate(want.createdAt);
+  const pendingInbox = inboxRows
+    .map((row) => {
+      const id = integer(row.id);
+      const createdAt = date(row.created_at);
+      const createdDate = jstPlainDate(createdAt);
       return {
-        ...want,
+        id,
+        url: id !== null && id > 0 ? `/compass/?view=inbox&id=${id}` : "/compass/?view=inbox",
+        content: text(row.content) || "内容なし",
+        status: text(row.status).toLowerCase(),
+        createdAt,
         ageDays: createdDate ? Math.max(0, daysBetween(createdDate, today)) : null,
       };
     })
+    .filter((item) => item.status === "pending")
     .sort((left, right) => (left.createdAt || "9999").localeCompare(right.createdAt || "9999") || (left.id ?? 0) - (right.id ?? 0));
+  const wants = wantRows.map((row) => {
+    return {
+      status: text(row.status).toLowerCase(),
+      type: text(row.type).toLowerCase() || "want",
+      revisitOn: plainDate(row.revisit_on),
+    };
+  });
+  const activeWants = wants
+    .filter((want) => want.status === "active");
   const untriagedWants = activeWants
-    .filter((want) => want.type !== "wish" && (want.revisitOn === null || want.revisitOn <= today))
-    .map((want) => ({ ...want, triageState: "untriaged" }));
-  const selectedWants = untriagedWants.slice(0, 3);
+    .filter((want) => want.type !== "wish" && (want.revisitOn === null || want.revisitOn <= today));
   const focus = normalizeFocusRows(focusRows)
     .filter((item) => item.status === "active")
     .slice(0, FOCUS_LIMIT);
@@ -522,7 +528,6 @@ export function normalizeHub(
     availability,
     navigation: {
       compass: "/compass/",
-      compassUntriaged: "/compass/?view=wants&filter=untriaged",
       projects: "/projects/",
       writing: "/writing/",
       financial: "/finance/",
@@ -533,7 +538,7 @@ export function normalizeHub(
     summary: {
       currentMonthSpend: availability.expenses ? currentSpend : null,
       previousMonthSpend: availability.expenses ? previousSpend : null,
-      pendingInbox: availability.inbox ? inboxRows.filter((row) => text(row.status).toLowerCase() === "pending").length : null,
+      pendingInbox: availability.inbox ? pendingInbox.length : null,
       dueKnowledge: availability.knowledge ? knowledge.dueCount : null,
       todayKnowledgeTotal: availability.knowledge
         ? integer(reviewStatus?.total) ?? knowledge.dueCount
@@ -550,7 +555,6 @@ export function normalizeHub(
       weakKnowledge: availability.knowledge ? knowledge.weakCount : null,
       activeWants: availability.wants ? activeWants.length : null,
       untriagedWants: availability.wants ? untriagedWants.length : null,
-      oldestUntriagedDays: availability.wants && untriagedWants.length ? untriagedWants[0].ageDays : null,
       activeHabits: availability.habits !== false ? habitOverview?.summary.active ?? 0 : null,
       completedHabitsToday: availability.habits !== false ? habitOverview?.summary.completedToday ?? 0 : null,
       remainingHabitsToday: availability.habits !== false ? habitOverview?.summary.remainingToday ?? 0 : null,
@@ -560,12 +564,12 @@ export function normalizeHub(
       .sort((left, right) => (right.transactionDate || "").localeCompare(left.transactionDate || "") || (right.id ?? 0) - (left.id ?? 0))
       .slice(0, 5),
     knowledge: knowledge.items,
-    wants: selectedWants,
+    inbox: pendingInbox.slice(0, 3),
     focus,
     journalMoments,
     selection: {
       knowledge: "苦手を最大2件、復習期限、新規ナレッジの順で重複を除いて選定",
-      wants: "未整理のActive Wantsを古い順で最大3件表示",
+      inbox: "未整理のInboxを古い順で最大3件表示",
       focus: "手動で選んだActive Focusを並び順どおり最大5件表示",
       journal: "各基準日以前で最も近いdaily_journalを選定",
     },
@@ -576,8 +580,8 @@ export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
   const [inbox, wants, focus, expenses, knowledge, reviewStatus, journal, habits] = await Promise.allSettled([
-    fetchRows(env, { table: "idea_inbox", select: "status" }) as Promise<InboxRow[]>,
-    fetchRows(env, { table: "wants", select: "id,content,status,type,revisit_on,created_at", order: "created_at.desc,id.desc" }) as Promise<WantRow[]>,
+    fetchRows(env, { table: "idea_inbox", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<InboxRow[]>,
+    fetchRows(env, { table: "wants", select: "status,type,revisit_on" }) as Promise<WantRow[]>,
     fetchFocusRows(env),
     fetchDashboardRows(env, financialUrl, "/api/expenses") as Promise<ExpenseRow[]>,
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,

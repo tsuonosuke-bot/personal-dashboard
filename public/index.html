@@ -76,7 +76,6 @@
         <section class="snapshot" aria-label="今日のスナップショット">
           <div class="metric-grid">
             <a href="/knowledge/?view=quiz&amp;mode=daily" id="reviewMetricLink" class="metric review-shortcut"><span>今日の復習を開始 →</span><strong id="dueKnowledge">—</strong><small id="weakKnowledge">キューを確認中</small></a>
-            <a href="/compass/?view=wants&amp;filter=untriaged" id="untriagedMetricLink" class="metric want-metric"><span>未整理Wants</span><strong id="untriagedWants">—</strong><small id="oldestUntriaged">滞留状況を確認中</small></a>
             <a href="/habits/" id="habitMetricLink" class="metric habit-shortcut"><span>今日・今週のHabit</span><strong id="remainingHabits">—</strong><small id="habitProgress">実施状況を確認中</small></a>
           </div>
         </section>
@@ -95,12 +94,12 @@
             <div id="focusList" class="focus-list"></div>
           </section>
 
-          <section class="panel wants-panel" aria-labelledby="wantsTitle">
+          <section class="panel inbox-panel" aria-labelledby="inboxTitle">
             <div class="section-heading">
-              <div class="wants-heading-copy"><h2 id="wantsTitle">未整理のWants</h2><span class="section-note" id="wantsMeta">Wantsを確認中</span></div>
-              <a id="allWantsLink" href="/compass/">一覧 →</a>
+              <div class="inbox-heading-copy"><h2 id="inboxTitle">未整理のInbox</h2><span class="section-note" id="inboxMeta">Inboxを確認中</span></div>
+              <a id="allInboxLink" href="/compass/?view=inbox">一覧 →</a>
             </div>
-            <div id="wantList" class="want-list"></div>
+            <div id="inboxList" class="inbox-list"></div>
           </section>
 
           <section class="panel expenses-panel" aria-labelledby="expensesTitle">

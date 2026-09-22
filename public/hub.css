@@ -96,7 +96,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .card-arrow { color: var(--accent); font-size: 14px; }
 
 .snapshot { padding: 9px 0; }
-.metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
 .metric { --metric-accent: var(--green); --metric-tint: #f7faf8; min-height: 72px; display: block; overflow: hidden; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.86); box-shadow: inset 0 3px 0 var(--metric-accent), 0 1px 2px rgba(32,40,34,.03); text-decoration: none; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
 .metric:hover { transform: translateY(-1px); border-color: var(--metric-accent); background: var(--metric-tint); }
 .metric span, .metric strong, .metric small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -104,7 +104,6 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .metric strong { margin: 5px 0 3px; color: var(--ink); font: 700 18px/1 Inter, "Segoe UI", sans-serif; }
 .metric small { color: #89918c; font-size: 8px; }
 .review-shortcut { --metric-accent: var(--violet); --metric-tint: #faf9fc; }
-.want-metric { --metric-accent: var(--green); --metric-tint: #f7faf8; }
 .habit-shortcut { --metric-accent: var(--rust); --metric-tint: #fcf8f6; }
 
 .state-card { min-height: 150px; display: grid; place-items: center; align-content: center; margin: 3px 0 12px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,254,250,.75); color: var(--muted); }
@@ -120,7 +119,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .section-heading > a, .section-links a { color: var(--green); font-size: 9px; font-weight: 750; text-decoration: none; white-space: nowrap; }
 .section-heading > a:hover, .section-links a:hover { text-decoration: underline; }
 .section-links { display: flex; align-items: center; gap: 10px; }
-.wants-heading-copy { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.inbox-heading-copy { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .section-note { color: var(--muted); font-size: 8px; font-weight: 700; }
 .section-action { min-height: 28px; padding: 0 11px; border: 1px solid rgba(36,89,73,.28); border-radius: 8px; background: var(--green-soft); color: var(--green); cursor: pointer; font-size: 9px; font-weight: 800; }
 .section-action:hover { border-color: var(--green); }
@@ -192,18 +191,15 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .reason.due { background: var(--orange-soft); color: #a85229; }
 .reason.new { background: var(--green-soft); color: var(--green); }
 
-.want-list { display: grid; gap: 5px; }
-.want-card { min-height: 61px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 9px; border: 1px solid #e3e3dc; border-radius: 10px; background: #fff; text-decoration: none; transition: border-color .18s ease; }
-.want-card:hover { border-color: rgba(36,89,73,.5); }
-.want-card > span { color: var(--orange); font: 700 12px/1 Inter, "Segoe UI", sans-serif; }
-.want-card div { min-width: 0; }
-.want-card strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 9px; line-height: 1.35; }
-.want-card small { display: block; margin-top: 4px; color: var(--muted); font-size: 8px; }
-.want-card b { color: var(--green); }
-.want-triage { display: inline-block; margin-bottom: 4px; padding: 3px 5px; border-radius: 999px; font-size: 7px; font-weight: 850; }
-.want-triage.untriaged { background: var(--orange-soft); color: #9a4b25; }
-.want-triage.routed { background: var(--green-soft); color: var(--green); }
-.want-triage.unknown { background: #ecece7; color: var(--muted); }
+.inbox-list { display: grid; gap: 5px; }
+.inbox-card { min-height: 61px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 9px; border: 1px solid #e3e3dc; border-radius: 10px; background: #fff; text-decoration: none; transition: border-color .18s ease; }
+.inbox-card:hover { border-color: rgba(36,89,73,.5); }
+.inbox-card > span { color: var(--orange); font: 700 12px/1 Inter, "Segoe UI", sans-serif; }
+.inbox-card div { min-width: 0; }
+.inbox-card strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 9px; line-height: 1.35; }
+.inbox-card small { display: block; margin-top: 4px; color: var(--muted); font-size: 8px; }
+.inbox-card b { color: var(--green); }
+.inbox-state { display: inline-block; margin-bottom: 4px; padding: 3px 5px; border-radius: 999px; background: var(--orange-soft); color: #9a4b25; font-size: 7px; font-weight: 850; }
 
 .journal-panel { grid-column: 1 / -1; }
 .journal-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 8px; }
@@ -241,11 +237,11 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 
 @media (max-width: 900px) {
   .dashboard-grid { grid-template-columns: repeat(3, 1fr); }
-  .metric-grid { grid-template-columns: repeat(3, 1fr); }
+  .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .content-grid { grid-template-columns: 1fr 1fr; }
   .focus-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .wants-panel { grid-column: 1 / -1; }
-  .want-list { grid-template-columns: repeat(3, 1fr); }
+  .inbox-panel { grid-column: 1 / -1; }
+  .inbox-list { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 620px) {
@@ -282,14 +278,14 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
   .focus-editor { grid-template-columns: 1fr; align-items: stretch; }
   .focus-editor-top { grid-column: auto; }
   .focus-editor-actions { grid-template-columns: 1fr 1fr; }
-  .wants-panel { grid-column: auto; }
+  .inbox-panel { grid-column: auto; }
   .panel { padding: 10px; border-radius: 11px; }
   .section-heading { min-height: 22px; margin-bottom: 5px; }
   .section-heading h2 { font-size: 15px; }
-  .want-list { grid-template-columns: 1fr; }
+  .inbox-list { grid-template-columns: 1fr; }
   .journal-list { grid-template-columns: 1fr; }
-  .want-card { min-height: 48px; padding: 7px 8px; }
-  .want-card small { display: none; }
+  .inbox-card { min-height: 48px; padding: 7px 8px; }
+  .inbox-card small { display: none; }
   .record-row { min-height: 43px; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 6px; }
   .knowledge-item { min-height: 40px; }
   .journal-card summary { min-height: 112px; }

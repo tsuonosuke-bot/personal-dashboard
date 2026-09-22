@@ -1,16 +1,15 @@
 const ids = [
   "sourceBadge", "refreshButton", "dateLabel", "updatedLabel",
   "compassLink", "projectsLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
-  "reviewMetricLink", "dueKnowledge", "weakKnowledge", "untriagedMetricLink", "untriagedWants", "oldestUntriaged",
+  "reviewMetricLink", "dueKnowledge", "weakKnowledge",
   "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
   "retryButton", "hubContent", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
-  "focusMessage", "focusManageList", "wantList", "wantsMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "allWantsLink", "allExpensesLink", "allKnowledgeLink",
+  "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
 ];
 
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
 let focusItems = [];
 let focusReturnTarget = null;
-let hubNavigation = {};
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -54,7 +53,6 @@ function empty(message) {
 }
 
 function renderNavigation(navigation) {
-  hubNavigation = navigation;
   els.compassLink.href = navigation.compass;
   els.projectsLink.href = navigation.projects || "/projects/";
   els.financialLink.href = navigation.financial;
@@ -62,9 +60,8 @@ function renderNavigation(navigation) {
   els.habitsLink.href = navigation.habits;
   els.reviewMetricLink.href = navigation.knowledgeReview;
   els.habitMetricLink.href = navigation.habits;
-  els.untriagedMetricLink.href = navigation.compassUntriaged || "/compass/?view=wants&filter=untriaged";
   els.writingLink.href = navigation.writing || "/writing/";
-  els.allWantsLink.href = navigation.compass;
+  els.allInboxLink.href = `${navigation.compass || "/compass/"}?view=inbox`;
   els.allExpensesLink.href = navigation.financial;
   els.allKnowledgeLink.href = navigation.knowledge;
 }
@@ -73,22 +70,13 @@ function renderSummary(summary) {
   els.dueKnowledge.textContent = Number.isFinite(summary.completedKnowledgeToday)
     ? `${summary.completedKnowledgeToday} / ${summary.todayKnowledgeTotal}`
     : "—";
-  els.untriagedWants.textContent = formatCount(summary.untriagedWants);
-  if (!Number.isFinite(summary.untriagedWants)) {
-    els.oldestUntriaged.textContent = "Wantsを取得不可";
-    els.wantsMeta.textContent = "Wantsを取得できません";
-  } else if (summary.untriagedWants > 0) {
-    els.oldestUntriaged.textContent = Number.isFinite(summary.oldestUntriagedDays)
-      ? `最古 ${summary.oldestUntriagedDays}日`
-      : "最古の登録日は不明";
-    els.wantsMeta.textContent = `未整理 ${summary.activeWants}件`;
+  if (!Number.isFinite(summary.pendingInbox)) {
+    els.inboxMeta.textContent = "Inboxを取得できません";
+  } else if (summary.pendingInbox > 0) {
+    els.inboxMeta.textContent = `未整理 ${summary.pendingInbox}件`;
   } else {
-    els.oldestUntriaged.textContent = "すべて完了";
-    els.wantsMeta.textContent = "未整理のWantなし";
+    els.inboxMeta.textContent = "未整理のInboxなし";
   }
-  els.allWantsLink.href = summary.untriagedWants > 0
-    ? (hubNavigation.compassUntriaged || "/compass/?view=wants&filter=untriaged")
-    : `${hubNavigation.compass || "/compass/"}?view=wants`;
   els.weakKnowledge.textContent = Number.isFinite(summary.overdueKnowledge)
     ? `期限超過 ${summary.overdueKnowledge}件 · 完了 ${summary.completedKnowledgeToday}件`
     : "取得できません";
@@ -149,21 +137,21 @@ function renderKnowledge(items, url, available = true) {
   }).join("");
 }
 
-function renderWants(items, url, available = true, summary = {}) {
+function renderInbox(items, available = true) {
   if (!available) {
-    els.wantList.innerHTML = empty("Wantsを取得できませんでした");
+    els.inboxList.innerHTML = empty("Inboxを取得できませんでした");
     return;
   }
   if (!items.length) {
-    els.wantList.innerHTML = empty(summary.activeWants === 0 ? "未整理のWantはありません" : "表示するWantはありません");
+    els.inboxList.innerHTML = empty("未整理のInboxはありません");
     return;
   }
-  els.wantList.innerHTML = items.map((item, index) => {
+  els.inboxList.innerHTML = items.map((item, index) => {
     const age = Number.isFinite(item.ageDays) ? ` · ${item.ageDays}日経過` : "";
     return `
-    <a class="want-card" href="${escapeHtml(item.url || url)}">
+    <a class="inbox-card" href="${escapeHtml(item.url || "/compass/?view=inbox")}">
       <span>${String(index + 1).padStart(2, "0")}</span>
-      <div><span class="want-triage untriaged">未整理</span><strong>${escapeHtml(item.content)}</strong><small>${escapeHtml(formatDate(item.createdAt))} 登録${age}</small></div>
+      <div><span class="inbox-state">未整理</span><strong>${escapeHtml(item.content)}</strong><small>${escapeHtml(formatDate(item.createdAt))} 登録${age}</small></div>
       <b aria-hidden="true">→</b>
     </a>
   `; }).join("");
@@ -390,7 +378,7 @@ async function loadHub() {
     renderNavigation(payload.navigation);
     renderSummary(payload.summary);
     renderFocus(payload.focus || [], availability.focus);
-    renderWants(payload.wants, payload.navigation.compass, availability.wants, payload.summary);
+    renderInbox(payload.inbox || [], availability.inbox);
     renderExpenses(payload.recentExpenses, availability.expenses);
     renderKnowledge(payload.knowledge, payload.navigation.knowledge, availability.knowledge);
     renderJournal(payload.journalMoments, availability.journal);

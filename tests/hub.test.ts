@@ -5,9 +5,13 @@ import { onRequest as hubRoute } from "../functions/api/hub.ts";
 
 const now = new Date("2026-09-14T03:00:00.000Z");
 
-test("hub combines sources and prioritizes the oldest untriaged Active Wants", () => {
+test("hub combines sources and prioritizes the oldest pending Inbox items", () => {
   const hub = normalizeHub(
-    [{ status: "pending" }, { status: "done" }],
+    [
+      { id: 1, content: "Inbox one", status: "pending", created_at: "2026-09-01T00:00:00Z" },
+      { id: 2, content: "Inbox two", status: "pending", created_at: "2026-09-02T00:00:00Z" },
+      { id: 3, content: "Closed inbox", status: "done", created_at: "2026-09-03T00:00:00Z" },
+    ],
     [
       { id: 1, content: "Want one", status: "active", created_at: "2026-09-01T00:00:00Z" },
       { id: 2, content: "Want two", status: "active", created_at: "2026-09-02T00:00:00Z" },
@@ -28,22 +32,20 @@ test("hub combines sources and prioritizes the oldest untriaged Active Wants", (
 
   assert.equal(hub.summary.currentMonthSpend, 1200);
   assert.equal(hub.summary.previousMonthSpend, 800);
-  assert.equal(hub.summary.pendingInbox, 1);
+  assert.equal(hub.summary.pendingInbox, 2);
   assert.equal(hub.summary.dueKnowledge, 1);
   assert.equal(hub.summary.weakKnowledge, 1);
   assert.equal(hub.summary.activeWants, 2);
   assert.equal(hub.summary.untriagedWants, 2);
-  assert.equal(hub.summary.oldestUntriagedDays, 13);
   assert.equal(hub.navigation.knowledgeReview, "/knowledge/?view=quiz&mode=daily");
-  assert.equal(hub.navigation.compassUntriaged, "/compass/?view=wants&filter=untriaged");
   assert.equal(hub.navigation.projects, "/projects/");
   assert.equal(hub.navigation.writing, "/writing/");
-  assert.deepEqual(hub.wants.map((item) => item.id), [1, 2]);
-  assert.deepEqual(hub.wants.map((item) => item.url), [
-    "/compass/?view=wants&id=1",
-    "/compass/?view=wants&id=2",
+  assert.deepEqual(hub.inbox.map((item) => item.id), [1, 2]);
+  assert.deepEqual(hub.inbox.map((item) => item.url), [
+    "/compass/?view=inbox&id=1",
+    "/compass/?view=inbox&id=2",
   ]);
-  assert.deepEqual(hub.wants.map((item) => item.triageState), ["untriaged", "untriaged"]);
+  assert.deepEqual(hub.inbox.map((item) => item.ageDays), [13, 12]);
   assert.deepEqual(hub.knowledge.map((item) => item.reason), ["weak", "due", "new"]);
   assert.deepEqual(hub.knowledge.map((item) => item.url), [
     "/knowledge/?knowledge=11111111-1111-4111-8111-111111111111",
@@ -53,20 +55,20 @@ test("hub combines sources and prioritizes the oldest untriaged Active Wants", (
   assert.equal(hub.recentExpenses[0].title, "Lunch");
 });
 
-test("Wants preview keeps the three oldest untriaged Active Wants", () => {
-  const wants = Array.from({ length: 8 }, (_, index) => ({
+test("Inbox preview keeps the three oldest pending items", () => {
+  const inbox = Array.from({ length: 8 }, (_, index) => ({
     id: index + 1,
-    content: `Want ${index + 1}`,
-    status: index === 7 ? "completed" : "active",
+    content: `Inbox ${index + 1}`,
+    status: index === 7 ? "done" : "pending",
     created_at: `2026-09-${String(index + 1).padStart(2, "0")}T00:00:00Z`,
   }));
-  const first = normalizeHub([], wants, [], [], {}, now).wants.map((item) => item.id);
-  const second = normalizeHub([], [...wants].reverse(), [], [], {}, now).wants.map((item) => item.id);
+  const first = normalizeHub(inbox, [], [], [], {}, now).inbox.map((item) => item.id);
+  const second = normalizeHub([...inbox].reverse(), [], [], [], {}, now).inbox.map((item) => item.id);
   assert.deepEqual(first, [1, 2, 3]);
   assert.deepEqual(first, second);
 });
 
-test("Wants preview treats every Active Want as requiring organization", () => {
+test("Wants summary treats every actionable Active Want as requiring organization", () => {
   const wants = Array.from({ length: 7 }, (_, index) => ({
     id: index + 1,
     content: `Want ${index + 1}`,
@@ -76,9 +78,6 @@ test("Wants preview treats every Active Want as requiring organization", () => {
   const hub = normalizeHub([], wants, [], [], {}, now);
   assert.equal(hub.summary.activeWants, 6);
   assert.equal(hub.summary.untriagedWants, 6);
-  assert.equal(hub.summary.oldestUntriagedDays, 13);
-  assert.deepEqual(hub.wants.map((item) => item.id), [1, 2, 3]);
-  assert.ok(hub.wants.every((item) => item.triageState === "untriaged"));
 });
 
 test("Hub keeps wishes and future deferred Wants active without counting them as untriaged", () => {
@@ -90,7 +89,6 @@ test("Hub keeps wishes and future deferred Wants active without counting them as
 
   assert.equal(hub.summary.activeWants, 3);
   assert.equal(hub.summary.untriagedWants, 1);
-  assert.deepEqual(hub.wants.map((item) => item.id), [1]);
 });
 
 test("Focus preview keeps active items in board order and caps the Hub at five", () => {
@@ -322,6 +320,9 @@ test("Hub does not depend on want_routes after successful routing auto-completes
   globalThis.fetch = async (input) => {
     const url = String(input);
     requests.push(url);
+    if (url.includes("/idea_inbox?")) return Response.json([
+      { id: 9, content: "Handle this first", status: "pending", created_at: "2026-09-01T00:00:00Z" },
+    ]);
     if (url.includes("/wants?")) return Response.json([
       { id: 1, content: "Still visible", status: "active", created_at: "2026-09-01T00:00:00Z" },
     ]);
@@ -338,7 +339,9 @@ test("Hub does not depend on want_routes after successful routing auto-completes
     assert.equal(hub.availability.wants, true);
     assert.equal(hub.summary.activeWants, 1);
     assert.equal(hub.summary.untriagedWants, 1);
-    assert.equal(hub.wants[0].triageState, "untriaged");
+    assert.equal(hub.inbox[0].content, "Handle this first");
+    assert.equal(hub.inbox[0].url, "/compass/?view=inbox&id=9");
+    assert.ok(requests.some((url) => decodeURIComponent(url).includes("/idea_inbox?select=id,content,status,created_at")));
     assert.ok(!requests.some((url) => url.includes("/want_routes?")));
     assert.deepEqual(hub.source.unavailable, []);
   } finally {
