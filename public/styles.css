@@ -56,20 +56,6 @@ button { color: inherit; }
 .icon-button svg { width: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.8; }
 main { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
 .eyebrow, .section-kicker { margin: 0 0 12px; color: var(--orange); font-size: 11px; font-weight: 800; letter-spacing: .19em; }
-.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 0 0 34px; }
-.metric { position: relative; min-height: 158px; padding: 22px; overflow: hidden; text-align: left; border: 1px solid rgba(50,70,58,.12); border-radius: 18px; background: var(--card); box-shadow: 0 6px 24px rgba(39,54,45,.045); cursor: pointer; transition: transform .2s ease, box-shadow .2s ease; }
-.metric:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
-.metric::after { content: ""; position: absolute; right: -22px; bottom: -35px; width: 100px; height: 100px; border-radius: 50%; background: var(--metric-soft); opacity: .8; }
-.metric-icon { position: absolute; top: 18px; right: 18px; z-index: 1; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--metric-soft); color: var(--metric-color); font-size: 18px; }
-.metric-label, .metric small { display: block; position: relative; z-index: 1; }
-.metric-label { max-width: 75%; color: var(--muted); font-size: 12px; font-weight: 700; }
-.metric strong { display: block; position: relative; z-index: 1; margin: 13px 0 4px; font-family: Georgia, serif; color: var(--metric-color); font-size: 47px; font-weight: 500; line-height: 1; }
-.metric small { color: var(--muted); font-size: 11px; }
-.metric-inbox { --metric-color: var(--orange); --metric-soft: var(--orange-soft); }
-.metric-wants { --metric-color: var(--green); --metric-soft: var(--green-soft); }
-.metric-todos { --metric-color: var(--blue); --metric-soft: var(--blue-soft); }
-.metric-triage { --metric-color: #745f2d; --metric-soft: #f2e9cd; }
-.metric-gap { --metric-color: #8a6b27; --metric-soft: #f2e9cd; }
 .workspace { padding: clamp(22px, 4vw, 42px); border: 1px solid rgba(50,70,58,.12); border-radius: 24px; background: rgba(255,253,248,.82); box-shadow: var(--shadow); backdrop-filter: blur(10px); }
 .workspace-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; }
 .workspace h2 { margin: 0; font-family: Georgia, "Yu Mincho", serif; font-size: 34px; font-weight: 500; }
@@ -238,10 +224,6 @@ footer { display: flex; justify-content: space-between; width: min(1180px, calc(
 .route-preview small { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@media (max-width: 850px) {
-  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .metric { min-width: 0; }
-}
 @media (max-width: 650px) {
   .topbar { height: 70px; padding: 0 18px; }
   .source-badge { max-width: 145px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -250,11 +232,6 @@ footer { display: flex; justify-content: space-between; width: min(1180px, calc(
   .dashboard-switcher summary { width: 40px; height: 40px; justify-content: center; overflow: hidden; padding: 0; color: transparent; }
   .dashboard-switcher summary span { color: var(--green); font-size: 18px; }
   main { width: min(100% - 24px, 1180px); }
-  .metrics { gap: 9px; }
-  .metrics { grid-template-columns: repeat(2, 1fr); }
-  .metric-triage { grid-column: auto; }
-  .metric { min-height: 140px; padding: 17px; }
-  .metric strong { font-size: 39px; }
   .workspace { padding: 22px 15px; border-radius: 18px; }
   .workspace-head { align-items: stretch; flex-direction: column; }
   .workspace-tools { flex-direction: column; }
@@ -311,20 +288,6 @@ body { background: var(--paper); }
 .icon-button { width: 34px; height: 34px; border-radius: 9px; }
 main { width: min(1240px, calc(100% - 28px)); }
 .eyebrow, .section-kicker { margin-bottom: 7px; color: var(--green); font-size: 11px; letter-spacing: .15em; }
-.metrics { gap: 9px; margin: 16px 0 14px; }
-.metric {
-  min-height: 102px;
-  padding: 15px;
-  border-color: var(--line);
-  border-radius: 12px;
-  box-shadow: none;
-}
-.metric:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
-.metric::after { display: none; }
-.metric-icon { top: 12px; right: 12px; width: 26px; height: 26px; font-size: 14px; }
-.metric-label { font-size: 12px; }
-.metric strong { margin: 9px 0 3px; font: 700 30px/1 Inter, "Segoe UI", sans-serif; }
-.metric small { font-size: 11px; }
 .workspace { padding: 20px; border-color: var(--line); border-radius: 12px; background: var(--card); box-shadow: none; }
 .workspace h2 { font: 700 24px/1.2 Inter, "Segoe UI", sans-serif; }
 .workspace-tools { flex-wrap: wrap; justify-content: flex-end; }
@@ -369,10 +332,6 @@ main { width: min(1240px, calc(100% - 28px)); }
   .hub-link { font-size: 11px; }
   .hub-link::after { content: none; }
   main { width: calc(100% - 16px); }
-  .metrics { gap: 6px; margin-top: 10px; }
-  .metric { min-height: 88px; padding: 12px; }
-  .metric strong { font-size: 25px; }
-  .metric small { display: none; }
   .workspace { padding: 14px 10px; }
   .workspace-head { gap: 13px; }
   .workspace-tools { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }

@@ -110,7 +110,7 @@ test("Compass previews every route and requires explicit confirmation for Google
     readFile(new URL("../public/app.js", import.meta.url), "utf8"),
   ]);
 
-  assert.match(html, /id="completedWants"/);
+  assert.doesNotMatch(html, /id="completedWants"/);
   assert.match(script, /id="triageWantButton"/);
   assert.match(script, /function renderTriageStart\(item\)/);
   assert.match(script, /function renderRoutePreview\(item, plan\)/);
@@ -252,7 +252,7 @@ test("Compass defers an Inbox item with a required revisit date", async () => {
   assert.match(script, /寝かせる（再訪 \$\{revisitOn\}）/);
 });
 
-test("Idea starts with utility actions and the summary, without a decorative hero or large date", async () => {
+test("Idea starts with utility actions and the workspace, without summary cards or a decorative hero", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
     readFile(new URL("../public/app.js", import.meta.url), "utf8"),
@@ -261,7 +261,14 @@ test("Idea starts with utility actions and the summary, without a decorative her
   assert.doesNotMatch(html, /class="hero"|PERSONAL DIRECTION|頭の中を、|hero-date|dayLabel|dateLabel|updatedLabel/);
   assert.doesNotMatch(script, /setClock|dayLabel|dateLabel|updatedLabel/);
   assert.match(html, /<main class="dashboard-main">/);
-  assert.match(html, /<section class="metrics"/);
+  assert.doesNotMatch(html, /<section class="metrics"|未整理のInbox|未整理のWants|未実施のToDo|整理済みのWants/);
+  assert.doesNotMatch(script, /pendingInbox|inboxTotal|activeWants|completedWants|pendingTodos|querySelectorAll\("\.metric"\)/);
+});
+
+test("Idea updates the ToDo tab count as soon as background loading finishes", async () => {
+  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+
+  assert.match(script, /async function loadTodos[\s\S]*state\.todosLoaded = true;[\s\S]*els\.todosTabCount\.textContent = state\.data\.todosSummary\.pending;[\s\S]*if \(state\.view === "todos"\)/);
 });
 
 test("Hub and personal dashboards use the requested page names and shared shell", async () => {
@@ -316,7 +323,7 @@ test("Idea exposes a Calendar-backed ToDo tab with completion and rescheduling",
   ]);
 
   assert.match(html, /data-view="todos">ToDo/);
-  assert.match(html, /未実施のToDo/);
+  assert.match(html, /id="todosTabCount"/);
   assert.match(html, /data-todo-filter="overdue">実施確認待ち/);
   assert.match(html, /data-todo-filter="today">今日/);
   assert.match(html, /data-todo-filter="upcoming">今後/);

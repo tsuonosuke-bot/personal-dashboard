@@ -17,7 +17,6 @@ const state = {
 
 const els = Object.fromEntries([
   "sourceBadge", "refreshButton",
-  "pendingInbox", "inboxTotal", "activeWants", "completedWants", "pendingTodos",
   "inboxTabCount", "wantsTabCount", "todosTabCount", "listTitle", "searchInput",
   "statusFilter", "pendingFilterGroup", "knowledgeFilter", "knowledgePendingCount", "githubFilter", "githubPendingCount", "todoFilterGroup", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher", "dashboardNav",
@@ -276,11 +275,6 @@ function renderSummary() {
   const { summary } = state.data;
   els.knowledgePendingCount.textContent = summary.knowledgePending ?? 0;
   els.githubPendingCount.textContent = summary.githubPending ?? 0;
-  els.pendingInbox.textContent = summary.pendingInbox;
-  els.inboxTotal.textContent = summary.inboxTotal;
-  els.activeWants.textContent = summary.activeWants;
-  els.completedWants.textContent = summary.completedWants;
-  els.pendingTodos.textContent = state.data.todosSummary?.pending ?? "—";
 }
 
 function renderCurrentTabCount(items) {
@@ -1963,6 +1957,7 @@ async function loadTodos(render = state.view === "todos") {
     state.todoSource = payload.source || null;
     state.todosLoaded = true;
     renderSummary();
+    els.todosTabCount.textContent = state.data.todosSummary.pending;
     if (state.view === "todos") {
       updateStatusOptions();
       renderList();
@@ -1970,7 +1965,6 @@ async function loadTodos(render = state.view === "todos") {
     return true;
   } catch (error) {
     state.todosLoaded = false;
-    els.pendingTodos.textContent = "—";
     els.todosTabCount.textContent = "—";
     if (render && state.view === "todos") {
       els.resultCount.textContent = "ToDoの読み込みに失敗しました";
@@ -2011,7 +2005,6 @@ async function loadDashboard() {
 }
 
 document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
-document.querySelectorAll(".metric").forEach((metric) => metric.addEventListener("click", () => setView(metric.dataset.view, metric.dataset.filter)));
 els.searchInput.addEventListener("input", () => { state.search = els.searchInput.value; renderList(); });
 els.statusFilter.addEventListener("change", () => {
   state.status = els.statusFilter.value; state.metricFilter = ""; renderList();
