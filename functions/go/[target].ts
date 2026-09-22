@@ -1,21 +1,8 @@
-import { createHandoffUrl, type SessionEnv } from "../_shared/sessionAuth.ts";
-
-interface Env extends SessionEnv {
-  AUTH_MODE?: string;
-  NAV_FINANCIAL_URL?: string;
-  NAV_KNOWLEDGE_URL?: string;
-}
-
 interface FunctionContext {
   request: Request;
-  env: Env;
+  env?: unknown;
   params: { target?: string };
 }
-
-const TARGETS: Record<string, { env: keyof Env; fallback: string }> = {
-  financial: { env: "NAV_FINANCIAL_URL", fallback: "https://financial-dashboard-9q8.pages.dev/" },
-  knowledge: { env: "NAV_KNOWLEDGE_URL", fallback: "https://knowledge-dashboard-27t.pages.dev/" },
-};
 
 function isUuid(value: string | null): value is string {
   return typeof value === "string"
@@ -24,32 +11,19 @@ function isUuid(value: string | null): value is string {
 
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
   if (context.request.method !== "GET") return new Response("Method Not Allowed\n", { status: 405, headers: { Allow: "GET" } });
-  const definition = TARGETS[context.params.target || ""];
-  if (!definition) return new Response("Not Found\n", { status: 404 });
-  let target: URL;
-  try {
-    target = new URL(String(context.env[definition.env] || definition.fallback));
-    if (target.protocol !== "https:") throw new Error("invalid protocol");
-    const requestUrl = new URL(context.request.url);
-    const requestedView = requestUrl.searchParams.get("view");
-    const requestedMode = requestUrl.searchParams.get("mode");
-    const requestedKnowledge = requestUrl.searchParams.get("knowledge");
-    if (context.params.target === "knowledge" && (requestedView === "quiz" || isUuid(requestedKnowledge))) {
-      target.pathname = "/";
-      target.search = "";
-      target.hash = "";
-      if (requestedView === "quiz") {
-        target.searchParams.set("view", "quiz");
-        if (requestedMode === "daily") target.searchParams.set("mode", "daily");
-      }
-      else if (requestedKnowledge) target.searchParams.set("knowledge", requestedKnowledge);
-    }
-  } catch {
-    return new Response("Navigation target is invalid.\n", { status: 503 });
+  const target = context.params.target || "";
+  if (target !== "financial" && target !== "knowledge") return new Response("Not Found\n", { status: 404 });
+  const requestUrl = new URL(context.request.url);
+  const destination = new URL(target === "knowledge" ? "/knowledge/" : "/finance/", requestUrl);
+  const requestedView = requestUrl.searchParams.get("view");
+  const requestedMode = requestUrl.searchParams.get("mode");
+  const requestedKnowledge = requestUrl.searchParams.get("knowledge");
+  if (target === "knowledge" && requestedView === "quiz") {
+    destination.searchParams.set("view", "quiz");
+    if (requestedMode === "daily") destination.searchParams.set("mode", "daily");
+  } else if (target === "knowledge" && isUuid(requestedKnowledge)) {
+    destination.searchParams.set("knowledge", requestedKnowledge);
   }
-  const useDirectNavigation = context.env.AUTH_MODE?.trim().toLowerCase() === "access";
-  const handoff = useDirectNavigation ? null : await createHandoffUrl(target, context.env);
-  const destination = handoff || target;
   return new Response(null, {
     status: 302,
     headers: { Location: destination.toString(), "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" },

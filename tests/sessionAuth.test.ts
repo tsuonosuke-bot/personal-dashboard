@@ -46,7 +46,7 @@ test("handoff preserves a same-site quiz destination", async () => {
   assert.equal(handoffUrl.searchParams.get("next"), "/?view=quiz");
 });
 
-test("Knowledge review shortcut creates a quiz handoff", async () => {
+test("Knowledge review shortcut stays inside the Hub PWA scope", async () => {
   const response = await goRoute({
     request: new Request("https://hub.example/go/knowledge?view=quiz"),
     env: { ...env, NAV_KNOWLEDGE_URL: "https://knowledge.example/custom/?tenant=owner" },
@@ -54,12 +54,12 @@ test("Knowledge review shortcut creates a quiz handoff", async () => {
   });
   assert.equal(response.status, 302);
   const location = new URL(response.headers.get("Location") || "https://invalid.example/");
-  assert.equal(location.origin, "https://knowledge.example");
-  assert.equal(location.pathname, "/auth/handoff");
-  assert.equal(location.searchParams.get("next"), "/?view=quiz");
+  assert.equal(location.origin, "https://hub.example");
+  assert.equal(location.pathname, "/knowledge/");
+  assert.equal(location.search, "?view=quiz");
 });
 
-test("Knowledge card shortcut preserves a validated record destination through SSO", async () => {
+test("Knowledge card shortcut preserves a validated record inside the Hub PWA scope", async () => {
   const knowledgeId = "123e4567-e89b-42d3-a456-426614174000";
   const response = await goRoute({
     request: new Request(`https://hub.example/go/knowledge?knowledge=${knowledgeId}`),
@@ -68,9 +68,9 @@ test("Knowledge card shortcut preserves a validated record destination through S
   });
   assert.equal(response.status, 302);
   const location = new URL(response.headers.get("Location") || "https://invalid.example/");
-  assert.equal(location.origin, "https://knowledge.example");
-  assert.equal(location.pathname, "/auth/handoff");
-  assert.equal(location.searchParams.get("next"), `/?knowledge=${knowledgeId}`);
+  assert.equal(location.origin, "https://hub.example");
+  assert.equal(location.pathname, "/knowledge/");
+  assert.equal(location.searchParams.get("knowledge"), knowledgeId);
 });
 
 test("Knowledge card shortcut ignores an invalid record identifier", async () => {
@@ -80,7 +80,7 @@ test("Knowledge card shortcut ignores an invalid record identifier", async () =>
     params: { target: "knowledge" },
   });
   assert.equal(response.status, 302);
-  assert.equal(response.headers.get("Location"), "https://knowledge.example/");
+  assert.equal(response.headers.get("Location"), "https://hub.example/knowledge/");
 });
 
 test("Knowledge review shortcut preserves daily queue mode", async () => {
@@ -90,25 +90,26 @@ test("Knowledge review shortcut preserves daily queue mode", async () => {
     params: { target: "knowledge" },
   });
   const location = new URL(response.headers.get("Location") || "https://invalid.example/");
-  assert.equal(location.searchParams.get("next"), "/?view=quiz&mode=daily");
+  assert.equal(location.pathname, "/knowledge/");
+  assert.equal(location.search, "?view=quiz&mode=daily");
 });
 
-test("dashboard navigation falls back to the protected target without SSO", async () => {
+test("dashboard navigation stays local without SSO", async () => {
   const response = await goRoute({
     request: new Request("https://hub.example/go/knowledge?view=quiz"),
     env: { NAV_KNOWLEDGE_URL: "https://knowledge.example/custom/" },
     params: { target: "knowledge" },
   });
   assert.equal(response.status, 302);
-  assert.equal(response.headers.get("Location"), "https://knowledge.example/?view=quiz");
+  assert.equal(response.headers.get("Location"), "https://hub.example/knowledge/?view=quiz");
 });
 
-test("Cloudflare Access navigation skips the Basic-auth handoff", async () => {
+test("Cloudflare Access navigation also stays inside the Hub PWA scope", async () => {
   const response = await goRoute({
     request: new Request("https://hub.example/go/knowledge?view=quiz"),
     env: { ...env, AUTH_MODE: "access", NAV_KNOWLEDGE_URL: "https://knowledge.example/" },
     params: { target: "knowledge" },
   });
   assert.equal(response.status, 302);
-  assert.equal(response.headers.get("Location"), "https://knowledge.example/?view=quiz");
+  assert.equal(response.headers.get("Location"), "https://hub.example/knowledge/?view=quiz");
 });

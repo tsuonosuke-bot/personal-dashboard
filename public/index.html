@@ -5,7 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#f3f2ed" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Personal Hub</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
     <link rel="stylesheet" href="/hub.css" />
   </head>
   <body>
@@ -51,12 +56,12 @@
             <div><h2>Habits</h2><strong id="habitsMeta">読み込み中</strong></div>
             <b class="card-arrow" aria-hidden="true">→</b>
           </a>
-          <a class="dashboard-card finance-card" id="financialLink" href="https://financial-dashboard-9q8.pages.dev/">
+          <a class="dashboard-card finance-card" id="financialLink" href="/finance/">
             <span class="card-icon" aria-hidden="true">¥</span>
             <div><h2>Finance</h2><strong id="financialMeta">読み込み中</strong></div>
             <b class="card-arrow" aria-hidden="true">→</b>
           </a>
-          <a class="dashboard-card knowledge-card" id="knowledgeLink" href="https://knowledge-dashboard-27t.pages.dev/">
+          <a class="dashboard-card knowledge-card" id="knowledgeLink" href="/knowledge/">
             <span class="card-icon" aria-hidden="true">K</span>
             <div><h2>Knowledge</h2><strong id="knowledgeMeta">読み込み中</strong></div>
             <b class="card-arrow" aria-hidden="true">→</b>
@@ -65,7 +70,7 @@
 
         <section class="snapshot" aria-label="今日のスナップショット">
           <div class="metric-grid">
-            <a href="/go/knowledge?view=quiz&amp;mode=daily" id="reviewMetricLink" class="metric review-shortcut"><span>今日の復習を開始 →</span><strong id="dueKnowledge">—</strong><small id="weakKnowledge">キューを確認中</small></a>
+            <a href="/knowledge/?view=quiz&amp;mode=daily" id="reviewMetricLink" class="metric review-shortcut"><span>今日の復習を開始 →</span><strong id="dueKnowledge">—</strong><small id="weakKnowledge">キューを確認中</small></a>
             <a href="/compass/?view=wants&amp;filter=untriaged" id="untriagedMetricLink" class="metric want-metric"><span>未整理Wants</span><strong id="untriagedWants">—</strong><small id="oldestUntriaged">滞留状況を確認中</small></a>
             <a href="/habits/" id="habitMetricLink" class="metric habit-shortcut"><span>今日・今週のHabit</span><strong id="remainingHabits">—</strong><small id="habitProgress">実施状況を確認中</small></a>
           </div>
@@ -96,7 +101,7 @@
           <section class="panel expenses-panel" aria-labelledby="expensesTitle">
             <div class="section-heading">
               <h2 id="expensesTitle">直近の家計簿</h2>
-              <a id="allExpensesLink" href="https://financial-dashboard-9q8.pages.dev/">一覧 →</a>
+              <a id="allExpensesLink" href="/finance/">一覧 →</a>
             </div>
             <div id="expenseList" class="record-list"></div>
           </section>
@@ -104,7 +109,7 @@
           <section class="panel knowledge-panel" aria-labelledby="knowledgeTitle">
             <div class="section-heading">
               <h2 id="knowledgeTitle">今見るナレッジ</h2>
-              <a id="allKnowledgeLink" href="https://knowledge-dashboard-27t.pages.dev/">一覧 →</a>
+              <a id="allKnowledgeLink" href="/knowledge/">一覧 →</a>
             </div>
             <div id="knowledgeList" class="knowledge-list"></div>
           </section>

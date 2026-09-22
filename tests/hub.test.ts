@@ -34,7 +34,7 @@ test("hub combines sources and prioritizes the oldest untriaged Active Wants", (
   assert.equal(hub.summary.activeWants, 2);
   assert.equal(hub.summary.untriagedWants, 2);
   assert.equal(hub.summary.oldestUntriagedDays, 13);
-  assert.equal(hub.navigation.knowledgeReview, "/go/knowledge?view=quiz&mode=daily");
+  assert.equal(hub.navigation.knowledgeReview, "/knowledge/?view=quiz&mode=daily");
   assert.equal(hub.navigation.compassUntriaged, "/compass/?view=wants&filter=untriaged");
   assert.equal(hub.navigation.writing, "/writing/");
   assert.deepEqual(hub.wants.map((item) => item.id), [1, 2]);
@@ -45,9 +45,9 @@ test("hub combines sources and prioritizes the oldest untriaged Active Wants", (
   assert.deepEqual(hub.wants.map((item) => item.triageState), ["untriaged", "untriaged"]);
   assert.deepEqual(hub.knowledge.map((item) => item.reason), ["weak", "due", "new"]);
   assert.deepEqual(hub.knowledge.map((item) => item.url), [
-    "/go/knowledge?knowledge=11111111-1111-4111-8111-111111111111",
-    "/go/knowledge?knowledge=22222222-2222-4222-8222-222222222222",
-    "/go/knowledge?knowledge=33333333-3333-4333-8333-333333333333",
+    "/knowledge/?knowledge=11111111-1111-4111-8111-111111111111",
+    "/knowledge/?knowledge=22222222-2222-4222-8222-222222222222",
+    "/knowledge/?knowledge=33333333-3333-4333-8333-333333333333",
   ]);
   assert.equal(hub.recentExpenses[0].title, "Lunch");
 });

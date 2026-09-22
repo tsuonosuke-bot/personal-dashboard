@@ -209,8 +209,12 @@ WindowsでNodeのテスト分離プロセスが制限される環境を考慮し
 
 ## 1回の認証で3画面を使う
 
-`AUTH_MODE=basic` のままでも、3サイトへ同じ `SSO_SHARED_SECRET` を設定すると、Hubでの認証成功時に30日間のHttpOnlyセッションを作り、詳細サイトへは60秒だけ有効な署名付き引き継ぎURLで移動します。URLは移動直後に除去され、署名は対象ホストに固定されます。
+`AUTH_MODE=basic` のままでも、3サイトへ同じ `SSO_SHARED_SECRET` を設定すると、Hubでの認証成功時に30日間のHttpOnlyセッションを作ります。Finance と Knowledge は `/finance/`、`/knowledge/` から同一オリジンで中継し、中継サーバーが60秒だけ有効なホスト固定の署名を使って各サイトへ接続します。認証Cookieはブラウザへ転送しません。
 
-`AUTH_MODE=access` または `SSO_SHARED_SECRET` 未設定時は、各ダッシュボード自身の認証に委ねる安全な直接遷移へフォールバックします。
+`SSO_SHARED_SECRET` 未設定時は、中継先が受け付ける認証ヘッダーをそのまま利用します。3サイトで同じ `SSO_SHARED_SECRET` を設定する構成を推奨します。
+
+## iOSホーム画面アプリ
+
+Hubは `display: standalone`、`scope: /` のWeb App Manifestを配信します。iOSの「ホーム画面に追加」はPersonal Hubのトップページで行ってください。FinanceとKnowledgeへの導線はHubと同じオリジン配下にあるため、ホーム画面アプリ内でURLバーを表示せずに切り替わります。変更前に追加したアイコンで古い範囲が残る場合は、ホーム画面のアイコンを一度削除して追加し直します。
 
 より標準化されたSSOへ移行する場合はCloudflare Accessも利用できます。3ホストを同じAccess applicationとAllow policyで保護し、各Pages環境の `AUTH_MODE=access`、`TEAM_DOMAIN`、`POLICY_AUD` を設定します。設定が欠けた場合は503、不正JWTは403でフェイルクローズします。

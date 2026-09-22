@@ -39,8 +39,8 @@ test("dashboard summary and future navigation are normalized", () => {
   assert.equal(dashboard.navigation.find((item) => item.id === "hub")?.url, "/");
   assert.equal(dashboard.navigation.find((item) => item.id === "habits")?.url, "/habits/");
   assert.equal(dashboard.navigation.find((item) => item.id === "writing")?.url, "/writing/");
-  assert.equal(dashboard.navigation.find((item) => item.id === "knowledge")?.url, "/go/knowledge");
-  assert.equal(dashboard.navigation.find((item) => item.id === "financial")?.url, "/go/financial");
+  assert.equal(dashboard.navigation.find((item) => item.id === "knowledge")?.url, "/knowledge/");
+  assert.equal(dashboard.navigation.find((item) => item.id === "financial")?.url, "/finance/");
   assert.equal(dashboard.navigation.find((item) => item.id === "task-board")?.url, "http://127.0.0.1:4173/");
 });
 

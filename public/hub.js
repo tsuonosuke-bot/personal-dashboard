@@ -455,3 +455,9 @@ document.addEventListener("keydown", (event) => {
 });
 setClock();
 loadHub();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/sw.js");
+  });
+}

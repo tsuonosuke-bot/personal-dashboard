@@ -307,8 +307,8 @@ export function normalizeDashboard(
       { id: "compass", label: "Idea", url: null, current: true },
       { id: "habits", label: "Habits", url: "/habits/", current: false },
       { id: "writing", label: "Writing", url: "/writing/", current: false },
-      { id: "knowledge", label: "Knowledge", url: "/go/knowledge", current: false },
-      { id: "financial", label: "Finance", url: "/go/financial", current: false },
+      { id: "knowledge", label: "Knowledge", url: "/knowledge/", current: false },
+      { id: "financial", label: "Finance", url: "/finance/", current: false },
       { id: "task-board", label: "Task Board", url: safeNavigationUrl(env.NAV_TASK_BOARD_URL), current: false },
     ],
     summary: {

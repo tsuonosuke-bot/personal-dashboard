@@ -406,7 +406,7 @@ function normalizeKnowledge(rows: KnowledgeRow[], today: string) {
       const id = text(row.id);
       return {
         id,
-        url: isUuid(id) ? `/go/knowledge?knowledge=${encodeURIComponent(id)}` : "/go/knowledge",
+        url: isUuid(id) ? `/knowledge/?knowledge=${encodeURIComponent(id)}` : "/knowledge/",
         title: text(row.title) || "タイトルなし",
         category: text(row.category) || "未分類",
         mastery: text(row.mastery) || "未学習",
@@ -513,9 +513,9 @@ export function normalizeHub(
       compass: "/compass/",
       compassUntriaged: "/compass/?view=wants&filter=untriaged",
       writing: "/writing/",
-      financial: "/go/financial",
-      knowledge: "/go/knowledge",
-      knowledgeReview: "/go/knowledge?view=quiz&mode=daily",
+      financial: "/finance/",
+      knowledge: "/knowledge/",
+      knowledgeReview: "/knowledge/?view=quiz&mode=daily",
       habits: "/habits/",
     },
     summary: {
