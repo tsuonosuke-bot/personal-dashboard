@@ -136,6 +136,8 @@ Focus管理を有効にする場合は `supabase/migrations/202609200004_focus_b
 
 Writingを2状態へ簡素化する場合は、続けて `supabase/migrations/202609220002_writing_two_statuses.sql` を適用します。既存の `completed` / `archived` は「完了」に、それ以外のWriting状態は「アイデア」に統合します。
 
+Projectsを有効にする場合は、アプリのデプロイより先に `supabase/migrations/202609220003_projects_mvp.sql` を適用します。Inbox／Wantの正本は元テーブルに残し、`project_items`で1つのProjectへ関連づけます。Projectへの関連づけと元アイテムの整理済み化は同一トランザクションで行い、Projectごとの現在のNext Actionは最大1件に制限します。適用後は、別クエリとして `supabase/verification/202609220003_projects_mvp_verify.sql` を実行してオブジェクトと不変条件を確認してください。
+
 - `writing_topics`: 掘り下げたいエッセイ候補
 - `habits` / `habit_logs`: 習慣の定義と実施記録
 - `focus_items`: 継続して意識したい言葉
@@ -205,6 +207,8 @@ PreviewとProductionの両方に、次の環境変数を設定します。
 npm test
 npm run check
 npm run build
+# 上記3つをまとめて実行
+npm run predeploy:check
 ```
 
 WindowsでNodeのテスト分離プロセスが制限される環境を考慮し、`--test-isolation=none` を使用しています。

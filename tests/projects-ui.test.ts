@@ -75,3 +75,19 @@ test("Projects remains a separate build entry", async () => {
   assert.match(vite, /projects: resolve\(import\.meta\.dirname, "public\/projects\/index\.html"\)/);
   assert.match(packageJson, /node --check public\/projects\.js/);
 });
+
+test("Projects release stays migration-first and has a read-only verification query", async () => {
+  const [readme, release, verification, packageJson] = await Promise.all([
+    readFile(new URL("../README.md", import.meta.url), "utf8"),
+    readFile(new URL("../docs/projects-release.md", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/verification/202609220003_projects_mvp_verify.sql", import.meta.url), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+  ]);
+  assert.match(readme, /アプリのデプロイより先に `supabase\/migrations\/202609220003_projects_mvp\.sql`/);
+  assert.match(release, /Cloudflare Pagesより先に上記migrationをSupabaseへ適用/);
+  assert.match(release, /本番Supabaseへのmigration適用と、`HEAD:main`へのpushは未実施/);
+  assert.match(verification, /projects_with_multiple_next_actions/);
+  assert.match(verification, /sources_linked_to_multiple_projects/);
+  assert.doesNotMatch(verification, /\b(insert|update|delete|drop|alter|create|truncate)\b/i);
+  assert.match(packageJson, /"predeploy:check": "npm test && npm run check && npm run build"/);
+});
