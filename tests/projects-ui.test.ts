@@ -25,7 +25,7 @@ test("Projects page keeps the goal, current action, waiting, and review loop vis
   assert.doesNotMatch(script, /SUPABASE_SECRET_KEY|sb_secret_|\.supabase\.co/);
   assert.match(css, /@media \(max-width: 680px\)/);
   assert.match(css, /@media \(max-width: 390px\)/);
-  assert.match(css, /--accent: #365b7b/);
+  assert.match(css, /--accent: #7d5a18/);
 });
 
 test("Projects migration links sources instead of moving them and enforces one next action", async () => {
@@ -64,7 +64,7 @@ test("Compass offers Project as a separate commitment without replacing Inbox ro
   assert.match(script, /originalProjectUpdatedAt: project\.updatedAt/);
   assert.match(script, /現在のNext Actionは勝手に変更しません/);
   assert.match(css, /\.project-route-action/);
-  assert.match(css, /#365b7b/);
+  assert.match(css, /#7d5a18/);
 });
 
 test("Projects remains a separate build entry", async () => {

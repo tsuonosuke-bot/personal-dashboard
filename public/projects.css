@@ -5,11 +5,11 @@
   --ink: #202830;
   --muted: #66727c;
   --line: #dce2e7;
-  --accent: #365b7b;
-  --accent-hover: #294862;
-  --accent-soft: #e6edf3;
-  --attention: #9a641e;
-  --attention-soft: #f7ead8;
+  --accent: #7d5a18;
+  --accent-hover: #634610;
+  --accent-soft: #f4ecd8;
+  --attention: #9a493c;
+  --attention-soft: #f7e4e0;
   --waiting: #6c5683;
   --waiting-soft: #eee8f3;
   --done: #39705f;
@@ -39,13 +39,13 @@ a { color: inherit; }
   align-content: center;
   justify-items: start;
   padding: 11px 12px;
-  border: 1px solid rgba(54, 91, 123, .14);
+  border: 1px solid rgba(125, 90, 24, .16);
   border-radius: 11px;
   background: var(--surface);
   cursor: pointer;
   text-align: left;
 }
-.summary-grid button:hover { border-color: var(--accent); background: #f9fbfd; }
+.summary-grid button:hover { border-color: var(--accent); background: #fffdf8; }
 .summary-grid button.attention strong { color: var(--attention); }
 .summary-grid span { color: var(--muted); font-size: 12px; font-weight: 750; }
 .summary-grid strong { margin: 3px 0 1px; font-size: 22px; }
@@ -53,7 +53,7 @@ a { color: inherit; }
 
 .project-board {
   padding: 15px;
-  border: 1px solid rgba(54, 91, 123, .14);
+  border: 1px solid rgba(125, 90, 24, .16);
   border-radius: 13px;
   background: var(--surface);
 }
@@ -77,7 +77,7 @@ a { color: inherit; }
 }
 .filters input, form input, form select { min-height: 40px; padding: 8px 10px; }
 form textarea { min-height: 70px; padding: 9px 10px; resize: vertical; line-height: 1.55; }
-.filters input:focus, form input:focus, form select:focus, form textarea:focus { outline: 2px solid rgba(54, 91, 123, .2); border-color: var(--accent); }
+.filters input:focus, form input:focus, form select:focus, form textarea:focus { outline: 2px solid rgba(125, 90, 24, .2); border-color: var(--accent); }
 .filters button, .state-card button, .text-button {
   min-height: 40px;
   padding: 8px 11px;
@@ -105,7 +105,7 @@ form textarea { min-height: 70px; padding: 9px 10px; resize: vertical; line-heig
   border-radius: 11px;
   background: #fff;
 }
-.project-card.needs-attention { border-color: rgba(154, 100, 30, .42); background: #fffdf9; }
+.project-card.needs-attention { border-color: rgba(154, 73, 60, .4); background: #fffafa; }
 .project-copy { min-width: 0; }
 .project-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .project-heading h3 { margin: 0; font-size: 15px; line-height: 1.35; }
@@ -174,7 +174,7 @@ form textarea { min-height: 70px; padding: 9px 10px; resize: vertical; line-heig
 .action-row small, .related-row small { color: var(--muted); white-space: nowrap; }
 .related-row a { color: var(--accent); font-weight: 700; text-decoration: none; }
 .related-copy { min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; width: 100%; }
-.related-row-unprocessed { display: grid; justify-content: stretch; gap: 8px; border-color: rgba(154, 100, 30, .36); background: #fffdf9; }
+.related-row-unprocessed { display: grid; justify-content: stretch; gap: 8px; border-color: rgba(154, 73, 60, .34); background: #fffafa; }
 .related-action-form { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
 .related-action-form input { min-width: 0; }
 .related-action-form button, .related-treatment-actions button { min-height: 36px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; background: #fff; cursor: pointer; color: var(--accent); font-size: 10px; font-weight: 750; }
