@@ -30,9 +30,26 @@ test("iOS・Android・ブラウザのアイコンは同じ黄色地のPを使う
 
   const manifest = JSON.parse(await readFile(new URL("../public/static/manifest.webmanifest", import.meta.url), "utf8"));
   assert.deepEqual(manifest.icons.map((icon: { src: string; purpose: string }) => [icon.src, icon.purpose]), [
+    ["/icon-192.png", "any"],
+    ["/icon-512.png", "any"],
+    ["/icon-maskable-512.png", "maskable"],
     ["/icon.svg", "any"],
     ["/icon-maskable.svg", "maskable"],
   ]);
+});
+
+test("Android用PNGアイコンはインストール要件のサイズで配信する", async () => {
+  for (const [name, expectedSize] of [["icon-192.png", 192], ["icon-512.png", 512], ["icon-maskable-512.png", 512]] as const) {
+    const png = await readFile(new URL(`../public/static/${name}`, import.meta.url));
+    assert.deepEqual([...png.subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], name);
+    assert.equal(png.readUInt32BE(16), expectedSize, `${name} width`);
+    assert.equal(png.readUInt32BE(20), expectedSize, `${name} height`);
+  }
+});
+
+test("認証付きサイトでもAndroidがPWAマニフェストを取得できる", async () => {
+  const html = await readFile(new URL("../public/index.html", import.meta.url), "utf8");
+  assert.match(html, /<link rel="manifest" href="\/manifest\.webmanifest" crossorigin="use-credentials" \/>/);
 });
 
 test("ホーム画面へ追加する各画面がapple-touch-iconを指す", async () => {
