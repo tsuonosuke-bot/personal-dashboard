@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f2f4f6" />
+    <title>Projects — Personal Hub</title>
+    <link rel="stylesheet" href="/projects.css" />
+    <link rel="stylesheet" href="/dashboard-shell.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="dashboard-header">
+        <div class="dashboard-header-inner">
+          <div class="dashboard-brand">
+            <span class="dashboard-brand-mark projects" aria-hidden="true">P</span>
+            <span><h1>Projects</h1><small>Goals into action</small></span>
+          </div>
+          <div class="dashboard-actions">
+            <a class="dashboard-hub" href="/">← Hub</a>
+            <details class="dashboard-switcher">
+              <summary aria-label="ページを切り替える">
+                <svg class="dashboard-switcher-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="5" cy="6" r="1" /><circle cx="5" cy="12" r="1" /><circle cx="5" cy="18" r="1" />
+                  <path d="M9 6h10M9 12h10M9 18h10" />
+                </svg>
+                <span>Dashboards</span>
+              </summary>
+              <nav aria-label="ダッシュボードを切り替え">
+                <a href="/compass/">Idea</a><span aria-current="page">Projects</span><a href="/writing/">Writing</a><a href="/habits/">Habits</a><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a>
+              </nav>
+            </details>
+            <span class="source-badge" id="sourceBadge">接続確認中</span>
+            <button class="dashboard-refresh" id="refreshButton" type="button" title="再読み込み" aria-label="データを再読み込み">↻</button>
+            <button class="dashboard-primary" id="addProjectButton" type="button"><span aria-hidden="true">＋</span><span>Projectを作成</span></button>
+          </div>
+        </div>
+      </header>
+
+      <main class="dashboard-main">
+        <section class="summary-grid" aria-label="Projectサマリー">
+          <button type="button" data-summary-view="active"><span>進行中</span><strong id="activeCount">—</strong><small>Next Actionで動かす</small></button>
+          <button class="attention" type="button" data-summary-filter="attention"><span>要確認</span><strong id="attentionCount">—</strong><small>次の一手・整理が必要</small></button>
+          <button type="button" data-summary-view="waiting"><span>待機・保留</span><strong id="waitingCount">—</strong><small>再確認日まで待つ</small></button>
+          <button type="button" data-summary-view="completed"><span>完了</span><strong id="completedCount">—</strong><small>達成した目標</small></button>
+        </section>
+
+        <section class="project-board" aria-labelledby="boardTitle">
+          <header class="board-header">
+            <div><span class="eyebrow">OUTCOMES</span><h2 id="boardTitle">Project一覧</h2></div>
+          </header>
+          <div class="tabs" role="tablist" aria-label="表示するProject">
+            <button class="active" type="button" role="tab" aria-selected="true" data-view="active">進行中 <b id="activeTabCount">—</b></button>
+            <button type="button" role="tab" aria-selected="false" data-view="waiting">待機・保留 <b id="waitingTabCount">—</b></button>
+            <button type="button" role="tab" aria-selected="false" data-view="completed">完了 <b id="completedTabCount">—</b></button>
+          </div>
+          <div class="filters">
+            <label><span>検索</span><input id="searchInput" type="search" placeholder="Project・テーマ・Next Action" /></label>
+            <button id="clearFilters" type="button" hidden>解除</button>
+          </div>
+          <div class="result-line"><span id="resultCount">読み込み中</span><small>日々はNext Action、週次にはProject全体を確認します</small></div>
+          <div class="state-card" id="loadingState" role="status">Projectを読み込んでいます…</div>
+          <div class="state-card error" id="errorState" role="alert" hidden><strong>読み込めませんでした</strong><p id="errorMessage"></p><button id="retryButton" type="button">再試行</button></div>
+          <div class="project-list" id="projectList" hidden></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal" id="projectModal" hidden>
+      <button class="modal-backdrop" id="projectBackdrop" type="button" aria-label="Project入力を閉じる"></button>
+      <section class="editor" role="dialog" aria-modal="true" aria-labelledby="projectEditorTitle">
+        <header><div><span class="eyebrow" id="projectEditorKicker">NEW PROJECT</span><h2 id="projectEditorTitle">Projectを作成</h2></div><button class="icon-button" id="projectClose" type="button" aria-label="閉じる">×</button></header>
+        <form id="projectForm">
+          <label><span>Project名</span><input id="projectTitleInput" maxlength="240" required /></label>
+          <label><span>完了条件</span><textarea id="projectOutcomeInput" rows="4" maxlength="2000" placeholder="何が実現したら完了か" required></textarea></label>
+          <div class="form-grid">
+            <label><span>テーマ（任意）</span><input id="projectThemeInput" maxlength="120" placeholder="例：個人の情報管理" /></label>
+            <label><span>目標日（任意）</span><input id="projectTargetInput" type="date" /></label>
+          </div>
+          <label id="projectNextActionField"><span>最初のNext Action</span><textarea id="projectNextActionInput" rows="3" maxlength="500" placeholder="動詞から始まる、今すぐできる行動" required></textarea></label>
+          <p class="form-hint" id="projectFormHint">Active Projectには、作成時からNext Actionを1件設定します。</p>
+          <p class="form-error" id="projectFormError" role="alert" hidden></p>
+          <div class="editor-actions"><button id="projectCancel" type="button">キャンセル</button><button class="save-button" id="projectSave" type="submit">作成</button></div>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal" id="detailModal" hidden>
+      <button class="modal-backdrop" id="detailBackdrop" type="button" aria-label="Project詳細を閉じる"></button>
+      <section class="editor detail-editor" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+        <header><div><span class="eyebrow" id="detailKicker">PROJECT</span><h2 id="detailTitle">Project詳細</h2></div><button class="icon-button" id="detailClose" type="button" aria-label="閉じる">×</button></header>
+        <div id="detailBody"></div>
+      </section>
+    </div>
+
+    <div class="modal" id="resolveModal" hidden>
+      <button class="modal-backdrop" id="resolveBackdrop" type="button" aria-label="Action完了画面を閉じる"></button>
+      <section class="editor resolve-editor" role="dialog" aria-modal="true" aria-labelledby="resolveTitle">
+        <header><div><span class="eyebrow">NEXT ACTION</span><h2 id="resolveTitle">完了後の扱いを決める</h2></div><button class="icon-button" id="resolveClose" type="button" aria-label="閉じる">×</button></header>
+        <form id="resolveForm">
+          <p class="completed-action" id="completedActionText"></p>
+          <fieldset class="resolution-options">
+            <legend>Projectはどうなりましたか？</legend>
+            <label><input type="radio" name="resolution" value="continue" checked /> 続ける — 次のActionを決める</label>
+            <label><input type="radio" name="resolution" value="complete" /> 目標を達成した — Projectを完了</label>
+            <label><input type="radio" name="resolution" value="waiting" /> 相手・結果を待つ</label>
+            <label><input type="radio" name="resolution" value="on_hold" /> いったん保留する</label>
+          </fieldset>
+          <div id="continueFields">
+            <label><span>Action候補から選ぶ</span><select id="queuedActionSelect"><option value="">新しく入力する</option></select></label>
+            <label id="newNextActionField"><span>次のNext Action</span><textarea id="newNextActionInput" rows="3" maxlength="500"></textarea></label>
+          </div>
+          <div id="waitingFields" hidden>
+            <label><span>待っている相手・内容</span><input id="waitingForInput" maxlength="240" /></label>
+            <label><span>再確認日</span><input id="waitingReviewInput" type="date" /></label>
+          </div>
+          <div id="holdFields" hidden>
+            <label><span>見直し日</span><input id="holdReviewInput" type="date" /></label>
+          </div>
+          <p class="form-error" id="resolveFormError" role="alert" hidden></p>
+          <div class="editor-actions"><button id="resolveCancel" type="button">キャンセル</button><button class="save-button" id="resolveSave" type="submit">確定</button></div>
+        </form>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+    <script src="/projects.js" type="module"></script>
+  </body>
+</html>
