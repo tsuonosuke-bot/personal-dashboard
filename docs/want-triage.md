@@ -2,7 +2,7 @@
 
 ## 目的
 
-思いつきの捕獲はInboxだけが担い、扱いを決める操作もInboxの詳細で完結させます。Wantsは「今は動かさないので再訪日を決めて寝かせたもの」と「振り分け履歴の器」に役割を限定し、Inboxから内容を書き写すだけの中継段は設けません。
+思いつきの捕獲はInboxだけが担い、扱いを決める操作もInboxの詳細で完結させます。Wantsは「欲しいもの」「今は動かさないので再訪日を決めて寝かせたもの」「振り分け履歴の器」を保持し、Inboxから内容を書き写すだけの中継段は設けません。
 
 ## 正本
 
@@ -15,13 +15,14 @@
 | 再利用可能な学び | Knowledge DB |
 | 継続して意識する言葉 | `focus_items` |
 | その日の記録 | 既存Journal |
+| 欲しいもの | `wants`（`type='wish'`） |
 | 思いつきの捕獲と処理結果 | `idea_inbox` |
 | 再訪待ちの着想と振り分け履歴 | `wants` / `want_routes` |
 
 ## 操作
 
 1. 思いついた時は、AIを呼ばずにInboxへそのまま登録する。
-2. 後で未整理のInboxを開き、クイック操作（カレンダー・Writing・Habits・Focus・Knowledge・寝かせる）から選ぶ。迷う場合は「整理する」を開く。
+2. 後で未整理のInboxを開き、9つの扱い（予定・欲しい・考える・調べる・習慣・Focus・作りたい・気分・寝かせる）から選ぶ。どれにも確信がない場合は「整理する」を開き、既存の扱いと振り分け先を段階的に選ぶ。
 3. 「整理する」では「AIに整理案を聞く」を押すか、自分で扱いを選ぶ。AIへの送信はボタンを押した時だけ行う。
 4. AIが確認質問を返した場合は回答を入力し、「回答をもとに再提案」を押す。回答しただけでは送信しない。
 5. クイック操作またはAI案を使う場合も、タイトル・補足・頻度を編集し、確認画面を経由する。
@@ -30,6 +31,29 @@
 8. 振り分けの登録または計画保存に成功したら、元Inboxを整理済みにし、処理結果へ振り分け先を記録する。
 9. 振り分け先への登録に失敗した場合だけ元Inboxを未整理のまま残し、同じ確認内容から再試行する。
 10. 再訪日が来て浮上したWantも、同じ「整理する」とクイック操作で振り分ける。
+
+### 9つの扱いと保存・処理先
+
+| 扱い | 保存・処理先 | 確定後 |
+| --- | --- | --- |
+| 予定 | Google Calendar | 予定を作成し、Inboxを整理済みにする |
+| 欲しい | `wants`（`type='wish'`） | Active Wantとして残し、未整理件数からは除外する |
+| 考える | `writing_topics` | Writing候補を作成する |
+| 調べる | `want_routes`（`destination='knowledge'`, `status='planned'`） | Knowledge候補として積む。Knowledge DBへはまだ登録しない |
+| 習慣 | `habits` | Active Habitを作成する |
+| Focus | `focus_items` | Active Focusを作成する |
+| 作りたい | `want_routes`（`destination='github'`, `status='planned'`） | GitHub Issue候補として積む |
+| 気分 | `want_routes`（`destination='journal'`, `status='planned'`） | Journal候補として積む |
+| 寝かせる | `wants`（`type='want'`, `revisit_on`あり） | 再訪日まで未整理件数から外す |
+
+この9つは同格の入口であり、既存の「行動する・継続する・掘り下げる・残しておく・今回は見送る」は、詳細な手動整理とAI提案のための分類として残す。「その他」への置き換えは行わない。
+
+### 欲しいの運用
+
+1. 物やサービスを欲しい状態として残す場合は「欲しい」を選び、名称と任意メモを確認する。
+2. 確定するとWantsへ`type='wish'`・`status='active'`で登録し、元Inboxを整理済みにする。
+3. 購入日を勝手に予定化せず、必要になった時点で予定・調査・見送りなどへ明示的に振り分ける。
+4. `type='wish'`はActive Wants一覧には残るが、Hubの「未整理Wants」には含めない。
 
 ### 寝かせるの運用
 
@@ -44,6 +68,14 @@
 2. Ideaの一覧カードには振り分け先が表示される。Knowledge・GitHub・Journalは計画保存のままなので「登録待ち」として別の色で示す。
 3. 一覧の「Knowledge登録待ち」を押すと、実際のナレッジDB登録がまだの項目だけに絞り込める（`?filter=knowledge`）。
 4. この機能より前に処理したInboxは、処理結果の「〜へ振り分け」「寝かせる（再訪 日付）」という文言から振り分け先を復元する。「Wantsに登録」とだけ記録された旧データは振り分け先不明として扱う。
+
+### Knowledge候補を後でまとめて処理する
+
+1. 「調べる」を確定しても`public.knowledge`へは書き込まない。`want_routes`の`destination='knowledge'`かつ`status='planned'`が候補キューになる。
+2. 後続のLLM処理は、この候補と元の`wants`をSupabaseから読み込み、関連候補をまとめて調査する。
+3. 調査結果を正式登録する前にKnowledge DB内の重複、カテゴリ、タグ、根拠を検証する。
+4. 登録できた候補だけをKnowledgeへ追加し、対応する`want_routes`を`created`と対象IDで更新する。調査不足・重複・登録失敗の候補は`planned`のまま残す。
+5. この後続処理はInbox整理とは別の明示実行とし、候補保存時には外部調査もKnowledge登録も開始しない。
 
 ### 振り分け履歴の持ち方
 
@@ -79,7 +111,8 @@ Inboxへ登録
 - AIは提案専用で、Google Calendar、GitHub、Knowledge DB、Journal、Supabaseを操作できない。
 - AIの出力は許可済みの分類・振り分け先だけを受け付け、サーバー側でも再検証する。
 - AI案は未保存。ユーザーが既存の確認画面で確定するまで正本も履歴も変えない。
-- 調査結果をKnowledgeやWritingへさらに育てる場合は、その結果を新しいWantとして登録し、別の明示操作でAIへ整理を依頼する。
+- AI整理は、後で再利用可能な知識へ育てたい未解決の問いをKnowledge候補として提案できる。予定を確保して自分で調査したい場合だけCalendarを提案する。
+- Knowledge候補の一括調査・正式登録は、Inbox整理とは別の後続LLM処理が担う。
 
 ## 現在の接続境界
 
@@ -89,10 +122,11 @@ Inboxへ登録
 | Habits | `habits` へ登録し、対象IDを確認 |
 | Focus | `focus_items` へ登録し、対象IDを確認 |
 | アーカイブ | 振り分け完了として履歴を保存（「整理する」から選ぶ） |
+| 欲しい | `wants`へ`type='wish'`で登録。購入処理なし |
 | 寝かせる | `wants`へ`revisit_on`つきで登録し、再訪日に浮上させる |
 | Google Calendar | OAuth接続後、日付・時間を確認してメインカレンダーへ作成し、再取得したID・URLを保存 |
 | GitHub | `planned` として保存。外部送信なし |
-| Knowledge DB | `planned` として保存。重複・カテゴリ検証前には登録しない |
+| Knowledge DB | Knowledge候補を`planned`として保存。後続LLMがまとめて調査し、重複・カテゴリ検証後に登録する |
 | Journal | `planned` として保存。既存Journalの書込仕様確定前には登録しない |
 
 Google Calendarは `calendar.events` scopeだけを要求し、`primary` カレンダーへ `Asia/Tokyo` で一方向に新規作成します。日付のみなら終日、日時なしなら登録を拒否します。更新トークンはサーバーで暗号化し、Claudeとブラウザには渡しません。GitHub・Knowledge DB・Journalは、認証方法、下書き内容、重複防止、作成後の再取得方法を個別に合意してから有効化します。

@@ -80,6 +80,18 @@ test("Wants preview treats every Active Want as requiring organization", () => {
   assert.ok(hub.wants.every((item) => item.triageState === "untriaged"));
 });
 
+test("Hub keeps wishes and future deferred Wants active without counting them as untriaged", () => {
+  const hub = normalizeHub([], [
+    { id: 1, content: "未整理", status: "active", type: "want", created_at: "2026-09-01T00:00:00Z" },
+    { id: 2, content: "欲しい", status: "active", type: "wish", created_at: "2026-09-02T00:00:00Z" },
+    { id: 3, content: "寝かせる", status: "active", type: "want", revisit_on: "2099-01-01", created_at: "2026-09-03T00:00:00Z" },
+  ], [], [], {}, now);
+
+  assert.equal(hub.summary.activeWants, 3);
+  assert.equal(hub.summary.untriagedWants, 1);
+  assert.deepEqual(hub.wants.map((item) => item.id), [1]);
+});
+
 test("Focus preview keeps active items in board order and caps the Hub at five", () => {
   const focusRows = Array.from({ length: 7 }, (_, index) => ({
     id: index + 1,

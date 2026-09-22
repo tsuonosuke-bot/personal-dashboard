@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { onRequest as wantRoute } from "../functions/api/wants.ts";
 
@@ -70,6 +71,35 @@ test("寝かせるWantは再訪日とメモを一緒に登録する", async () =
   }
 });
 
+test("欲しいものはwish種別のactive Wantとして登録する", async () => {
+  const originalFetch = globalThis.fetch;
+  let seenInit: RequestInit | undefined;
+  globalThis.fetch = async (_input, init) => {
+    seenInit = init;
+    return Response.json([{ id: 53, content: "新しいイヤホン", status: "active", type: "wish" }]);
+  };
+  try {
+    const response = await wantRoute({
+      request: request("want-create", { content: "新しいイヤホン", type: "wish", note: "軽いもの" }),
+      env,
+    });
+    assert.equal(response.status, 201);
+    assert.deepEqual(JSON.parse(String(seenInit?.body)), {
+      content: "新しいイヤホン",
+      status: "active",
+      type: "wish",
+      note: "軽いもの",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("wish種別のmigrationは既存のconcern種別を維持する", async () => {
+  const sql = await readFile(new URL("../supabase/migrations/202609220001_wants_wish_type.sql", import.meta.url), "utf8");
+  assert.match(sql, /type in \('want', 'concern', 'wish'\)/i);
+});
+
 test("再訪日は日付形式と今日以降であることを検証する", async () => {
   const malformed = await wantRoute({
     request: request("want-create", { content: "後で考える", revisitOn: "2026/10/01" }),
@@ -102,4 +132,10 @@ test("不正なOrigin、余分な項目を拒否する", async () => {
     env,
   });
   assert.equal(extraField.status, 400);
+
+  const invalidType = await wantRoute({
+    request: request("want-create", { content: "Want", type: "other" }),
+    env,
+  });
+  assert.equal(invalidType.status, 400);
 });

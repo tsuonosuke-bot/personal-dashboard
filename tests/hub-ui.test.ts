@@ -183,23 +183,40 @@ test("Compass closes actionable Inbox and Wants with conflict-safe updates", asy
   assert.match(script, /const refreshed = await loadDashboard\(\)/);
 });
 
-test("Compass triages an Inbox item without a detour through Wants", async () => {
+test("Compass exposes all nine first-class Inbox outcomes without hiding the detailed triage menu", async () => {
   const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
 
   assert.match(script, /id="triageInboxButton"/);
   assert.match(script, /data-inbox-route="\$\{key\}"/);
-  assert.match(script, /calendar: \{ label: "カレンダー"[\s\S]*destination: "calendar" \}/);
-  assert.match(script, /writing: \{ label: "Writing"[\s\S]*destination: "writing" \}/);
-  assert.match(script, /habit: \{ label: "Habits"[\s\S]*destination: "habit" \}/);
+  assert.match(script, /calendar: \{ label: "予定"[^}]*destination: "calendar" \}/);
+  assert.match(script, /wish: \{ label: "欲しい"/);
+  assert.match(script, /writing: \{ label: "考える"[^}]*destination: "writing" \}/);
+  assert.match(script, /knowledge: \{ label: "調べる"[^}]*destination: "knowledge" \}/);
+  assert.match(script, /habit: \{ label: "習慣"[^}]*destination: "habit" \}/);
   assert.match(script, /focus: \{ label: "Focus"[\s\S]*destination: "focus" \}/);
-  assert.match(script, /knowledge: \{ label: "Knowledge"[\s\S]*destination: "knowledge" \}/);
-  assert.match(script, /data-inbox-route="\$\{DEFER_ROUTE\}"/);
+  assert.match(script, /github: \{ label: "作りたい"[^}]*destination: "github" \}/);
+  assert.match(script, /journal: \{ label: "気分"[^}]*destination: "journal" \}/);
+  assert.match(script, /defer: \{ label: "寝かせる"/);
+  assert.match(script, /function renderTriageStart\(item\)/);
   assert.match(script, /async function createWantFromSource\(sourceItem, extra = \{\}\)/);
   assert.match(script, /async function markInboxTriaged\(sourceItem, result\)/);
   assert.match(script, /"X-Dashboard-Action": "inbox-update"/);
   assert.match(script, /へ振り分け`\)/);
   assert.doesNotMatch(script, /createWantButton|markInboxPromoted|Wantsに登録/);
   assert.doesNotMatch(script, /action-create|action-update|createActionButton|editActionButton/);
+});
+
+test("Compass stores 欲しい as a typed active Want", async () => {
+  const [script, style] = await Promise.all([
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(script, /function renderWishForm\(sourceItem\)/);
+  assert.match(script, /\{ type: "wish", note: note \|\| null \}/);
+  assert.match(script, /欲しいものとしてWantsに保存/);
+  assert.match(script, /item\.type !== "wish"/);
+  assert.match(style, /\.route-chip-wish \{[^}]*var\(--blue\)/);
 });
 
 test("Compass separates Knowledge-bound items from other triage outcomes", async () => {

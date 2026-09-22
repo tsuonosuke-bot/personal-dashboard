@@ -106,6 +106,8 @@ test("AI整理はWantを再確認し、Structured Outputsで提案だけを取�
     assert.equal(claudeBody.output_config.format.schema.properties.questions.maxItems, undefined);
     assert.equal(claudeBody.output_config.format.schema.properties.suggestions.maxItems, undefined);
     assert.match(claudeBody.system, /Do not create events, issues, database records, or tool calls/);
+    assert.match(claudeBody.system, /planned Knowledge candidate in Supabase/);
+    assert.match(claudeBody.system, /Do not require the learning to be already resolved/);
     assert.match(claudeBody.messages[0].content, /AIと思考力について考えたい/);
     assert.equal(claudeBody.tools, undefined);
     assert.ok(!requests.some(({ url }) => /google|github|knowledge|journal/.test(url.hostname)));

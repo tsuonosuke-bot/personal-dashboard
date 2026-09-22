@@ -167,6 +167,7 @@ function safeNavigationUrl(value: string | undefined): string | null {
 }
 
 const DESTINATION_LABELS: Record<string, string> = {
+  wish: "欲しい",
   calendar: "Google Calendar",
   github: "GitHub Issue",
   writing: "Writing",
@@ -206,11 +207,15 @@ function triageFromResult(result: string | null): InboxTriage {
   }
   const deferred = /^寝かせる[(（]再訪\s*(\d{4}-\d{2}-\d{2})[)）]/.exec(result);
   if (deferred) return { destinations: [], revisitOn: deferred[1], source: "result" };
+  if (result === "欲しいものとしてWantsに保存") {
+    return { destinations: [{ destination: "wish", status: "created" }], revisitOn: null, source: "result" };
+  }
   return { destinations: [], revisitOn: null, source: null };
 }
 
 interface LinkedWant {
   status: string;
+  type: string;
   revisitOn: string | null;
   routes: { destination: string; status: string }[];
 }
@@ -219,6 +224,7 @@ function inboxTriage(result: string | null, linkedWants: LinkedWant[]): InboxTri
   const destinations = new Map<string, string>();
   let revisitOn: string | null = null;
   linkedWants.forEach((want) => {
+    if (want.status === "active" && want.type === "wish") destinations.set("wish", "created");
     want.routes.forEach((route) => {
       if (route.status !== "planned" && route.status !== "created") return;
       if (destinations.get(route.destination) !== "created") destinations.set(route.destination, route.status);
@@ -297,6 +303,8 @@ export function normalizeDashboard(
   }));
 
   const activeWants = wants.filter((item) => item.status === "active");
+  const untriagedWants = activeWants.filter((item) => item.type !== "wish"
+    && (item.revisitOn === null || item.revisitOn <= today));
   const completedWants = wants.filter((item) => item.status === "completed");
 
   return {
@@ -316,7 +324,7 @@ export function normalizeDashboard(
       pendingInbox: inbox.filter((item) => item.status === "pending").length,
       wantsTotal: wants.length,
       activeWants: activeWants.length,
-      untriagedWants: activeWants.length,
+      untriagedWants: untriagedWants.length,
       completedWants: completedWants.length,
       dueForReview: wants.filter((item) => item.status === "active" && item.revisitOn !== null && item.revisitOn <= today).length,
       knowledgePending: inboxWithTriage.filter((item) => item.triage.destinations

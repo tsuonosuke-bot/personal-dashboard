@@ -19,7 +19,14 @@ export interface HubAvailability {
 type TableName = "idea_inbox" | "wants" | "focus_items" | "expenses" | "knowledge" | "daily_journal";
 
 interface InboxRow { status?: unknown }
-interface WantRow { id?: unknown; content?: unknown; status?: unknown; created_at?: unknown }
+interface WantRow {
+  id?: unknown;
+  content?: unknown;
+  status?: unknown;
+  type?: unknown;
+  revisit_on?: unknown;
+  created_at?: unknown;
+}
 interface ExpenseRow {
   id?: unknown;
   transaction_date?: unknown;
@@ -467,6 +474,8 @@ export function normalizeHub(
       url: id !== null && id > 0 ? `/compass/?view=wants&id=${id}` : "/compass/?view=wants",
       content: text(row.content) || "内容なし",
       status: text(row.status).toLowerCase(),
+      type: text(row.type).toLowerCase() || "want",
+      revisitOn: plainDate(row.revisit_on),
       createdAt: date(row.created_at),
     };
   });
@@ -476,12 +485,14 @@ export function normalizeHub(
       const createdDate = jstPlainDate(want.createdAt);
       return {
         ...want,
-        triageState: "untriaged",
         ageDays: createdDate ? Math.max(0, daysBetween(createdDate, today)) : null,
       };
     })
     .sort((left, right) => (left.createdAt || "9999").localeCompare(right.createdAt || "9999") || (left.id ?? 0) - (right.id ?? 0));
-  const selectedWants = activeWants.slice(0, 3);
+  const untriagedWants = activeWants
+    .filter((want) => want.type !== "wish" && (want.revisitOn === null || want.revisitOn <= today))
+    .map((want) => ({ ...want, triageState: "untriaged" }));
+  const selectedWants = untriagedWants.slice(0, 3);
   const focus = normalizeFocusRows(focusRows)
     .filter((item) => item.status === "active")
     .slice(0, FOCUS_LIMIT);
@@ -537,8 +548,8 @@ export function normalizeHub(
         : null,
       weakKnowledge: availability.knowledge ? knowledge.weakCount : null,
       activeWants: availability.wants ? activeWants.length : null,
-      untriagedWants: availability.wants ? activeWants.length : null,
-      oldestUntriagedDays: availability.wants && activeWants.length ? activeWants[0].ageDays : null,
+      untriagedWants: availability.wants ? untriagedWants.length : null,
+      oldestUntriagedDays: availability.wants && untriagedWants.length ? untriagedWants[0].ageDays : null,
       activeHabits: availability.habits !== false ? habitOverview?.summary.active ?? 0 : null,
       completedHabitsToday: availability.habits !== false ? habitOverview?.summary.completedToday ?? 0 : null,
       remainingHabitsToday: availability.habits !== false ? habitOverview?.summary.remainingToday ?? 0 : null,
@@ -565,7 +576,7 @@ export async function loadHub(env: HubEnv, now = new Date()) {
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
   const [inbox, wants, focus, expenses, knowledge, reviewStatus, journal, habits] = await Promise.allSettled([
     fetchRows(env, { table: "idea_inbox", select: "status" }) as Promise<InboxRow[]>,
-    fetchRows(env, { table: "wants", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<WantRow[]>,
+    fetchRows(env, { table: "wants", select: "id,content,status,type,revisit_on,created_at", order: "created_at.desc,id.desc" }) as Promise<WantRow[]>,
     fetchFocusRows(env),
     fetchDashboardRows(env, financialUrl, "/api/expenses") as Promise<ExpenseRow[]>,
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,

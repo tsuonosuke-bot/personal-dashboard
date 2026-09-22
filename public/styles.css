@@ -121,6 +121,7 @@ footer { display: flex; justify-content: space-between; width: min(1180px, calc(
 .route-chips { display: inline-flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
 .route-chip { padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .02em; }
 .route-chip-pending { border-color: var(--orange); color: var(--orange); background: var(--orange-soft); }
+.route-chip-wish { border-color: var(--blue); color: var(--blue); background: var(--blue-soft); }
 .route-chip-revisit { border-color: var(--green); color: var(--green); background: var(--green-soft); }
 .route-chip-quiet { border-style: dashed; }
 .filter-chip { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--muted); font-size: 11px; font-weight: 700; cursor: pointer; }

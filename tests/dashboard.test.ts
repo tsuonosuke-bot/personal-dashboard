@@ -29,7 +29,7 @@ test("dashboard summary and future navigation are normalized", () => {
     pendingInbox: 1,
     wantsTotal: 2,
     activeWants: 1,
-    untriagedWants: 1,
+    untriagedWants: 0,
     completedWants: 1,
     dueForReview: 0,
     knowledgePending: 0,
@@ -52,10 +52,12 @@ test("Inbox rows carry where they were routed, from the linked Want or the resul
       { id: 3, content: "今は動かさない", status: "done", result: "寝かせる（再訪 2099-01-01）", created_at: "2026-09-20T00:00:00Z" },
       { id: 4, content: "未整理", status: "pending", created_at: "2026-09-20T00:00:00Z" },
       { id: 5, content: "旧データ", status: "done", result: "Wantsに登録", created_at: "2026-09-01T00:00:00Z" },
+      { id: 6, content: "軽いイヤホンが欲しい", status: "done", result: "欲しいものとしてWantsに保存", created_at: "2026-09-20T00:00:00Z" },
     ],
     [
       { id: 20, content: "Knowledgeで確かめたい", status: "completed", source_inbox_id: 1, created_at: "2026-09-20T00:00:00Z" },
       { id: 21, content: "今は動かさない", status: "active", revisit_on: "2099-01-01", source_inbox_id: 3, created_at: "2026-09-20T00:00:00Z" },
+      { id: 22, content: "軽いイヤホンが欲しい", status: "active", type: "wish", source_inbox_id: 6, created_at: "2026-09-20T00:00:00Z" },
     ],
     {},
     [
@@ -63,7 +65,7 @@ test("Inbox rows carry where they were routed, from the linked Want or the resul
     ],
   );
 
-  const [knowledge, writing, deferred, untriaged, legacy] = dashboard.inbox;
+  const [knowledge, writing, deferred, untriaged, legacy, wish] = dashboard.inbox;
   assert.deepEqual(knowledge.triage, {
     destinations: [{ destination: "knowledge", status: "planned" }],
     revisitOn: null,
@@ -77,6 +79,11 @@ test("Inbox rows carry where they were routed, from the linked Want or the resul
   assert.deepEqual(deferred.triage, { destinations: [], revisitOn: "2099-01-01", source: "route" });
   assert.deepEqual(untriaged.triage, { destinations: [], revisitOn: null, source: null });
   assert.deepEqual(legacy.triage, { destinations: [], revisitOn: null, source: null });
+  assert.deepEqual(wish.triage, {
+    destinations: [{ destination: "wish", status: "created" }],
+    revisitOn: null,
+    source: "route",
+  });
   assert.equal(dashboard.summary.knowledgePending, 1);
   assert.equal(dashboard.wants[0].sourceInboxId, 1);
 });

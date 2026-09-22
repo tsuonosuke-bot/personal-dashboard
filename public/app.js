@@ -69,13 +69,18 @@ const closeMeta = {
 };
 
 const DEFER_ROUTE = "defer";
+const WISH_ROUTE = "wish";
 
 const inboxQuickRoutes = {
-  calendar: { label: "カレンダー", description: "日付を決めて動く", intent: "act", destination: "calendar" },
-  writing: { label: "Writing", description: "文章に育てる", intent: "explore", destination: "writing" },
-  habit: { label: "Habits", description: "習慣にする", intent: "continue", destination: "habit" },
+  calendar: { label: "予定", description: "日付を決めて動く", intent: "act", destination: "calendar" },
+  wish: { label: "欲しい", description: "欲しいものとして残す" },
+  writing: { label: "考える", description: "Writingで考えを育てる", intent: "explore", destination: "writing" },
+  knowledge: { label: "調べる", description: "Knowledge候補として残す", intent: "explore", destination: "knowledge" },
+  habit: { label: "習慣", description: "繰り返す行動にする", intent: "continue", destination: "habit" },
   focus: { label: "Focus", description: "意識し続ける", intent: "keep", destination: "focus" },
-  knowledge: { label: "Knowledge", description: "調べて確かめる", intent: "explore", destination: "knowledge" },
+  github: { label: "作りたい", description: "GitHub候補として残す", intent: "act", destination: "github" },
+  journal: { label: "気分", description: "Journal候補として残す", intent: "keep", destination: "journal" },
+  defer: { label: "寝かせる", description: "再訪日を決めて置く" },
 };
 
 const routeIntentMeta = {
@@ -87,6 +92,7 @@ const routeIntentMeta = {
 };
 
 const routeDestinationMeta = {
+  wish: { label: "欲しい", description: "欲しいものとしてWantsに残す", internal: true },
   calendar: { label: "Google Calendar", description: "タスク・予定・調査時間をメインカレンダーへ登録", internal: false },
   github: { label: "GitHub Issue", description: "ソフトウェアの実装候補として保存", internal: false },
   writing: { label: "Writing", description: "掘り下げたいエッセイ候補として登録", internal: true },
@@ -106,8 +112,13 @@ const destinationsByIntent = {
 };
 
 const quickWantRoutes = {
-  writing: { label: "Writing", description: "文章に育てる", intent: "explore", destination: "writing" },
-  habit: { label: "Habits", description: "習慣にする", intent: "continue", destination: "habit" },
+  calendar: { label: "予定", description: "日付を決めて動く", intent: "act", destination: "calendar" },
+  writing: { label: "考える", description: "Writingで考えを育てる", intent: "explore", destination: "writing" },
+  knowledge: { label: "調べる", description: "Knowledge候補として残す", intent: "explore", destination: "knowledge" },
+  habit: { label: "習慣", description: "繰り返す行動にする", intent: "continue", destination: "habit" },
+  focus: { label: "Focus", description: "意識し続ける", intent: "keep", destination: "focus" },
+  github: { label: "作りたい", description: "GitHub候補として残す", intent: "act", destination: "github" },
+  journal: { label: "気分", description: "Journal候補として残す", intent: "keep", destination: "journal" },
   archive: { label: "Archive", description: "今回は見送る", intent: "discard", destination: "archive" },
 };
 
@@ -200,7 +211,9 @@ function currentItems() {
   let items = state.data[state.view] || [];
   if (state.status) items = items.filter((item) => item.status === state.status);
   if (state.view === "wants" && state.metricFilter === "untriaged") {
-    items = items.filter((item) => item.status === "active");
+    items = items.filter((item) => item.status === "active"
+      && item.type !== "wish"
+      && (!item.revisitOn || item.revisitOn <= todayInTokyo()));
   }
   if (state.metricFilter === "knowledge") {
     items = items.filter((item) => isKnowledgePending(item, state.view));
@@ -253,6 +266,12 @@ function statusLabel(status) {
   return ({ pending: "未整理", done: "整理済み", skipped: "対象外", active: "未整理", completed: "整理済み", dropped: "見送り", closed: "完了" })[status] || status;
 }
 
+function itemStatusLabel(item, view = state.view) {
+  if (view === "wants" && item.status === "active" && item.type === "wish") return "欲しい";
+  if (view === "wants" && item.status === "active" && item.revisitOn && item.revisitOn > todayInTokyo()) return "寝かせ中";
+  return statusLabel(item.status);
+}
+
 function canCloseItem(item, view) {
   return !closedStatusesByView[view]?.has(item.status);
 }
@@ -269,6 +288,7 @@ function triageEntries(item, view) {
   });
   return {
     destinations: [...destinations].map(([destination, status]) => ({ destination, status })),
+    wish: item.status === "active" && item.type === "wish",
     revisitOn: item.status === "active" ? item.revisitOn || null : null,
   };
 }
@@ -279,7 +299,7 @@ function isKnowledgePending(item, view) {
 }
 
 function triageChips(item, view) {
-  const { destinations, revisitOn } = triageEntries(item, view);
+  const { destinations, wish, revisitOn } = triageEntries(item, view);
   const chips = destinations.map((entry) => {
     const label = routeDestinationMeta[entry.destination]?.label || entry.destination;
     if (entry.destination === "knowledge" && entry.status === "planned") {
@@ -288,6 +308,7 @@ function triageChips(item, view) {
     const pending = entry.status === "planned" ? "登録待ち" : "";
     return `<span class="route-chip">${escapeHtml(label)}${pending ? ` · ${pending}` : ""}</span>`;
   });
+  if (wish) chips.push('<span class="route-chip route-chip-wish">欲しい</span>');
   if (revisitOn) chips.push(`<span class="route-chip route-chip-revisit">再訪 ${escapeHtml(formatDate(revisitOn))}</span>`);
   if (chips.length > 0) return chips.join("");
   if (view === "wants" && item.status === "active") return '<span class="route-chip route-chip-quiet">未振り分け</span>';
@@ -296,7 +317,7 @@ function triageChips(item, view) {
 
 function cardMarkup(item) {
   return `<button class="item-card" type="button" data-id="${item.id}">
-    <div class="item-top"><span class="item-id">${viewMeta[state.view].singular.toUpperCase()} · ${item.id ?? "?"}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(statusLabel(item.status))}</span></div>
+    <div class="item-top"><span class="item-id">${viewMeta[state.view].singular.toUpperCase()} · ${item.id ?? "?"}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(itemStatusLabel(item))}</span></div>
     <h3>${escapeHtml(item.content || "内容なし")}</h3>
     <div class="item-footer"><span>${formatDate(item.createdAt)}</span><span class="route-chips">${triageChips(item, state.view)}</span></div>
   </button>`;
@@ -353,7 +374,7 @@ function renderDrawerItem(item, view) {
   els.drawerKicker.textContent = `${viewMeta[view].singular} · ${item.id}`;
   els.drawerTitle.textContent = item.content || "内容なし";
   let body = `<div class="detail-grid">
-    <div class="detail-box"><span>Status</span><strong>${escapeHtml(statusLabel(item.status))}</strong></div>
+    <div class="detail-box"><span>Status</span><strong>${escapeHtml(itemStatusLabel(item, view))}</strong></div>
     <div class="detail-box"><span>Created</span><strong>${escapeHtml(formatDate(item.createdAt, true))}</strong></div>
   </div>`;
   if (view === "inbox") {
@@ -363,7 +384,6 @@ function renderDrawerItem(item, view) {
           <p>選ぶとそのまま入力画面へ進みます。迷う場合は「整理する」。</p>
           <div class="quick-route-actions" role="group" aria-label="Inboxの扱い">
             ${Object.entries(inboxQuickRoutes).map(([key, quick]) => `<button class="quick-route-action" type="button" data-inbox-route="${key}"><strong>${escapeHtml(quick.label)}</strong><small>${escapeHtml(quick.description)}</small></button>`).join("")}
-            <button class="quick-route-action" type="button" data-inbox-route="${DEFER_ROUTE}"><strong>寝かせる</strong><small>再訪日を決めて置く</small></button>
           </div>
         </div>`
       : "";
@@ -428,6 +448,10 @@ function startInboxRoute(item, key) {
   if (item.status !== "pending") return;
   if (key === DEFER_ROUTE) {
     renderDeferForm(item);
+    return;
+  }
+  if (key === WISH_ROUTE) {
+    renderWishForm(item);
     return;
   }
   const quick = inboxQuickRoutes[key];
@@ -1089,6 +1113,87 @@ async function markInboxTriaged(sourceItem, result) {
   const payload = await response.json().catch(() => ({}));
   const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
   if (!response.ok) throw new Error(message || "元のInboxを整理済みにできませんでした。");
+}
+
+function renderWishForm(sourceItem) {
+  els.drawerKicker.textContent = triageKicker(sourceItem, "inbox");
+  els.drawerTitle.textContent = "欲しい";
+  els.drawerBody.innerHTML = `<form class="edit-form" id="wishForm">
+    <div class="source-context"><span>元のInbox</span><p>${escapeHtml(sourceItem.content)}</p></div>
+    <p class="route-boundary">購入予定にはせず、欲しいものとしてWantsに残します。必要になったら予定・調査・見送りへ振り分けられます。</p>
+    <label class="form-field" for="wishContent">
+      <span>欲しいもの</span>
+      <textarea id="wishContent" name="content" rows="6" maxlength="2000" required>${escapeHtml(sourceItem.content)}</textarea>
+      <small><b id="wishContentCount">${sourceItem.content.length}</b> / 2000</small>
+    </label>
+    <label class="form-field" for="wishNote">
+      <span>メモ <small>空欄可</small></span>
+      <textarea id="wishNote" name="note" rows="4" maxlength="2000" placeholder="欲しい理由、条件、候補など"></textarea>
+    </label>
+    <p class="form-error" id="wishError" role="alert" hidden></p>
+    <div class="drawer-actions">
+      <button class="secondary-action" id="cancelWish" type="button">戻る</button>
+      <button class="primary-action" id="saveWishButton" type="submit">欲しいものとして保存</button>
+    </div>
+  </form>`;
+
+  const form = document.getElementById("wishForm");
+  const content = document.getElementById("wishContent");
+  content.addEventListener("input", () => { document.getElementById("wishContentCount").textContent = content.value.length; });
+  document.getElementById("cancelWish").addEventListener("click", () => renderDrawerItem(sourceItem, "inbox"));
+  form.addEventListener("submit", (event) => saveWish(event, sourceItem));
+  content.focus();
+  content.setSelectionRange(content.value.length, content.value.length);
+}
+
+function setWishError(message) {
+  const error = document.getElementById("wishError");
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+}
+
+async function saveWish(event, sourceItem) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const content = form.elements.content.value.trim();
+  const note = form.elements.note.value.trim();
+  if (!content) {
+    setWishError("欲しいものを入力してください。");
+    form.elements.content.focus();
+    return;
+  }
+
+  const submit = document.getElementById("saveWishButton");
+  const cancel = document.getElementById("cancelWish");
+  submit.disabled = true;
+  cancel.disabled = true;
+  submit.textContent = "保存中…";
+  setWishError("");
+
+  try {
+    await createWantFromSource({ ...sourceItem, content }, { type: "wish", note: note || null });
+    let inboxWarning = "";
+    try {
+      await markInboxTriaged(sourceItem, "欲しいものとしてWantsに保存");
+    } catch {
+      inboxWarning = "Wantsへ保存しましたが、元のInboxを整理済みにできませんでした。Inboxを再読込して確認してください。";
+    }
+    const refreshed = await loadDashboard();
+    if (!refreshed) {
+      setWishError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
+      return;
+    }
+    showToast(inboxWarning || "欲しいものとしてWantsに保存し、Inboxを整理済みにしました。");
+  } catch (error) {
+    setWishError(error instanceof Error ? error.message : "欲しいものとして保存できませんでした。");
+  } finally {
+    if (submit.isConnected) {
+      submit.disabled = false;
+      cancel.disabled = false;
+      submit.textContent = "欲しいものとして保存";
+    }
+  }
 }
 
 function renderDeferForm(sourceItem) {

@@ -23,6 +23,7 @@ export const WANT_CREATE: ItemCreateDefinition = {
 
 export interface ItemCreateInput {
   content: string;
+  type: "want" | "wish";
   revisitOn: string | null;
   note: string | null;
   sourceInboxId: number | null;
@@ -94,7 +95,7 @@ export async function readItemCreateInput(request: Request): Promise<ValidationR
   if (!isPlainObject(value)) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
-  const optionalKeys = ["revisitOn", "note", "sourceInboxId"];
+  const optionalKeys = ["type", "revisitOn", "note", "sourceInboxId"];
   if (Object.keys(value).some((key) => key !== "content" && !optionalKeys.includes(key)) || !("content" in value)) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
@@ -104,6 +105,14 @@ export async function readItemCreateInput(request: Request): Promise<ValidationR
   const content = value.content.trim();
   if (content.length > MAX_CONTENT_CHARS) {
     return { ok: false, status: 400, error: `内容は${MAX_CONTENT_CHARS}文字以内で入力してください。` };
+  }
+
+  let type: ItemCreateInput["type"] = "want";
+  if ("type" in value) {
+    if (value.type !== "want" && value.type !== "wish") {
+      return { ok: false, status: 400, error: "Wantの種類が正しくありません。" };
+    }
+    type = value.type;
   }
 
   let revisitOn: string | null = null;
@@ -137,7 +146,7 @@ export async function readItemCreateInput(request: Request): Promise<ValidationR
     sourceInboxId = Number(value.sourceInboxId);
   }
 
-  return { ok: true, value: { content, revisitOn, note, sourceInboxId } };
+  return { ok: true, value: { content, type, revisitOn, note, sourceInboxId } };
 }
 
 export async function insertItem(
@@ -163,7 +172,7 @@ export async function insertItem(
   const payload: Record<string, string | number> = {
     content: input.content,
     status: definition.status,
-    type: definition.type,
+    type: input.type,
   };
   if (input.revisitOn) payload.revisit_on = input.revisitOn;
   if (input.note) payload.note = input.note;
