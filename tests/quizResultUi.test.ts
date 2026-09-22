@@ -94,7 +94,7 @@ test("優先度の説明は各問題に繰り返さず、結果画面に一度�
 test("復習・英会話・ダッシュボードの切替時にスクロール位置を先頭へ戻す", async () => {
   const app = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
 
-  assert.match(app, /const view = showQuiz \? "quiz" : showSpeaking \? "speaking" : "dashboard";/);
+  assert.match(app, /const view = showQuiz \? "quiz" : showSpeaking \? "speaking" : showLog \? "log" : "dashboard";/);
   assert.match(app, /useLayoutEffect\(\(\) => \{[\s\S]*?window\.scrollTo\(0, 0\);[\s\S]*?\}, \[view\]\);/);
   assert.ok(app.indexOf("window.scrollTo(0, 0)") < app.indexOf("if (showQuiz) {"));
 });

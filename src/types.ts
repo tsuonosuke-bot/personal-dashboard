@@ -49,6 +49,15 @@ export interface QuizLog {
   created_at: string;
 }
 
+/** 習熟度の変更履歴。is_baselineは記録開始時点の状態。 */
+export interface MasteryHistoryEvent {
+  id: number;
+  knowledge_id: string;
+  to_mastery: Mastery;
+  is_baseline: boolean;
+  changed_at: string;
+}
+
 /** 復習スケジュールとは独立して記録する英会話練習の種別。 */
 export type SpeakingPracticeType = "instant_composition" | "read_aloud";
 

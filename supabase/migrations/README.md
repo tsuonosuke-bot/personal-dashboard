@@ -16,6 +16,10 @@ build that depends on them.
 - `20260921130000_speaking_practice.sql` adds an idempotent speaking-practice
   log and write RPC. These records never update `quiz_log`, mastery, or the
   review schedule.
+- `20260923090000_knowledge_mastery_history.sql` records every mastery change
+  (plus one baseline row per existing card) so mastery counts can be charted
+  over time. The trigger function is `SECURITY DEFINER` so every writer of
+  `knowledge` can append history without direct table rights.
 
 After applying a migration, verify its functions with `pg_get_functiondef` and
 verify the new column/trigger through `information_schema` before deploying the

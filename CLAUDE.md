@@ -61,6 +61,13 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - 他: `knowledge_id`, `asked_on`, `quality`, `note`, `attempt_id`（署名済み出題nonce）、
   `was_early`、`schedule_updated`
 
+### `knowledge_mastery_history`
+
+- 習熟度の変更履歴。`knowledge` のINSERTと`mastery`の変更時にトリガー
+  （`log_knowledge_mastery_change`、SECURITY DEFINER）が1行追記する
+- `is_baseline = true` は記録開始時点（2026-09-23のマイグレーション）の状態。それ以前の推移は存在しない
+- 他: `knowledge_id`, `from_mastery`, `to_mastery`, `changed_at`。アプリからは読み取りのみ
+
 ### `speaking_practice_log`
 
 - 英会話練習専用。`quiz_log`、習熟度、次回復習日を変更しない
@@ -79,6 +86,7 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `PATCH /api/knowledge/:id`: UUIDと`content_version`で特定した1件の編集、アーカイブ、復元。
   競合時は409で止め、後勝ち上書きをしない
 - `GET /api/quiz-log`: 明示した列を新しい順に制限付きページング
+- `GET /api/mastery-history`: 習熟度履歴の明示した列を古い順に制限付きページング
 - `GET /api/speaking-practice`: 指定期間の英会話練習履歴を新しい順に取得
 - `POST /api/speaking-practice`: 検証済みの1練習を`attempt_id`で冪等記録
 - `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す。
@@ -202,6 +210,10 @@ public/
 - フィルタ変更時と更新時はページ番号を1へ戻す。
 - モーダルはフォーカスを内部に保ち、閉じたら呼び出し元へ戻す。
 - QuizViewの出題カテゴリは登録済みカテゴリから組み立てる。固定の選択肢を持たない。
+- ダークモードは `public/theme.js`（Hubと共通、`dashboard-theme` をlocalStorageに保存）が
+  `<html data-theme>` を自動/ライト/ダークで決める。CSSはライトだけを書き、変更後は `npm run theme` で
+  `src/index.dark.css` を再生成する（手で編集しない。古いとテストが落ちる）。rechartsの色は
+  `index.css` 末尾の `:root[data-theme="dark"]` ルールで上書きする。
 - `KnowledgeDetailModal` は `onEdit` / `onArchive` を省くと読み取り専用になる。
   クイズの採点結果から出典を開くときは `onEdit` だけを渡し、アーカイブ操作は出さない。
   採点結果のアーカイブは各問題の編集パネルで確認ダイアログつきで行い、同じ画面で元に戻せる。

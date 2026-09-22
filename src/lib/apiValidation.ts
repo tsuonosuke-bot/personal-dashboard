@@ -1,5 +1,5 @@
 import type {
-  DailyReviewCategoryCount, DailyReviewStatus, Knowledge, KnowledgePriority, Mastery, QuizEmptyReason, QuizFormat,
+  DailyReviewCategoryCount, DailyReviewStatus, Knowledge, KnowledgePriority, Mastery, MasteryHistoryEvent, QuizEmptyReason, QuizFormat,
   QuizGenerationFailure, QuizGradeFailure, QuizGradeFailurePhase, QuizGradeResponse, QuizGradeResult, QuizLog, QuizQuestion,
   QuizStart, QuizVerdict, RecoveryPreview,
   RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
@@ -370,6 +370,21 @@ export function parseQuizLog(value: unknown): QuizLog {
     format: stringValue(value, "format", entity),
     note: nullableStringValue(value, "note", entity),
     created_at: stringValue(value, "created_at", entity),
+  };
+}
+
+export function parseMasteryHistoryEvent(value: unknown): MasteryHistoryEvent {
+  const entity = "習熟度履歴";
+  if (!isRecord(value)) return fail(entity);
+  const mastery = stringValue(value, "to_mastery", entity);
+  if (!MASTERY_VALUES.has(mastery as Mastery)) return fail(entity, "to_mastery");
+  if (typeof value.is_baseline !== "boolean") return fail(entity, "is_baseline");
+  return {
+    id: numberValue(value, "id", entity),
+    knowledge_id: stringValue(value, "knowledge_id", entity),
+    to_mastery: mastery as Mastery,
+    is_baseline: value.is_baseline,
+    changed_at: stringValue(value, "changed_at", entity),
   };
 }
 

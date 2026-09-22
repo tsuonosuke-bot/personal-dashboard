@@ -418,7 +418,34 @@ function buildUserText(
   }));
 }
 
-/** AIを1回呼んで問題文と（四択なら）選択肢を取り出す。選択肢の妥当性チェックは呼び出し側で行う。 */
+function describeToolInputShape(input: unknown): string {
+  if (typeof input !== "object" || input === null) return input === null ? "null" : typeof input;
+  const record = input as Record<string, unknown>;
+  const keys = Object.keys(record).slice(0, 10).join(", ") || "キーなし";
+  const questions = "questions" in record
+    ? (Array.isArray(record.questions) ? "array" : record.questions === null ? "null" : typeof record.questions)
+    : "なし";
+  return `keys=[${keys}] questions=${questions}`;
+}
+
+/** questionsが配列でなくJSON文字列で返る場合も、中身が配列なら受け入れる。 */
+function extractQuestionArray(
+  input: unknown,
+): { ok: true; value: unknown[] } | { ok: false; shape: string } {
+  const raw = (input as { questions?: unknown } | null)?.questions;
+  if (Array.isArray(raw)) return { ok: true, value: raw };
+  if (typeof raw === "string") {
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) return { ok: true, value: parsed };
+    } catch {
+      // 下で形だけを報告する。
+    }
+  }
+  return { ok: false, shape: describeToolInputShape(input) };
+}
+
+/** AIを呼んで問題文と（四択なら）選択肢を取り出す。選択肢の妥当性チェックは呼び出し側で行う。 */
 async function generateQuestions(
   env: AnthropicEnv,
   items: PickedItem[],
@@ -433,32 +460,41 @@ async function generateQuestions(
   }
   | { ok: false; response: Response }
 > {
-  const generated = await callAnthropicTool(env, {
-    model: QUIZ_MODEL,
-    system: SYSTEM_PROMPT,
-    userText: buildUserText(items, allowedById, tagsById, notesById),
-    maxTokens: QUIZ_MAX_TOKENS,
-    tool: QUESTION_TOOL,
-  });
-  if (!generated.ok) return {
-    ok: false,
-    response: quizStartError({
-      // 打ち切りは接続できた後に起きるため、同じ「AIへの接続」では原因を誤らせる。
-      stage: generated.truncated ? "AI応答の確認" : "AIへの接続",
-      reason: generated.error,
-      action: generated.action ?? "時間を置いて、もう一度出題してください。",
-      reference: generated.reference,
-    }, generated.status),
-  };
-
-  const questions = (generated.input as { questions?: unknown })?.questions;
-  if (!Array.isArray(questions)) {
+  let questions: unknown[] | null = null;
+  let lastShape = "";
+  // 大きな入れ子配列ではツール入力が崩れることがあるため、形が不正なら1回だけ生成し直す。
+  for (let attempt = 0; attempt < 2 && questions === null; attempt += 1) {
+    const generated = await callAnthropicTool(env, {
+      model: QUIZ_MODEL,
+      system: SYSTEM_PROMPT,
+      userText: buildUserText(items, allowedById, tagsById, notesById),
+      maxTokens: QUIZ_MAX_TOKENS,
+      tool: QUESTION_TOOL,
+    });
+    if (!generated.ok) return {
+      ok: false,
+      response: quizStartError({
+        // 打ち切りは接続できた後に起きるため、同じ「AIへの接続」では原因を誤らせる。
+        stage: generated.truncated ? "AI応答の確認" : "AIへの接続",
+        reason: generated.error,
+        action: generated.action ?? "時間を置いて、もう一度出題してください。",
+        reference: generated.reference,
+      }, generated.status),
+    };
+    const extracted = extractQuestionArray(generated.input);
+    if (extracted.ok) questions = extracted.value;
+    else {
+      lastShape = extracted.shape;
+      console.error("Quiz question tool input had no questions array", `attempt=${attempt + 1}`, lastShape);
+    }
+  }
+  if (questions === null) {
     return {
       ok: false,
       response: quizStartError({
         stage: "AI応答の確認",
-        reason: "AIの応答にquestions配列が含まれていませんでした。",
-        action: "もう一度出題してください。繰り返す場合はAIモデルと出力形式の設定を確認してください。",
+        reason: `AIの応答にquestions配列が含まれていませんでした（2回試行、受信した形: ${lastShape}）。`,
+        action: "もう一度出題してください。繰り返す場合は問題数を減らしてください。",
       }),
     };
   }

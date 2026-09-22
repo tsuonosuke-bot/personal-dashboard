@@ -260,7 +260,11 @@ button.review-card { display: block; }
 .dashboard-switcher summary::-webkit-details-marker { display: none; }
 .dashboard-switcher summary::after { content: "⌄"; font-size: 11px; }
 .dashboard-switcher-icon { width: 18px; height: 18px; display: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.dashboard-switcher nav { position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; width: 210px; display: grid; gap: 3px; padding: 8px; border: 1px solid #e1dfe4; border-radius: 11px; background: #fff; box-shadow: 0 16px 42px rgba(49, 41, 62, .16); }
+.dashboard-switcher-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; width: 210px; display: grid; gap: 6px; padding: 8px; border: 1px solid #e1dfe4; border-radius: 11px; background: #fff; box-shadow: 0 16px 42px rgba(49, 41, 62, .16); }
+.dashboard-switcher nav { display: grid; gap: 3px; }
+.theme-select { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 9px 2px; border-top: 1px solid #e1dfe4; color: #77717e; font-size: 11px; font-weight: 700; }
+.theme-select > span { flex: none; white-space: nowrap; }
+.theme-select select { min-width: 104px; min-height: 32px; padding: 4px 8px; border: 1px solid #e1dfe4; border-radius: 7px; background: #fff; color: #29242d; font: inherit; }
 .dashboard-switcher nav a, .dashboard-switcher nav span { display: flex; align-items: center; min-height: 36px; padding: 7px 9px; border-radius: 7px; color: #29242d; font-size: 12px; font-weight: 700; text-decoration: none; }
 .dashboard-switcher nav a:hover { background: #f4f1fa; }
 .dashboard-switcher nav [aria-current="page"] { background: #f1edf8; color: #66558c; }
@@ -289,7 +293,7 @@ button.review-card { display: block; }
   .dashboard-switcher summary > span { display: none; }
   .dashboard-switcher-icon { display: block; }
   .dashboard-switcher summary::after { display: none; }
-  .dashboard-switcher nav { position: fixed; top: 68px; right: 10px; left: 10px; width: auto; }
+  .dashboard-switcher-menu { position: fixed; top: 68px; right: 10px; left: 10px; width: auto; }
   .wrap { padding: 14px 10px 50px; }
 }
 
@@ -405,6 +409,16 @@ button.review-card { display: block; }
 .quiz-verdict-partial { background: #fffbeb; color: #b45309; }
 .quiz-verdict-ng { background: #fef2f2; color: #dc2626; }
 .quiz-result-actions { display: flex; justify-content: center; gap: 10px; }
+.learning-log { display: grid; gap: 12px; }
+.learning-log-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.learning-log-filters label { display: flex; align-items: center; gap: 8px; color: #526079; font-size: 12px; font-weight: 700; }
+.learning-log-summary { margin: 0 0 0 auto; color: #7a879b; font-size: 12px; }
+.learning-log-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.learning-log-item { display: grid; gap: 6px; padding: 12px 14px; }
+.learning-log-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; color: #7a879b; font-size: 12px; }
+.learning-log-category { margin-left: auto; }
+.learning-log-title { overflow-wrap: anywhere; font-size: 14px; }
+.learning-log-note { margin: 0; color: #526079; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
 
 @media (max-width: 560px) {
   .daily-quiz-start { align-items: stretch; flex-direction: column; }
@@ -413,6 +427,9 @@ button.review-card { display: block; }
   .quiz-edit-control select { flex: 1; max-width: none; }
   .quiz-edit-control span { flex: 0 0 4em; }
   .quiz-archive-button { margin-left: 0; }
+  .learning-log-filters label { justify-content: space-between; width: 100%; }
+  .learning-log-filters select { flex: 1; max-width: 220px; }
+  .learning-log-summary { margin-left: 0; }
 }
 
 /* 英会話練習。復習画面と視覚的にも分け、発話に集中できる幅にする。 */
@@ -524,3 +541,16 @@ button.review-card { display: block; }
   .speaking-rating > div { grid-template-columns: 1fr; }
   .speaking-complete-actions { flex-direction: column-reverse; width: 100%; }
 }
+
+/* Recharts draws light colors as SVG attributes and inline styles; these keep charts legible in dark mode. */
+:root[data-theme="dark"] .recharts-cartesian-grid line { stroke: #34303a; }
+:root[data-theme="dark"] .recharts-cartesian-axis-line,
+:root[data-theme="dark"] .recharts-cartesian-axis-tick-line { stroke: #4a4552; }
+:root[data-theme="dark"] .recharts-cartesian-axis-tick-value,
+:root[data-theme="dark"] .recharts-legend-item-text { fill: #b9b3c2; color: #b9b3c2 !important; }
+:root[data-theme="dark"] .recharts-default-tooltip { border-color: #4a4552 !important; background: #242129 !important; color: #e6e1ec; }
+:root[data-theme="dark"] .recharts-tooltip-label { color: #e6e1ec; }
+:root[data-theme="dark"] .recharts-pie-sector path,
+:root[data-theme="dark"] .recharts-sector { stroke: #242129; }
+:root[data-theme="dark"] .recharts-pie-label-text { fill: #e6e1ec; }
+:root[data-theme="dark"] .recharts-tooltip-cursor { fill: rgba(255, 255, 255, .06); }

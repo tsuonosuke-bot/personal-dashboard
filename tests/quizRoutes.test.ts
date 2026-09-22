@@ -729,6 +729,74 @@ test("quiz/start は上限トークン数での打ち切りを「questions配列
   }
 });
 
+function startFetchWithAnthropic(responses: unknown[], calls: { count: number }) {
+  return async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes("/rest/v1/rpc/pick_quiz")) return Response.json([pickedRow(ID_1, "ビジネス")]);
+    if (url.includes("/rest/v1/knowledge")) return Response.json([{ id: ID_1, tags: [] }]);
+    if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
+    if (url.includes("api.anthropic.com")) {
+      const next = responses[Math.min(calls.count, responses.length - 1)];
+      calls.count += 1;
+      return anthropicToolResponse("submit_questions", next);
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  };
+}
+
+test("quiz/start はJSON文字列で返ったquestionsを配列として受け入れる", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = { count: 0 };
+  globalThis.fetch = startFetchWithAnthropic([{
+    questions: JSON.stringify([{ id: ID_1, question: "文字列で届いた問題", format: "一問一答" }]),
+  }], calls) as typeof fetch;
+  try {
+    const response = await startRoute({ request: quizPost("/api/quiz/start", { format: "一問一答" }), env });
+    assert.equal(response.status, 200);
+    const body = await response.json() as { items: { question: string }[] };
+    assert.equal(body.items[0].question, "文字列で届いた問題");
+    assert.equal(calls.count, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start はquestions配列が無い応答を1回だけ生成し直す", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = { count: 0 };
+  globalThis.fetch = startFetchWithAnthropic([
+    { items: [] },
+    { questions: [{ id: ID_1, question: "再生成した問題", format: "一問一答" }] },
+  ], calls) as typeof fetch;
+  try {
+    const response = await startRoute({ request: quizPost("/api/quiz/start", { format: "一問一答" }), env });
+    assert.equal(response.status, 200);
+    const body = await response.json() as { items: { question: string }[] };
+    assert.equal(body.items[0].question, "再生成した問題");
+    assert.equal(calls.count, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("quiz/start は2回ともquestions配列が無ければ受信した形を原因に含める", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = { count: 0 };
+  globalThis.fetch = startFetchWithAnthropic([{ result: "本文は画面に出さない" }], calls) as typeof fetch;
+  try {
+    const response = await startRoute({ request: quizPost("/api/quiz/start", { format: "一問一答" }), env });
+    assert.equal(response.status, 502);
+    const body = await response.json() as Record<string, unknown>;
+    assert.equal(body.stage, "AI応答の確認");
+    assert.match(String(body.reason), /2回試行/);
+    assert.match(String(body.reason), /keys=\[result\] questions=なし/);
+    assert.equal(String(body.reason).includes("本文は画面に出さない"), false);
+    assert.equal(calls.count, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("quiz/start はツール呼び出しが無い理由としてstop_reasonを返す", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {

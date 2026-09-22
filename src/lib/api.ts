@@ -1,11 +1,12 @@
 import type {
-  DailyReviewStatus, Knowledge, KnowledgeDraft, QuizFormatRequest, QuizGradeResponse, QuizLog,
+  DailyReviewStatus, Knowledge, KnowledgeDraft, MasteryHistoryEvent, QuizFormatRequest, QuizGradeResponse, QuizLog,
   QuizStart, RecoveryPreview, SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
   SpeakingPracticeWrite,
 } from "../types";
 import {
   parseDailyReviewStatus,
   parseKnowledge,
+  parseMasteryHistoryEvent,
   parsePageEnvelope,
   parseQuizGradeResponse,
   parseQuizLog,
@@ -166,6 +167,10 @@ export function getKnowledge(): Promise<Knowledge[]> {
 
 export function getQuizLog(): Promise<QuizLog[]> {
   return getAllPages("/api/quiz-log", parseQuizLog);
+}
+
+export function getMasteryHistory(): Promise<MasteryHistoryEvent[]> {
+  return getAllPages("/api/mastery-history", parseMasteryHistoryEvent);
 }
 
 export function getSpeakingPracticeLog(from: string): Promise<SpeakingPracticeLog[]> {

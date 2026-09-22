@@ -8,6 +8,7 @@ import { KnowledgeFormModal } from "./components/KnowledgeFormModal";
 import { Pagination } from "./components/Pagination";
 import { ReviewInsights } from "./components/ReviewInsights";
 import { StatsCards } from "./components/StatsCards";
+import { ThemeSelect } from "./components/ThemeSelect";
 import { SpeakingPracticePanel } from "./components/SpeakingPracticePanel";
 import { ALL, DEFAULT_PAGE_SIZE } from "./constants";
 import { useFilteredKnowledge } from "./hooks/useFilteredKnowledge";
@@ -22,6 +23,8 @@ const DashboardCharts = lazy(() => import("./components/DashboardCharts")
   .then((module) => ({ default: module.DashboardCharts })));
 const QuizView = lazy(() => import("./components/QuizView")
   .then((module) => ({ default: module.QuizView })));
+const LearningLogView = lazy(() => import("./components/LearningLogView")
+  .then((module) => ({ default: module.LearningLogView })));
 const SpeakingPracticeView = lazy(() => import("./components/SpeakingPracticeView")
   .then((module) => ({ default: module.SpeakingPracticeView })));
 
@@ -29,6 +32,7 @@ export default function App() {
   const initialRoute = parseDashboardRoute(window.location.href);
   const [showQuiz, setShowQuiz] = useState(() => initialRoute.kind === "quiz");
   const [showSpeaking, setShowSpeaking] = useState(() => initialRoute.kind === "speaking");
+  const [showLog, setShowLog] = useState(() => initialRoute.kind === "log");
   const [quizMode, setQuizMode] = useState<"daily" | "custom">(() => (
     initialRoute.kind === "quiz" ? initialRoute.mode : "custom"
   ));
@@ -55,7 +59,7 @@ export default function App() {
   const [archiveOpen, setArchiveOpen] = useState(false);
 
   // 画面を切り替えても同じdocumentのままなので、直前の画面のスクロール位置が残る。
-  const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : "dashboard";
+  const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : showLog ? "log" : "dashboard";
   const previousView = useRef(view);
   useLayoutEffect(() => {
     if (previousView.current === view) return;
@@ -88,20 +92,23 @@ export default function App() {
       setArchiveOpen(false);
       setQuizMode(route.mode);
       setShowSpeaking(false);
+      setShowLog(false);
       setShowQuiz(true);
       return;
     }
 
-    if (route.kind === "speaking") {
+    if (route.kind === "speaking" || route.kind === "log") {
       setSelected(null);
       setArchiveOpen(false);
       setShowQuiz(false);
-      setShowSpeaking(true);
+      setShowSpeaking(route.kind === "speaking");
+      setShowLog(route.kind === "log");
       return;
     }
 
     setShowQuiz(false);
     setShowSpeaking(false);
+    setShowLog(false);
     if (loading || error) return;
 
     if (route.kind === "knowledge") {
@@ -165,6 +172,7 @@ export default function App() {
     setSelected(null);
     setQuizMode(mode);
     setShowSpeaking(false);
+    setShowLog(false);
     setShowQuiz(open);
   };
 
@@ -172,7 +180,16 @@ export default function App() {
     replaceRoute(open ? { kind: "speaking" } : { kind: "dashboard" });
     setSelected(null);
     setShowQuiz(false);
+    setShowLog(false);
     setShowSpeaking(open);
+  };
+
+  const setLogOpen = (open: boolean) => {
+    replaceRoute(open ? { kind: "log" } : { kind: "dashboard" });
+    setSelected(null);
+    setShowQuiz(false);
+    setShowSpeaking(false);
+    setShowLog(open);
   };
 
   const openKnowledge = (item: Knowledge) => {
@@ -284,6 +301,20 @@ export default function App() {
     );
   }
 
+  if (showLog) {
+    return (
+      <Suspense fallback={<div className="msg">読み込み中...</div>}>
+        <LearningLogView
+          knowledge={registrationKnowledge}
+          quizLog={quizLog}
+          loading={loading}
+          error={error}
+          onExit={() => setLogOpen(false)}
+        />
+      </Suspense>
+    );
+  }
+
   return (
     <div className="app-page">
       <header className="app-header">
@@ -305,14 +336,17 @@ export default function App() {
                 </svg>
                 <span>Dashboards</span>
               </summary>
-              <nav aria-label="ダッシュボードを切り替え">
-                <a href="https://personal-dashboard-7md.pages.dev/compass/">Idea</a>
-                <a href="https://personal-dashboard-7md.pages.dev/writing/">Writing</a>
-                <a href="https://personal-dashboard-7md.pages.dev/habits/">Habits</a>
-                <a href="https://personal-dashboard-7md.pages.dev/go/financial">Finance</a>
-                <span aria-current="page">Knowledge</span>
-                <a href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
-              </nav>
+              <div className="dashboard-switcher-menu">
+                <nav aria-label="ダッシュボードを切り替え">
+                  <a href="https://personal-dashboard-7md.pages.dev/compass/">Idea</a>
+                  <a href="https://personal-dashboard-7md.pages.dev/writing/">Writing</a>
+                  <a href="https://personal-dashboard-7md.pages.dev/habits/">Habits</a>
+                  <a href="https://personal-dashboard-7md.pages.dev/go/financial">Finance</a>
+                  <span aria-current="page">Knowledge</span>
+                  <a href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
+                </nav>
+                <ThemeSelect />
+              </div>
             </details>
             <span className={`source-badge ${error ? "error" : loading ? "loading" : "live"}`}>
               {error ? "取得失敗" : loading ? "接続確認中" : "SUPABASE LIVE"}
@@ -326,6 +360,7 @@ export default function App() {
       <main className="wrap">
 
       <div className="page-tools">
+        <button className="page-tool-link" onClick={() => setLogOpen(true)}>学習ログ</button>
         <a className="page-tool-link" href="api/export">JSON書き出し</a>
         <a className="page-tool-link" href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
         <button

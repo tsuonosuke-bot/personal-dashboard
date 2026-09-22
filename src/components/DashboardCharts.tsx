@@ -2,6 +2,7 @@ import { CategoryChart } from "./CategoryChart";
 import { ChartCard } from "./ChartCard";
 import { HistoryChart } from "./HistoryChart";
 import { MasteryChart } from "./MasteryChart";
+import { MasteryTrendChart } from "./MasteryTrendChart";
 import { RegistrationTrendChart } from "./RegistrationTrendChart";
 import type { Knowledge, QuizLog } from "../types";
 
@@ -39,6 +40,7 @@ export function DashboardCharts({ knowledge, registrationKnowledge, quizLog }: P
   return (
     <div className="charts">
       <RegistrationTrendChart knowledge={registrationKnowledge} />
+      <MasteryTrendChart reloadKey={registrationKnowledge} />
       <ChartCard id="category-chart" title="カテゴリ別分布" summary={categorySummary(knowledge)}>
         <CategoryChart knowledge={knowledge} />
       </ChartCard>

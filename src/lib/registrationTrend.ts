@@ -16,7 +16,7 @@ const TOKYO_DATE = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
 });
 
-function tokyoCivilDay(value: Date): number | null {
+export function tokyoCivilDay(value: Date): number | null {
   if (!Number.isFinite(value.getTime())) return null;
   const parts = Object.fromEntries(
     TOKYO_DATE.formatToParts(value)
@@ -36,17 +36,17 @@ function dayParts(civilDay: number): { year: number; month: number; day: number 
   };
 }
 
-function dayKey(civilDay: number): string {
+export function dayKey(civilDay: number): string {
   const { year, month, day } = dayParts(civilDay);
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-function dayLabel(civilDay: number, granularity: RegistrationTrendGranularity): string {
+export function dayLabel(civilDay: number, granularity: RegistrationTrendGranularity): string {
   const { month, day } = dayParts(civilDay);
   return granularity === "week" ? `${month}/${day}週` : `${month}/${day}`;
 }
 
-function weekStart(civilDay: number): number {
+export function weekStart(civilDay: number): number {
   const dayOfWeek = new Date(civilDay * DAY_MS).getUTCDay();
   return civilDay - ((dayOfWeek + 6) % 7);
 }
