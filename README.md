@@ -1,6 +1,6 @@
 # Personal Hub
 
-Finance、Knowledge、Idea（Inbox / Wants）、Writing、Habits、Journalの振り返りを束ねる個人用Hubです。ルートに全体サマリーを表示し、Ideaは `/compass/`、Writingは `/writing/`、Habitsは `/habits/` で利用できます。
+Finance、Knowledge、Idea（Inbox / Wants / ToDo）、Writing、Habits、Journalの振り返りを束ねる個人用Hubです。ルートに全体サマリーを表示し、Ideaは `/compass/`、Writingは `/writing/`、Habitsは `/habits/` で利用できます。
 
 - Production: https://personal-dashboard-7md.pages.dev/
 
@@ -14,6 +14,7 @@ Browser
           ├─ /api/inbox (POST / PATCH)
           ├─ /api/wants (POST / PATCH)
           ├─ /api/want-routes (POST)
+          ├─ /api/scheduled-actions (GET / PATCH)
           ├─ /api/focus (GET / PATCH)
           ├─ /api/writing (GET / PATCH)
           ├─ /api/want-suggestions (POST)
@@ -82,7 +83,7 @@ Browser
 
 - Inbox総数・未整理件数
 - 未整理のActive Wants
-- Inbox / Wantsの切り替え
+- Inbox / Wants / ToDoの切り替え
 - Inboxの新規登録
 - Inboxの本文・ステータス・整理結果を編集
 - Wantsの本文・ステータスを編集
@@ -93,6 +94,13 @@ Browser
 - 振り分け内容をプレビューし、確定後に `want_routes` へ履歴を保存
 - Writing・Habits・Focus・アーカイブはPersonal Dashboard内へ登録
 - Google Calendarは接続状態と日時を確認し、明示的な「Google Calendarに登録」でメインカレンダーへ作成
+- Calendar登録に成功した予定はToDoへ自動追加し、既存のCalendar振り分けも初回migrationで取り込む
+- ToDoは未実施・完了・見送りを管理し、完了・見送りではGoogle Calendar予定を変更しない
+- 過去日時の未実施ToDoを「実施確認待ち」として優先表示し、今日・今後でも絞り込み
+- 「日程を決め直す」は同じGoogle Calendar予定をETag付きで更新し、別画面で変更済みなら上書きを拒否
+- ToDo表示時はGoogle Calendarの現在日時・取消・削除を再確認し、予定時刻だけで自動完了しない
+- Calendar予定が削除・取消済みなら、同じToDoから新しい予定を重複安全に再作成して再接続
+- 完了・見送り済みToDoは未実施へ戻せる
 - GitHub・Knowledge DB・Journalは未送信の計画として保存（接続は別途合意後）
 - 振り分けの登録または計画保存に成功すると、元Wantを自動的に `completed` へ更新
 - 振り分け先への登録に失敗した場合は元Wantを `active` のまま残し、同じ処理IDで安全に再試行
@@ -138,10 +146,14 @@ Writingを2状態へ簡素化する場合は、続けて `supabase/migrations/20
 
 Projectsを有効にする場合は、アプリのデプロイより先に `supabase/migrations/202609220003_projects_mvp.sql` を適用します。Inbox／Wantの正本は元テーブルに残し、`project_items`で1つのProjectへ関連づけます。Projectへの関連づけと元アイテムの整理済み化は同一トランザクションで行い、Projectごとの現在のNext Actionは最大1件に制限します。適用後は、別クエリとして `supabase/verification/202609220003_projects_mvp_verify.sql` を実行してオブジェクトと不変条件を確認してください。
 
+Calendar予定の実施管理を有効にする場合は、`supabase/migrations/202609220004_scheduled_actions.sql` を適用します。既存の成功済みCalendar振り分けを `scheduled_actions` へ一度だけ移行し、以後はDBトリガーでToDoを自動作成します。
+
 - `writing_topics`: 掘り下げたいエッセイ候補
 - `habits` / `habit_logs`: 習慣の定義と実施記録
 - `focus_items`: 継続して意識したい言葉
 - `want_routes`: 上記および外部正本への振り分け履歴
+- `scheduled_actions`: Calendar化した予定の実施状態
+- `scheduled_action_schedule_history`: Dashboardから実行した日程変更の履歴
 
 Google Calendarだけ外部正本への登録処理を実装しています。GitHub・Knowledge DB・Journalの `planned` は「送信済み」を意味しませんが、振り分け方針は確定済みのため元Wantは完了します。元Wantとの競合検知と処理IDによる二重登録防止を行い、登録に失敗した場合だけ元WantをActiveのまま残します。振り分け成功後にWantの完了更新だけが失敗した場合も、同じ処理IDの再試行では正本を重複作成せず完了処理だけを再開します。
 
@@ -199,7 +211,7 @@ PreviewとProductionの両方に、次の環境変数を設定します。
 - プライバシーポリシー: `https://personal-dashboard-7md.pages.dev/oauth/privacy/`
 - 利用条件: `https://personal-dashboard-7md.pages.dev/oauth/terms/`
 
-要求するGoogle scopeは予定の読取・作成・更新に限定した `https://www.googleapis.com/auth/calendar.events` です。予定は `primary` カレンダーへ `Asia/Tokyo` で作成し、作成直後に再取得してIDとリンクを確認します。日時変更・削除はGoogle Calendarを正本とし、初版ではDashboardからの更新同期は行いません。
+要求するGoogle scopeは予定の読取・作成・更新に限定した `https://www.googleapis.com/auth/calendar.events` です。予定は `primary` カレンダーへ `Asia/Tokyo` で作成し、作成直後に再取得してIDとリンクを確認します。日時はGoogle Calendarを正本とし、ToDo表示時に現在値を再取得します。Dashboardの「日程を決め直す」も同じGoogle予定を更新し、新しい予定は重複作成しません。
 
 ## 検証
 

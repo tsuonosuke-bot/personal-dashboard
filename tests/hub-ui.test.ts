@@ -307,6 +307,28 @@ test("Compass defaults each tab to actionable items and counts the filtered resu
   assert.match(script, /countElement\.textContent = items\.length/);
 });
 
+test("Idea exposes a Calendar-backed ToDo tab with completion and rescheduling", async () => {
+  const [script, html, style] = await Promise.all([
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(html, /data-view="todos">ToDo/);
+  assert.match(html, /未実施のToDo/);
+  assert.match(html, /data-todo-filter="overdue">実施確認待ち/);
+  assert.match(html, /data-todo-filter="today">今日/);
+  assert.match(html, /data-todo-filter="upcoming">今後/);
+  assert.match(script, /"\/api\/scheduled-actions"/);
+  assert.match(script, /完了にする/);
+  assert.match(script, /日程を決め直す/);
+  assert.match(script, /新しい予定として再作成/);
+  assert.match(script, /同じGoogle Calendar予定の日時だけを更新します。新しい予定は作成しません。/);
+  assert.match(script, /"If-Match"|calendarEtag/);
+  assert.match(style, /\.todo-timing-overdue/);
+  assert.match(style, /\.todo-notice\.attention/);
+});
+
 test("Compass applies direct record routes and safe fallbacks", async () => {
   const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
 

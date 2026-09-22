@@ -22,6 +22,23 @@ test("Compass direct route accepts only the untriaged Wants filter", () => {
   assert.equal(parseCompassRoute("https://hub.example/compass/?view=wants&filter=unknown").error, "invalid-target");
 });
 
+test("Compass direct route accepts ToDo records and timing filters", () => {
+  assert.deepEqual(parseCompassRoute("https://hub.example/compass/?view=todos&id=7"), {
+    view: "todos",
+    id: 7,
+    filter: null,
+    error: null,
+  });
+  assert.deepEqual(parseCompassRoute("https://hub.example/compass/?view=todos&filter=overdue"), {
+    view: "todos",
+    id: null,
+    filter: "overdue",
+    error: null,
+  });
+  assert.equal(compassRoutePath("https://hub.example/compass/", "todos", null, "today"), "/compass/?view=todos&filter=today");
+  assert.equal(parseCompassRoute("https://hub.example/compass/?view=todos&filter=knowledge").error, "invalid-target");
+});
+
 test("Compass direct route accepts the Knowledge pending filter on both tabs", () => {
   assert.deepEqual(parseCompassRoute("https://hub.example/compass/?filter=knowledge"), {
     view: "inbox",

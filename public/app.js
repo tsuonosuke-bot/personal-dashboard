@@ -11,13 +11,15 @@ const state = {
   inboxWant: null,
   aiRequestToken: 0,
   calendarConnection: null,
+  todosLoaded: false,
+  todoSource: null,
 };
 
 const els = Object.fromEntries([
   "sourceBadge", "refreshButton",
-  "pendingInbox", "inboxTotal", "activeWants", "completedWants",
-  "inboxTabCount", "wantsTabCount", "listTitle", "searchInput",
-  "statusFilter", "knowledgeFilter", "knowledgePendingCount", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
+  "pendingInbox", "inboxTotal", "activeWants", "completedWants", "pendingTodos",
+  "inboxTabCount", "wantsTabCount", "todosTabCount", "listTitle", "searchInput",
+  "statusFilter", "knowledgeFilter", "knowledgePendingCount", "todoFilterGroup", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher", "dashboardNav",
   "addInboxButton", "inboxModal", "inboxModalClose", "inboxCancelButton", "inboxForm",
   "inboxContent", "inboxCharacterCount", "inboxFormError", "inboxSubmitButton", "toast",
@@ -26,16 +28,19 @@ const els = Object.fromEntries([
 const viewMeta = {
   inbox: { title: "Inbox", singular: "Inbox", empty: "Inboxはすべて整理されています" },
   wants: { title: "Wants", singular: "Want", empty: "該当するWantsはありません" },
+  todos: { title: "ToDo", singular: "ToDo", empty: "該当するToDoはありません" },
 };
 
 const defaultStatusByView = {
   inbox: "pending",
   wants: "active",
+  todos: "pending",
 };
 
 const closedStatusesByView = {
   inbox: new Set(["done", "skipped", "completed", "closed", "cancelled", "archived"]),
   wants: new Set(["completed", "dropped", "done", "closed", "cancelled", "archived"]),
+  todos: new Set(["completed", "skipped"]),
 };
 
 const itemEditMeta = {
@@ -161,6 +166,36 @@ function formatCalendarSchedule(schedule) {
   return schedule.allDay ? `${date}（終日）` : `${date} ${schedule.startTime}–${schedule.endTime}`;
 }
 
+function todoTiming(item, now = new Date()) {
+  if (item.calendarState === "missing" || item.calendarState === "cancelled") return "overdue";
+  const schedule = item.schedule;
+  if (!schedule?.date) return "overdue";
+  const today = new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  if (schedule.date < today) return "overdue";
+  if (schedule.date > today) return "upcoming";
+  if (schedule.allDay) return "today";
+  const end = new Date(`${schedule.date}T${schedule.endTime}:00+09:00`);
+  return !Number.isNaN(end.getTime()) && end.getTime() <= now.getTime() ? "overdue" : "today";
+}
+
+function sortTodos(items) {
+  const rank = { overdue: 0, today: 1, upcoming: 2 };
+  return [...items].sort((left, right) => {
+    if (left.status !== right.status) return left.status === "pending" ? -1 : right.status === "pending" ? 1 : 0;
+    const timingDifference = (rank[todoTiming(left)] ?? 3) - (rank[todoTiming(right)] ?? 3);
+    if (timingDifference) return timingDifference;
+    const leftSchedule = `${left.schedule?.date || "9999-12-31"}T${left.schedule?.startTime || "00:00"}`;
+    const rightSchedule = `${right.schedule?.date || "9999-12-31"}T${right.schedule?.startTime || "00:00"}`;
+    return leftSchedule.localeCompare(rightSchedule) || right.id - left.id;
+  });
+}
+
+function todoTimingLabel(item) {
+  if (item.calendarState === "missing") return "Calendar予定なし";
+  if (item.calendarState === "cancelled") return "Calendarで取消済み";
+  return ({ overdue: "実施確認待ち", today: "今日", upcoming: "今後" })[todoTiming(item)];
+}
+
 async function refreshGoogleCalendarConnection(statusElement, submitButton) {
   statusElement.className = "integration-status loading";
   statusElement.textContent = "Google Calendarの接続状態を確認しています…";
@@ -218,12 +253,15 @@ function currentItems() {
   if (state.metricFilter === "knowledge") {
     items = items.filter((item) => isKnowledgePending(item, state.view));
   }
+  if (state.view === "todos" && ["overdue", "today", "upcoming"].includes(state.metricFilter)) {
+    items = items.filter((item) => item.status === "pending" && todoTiming(item) === state.metricFilter);
+  }
   const needle = state.search.trim().toLocaleLowerCase("ja");
   if (needle) {
-    items = items.filter((item) => [item.content, item.result, item.note]
+    items = items.filter((item) => [item.content, item.title, item.detail, item.result, item.note]
       .filter(Boolean).some((value) => value.toLocaleLowerCase("ja").includes(needle)));
   }
-  return items;
+  return state.view === "todos" ? sortTodos(items) : items;
 }
 
 function updateStatusOptions() {
@@ -241,14 +279,17 @@ function renderSummary() {
   els.inboxTotal.textContent = summary.inboxTotal;
   els.activeWants.textContent = summary.activeWants;
   els.completedWants.textContent = summary.completedWants;
+  els.pendingTodos.textContent = state.data.todosSummary?.pending ?? "—";
 }
 
 function renderCurrentTabCount(items) {
   els.inboxTabCount.textContent = state.data.inbox.filter((item) => item.status === defaultStatusByView.inbox).length;
   els.wantsTabCount.textContent = state.data.wants.filter((item) => item.status === defaultStatusByView.wants).length;
+  els.todosTabCount.textContent = state.data.todosSummary?.pending ?? "—";
   const countElement = {
     inbox: els.inboxTabCount,
     wants: els.wantsTabCount,
+    todos: els.todosTabCount,
   }[state.view];
   countElement.textContent = items.length;
 }
@@ -262,7 +303,8 @@ function renderNavigation(items) {
   }).join("");
 }
 
-function statusLabel(status) {
+function statusLabel(status, view = state.view) {
+  if (view === "todos") return ({ pending: "未実施", completed: "完了", skipped: "見送り" })[status] || status;
   return ({ pending: "未整理", done: "整理済み", skipped: "対象外", active: "未整理", completed: "整理済み", dropped: "見送り", closed: "完了" })[status] || status;
 }
 
@@ -316,6 +358,16 @@ function triageChips(item, view) {
 }
 
 function cardMarkup(item) {
+  if (state.view === "todos") {
+    const timing = item.status === "pending" ? todoTimingLabel(item) : statusLabel(item.status, "todos");
+    const timingClass = item.status === "pending" ? `todo-timing-${todoTiming(item)}` : `status-${item.status}`;
+    return `<button class="item-card todo-card" type="button" data-id="${item.id}">
+      <div class="item-top"><span class="item-id">TODO · ${item.id}</span><span class="status ${escapeHtml(timingClass)}">${escapeHtml(timing)}</span></div>
+      <h3>${escapeHtml(item.title || "内容なし")}</h3>
+      <div class="todo-schedule">${escapeHtml(formatCalendarSchedule(item.schedule))}</div>
+      <div class="item-footer"><span>Want · ${item.sourceWantId}</span><span>${item.rescheduleCount ? `日程変更 ${item.rescheduleCount}回` : "Calendar登録済み"}</span></div>
+    </button>`;
+  }
   return `<button class="item-card" type="button" data-id="${item.id}">
     <div class="item-top"><span class="item-id">${viewMeta[state.view].singular.toUpperCase()} · ${item.id ?? "?"}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(itemStatusLabel(item))}</span></div>
     <h3>${escapeHtml(item.content || "内容なし")}</h3>
@@ -330,15 +382,25 @@ function renderList() {
   els.resultCount.textContent = `${items.length}件を表示`;
   els.clearFilter.hidden = !(state.status || state.search || state.metricFilter);
   const knowledgeActive = state.metricFilter === "knowledge";
+  els.knowledgeFilter.hidden = state.view === "todos";
+  els.todoFilterGroup.hidden = state.view !== "todos";
   els.knowledgeFilter.classList.toggle("active", knowledgeActive);
   els.knowledgeFilter.setAttribute("aria-pressed", String(knowledgeActive));
+  els.todoFilterGroup.querySelectorAll("[data-todo-filter]").forEach((button) => {
+    const active = state.metricFilter === button.dataset.todoFilter;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
   document.querySelectorAll(".tab").forEach((tab) => {
     const active = tab.dataset.view === state.view;
     tab.classList.toggle("active", active);
     tab.setAttribute("aria-selected", String(active));
   });
   if (!items.length) {
-    els.cardList.innerHTML = `<div class="empty-state"><span>◇</span><h3>${escapeHtml(viewMeta[state.view].empty)}</h3><p>検索条件やステータスを変えて確認できます。</p></div>`;
+    const description = state.view === "todos" && !state.todosLoaded
+      ? "Google CalendarとToDoを同期しています。"
+      : "検索条件やステータスを変えて確認できます。";
+    els.cardList.innerHTML = `<div class="empty-state"><span>◇</span><h3>${escapeHtml(viewMeta[state.view].empty)}</h3><p>${escapeHtml(description)}</p></div>`;
     return;
   }
   els.cardList.innerHTML = items.map(cardMarkup).join("");
@@ -370,6 +432,10 @@ function todayInTokyo() {
 }
 
 function renderDrawerItem(item, view) {
+  if (view === "todos") {
+    renderTodoDrawer(item);
+    return;
+  }
   state.triageSource = view;
   els.drawerKicker.textContent = `${viewMeta[view].singular} · ${item.id}`;
   els.drawerTitle.textContent = item.content || "内容なし";
@@ -441,6 +507,195 @@ function renderDrawerItem(item, view) {
   els.drawerBody.querySelectorAll("[data-quick-route]").forEach((button) => button.addEventListener("click", () => startQuickWantRoute(item, button.dataset.quickRoute)));
   els.drawerBody.querySelector("[data-project-route]")?.addEventListener("click", () => startProjectRoute(item, view));
   document.getElementById("closeItemButton")?.addEventListener("click", () => closeItem(item, view));
+}
+
+function todoCalendarNotice(item) {
+  if (item.calendarState === "unavailable") return "Google Calendarへ接続できないため、前回確認した日時を表示しています。再読み込み後に日程を変更してください。";
+  if (item.calendarState === "missing") return "紐づくGoogle Calendar予定が見つかりません。実施する場合は新しい予定として再作成できます。";
+  if (item.calendarState === "cancelled") return "Google Calendarでは取消済みです。見送るか、新しい予定として再作成してください。";
+  if (item.status === "pending" && todoTiming(item) === "overdue") return "予定時刻を過ぎています。実施済みか、日程を決め直すか、見送るかを選んでください。";
+  return "日時変更はGoogle Calendarへ反映されます。完了・見送りはToDoだけを更新し、Calendar予定は変更しません。";
+}
+
+function renderTodoDrawer(item) {
+  els.drawerKicker.textContent = `ToDo · ${item.id}`;
+  els.drawerTitle.textContent = item.title || "内容なし";
+  const canReschedule = item.status === "pending" && item.calendarState === "confirmed" && item.calendarEtag;
+  const calendarLink = item.calendarUrl
+    ? `<a class="secondary-action action-link" href="${escapeHtml(item.calendarUrl)}" target="_blank" rel="noopener noreferrer">Google Calendarで開く</a>`
+    : "";
+  const actions = item.status === "pending"
+    ? `<button class="primary-action" id="completeTodoButton" type="button">完了にする</button>
+       <button class="secondary-action" id="rescheduleTodoButton" type="button" ${canReschedule ? "" : "disabled"}>日程を決め直す</button>
+       ${item.calendarState === "missing" || item.calendarState === "cancelled" ? '<button class="secondary-action" id="recreateTodoButton" type="button">新しい予定として再作成</button>' : ""}
+       <button class="close-action" id="skipTodoButton" type="button">見送る</button>`
+    : `<button class="secondary-action" id="reopenTodoButton" type="button">未実施に戻す</button>`;
+  els.drawerBody.innerHTML = `<div class="detail-grid">
+      <div class="detail-box"><span>Status</span><strong>${escapeHtml(item.status === "pending" ? todoTimingLabel(item) : statusLabel(item.status, "todos"))}</strong></div>
+      <div class="detail-box"><span>Schedule</span><strong>${escapeHtml(formatCalendarSchedule(item.schedule))}</strong></div>
+    </div>
+    ${item.detail ? `<div class="detail-section"><span>補足</span><p>${escapeHtml(item.detail)}</p></div>` : ""}
+    <div class="detail-section todo-source"><span>元の記録</span><p>Want · ${item.sourceWantId}${item.sourceInboxId ? ` / Inbox · ${item.sourceInboxId}` : ""}</p></div>
+    <div class="todo-notice ${item.status === "pending" && todoTiming(item) === "overdue" ? "attention" : ""}">${escapeHtml(todoCalendarNotice(item))}</div>
+    <label class="form-field todo-note" for="todoNote"><span>実施メモ <small>空欄可</small></span><textarea id="todoNote" rows="4" maxlength="2000" placeholder="実施結果や見送り理由">${escapeHtml(item.note || "")}</textarea></label>
+    <div class="drawer-actions">${calendarLink}${actions}</div>
+    <p class="form-error" id="todoActionError" role="alert" hidden></p>`;
+  document.getElementById("completeTodoButton")?.addEventListener("click", () => changeTodoStatus(item, "complete"));
+  document.getElementById("skipTodoButton")?.addEventListener("click", () => changeTodoStatus(item, "skip"));
+  document.getElementById("reopenTodoButton")?.addEventListener("click", () => changeTodoStatus(item, "reopen"));
+  document.getElementById("rescheduleTodoButton")?.addEventListener("click", () => renderTodoRescheduleForm(item));
+  document.getElementById("recreateTodoButton")?.addEventListener("click", () => renderTodoRescheduleForm(item, "recreate"));
+}
+
+function setTodoActionError(message) {
+  const error = document.getElementById("todoActionError");
+  if (!error) return;
+  error.textContent = message;
+  error.hidden = !message;
+}
+
+function todoRequestBody(item, command, options = {}) {
+  return {
+    id: item.id,
+    command,
+    note: options.note ?? null,
+    schedule: options.schedule ?? null,
+    original: {
+      status: item.status,
+      updatedAt: item.updatedAt,
+      calendarEtag: item.calendarEtag,
+      schedule: item.schedule,
+    },
+  };
+}
+
+async function sendTodoUpdate(item, command, options = {}) {
+  const response = await fetch("/api/scheduled-actions", {
+    method: "PATCH",
+    credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": "scheduled-todo-update",
+    },
+    body: JSON.stringify(todoRequestBody(item, command, options)),
+  });
+  const payload = await response.json().catch(() => ({}));
+  const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+  if (!response.ok) throw new Error(message || "ToDoを更新できませんでした。");
+  return payload;
+}
+
+async function changeTodoStatus(item, command) {
+  const button = document.getElementById(`${command === "complete" ? "complete" : command === "skip" ? "skip" : "reopen"}TodoButton`);
+  if (!button) return;
+  const note = document.getElementById("todoNote")?.value.trim() || null;
+  button.disabled = true;
+  setTodoActionError("");
+  try {
+    await sendTodoUpdate(item, command, { note });
+    hideDrawer();
+    syncCompassRoute("todos", null, "replace", ["overdue", "today", "upcoming"].includes(state.metricFilter) ? state.metricFilter : null);
+    await loadTodos(true);
+    showToast(command === "complete" ? "ToDoを完了しました。" : command === "skip" ? "ToDoを見送りにしました。" : "ToDoを未実施に戻しました。");
+  } catch (error) {
+    setTodoActionError(error instanceof Error ? error.message : "ToDoを更新できませんでした。");
+    if (button.isConnected) button.disabled = false;
+  }
+}
+
+function dateOffset(days) {
+  const date = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function nextWeekendDate() {
+  const date = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const day = date.getUTCDay();
+  date.setUTCDate(date.getUTCDate() + (day === 6 ? 7 : (6 - day + 7) % 7 || 7));
+  return date.toISOString().slice(0, 10);
+}
+
+function renderTodoRescheduleForm(item, command = "reschedule") {
+  const schedule = item.schedule;
+  const recreate = command === "recreate";
+  els.drawerKicker.textContent = `ToDo · ${item.id}`;
+  els.drawerTitle.textContent = recreate ? "Calendar予定を再作成" : "日程を決め直す";
+  els.drawerBody.innerHTML = `<form class="edit-form" id="todoRescheduleForm">
+    <div class="source-context"><span>対象</span><p>${escapeHtml(item.title)}</p></div>
+    <div class="quick-date-actions" role="group" aria-label="日付の候補">
+      <button class="filter-chip" type="button" data-quick-date="${dateOffset(0)}">今日</button>
+      <button class="filter-chip" type="button" data-quick-date="${dateOffset(1)}">明日</button>
+      <button class="filter-chip" type="button" data-quick-date="${nextWeekendDate()}">今週末</button>
+    </div>
+    <label class="form-field" for="todoScheduleDate"><span>日付</span><input id="todoScheduleDate" name="date" type="date" min="${todayInTokyo()}" value="${escapeHtml(schedule.date)}" required></label>
+    <label class="calendar-all-day" for="todoScheduleAllDay"><input id="todoScheduleAllDay" name="allDay" type="checkbox" ${schedule.allDay ? "checked" : ""}><span>終日予定</span></label>
+    <div class="calendar-time-fields" id="todoScheduleTimeFields" ${schedule.allDay ? "hidden" : ""}>
+      <label class="form-field" for="todoScheduleStart"><span>開始</span><input id="todoScheduleStart" name="startTime" type="time" value="${escapeHtml(schedule.startTime || "09:00")}"></label>
+      <label class="form-field" for="todoScheduleEnd"><span>終了</span><input id="todoScheduleEnd" name="endTime" type="time" value="${escapeHtml(schedule.endTime || "09:30")}"></label>
+    </div>
+    <p class="route-boundary">${recreate ? "削除・取消済みの予定とは別に、新しいGoogle Calendar予定を1件作成してこのToDoへ再接続します。" : "同じGoogle Calendar予定の日時だけを更新します。新しい予定は作成しません。"}</p>
+    <p class="form-error" id="todoActionError" role="alert" hidden></p>
+    <div class="drawer-actions"><button class="secondary-action" id="cancelTodoReschedule" type="button">戻る</button><button class="primary-action" id="saveTodoReschedule" type="submit">${recreate ? "新しい予定を作成" : "Calendarの日程を更新"}</button></div>
+  </form>`;
+  const form = document.getElementById("todoRescheduleForm");
+  const allDay = document.getElementById("todoScheduleAllDay");
+  const timeFields = document.getElementById("todoScheduleTimeFields");
+  const syncTimeRequirement = () => {
+    timeFields.hidden = allDay.checked;
+    form.elements.startTime.required = !allDay.checked;
+    form.elements.endTime.required = !allDay.checked;
+  };
+  allDay.addEventListener("change", syncTimeRequirement);
+  syncTimeRequirement();
+  form.querySelectorAll("[data-quick-date]").forEach((button) => button.addEventListener("click", () => {
+    form.elements.date.value = button.dataset.quickDate;
+  }));
+  document.getElementById("cancelTodoReschedule").addEventListener("click", () => renderTodoDrawer(item));
+  form.addEventListener("submit", (event) => saveTodoReschedule(event, item, command));
+}
+
+async function saveTodoReschedule(event, item, command = "reschedule") {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const allDay = form.elements.allDay.checked;
+  const schedule = {
+    allDay,
+    date: form.elements.date.value,
+    startTime: allDay ? null : form.elements.startTime.value,
+    endTime: allDay ? null : form.elements.endTime.value,
+    timeZone: "Asia/Tokyo",
+  };
+  if (!schedule.date || (!allDay && (!schedule.startTime || !schedule.endTime || schedule.endTime <= schedule.startTime))) {
+    setTodoActionError("新しい日付と時間を確認してください。");
+    return;
+  }
+  const end = allDay ? new Date(`${schedule.date}T23:59:59+09:00`) : new Date(`${schedule.date}T${schedule.endTime}:00+09:00`);
+  if (Number.isNaN(end.getTime()) || end.getTime() <= Date.now()) {
+    setTodoActionError("実施予定は現在より後の日時を指定してください。");
+    return;
+  }
+  const submit = document.getElementById("saveTodoReschedule");
+  const cancel = document.getElementById("cancelTodoReschedule");
+  submit.disabled = true;
+  cancel.disabled = true;
+  submit.textContent = "更新中…";
+  setTodoActionError("");
+  try {
+    await sendTodoUpdate(item, command, { schedule });
+    hideDrawer();
+    syncCompassRoute("todos", null, "replace", ["overdue", "today", "upcoming"].includes(state.metricFilter) ? state.metricFilter : null);
+    await loadTodos(true);
+    showToast(command === "recreate" ? "Google Calendarへ新しい予定を作成しました。" : "Google Calendarの日程を更新しました。");
+  } catch (error) {
+    setTodoActionError(error instanceof Error ? error.message : "日程を変更できませんでした。");
+    if (submit.isConnected) {
+      submit.disabled = false;
+      cancel.disabled = false;
+      submit.textContent = command === "recreate" ? "新しい予定を作成" : "Calendarの日程を更新";
+    }
+  }
 }
 
 function startQuickWantRoute(item, key) {
@@ -1553,17 +1808,29 @@ function setView(view, filter = defaultStatusByView[view], sync = true) {
   hideDrawer();
   state.view = view;
   state.metricFilter = filter;
-  state.status = filter === "untriaged" ? "active" : filter === "knowledge" ? "" : filter || "";
+  state.status = filter === "untriaged"
+    ? "active"
+    : filter === "knowledge"
+      ? ""
+      : view === "todos" && ["overdue", "today", "upcoming"].includes(filter)
+        ? "pending"
+        : filter || "";
   updateStatusOptions();
   renderList();
-  if (sync) syncCompassRoute(view, null, "push", filter === "untriaged" || filter === "knowledge" ? filter : null);
+  if (view === "todos" && !state.todosLoaded) void loadTodos(true);
+  const routeFilter = ["untriaged", "knowledge", "overdue", "today", "upcoming"].includes(filter) ? filter : null;
+  if (sync) syncCompassRoute(view, null, "push", routeFilter);
 }
 
 function applyCompassRoute(notify = true) {
   if (!state.data) return;
   const route = parseCompassRoute(window.location.href);
   state.view = route.view;
-  state.status = route.filter === "knowledge" ? "" : defaultStatusByView[route.view];
+  state.status = route.filter === "knowledge"
+    ? ""
+    : route.view === "todos" && ["overdue", "today", "upcoming"].includes(route.filter)
+      ? "pending"
+      : defaultStatusByView[route.view];
   state.metricFilter = route.filter || "";
   state.search = "";
   els.searchInput.value = "";
@@ -1602,6 +1869,36 @@ function applyCompassRoute(notify = true) {
   if (route.id !== null) openDrawer(route.id, route.view, "none");
 }
 
+async function loadTodos(render = state.view === "todos") {
+  if (!state.data) return false;
+  if (render) els.cardList.innerHTML = '<div class="loading"><span></span><p>Google CalendarとToDoを同期しています</p></div>';
+  try {
+    const response = await fetch("/api/scheduled-actions", { headers: { Accept: "application/json" }, cache: "no-store" });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error?.message || payload.error || "ToDoを読み込めませんでした。");
+    state.data.todos = Array.isArray(payload.items) ? payload.items : [];
+    state.data.todosSummary = payload.summary || { pending: 0, completed: 0, skipped: 0 };
+    state.todoSource = payload.source || null;
+    state.todosLoaded = true;
+    renderSummary();
+    if (state.view === "todos") {
+      updateStatusOptions();
+      renderList();
+    }
+    return true;
+  } catch (error) {
+    state.todosLoaded = false;
+    els.pendingTodos.textContent = "—";
+    els.todosTabCount.textContent = "—";
+    if (render && state.view === "todos") {
+      els.resultCount.textContent = "ToDoの読み込みに失敗しました";
+      els.cardList.innerHTML = `<div class="error-state"><h3>ToDoを表示できません</h3><p>${escapeHtml(error instanceof Error ? error.message : "ToDoを読み込めませんでした。")}</p><button type="button" id="retryTodosButton">再試行</button></div>`;
+      document.getElementById("retryTodosButton").addEventListener("click", () => loadTodos(true));
+    }
+    return false;
+  }
+}
+
 async function loadDashboard() {
   els.refreshButton.disabled = true;
   els.cardList.innerHTML = '<div class="loading"><span></span><p>Supabaseから読み込んでいます</p></div>';
@@ -1609,11 +1906,16 @@ async function loadDashboard() {
     const response = await fetch("/api/dashboard", { headers: { Accept: "application/json" }, cache: "no-store" });
     const payload = await response.json();
     if (!response.ok) throw new Error(payload.error?.message || "データを読み込めませんでした。");
+    payload.todos = state.data?.todos || [];
+    payload.todosSummary = state.data?.todosSummary || null;
     state.data = payload;
     setSource(payload.source);
     renderSummary();
     renderNavigation(payload.navigation || []);
+    const requestedRoute = parseCompassRoute(window.location.href);
+    if (requestedRoute.view === "todos") await loadTodos(false);
     applyCompassRoute();
+    if (state.view !== "todos") void loadTodos(false);
     return true;
   } catch (error) {
     setSource(null, true);
@@ -1640,6 +1942,10 @@ els.clearFilter.addEventListener("click", () => {
 els.knowledgeFilter.addEventListener("click", () => {
   setView(state.view, state.metricFilter === "knowledge" ? defaultStatusByView[state.view] : "knowledge");
 });
+els.todoFilterGroup.querySelectorAll("[data-todo-filter]").forEach((button) => button.addEventListener("click", () => {
+  const filter = button.dataset.todoFilter;
+  setView("todos", state.metricFilter === filter ? defaultStatusByView.todos : filter);
+}));
 els.refreshButton.addEventListener("click", loadDashboard);
 els.addInboxButton.addEventListener("click", () => setModalOpen(true));
 els.inboxModalClose.addEventListener("click", () => setModalOpen(false));

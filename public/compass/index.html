@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light" />
     <meta name="theme-color" content="#f4f1ea" />
-    <title>Idea — Inbox & Wants</title>
+    <title>Idea — Inbox, Wants & ToDo</title>
     <link rel="stylesheet" href="/styles.css" />
     <link rel="stylesheet" href="/dashboard-shell.css" />
   </head>
@@ -20,7 +20,7 @@
                 <path d="M8.5 14.5a6 6 0 1 1 7 0c-.9.7-1.5 1.6-1.5 2.5h-4c0-.9-.6-1.8-1.5-2.5Z" />
               </svg>
             </span>
-            <span><h1>Idea</h1><small>Inbox & Wants</small></span>
+            <span><h1>Idea</h1><small>Inbox, Wants & ToDo</small></span>
           </div>
           <div class="dashboard-actions">
             <a class="dashboard-hub" href="/">← Hub</a>
@@ -47,7 +47,8 @@
         </div>
         <section class="metrics" aria-label="サマリー">
           <button class="metric metric-inbox" type="button" data-view="inbox" data-filter="pending"><span class="metric-icon">↘</span><span class="metric-label">未整理のInbox</span><strong id="pendingInbox">—</strong><small><span id="inboxTotal">—</span>件のうち</small></button>
-          <button class="metric metric-wants" type="button" data-view="wants" data-filter="active"><span class="metric-icon">✦</span><span class="metric-label">Active Wants</span><strong id="activeWants">—</strong><small>欲しい・寝かせるを含む</small></button>
+          <button class="metric metric-wants" type="button" data-view="wants" data-filter="active"><span class="metric-icon">✦</span><span class="metric-label">未整理のWants</span><strong id="activeWants">—</strong><small>次の扱いを決める</small></button>
+          <button class="metric metric-todos" type="button" data-view="todos" data-filter="pending"><span class="metric-icon">✓</span><span class="metric-label">未実施のToDo</span><strong id="pendingTodos">—</strong><small>Calendar化した予定</small></button>
           <button class="metric metric-triage" type="button" data-view="wants" data-filter="completed"><span class="metric-icon">◇</span><span class="metric-label">整理済みのWants</span><strong id="completedWants">—</strong><small>振り分け履歴を確認</small></button>
         </section>
 
@@ -57,17 +58,23 @@
             <div class="workspace-tools">
               <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><span class="sr-only">検索</span><input id="searchInput" type="search" placeholder="キーワードで検索" autocomplete="off" /></label>
               <select id="statusFilter" aria-label="ステータスで絞り込み"><option value="">すべてのステータス</option></select><button class="filter-chip" id="knowledgeFilter" type="button" aria-pressed="false">Knowledge登録待ち <b id="knowledgePendingCount">—</b></button>
+              <div class="todo-filter-group" id="todoFilterGroup" hidden aria-label="ToDoの予定で絞り込み">
+                <button class="filter-chip" type="button" data-todo-filter="overdue">実施確認待ち</button>
+                <button class="filter-chip" type="button" data-todo-filter="today">今日</button>
+                <button class="filter-chip" type="button" data-todo-filter="upcoming">今後</button>
+              </div>
             </div>
           </div>
           <div class="tabs" role="tablist" aria-label="表示するデータ">
             <button class="tab active" type="button" role="tab" aria-selected="true" data-view="inbox">Inbox <span id="inboxTabCount">—</span></button>
             <button class="tab" type="button" role="tab" aria-selected="false" data-view="wants">Wants <span id="wantsTabCount">—</span></button>
+            <button class="tab" type="button" role="tab" aria-selected="false" data-view="todos">ToDo <span id="todosTabCount">—</span></button>
           </div>
           <div class="list-meta"><p id="resultCount">データを読み込んでいます</p><button id="clearFilter" class="text-button" type="button" hidden>絞り込みを解除</button></div>
           <div class="card-list" id="cardList" aria-live="polite"><div class="loading"><span></span><p>Supabaseから読み込んでいます</p></div></div>
         </section>
       </main>
-      <footer><span>Idea v1.1</span><span>Supabaseと同期</span></footer>
+      <footer><span>Idea v1.2</span><span>Supabase・Google Calendarと同期</span></footer>
     </div>
 
     <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>

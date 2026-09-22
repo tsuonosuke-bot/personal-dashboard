@@ -1,14 +1,14 @@
 export interface CompassRoute {
-  view: "inbox" | "wants";
+  view: "inbox" | "wants" | "todos";
   id: number | null;
-  filter: "untriaged" | "knowledge" | null;
+  filter: "untriaged" | "knowledge" | "overdue" | "today" | "upcoming" | null;
   error: "invalid-target" | null;
 }
 
 export function parseCompassRoute(value: string | URL): CompassRoute;
 export function compassRoutePath(
   value: string | URL,
-  view: "inbox" | "wants",
+  view: "inbox" | "wants" | "todos",
   id?: number | null,
-  filter?: "untriaged" | "knowledge" | null,
+  filter?: "untriaged" | "knowledge" | "overdue" | "today" | "upcoming" | null,
 ): string;

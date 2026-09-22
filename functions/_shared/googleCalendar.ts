@@ -45,6 +45,7 @@ interface OAuthState {
 
 interface GoogleEventShape {
   id?: unknown;
+  etag?: unknown;
   htmlLink?: unknown;
   status?: unknown;
   summary?: unknown;
@@ -55,6 +56,15 @@ interface GoogleEventShape {
 interface GoogleEventResult {
   targetId: string;
   targetUrl: string;
+}
+
+export interface GoogleCalendarEventSnapshot {
+  targetId: string;
+  targetUrl: string | null;
+  title: string | null;
+  status: "confirmed" | "cancelled" | "missing";
+  schedule: CalendarSchedule | null;
+  etag: string | null;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -484,6 +494,17 @@ function eventDateTime(date: string, time: string): string {
   return `${date}T${time}:00+09:00`;
 }
 
+function schedulePayload(schedule: CalendarSchedule) {
+  return {
+    start: schedule.allDay
+      ? { date: schedule.date }
+      : { dateTime: eventDateTime(schedule.date, schedule.startTime!), timeZone: schedule.timeZone },
+    end: schedule.allDay
+      ? { date: nextDate(schedule.date) }
+      : { dateTime: eventDateTime(schedule.date, schedule.endTime!), timeZone: schedule.timeZone },
+  };
+}
+
 function expectedEvent(
   wantId: number,
   idempotencyKey: string,
@@ -496,13 +517,147 @@ function expectedEvent(
     id: `pd${idempotencyKey.replace(/-/g, "")}`,
     summary: title,
     description,
-    start: schedule.allDay
-      ? { date: schedule.date }
-      : { dateTime: eventDateTime(schedule.date, schedule.startTime!), timeZone: schedule.timeZone },
-    end: schedule.allDay
-      ? { date: nextDate(schedule.date) }
-      : { dateTime: eventDateTime(schedule.date, schedule.endTime!), timeZone: schedule.timeZone },
+    ...schedulePayload(schedule),
   };
+}
+
+function tokyoDateTime(value: string): { date: string; time: string } | null {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: GOOGLE_CALENDAR_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(parsed);
+  const part = (type: string) => parts.find((entry) => entry.type === type)?.value || "";
+  const date = `${part("year")}-${part("month")}-${part("day")}`;
+  const time = `${part("hour")}:${part("minute")}`;
+  return isValidDate(date) && isValidTime(time) ? { date, time } : null;
+}
+
+function scheduleFromEvent(event: GoogleEventShape): CalendarSchedule | null {
+  if (!isPlainObject(event.start) || !isPlainObject(event.end)) return null;
+  if (isValidDate(event.start.date) && isValidDate(event.end.date)) {
+    return { allDay: true, date: event.start.date, startTime: null, endTime: null, timeZone: GOOGLE_CALENDAR_TIME_ZONE };
+  }
+  if (typeof event.start.dateTime !== "string" || typeof event.end.dateTime !== "string") return null;
+  const start = tokyoDateTime(event.start.dateTime);
+  const end = tokyoDateTime(event.end.dateTime);
+  if (!start || !end || start.date !== end.date || minutes(end.time) <= minutes(start.time)) return null;
+  return {
+    allDay: false,
+    date: start.date,
+    startTime: start.time,
+    endTime: end.time,
+    timeZone: GOOGLE_CALENDAR_TIME_ZONE,
+  };
+}
+
+function snapshotFromEvent(targetId: string, event: GoogleEventShape): GoogleCalendarEventSnapshot {
+  const status = event.status === "cancelled" ? "cancelled" : "confirmed";
+  return {
+    targetId,
+    targetUrl: validGoogleUrl(event.htmlLink) ? event.htmlLink : null,
+    title: typeof event.summary === "string" && event.summary.trim() ? event.summary : null,
+    status,
+    schedule: status === "confirmed" ? scheduleFromEvent(event) : null,
+    etag: typeof event.etag === "string" ? event.etag : null,
+  };
+}
+
+async function fetchGoogleCalendarEvent(accessToken: string, targetId: string): Promise<GoogleCalendarEventSnapshot> {
+  const endpoint = new URL(`${CALENDAR_API}/calendars/primary/events/${encodeURIComponent(targetId)}`);
+  endpoint.searchParams.set("fields", "id,etag,htmlLink,status,summary,start,end");
+  let response: Response;
+  try {
+    response = await fetch(endpoint, { headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" } });
+  } catch {
+    throw new DashboardError("GOOGLE_CALENDAR_UNAVAILABLE", "Could not read the Google event.");
+  }
+  if (response.status === 404 || response.status === 410) {
+    return { targetId, targetUrl: null, title: null, status: "missing", schedule: null, etag: null };
+  }
+  if (!response.ok) {
+    const code = response.status === 401 || response.status === 403
+      ? "GOOGLE_CALENDAR_ACCESS_DENIED"
+      : response.status === 429
+        ? "GOOGLE_CALENDAR_RATE_LIMITED"
+        : "GOOGLE_CALENDAR_REQUEST_FAILED";
+    throw new DashboardError(code, `Google Calendar returned ${response.status}.`, response.status === 429 ? 429 : 502);
+  }
+  const event: unknown = await response.json();
+  if (!isPlainObject(event) || event.id !== targetId) {
+    throw new DashboardError("GOOGLE_CALENDAR_RESPONSE_INVALID", "Google Calendar returned an unexpected event.");
+  }
+  return snapshotFromEvent(targetId, event as GoogleEventShape);
+}
+
+export async function readGoogleCalendarEvents(
+  env: DashboardEnv,
+  targetIds: string[],
+): Promise<Map<string, GoogleCalendarEventSnapshot>> {
+  if (!configured(env)) throw new DashboardError("GOOGLE_CALENDAR_NOT_CONFIGURED", "Google Calendar is not configured.", 503);
+  const uniqueIds = [...new Set(targetIds.filter((id) => id.trim().length > 0))];
+  if (uniqueIds.length === 0) return new Map();
+  const accessToken = await refreshAccessToken(env);
+  const snapshots = await Promise.all(uniqueIds.map((id) => fetchGoogleCalendarEvent(accessToken, id)));
+  return new Map(snapshots.map((snapshot) => [snapshot.targetId, snapshot]));
+}
+
+export async function rescheduleGoogleCalendarEvent(
+  env: DashboardEnv,
+  targetId: string,
+  schedule: CalendarSchedule,
+  expectedEtag: string | null,
+): Promise<GoogleCalendarEventSnapshot> {
+  if (!configured(env)) throw new DashboardError("GOOGLE_CALENDAR_NOT_CONFIGURED", "Google Calendar is not configured.", 503);
+  const accessToken = await refreshAccessToken(env);
+  const endpoint = new URL(`${CALENDAR_API}/calendars/primary/events/${encodeURIComponent(targetId)}`);
+  endpoint.searchParams.set("sendUpdates", "none");
+  endpoint.searchParams.set("fields", "id,etag,htmlLink,status,summary,start,end");
+  const requestHeaders: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+  if (expectedEtag) requestHeaders["If-Match"] = expectedEtag;
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "PATCH",
+      headers: requestHeaders,
+      body: JSON.stringify(schedulePayload(schedule)),
+    });
+  } catch {
+    throw new DashboardError("GOOGLE_CALENDAR_UNAVAILABLE", "Could not reschedule the Google event.");
+  }
+  if (response.status === 404 || response.status === 410) {
+    throw new DashboardError("GOOGLE_CALENDAR_EVENT_MISSING", "Google Calendar event no longer exists.", 409);
+  }
+  if (response.status === 412) {
+    throw new DashboardError("GOOGLE_CALENDAR_EVENT_CONFLICT", "Google Calendar event changed before rescheduling.", 409);
+  }
+  if (!response.ok) {
+    const code = response.status === 401 || response.status === 403
+      ? "GOOGLE_CALENDAR_ACCESS_DENIED"
+      : response.status === 429
+        ? "GOOGLE_CALENDAR_RATE_LIMITED"
+        : "GOOGLE_CALENDAR_REQUEST_FAILED";
+    throw new DashboardError(code, `Google Calendar returned ${response.status}.`, response.status === 429 ? 429 : 502);
+  }
+  const event: unknown = await response.json();
+  if (!isPlainObject(event) || event.id !== targetId) {
+    throw new DashboardError("GOOGLE_CALENDAR_RESPONSE_INVALID", "Google Calendar returned an unexpected event.");
+  }
+  const snapshot = snapshotFromEvent(targetId, event as GoogleEventShape);
+  if (snapshot.status !== "confirmed" || !snapshot.schedule || JSON.stringify(snapshot.schedule) !== JSON.stringify(schedule)) {
+    throw new DashboardError("GOOGLE_CALENDAR_RESPONSE_INVALID", "Google Calendar did not confirm the new schedule.");
+  }
+  return snapshot;
 }
 
 function validGoogleUrl(value: unknown): value is string {
@@ -587,4 +742,45 @@ export async function createGoogleCalendarEvent(
     throw new DashboardError(code, `Google Calendar returned ${response.status}.`, response.status === 429 ? 429 : 502);
   }
   return readVerifiedEvent(accessToken, event);
+}
+
+export async function createReplacementGoogleCalendarEvent(
+  env: DashboardEnv,
+  input: {
+    wantId: number;
+    replacementKey: string;
+    title: string;
+    detail: string | null;
+    schedule: CalendarSchedule;
+  },
+): Promise<GoogleCalendarEventSnapshot> {
+  if (!configured(env)) throw new DashboardError("GOOGLE_CALENDAR_NOT_CONFIGURED", "Google Calendar is not configured.", 503);
+  const accessToken = await refreshAccessToken(env);
+  const event = expectedEvent(input.wantId, input.replacementKey, input.title, input.detail, input.schedule);
+  const endpoint = new URL(`${CALENDAR_API}/calendars/primary/events`);
+  endpoint.searchParams.set("sendUpdates", "none");
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(event),
+    });
+  } catch {
+    throw new DashboardError("GOOGLE_CALENDAR_UNAVAILABLE", "Could not recreate the Google event.");
+  }
+  if (!response.ok && response.status !== 409) {
+    const code = response.status === 401 || response.status === 403
+      ? "GOOGLE_CALENDAR_ACCESS_DENIED"
+      : response.status === 429
+        ? "GOOGLE_CALENDAR_RATE_LIMITED"
+        : "GOOGLE_CALENDAR_REQUEST_FAILED";
+    throw new DashboardError(code, `Google Calendar returned ${response.status}.`, response.status === 429 ? 429 : 502);
+  }
+  const verified = await readVerifiedEvent(accessToken, event);
+  return fetchGoogleCalendarEvent(accessToken, verified.targetId);
 }
