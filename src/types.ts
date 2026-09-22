@@ -211,7 +211,8 @@ export interface QuizGradeResult {
   title: string;
   /** 解説画面で出典ナレッジを識別する分類。 */
   category: string;
-  /** 採点記録後の最新値。結果画面から安全に優先度を更新するために使う。 */
+  /** 採点記録後の最新値。結果画面から安全に習熟度・分類・優先度を更新するために使う。 */
+  mastery: Mastery;
   priority: KnowledgePriority;
   /** 採点記録後の競合検出用バージョン。 */
   content_version: number;

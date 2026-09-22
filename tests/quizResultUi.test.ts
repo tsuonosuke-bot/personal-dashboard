@@ -9,8 +9,6 @@ test("復習結果にナレッジID・分類と新規タブの管理導線を表
   ]);
 
   assert.match(source, /<dt>ナレッジID<\/dt>/);
-  assert.match(source, /<dt>分類<\/dt>/);
-  assert.match(source, /\{result\.category\}/);
   assert.match(source, /<h3>あなたの回答<\/h3>/);
   assert.match(source, /quiz\.answers\[question\.id\]/);
   assert.match(source, /hasUserAnswer \? userAnswer : "（未回答）"/);
@@ -19,7 +17,7 @@ test("復習結果にナレッジID・分類と新規タブの管理導線を表
   assert.match(source, /target="_blank"/);
   assert.match(source, /rel="noopener noreferrer"/);
   assert.match(source, /詳細・編集を新しいタブで開く/);
-  assert.match(source, /習熟度の変更やアーカイブも行えます/);
+  assert.match(source, /本文やタグの編集、アーカイブも行えます/);
   assert.match(appSource, /onEdit=\{\(\) => openEdit\(selected\)\}/);
   assert.match(appSource, /onArchive=\{\(\) => void archiveKnowledge\(selected\)\}/);
 });
@@ -64,4 +62,41 @@ test("出題生成エラーは正常な問題を止めず、件数と原因を�
   assert.match(view, /追加のAI再生成は行っていません/);
   assert.match(view, /<summary>エラー原因を表示<\/summary>/);
   assert.match(view, /failure\.position.*failure\.category.*failure\.reason/s);
+});
+
+test("採点結果で習熟度・分類・優先度を画面遷移なしに変更できる", async () => {
+  const [view, hook] = await Promise.all([
+    readFile(new URL("../src/components/QuizView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/hooks/useQuiz.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(view, /<span>習熟度<\/span>/);
+  assert.match(view, /<span>分類<\/span>/);
+  assert.match(view, /<span>優先度<\/span>/);
+  assert.match(view, /MASTERY_ORDER\.map/);
+  assert.match(view, /categoryOptions\.map/);
+  assert.match(view, /changeResultField\(result, \{\s*mastery:/);
+  assert.match(view, /changeResultField\(result, \{\s*category:/);
+  assert.match(view, /changeResultField\(result, \{\s*priority:/);
+  assert.match(view, /onKnowledgeUpdate\(result\.id, result\.content_version, changes\)/);
+  assert.match(hook, /mastery: updated\.mastery/);
+  assert.match(hook, /category: updated\.category/);
+});
+
+test("優先度の説明は各問題に繰り返さず、結果画面に一度だけ出す", async () => {
+  const view = await readFile(new URL("../src/components/QuizView.tsx", import.meta.url), "utf8");
+
+  assert.doesNotMatch(view, /PRIORITY_INTERVAL_HINTS/);
+  assert.equal(view.match(/復習間隔は変えません/g)?.length, 1);
+  const noteIndex = view.indexOf("quiz-results-note");
+  const listIndex = view.indexOf('<ul className="quiz-result-list">');
+  assert.ok(noteIndex > 0 && noteIndex < listIndex);
+});
+
+test("復習・英会話・ダッシュボードの切替時にスクロール位置を先頭へ戻す", async () => {
+  const app = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+
+  assert.match(app, /const view = showQuiz \? "quiz" : showSpeaking \? "speaking" : "dashboard";/);
+  assert.match(app, /useLayoutEffect\(\(\) => \{[\s\S]*?window\.scrollTo\(0, 0\);[\s\S]*?\}, \[view\]\);/);
+  assert.ok(app.indexOf("window.scrollTo(0, 0)") < app.indexOf("if (showQuiz) {"));
 });

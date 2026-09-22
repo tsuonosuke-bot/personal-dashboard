@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArchivedKnowledgeModal } from "./components/ArchivedKnowledgeModal";
 import { DailyReviewPanel } from "./components/DailyReviewPanel";
 import { FilterBar } from "./components/FilterBar";
@@ -53,6 +53,15 @@ export default function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const [undoArchived, setUndoArchived] = useState<Knowledge | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
+
+  // 画面を切り替えても同じdocumentのままなので、直前の画面のスクロール位置が残る。
+  const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : "dashboard";
+  const previousView = useRef(view);
+  useLayoutEffect(() => {
+    if (previousView.current === view) return;
+    previousView.current = view;
+    window.scrollTo(0, 0);
+  }, [view]);
 
   const filtered = useFilteredKnowledge(knowledge, filters, sort);
   const categories = useMemo(

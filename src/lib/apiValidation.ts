@@ -287,6 +287,8 @@ export function parseQuizGradeResult(value: unknown): QuizGradeResult {
   if (!isRecord(value)) return fail(entity);
   const verdict = stringValue(value, "verdict", entity);
   if (!VERDICT_VALUES.has(verdict as QuizVerdict)) return fail(entity, "verdict");
+  const mastery = stringValue(value, "mastery", entity);
+  if (!MASTERY_VALUES.has(mastery as Mastery)) return fail(entity, "mastery");
   const priority = stringValue(value, "priority", entity);
   if (!PRIORITY_VALUES.has(priority as KnowledgePriority)) return fail(entity, "priority");
   const contentVersion = numberValue(value, "content_version", entity);
@@ -303,6 +305,7 @@ export function parseQuizGradeResult(value: unknown): QuizGradeResult {
     id: stringValue(value, "id", entity),
     title: stringValue(value, "title", entity),
     category: stringValue(value, "category", entity),
+    mastery: mastery as Mastery,
     priority: priority as KnowledgePriority,
     content_version: contentVersion,
     verdict: verdict as QuizVerdict,

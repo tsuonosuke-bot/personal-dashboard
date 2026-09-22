@@ -40,10 +40,12 @@ interface KnowledgeFact {
 }
 
 const PRIORITIES = new Set(["最高", "高", "中", "低", "最低"]);
+const MASTERIES = new Set(["未学習", "学習中", "習得中", "定着"]);
 
 interface KnowledgeReviewState {
   id: string;
   title: string;
+  mastery: "未学習" | "学習中" | "習得中" | "定着";
   priority: "最高" | "高" | "中" | "低" | "最低";
   content_version: number;
   next_review_on: string | null;
@@ -108,6 +110,8 @@ function isKnowledgeReviewState(value: unknown): value is KnowledgeReviewState {
   const record = value as Record<string, unknown>;
   return typeof record.id === "string"
     && typeof record.title === "string"
+    && typeof record.mastery === "string"
+    && MASTERIES.has(record.mastery)
     && typeof record.priority === "string"
     && PRIORITIES.has(record.priority)
     && typeof record.content_version === "number"
@@ -715,7 +719,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   if (recordedIds.length === 0) return finish([]);
 
   // record_answerで版番号と復習日が変わるため、優先度編集に使う最新状態を読み直す。
-  const reviewStateSelect = "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage";
+  const reviewStateSelect = "id,title,mastery,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage";
   const reviewStateResult = await requestSupabaseRows(context.env, {
     table: "knowledge",
     params: new URLSearchParams({
@@ -762,6 +766,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       id,
       title: state.title,
       category: fact.category,
+      mastery: state.mastery,
       priority: state.priority,
       content_version: state.content_version,
       verdict: grade.verdict,

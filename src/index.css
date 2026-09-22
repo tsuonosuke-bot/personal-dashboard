@@ -381,7 +381,7 @@ button.review-card { display: block; }
   display: grid; gap: 10px; padding: 12px 14px;
   border: 1px solid #dfe6ef; border-radius: 10px; background: #f8fafc;
 }
-.quiz-knowledge-meta { display: grid; grid-template-columns: minmax(0, 2fr) minmax(120px, 1fr); gap: 8px 18px; margin: 0; }
+.quiz-knowledge-meta { margin: 0; }
 .quiz-knowledge-meta div { min-width: 0; }
 .quiz-knowledge-meta dt { margin-bottom: 3px; color: #7a879b; font-size: 11px; font-weight: 700; }
 .quiz-knowledge-meta dd { margin: 0; color: #334155; font-size: 12px; }
@@ -389,16 +389,13 @@ button.review-card { display: block; }
 .quiz-knowledge-actions { display: flex; flex-wrap: wrap; align-items: baseline; gap: 5px 10px; }
 .quiz-knowledge-link { color: #66558c; font-size: 12px; font-weight: 700; }
 .quiz-knowledge-actions span { color: #7a879b; font-size: 11px; }
-.quiz-priority-panel {
-  display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 5px 12px;
-  padding: 12px 14px; border: 1px solid #e7e3ef; border-radius: 10px; background: #faf9fd;
-}
-.quiz-priority-control { display: flex; align-items: center; gap: 8px; color: #526079; font-size: 12px; font-weight: 700; }
-.quiz-priority-control select { min-width: 88px; padding-block: 6px; }
-.quiz-priority-hint { margin: 0; color: #7a879b; font-size: 11px; line-height: 1.5; }
-.quiz-next-review { grid-column: 1 / -1; margin: 2px 0 0; color: #7a879b; font-size: 12px; }
-.quiz-priority-feedback { grid-column: 1 / -1; min-height: 17px; color: #15803d; font-size: 11px; }
-.quiz-priority-error { color: #b91c1c; }
+.quiz-results-note { margin: 0; color: #7a879b; font-size: 12px; line-height: 1.6; }
+.quiz-edit-fields { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.quiz-edit-control { display: flex; align-items: center; gap: 8px; min-width: 0; color: #526079; font-size: 12px; font-weight: 700; }
+.quiz-edit-control select { min-width: 88px; max-width: 220px; padding-block: 6px; }
+.quiz-edit-feedback { min-height: 17px; color: #15803d; font-size: 11px; }
+.quiz-edit-error { color: #b91c1c; }
+.quiz-next-review { margin: 0; color: #7a879b; font-size: 12px; }
 .quiz-early-note { margin: 0 0 12px; color: #7a879b; font-size: 13px; }
 .quiz-verdict-ok { background: #f0fdf4; color: #15803d; }
 .quiz-verdict-partial { background: #fffbeb; color: #b45309; }
@@ -407,10 +404,10 @@ button.review-card { display: block; }
 
 @media (max-width: 560px) {
   .daily-quiz-start { align-items: stretch; flex-direction: column; }
-  .quiz-knowledge-meta { grid-template-columns: 1fr; }
-  .quiz-priority-panel { grid-template-columns: 1fr; }
-  .quiz-priority-control { justify-content: space-between; }
-  .quiz-next-review, .quiz-priority-feedback { grid-column: auto; }
+  .quiz-edit-fields { flex-direction: column; align-items: stretch; }
+  .quiz-edit-control { justify-content: space-between; }
+  .quiz-edit-control select { flex: 1; max-width: none; }
+  .quiz-edit-control span { flex: 0 0 4em; }
 }
 
 /* 英会話練習。復習画面と視覚的にも分け、発話に集中できる幅にする。 */

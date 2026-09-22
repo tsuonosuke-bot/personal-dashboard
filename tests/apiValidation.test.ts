@@ -102,11 +102,12 @@ test("出題の形式と選択肢の食い違いを受理しない", () => {
   }), /position/);
 });
 
-test("採点結果の優先度と更新バージョンを検証する", () => {
+test("採点結果の習熟度・優先度と更新バージョンを検証する", () => {
   const result = {
     id: "123e4567-e89b-42d3-a456-426614174000",
     title: "テスト",
     category: "技術",
+    mastery: "習得中",
     priority: "高",
     content_version: 3,
     verdict: "正解",
@@ -126,6 +127,10 @@ test("採点結果の優先度と更新バージョンを検証する", () => {
   assert.throws(
     () => parseQuizGradeResponse({ results: [{ ...result, priority: "最優先" }], failures: [] }),
     /priority/,
+  );
+  assert.throws(
+    () => parseQuizGradeResponse({ results: [{ ...result, mastery: "完璧" }], failures: [] }),
+    /mastery/,
   );
   assert.throws(
     () => parseQuizGradeResponse({ results: [{ ...result, content_version: 0 }], failures: [] }),

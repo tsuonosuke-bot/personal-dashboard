@@ -830,15 +830,15 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
-      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
+      if (new URL(url).searchParams.get("select") === "id,title,mastery,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
         return Response.json([
           {
-            id: ID_1, title: "正解1", priority: "最高", content_version: 7,
+            id: ID_1, title: "正解1", mastery: "学習中", priority: "最高", content_version: 7,
             next_review_on: "2026-10-03", next_review_at: "2026-10-03T03:00:00Z",
             stability_hours: 288, relearning_stage: null,
           },
           {
-            id: ID_2, title: "正解2", priority: "高", content_version: 9,
+            id: ID_2, title: "正解2", mastery: "習得中", priority: "高", content_version: 9,
             next_review_on: "2026-10-01", next_review_at: "2026-10-01T03:00:00Z",
             stability_hours: 240, relearning_stage: "recall",
           },
@@ -904,13 +904,13 @@ test("quiz/grade は署名済み問題を採点し、四択の上限を適用し
     assert.deepEqual(body.results, [
       {
         id: ID_1, title: "正解1", category: "英語", verdict: "正解", quality: 5, correct_answer: "模範解答1",
-        explanation: "よくできました", priority: "最高", content_version: 7,
+        explanation: "よくできました", mastery: "学習中", priority: "最高", content_version: 7,
         next_review_on: "2026-10-03", next_review_at: "2026-10-03T03:00:00Z",
         stability_hours: 288, relearning_stage: null, schedule_updated: true, recorded: true,
       },
       {
         id: ID_2, title: "正解2", category: "歴史", verdict: "正解", quality: 4, correct_answer: "模範解答2",
-        explanation: "正しい選択肢「正解2」を選べています。", priority: "高", content_version: 9,
+        explanation: "正しい選択肢「正解2」を選べています。", mastery: "習得中", priority: "高", content_version: 9,
         next_review_on: "2026-10-01", next_review_at: "2026-10-01T03:00:00Z",
         stability_hours: 240, relearning_stage: "recall", schedule_updated: true, recorded: true,
       },
@@ -946,11 +946,11 @@ test("quiz/grade は誤った語数指定に従った1語不足を不正解と�
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
-      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
+      if (new URL(url).searchParams.get("select") === "id,title,mastery,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
         return Response.json([{
           id: ID_1,
           title: "before you knew it",
-          priority: "高",
+          mastery: "学習中", priority: "高",
           content_version: 2,
           next_review_on: "2026-09-22",
           next_review_at: "2026-09-22T03:00:00Z",
@@ -1015,9 +1015,9 @@ test("quiz/grade はDBの原子的な重複判定をそのまま返す", async (
   globalThis.fetch = async (input) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
-      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
+      if (new URL(url).searchParams.get("select") === "id,title,mastery,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
         return Response.json([{
-          id: ID_1, title: "正解1", priority: "中", content_version: 4,
+          id: ID_1, title: "正解1", mastery: "学習中", priority: "中", content_version: 4,
           next_review_on: "2026-09-20", next_review_at: "2026-09-20T03:00:00Z",
           stability_hours: 72, relearning_stage: null,
         }]);
@@ -1114,9 +1114,9 @@ test("quiz/grade は改ざんされた問題と四択の選択肢外回答を問
 
 /** 採点3テストで共通の knowledge 応答。1件分の事実と採点後状態を返す。 */
 function gradeKnowledgeResponse(url: string) {
-  if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
+  if (new URL(url).searchParams.get("select") === "id,title,mastery,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
     return Response.json([{
-      id: ID_1, title: "There's room for A", priority: "高", content_version: 3,
+      id: ID_1, title: "There's room for A", mastery: "学習中", priority: "高", content_version: 3,
       next_review_on: "2026-09-27", next_review_at: "2026-09-27T03:00:00Z",
       stability_hours: 144, relearning_stage: null,
     }]);
@@ -1235,9 +1235,9 @@ test("quiz/grade は1問の採点が壊れても正常な問題を保存して�
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
-      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
+      if (new URL(url).searchParams.get("select") === "id,title,mastery,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
         return Response.json([{
-          id: ID_1, title: "正解1", priority: "高", content_version: 4,
+          id: ID_1, title: "正解1", mastery: "学習中", priority: "高", content_version: 4,
           next_review_on: "2026-09-23", next_review_at: "2026-09-23T03:00:00Z",
           stability_hours: 48, relearning_stage: null,
         }]);
@@ -1302,9 +1302,9 @@ test("quiz/grade は一括DB記録が失敗したら1問ずつ分離して保存
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
-      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
+      if (new URL(url).searchParams.get("select") === "id,title,mastery,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
         return Response.json([{
-          id: ID_1, title: "正解1", priority: "中", content_version: 5,
+          id: ID_1, title: "正解1", mastery: "学習中", priority: "中", content_version: 5,
           next_review_on: "2026-09-24", next_review_at: "2026-09-24T03:00:00Z",
           stability_hours: 72, relearning_stage: null,
         }]);
@@ -1510,9 +1510,9 @@ test("quiz/grade は回答に書かれていない表現を根拠にした減点
   globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("/rest/v1/knowledge") && !url.includes("rpc")) {
-      if (new URL(url).searchParams.get("select") === "id,title,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
+      if (new URL(url).searchParams.get("select") === "id,title,mastery,priority,content_version,next_review_on,next_review_at,stability_hours,relearning_stage") {
         return Response.json([{
-          id: ID_1, title: "1W&1PとIPO", priority: "高", content_version: 2,
+          id: ID_1, title: "1W&1PとIPO", mastery: "学習中", priority: "高", content_version: 2,
           next_review_on: "2026-10-04", next_review_at: "2026-10-04T03:00:00Z",
           stability_hours: 312, relearning_stage: null,
         }]);

@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEFAULT_QUIZ_FORMAT, DEFAULT_QUIZ_LIMIT, QUIZ_FORMAT_OPTIONS, QUIZ_LIMIT_OPTIONS, useQuiz,
 } from "../hooks/useQuiz";
-import { PRIORITY_INTERVAL_HINTS, PRIORITY_ORDER } from "../constants";
+import { MASTERY_ORDER, PRIORITY_ORDER } from "../constants";
 import { dashboardRoutePath } from "../lib/dashboardRoute";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import { KnowledgeFormModal } from "./KnowledgeFormModal";
 import { ReviewCategoryCounts } from "./ReviewCategoryCounts";
 import type {
-  DailyReviewStatus, Knowledge, KnowledgeDraft, KnowledgePriority, QuizFormatRequest, QuizGenerationFailure,
+  DailyReviewStatus, Knowledge, KnowledgeDraft, KnowledgePriority, Mastery, QuizFormatRequest, QuizGenerationFailure,
   QuizGradeResult, QuizLog, QuizQuestion,
 } from "../types";
 
@@ -67,10 +67,12 @@ interface Props {
   ) => Promise<Knowledge>;
 }
 
-type PriorityFeedback = {
+type ResultEdit = Pick<KnowledgeDraft, "mastery" | "category" | "priority">;
+
+type ResultEditFeedback = {
   id: string;
   status: "saving" | "saved" | "error";
-  priority?: KnowledgePriority;
+  pending?: Partial<ResultEdit>;
   message?: string;
 };
 
@@ -85,7 +87,7 @@ export function QuizView({
   const [editTarget, setEditTarget] = useState<Knowledge | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
-  const [priorityFeedback, setPriorityFeedback] = useState<PriorityFeedback | null>(null);
+  const [editFeedback, setEditFeedback] = useState<ResultEditFeedback | null>(null);
   const autoStarted = useRef(false);
 
   const categories = useMemo(
@@ -107,22 +109,25 @@ export function QuizView({
   };
 
   const resetQuiz = () => {
-    setPriorityFeedback(null);
+    setEditFeedback(null);
     quiz.reset();
   };
 
-  const changePriority = async (result: QuizGradeResult, priority: KnowledgePriority) => {
-    if (priority === result.priority || priorityFeedback?.status === "saving") return;
-    setPriorityFeedback({ id: result.id, status: "saving", priority });
+  const changeResultField = async (result: QuizGradeResult, changes: Partial<ResultEdit>) => {
+    if (editFeedback?.status === "saving") return;
+    const unchanged = (Object.keys(changes) as (keyof ResultEdit)[])
+      .every((key) => changes[key] === result[key]);
+    if (unchanged) return;
+    setEditFeedback({ id: result.id, status: "saving", pending: changes });
     try {
-      const updated = await onKnowledgeUpdate(result.id, result.content_version, { priority });
+      const updated = await onKnowledgeUpdate(result.id, result.content_version, changes);
       quiz.syncKnowledgeResult(updated);
-      setPriorityFeedback({ id: result.id, status: "saved" });
+      setEditFeedback({ id: result.id, status: "saved" });
     } catch (caught) {
-      setPriorityFeedback({
+      setEditFeedback({
         id: result.id,
         status: "error",
-        message: caught instanceof Error ? caught.message : "優先度の保存に失敗しました。",
+        message: caught instanceof Error ? caught.message : "保存に失敗しました。",
       });
     }
   };
@@ -347,6 +352,11 @@ export function QuizView({
                 記録しなかった問題: {Object.values(quiz.skipped).filter(Boolean).length}問
               </div>
             )}
+            {quiz.results.length > 0 && (
+              <p className="quiz-results-note">
+                習熟度・分類・優先度はこの画面で変更できます。優先度は同じ期限内の出題順だけに使い、復習間隔は変えません。
+              </p>
+            )}
             <ul className="quiz-result-list">
               {quiz.questions.map((question, questionIndex) => {
                 const result = quiz.results.find((r) => r.id === question.id);
@@ -401,11 +411,19 @@ export function QuizView({
                   kind: "knowledge",
                   knowledgeId: result.id,
                 });
-                const displayedPriority = priorityFeedback?.id === result.id
-                  && priorityFeedback.status === "saving"
-                  && priorityFeedback.priority
-                  ? priorityFeedback.priority
-                  : result.priority;
+                const pending = editFeedback?.id === result.id && editFeedback.status === "saving"
+                  ? editFeedback.pending
+                  : undefined;
+                const shown: ResultEdit = {
+                  mastery: pending?.mastery ?? result.mastery,
+                  category: pending?.category ?? result.category,
+                  priority: pending?.priority ?? result.priority,
+                };
+                const categoryOptions = categories.includes(shown.category)
+                  ? categories
+                  : [...categories, shown.category].sort();
+                const editDisabled = editFeedback?.status === "saving";
+                const feedback = editFeedback?.id === result.id ? editFeedback : null;
                 return (
                   <li key={question.id} className="quiz-result-item card">
                     <div className="quiz-result-head">
@@ -438,14 +456,71 @@ export function QuizView({
                       <p>{result.explanation}</p>
                     </div>
                     <div className="quiz-knowledge-panel">
+                      <div className="quiz-edit-fields">
+                        <label className="quiz-edit-control">
+                          <span>習熟度</span>
+                          <select
+                            aria-label={`${result.title}の習熟度`}
+                            value={shown.mastery}
+                            disabled={editDisabled}
+                            onChange={(event) => void changeResultField(result, {
+                              mastery: event.target.value as Mastery,
+                            })}
+                          >
+                            {MASTERY_ORDER.map((mastery) => (
+                              <option key={mastery} value={mastery}>{mastery}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="quiz-edit-control">
+                          <span>分類</span>
+                          <select
+                            aria-label={`${result.title}の分類`}
+                            value={shown.category}
+                            disabled={editDisabled}
+                            onChange={(event) => void changeResultField(result, {
+                              category: event.target.value,
+                            })}
+                          >
+                            {categoryOptions.map((category) => (
+                              <option key={category} value={category}>{category}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="quiz-edit-control">
+                          <span>優先度</span>
+                          <select
+                            aria-label={`${result.title}の優先度`}
+                            value={shown.priority}
+                            disabled={editDisabled}
+                            onChange={(event) => void changeResultField(result, {
+                              priority: event.target.value as KnowledgePriority,
+                            })}
+                          >
+                            {PRIORITY_ORDER.map((priority) => (
+                              <option key={priority} value={priority}>{priority}</option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <div className="quiz-edit-feedback" aria-live="polite">
+                        {feedback?.status === "saving" && "保存中…"}
+                        {feedback?.status === "saved" && "保存しました。"}
+                        {feedback?.status === "error" && (
+                          <span className="quiz-edit-error">{feedback.message}</span>
+                        )}
+                      </div>
+                      <p className="quiz-next-review">
+                        {result.schedule_updated
+                          ? `次回: ${formatReviewTime(result.next_review_at)}（${QUALITY_INTERVAL_LABEL[result.quality] ?? "定着間隔に応じて調整"}）`
+                          : `次回: ${formatReviewTime(result.next_review_at)}（期限前の正解のため予定は据え置き）`}
+                        {result.relearning_stage === "recognition" && "・次は四択で再認"}
+                        {result.relearning_stage === "recall" && "・次は一問一答で想起"}
+                      </p>
                       <dl className="quiz-knowledge-meta">
                         <div>
                           <dt>ナレッジID</dt>
                           <dd><code>{result.id}</code></dd>
-                        </div>
-                        <div>
-                          <dt>分類</dt>
-                          <dd>{result.category}</dd>
                         </div>
                       </dl>
                       <div className="quiz-knowledge-actions">
@@ -458,42 +533,7 @@ export function QuizView({
                         >
                           詳細・編集を新しいタブで開く ↗
                         </a>
-                        <span>習熟度の変更やアーカイブも行えます。</span>
-                      </div>
-                    </div>
-                    <div className="quiz-priority-panel">
-                      <label className="quiz-priority-control">
-                        <span>優先度</span>
-                        <select
-                          aria-label={`${result.title}の優先度`}
-                          value={displayedPriority}
-                          disabled={priorityFeedback?.status === "saving"}
-                          onChange={(event) => void changePriority(
-                            result,
-                            event.target.value as KnowledgePriority,
-                          )}
-                        >
-                          {PRIORITY_ORDER.map((priority) => (
-                            <option key={priority} value={priority}>{priority}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <p className="quiz-priority-hint">
-                        {PRIORITY_INTERVAL_HINTS[displayedPriority]}。優先度は出題順だけに使い、復習間隔は変えません。
-                      </p>
-                      <p className="quiz-next-review">
-                        {result.schedule_updated
-                          ? `次回: ${formatReviewTime(result.next_review_at)}（${QUALITY_INTERVAL_LABEL[result.quality] ?? "定着間隔に応じて調整"}）`
-                          : `次回: ${formatReviewTime(result.next_review_at)}（期限前の正解のため予定は据え置き）`}
-                        {result.relearning_stage === "recognition" && "・次は四択で再認"}
-                        {result.relearning_stage === "recall" && "・次は一問一答で想起"}
-                      </p>
-                      <div className="quiz-priority-feedback" aria-live="polite">
-                        {priorityFeedback?.id === result.id && priorityFeedback.status === "saving" && "保存中…"}
-                        {priorityFeedback?.id === result.id && priorityFeedback.status === "saved" && "保存しました。"}
-                        {priorityFeedback?.id === result.id && priorityFeedback.status === "error" && (
-                          <span className="quiz-priority-error">{priorityFeedback.message}</span>
-                        )}
+                        <span>本文やタグの編集、アーカイブも行えます。</span>
                       </div>
                     </div>
                   </li>
