@@ -11,6 +11,7 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.doesNotMatch(html, /class="hero"|DAILY OVERVIEW|TODAY AT A GLANCE/);
   assert.doesNotMatch(script, /おはようございます|こんにちは。|おつかれさまです/);
   assert.match(html, /id="compassLink"/);
+  assert.match(html, /id="projectsLink"/);
   assert.match(html, /id="habitsLink"/);
   assert.match(html, /id="financialLink"/);
   assert.match(html, /id="knowledgeLink"/);
@@ -55,11 +56,12 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.doesNotMatch(`${html}\n${script}`, /再訪日|再訪期限/);
 });
 
-test("Hub keeps five primary destinations readable on desktop and mobile", async () => {
+test("Hub keeps six primary destinations readable on desktop and mobile", async () => {
   const css = await readFile(new URL("../public/hub.css", import.meta.url), "utf8");
 
   assert.match(css, /@media \(max-width: 620px\)/);
-  assert.match(css, /\.dashboard-grid \{ display: grid; grid-template-columns: repeat\(5, 1fr\);/);
+  assert.match(css, /\.dashboard-grid \{ display: grid; grid-template-columns: repeat\(6, 1fr\);/);
+  assert.match(css, /\.projects-card \{ --accent: var\(--navy\); --soft: var\(--navy-soft\); \}/);
   assert.match(css, /\.writing-card \{ --accent: var\(--plum\); --soft: var\(--plum-soft\); \}/);
   assert.match(css, /\.dashboard-grid \{ grid-template-columns: repeat\(3, 1fr\); gap: 5px; \}/);
   assert.match(css, /\.dashboard-card \{ min-height: 88px;/);

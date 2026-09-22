@@ -5,15 +5,21 @@ import {
   createProjectAction,
   loadProjects,
   normalizeProjects,
+  processProjectItem,
   readProjectActionCreateInput,
   readProjectActionResolveInput,
   readProjectCreateInput,
+  readProjectItemProcessInput,
+  readProjectSourceRouteInput,
   resolveProjectAction,
+  routeProjectSource,
   updateProject,
   validateProjectMutationRequest,
 } from "../functions/_shared/projects.ts";
 import { onRequest as projectsRoute } from "../functions/api/projects.ts";
 import { onRequest as projectActionsRoute } from "../functions/api/project-actions.ts";
+import { onRequest as projectItemsRoute } from "../functions/api/project-items.ts";
+import { onRequest as projectSourceRoute } from "../functions/api/project-source.ts";
 
 const env = { SUPABASE_URL: "https://project.supabase.co", SUPABASE_SECRET_KEY: "server-secret" };
 const preciseTimestamp = "2026-09-22T01:02:03.123456+00:00";
@@ -104,6 +110,15 @@ function resolveBody(overrides: Record<string, unknown> = {}) {
     nextActionContent: "一覧画面を確認する",
     waitingFor: null,
     reviewOn: null,
+    ...overrides,
+  };
+}
+
+function sourceCreateBody(overrides: Record<string, unknown> = {}) {
+  return {
+    operation: "create",
+    source: { type: "inbox", id: 41, content: "Project管理メニューを考える", status: "pending", result: null },
+    ...createBody(),
     ...overrides,
   };
 }
@@ -214,6 +229,150 @@ test("Project create uses the atomic database function", async () => {
     assert.equal(captured[0].url.pathname, "/rest/v1/rpc/create_project_with_next_action");
     assert.equal(captured[0].body.p_next_action, "3件の実例を書き出す");
     assert.equal(captured[0].headers.apikey, "server-secret");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Inbox and Want sources require an exact open snapshot", async () => {
+  const inbox = await readProjectSourceRouteInput(mutationRequest(
+    "/api/project-source", "POST", "project-source-route", sourceCreateBody(),
+  ));
+  assert.equal(inbox.ok, true);
+
+  const invalidWant = await readProjectSourceRouteInput(mutationRequest(
+    "/api/project-source", "POST", "project-source-route",
+    sourceCreateBody({ source: { type: "want", id: 7, content: "考えたい", status: "active", result: "unexpected" } }),
+  ));
+  assert.equal(invalidWant.ok, false);
+
+  const closedInbox = await readProjectSourceRouteInput(mutationRequest(
+    "/api/project-source", "POST", "project-source-route",
+    sourceCreateBody({ source: { type: "inbox", id: 41, content: "Project管理メニューを考える", status: "done", result: null } }),
+  ));
+  assert.equal(closedInbox.ok, false);
+});
+
+test("Project source routing uses one atomic RPC for create or link", async () => {
+  const create = await readProjectSourceRouteInput(mutationRequest(
+    "/api/project-source", "POST", "project-source-route", sourceCreateBody(),
+  ));
+  const link = await readProjectSourceRouteInput(mutationRequest(
+    "/api/project-source", "POST", "project-source-route", {
+      operation: "link",
+      source: { type: "want", id: 9, content: "調査結果をまとめたい", status: "active", result: null },
+      projectId: 1,
+      originalProjectUpdatedAt: preciseTimestamp,
+    },
+  ));
+  assert.equal(create.ok, true);
+  assert.equal(link.ok, true);
+  if (!create.ok || !link.ok) return;
+
+  const originalFetch = globalThis.fetch;
+  const captured: Array<{ path: string; body: Record<string, unknown> }> = [];
+  globalThis.fetch = async (input, init) => {
+    captured.push({ path: new URL(String(input)).pathname, body: JSON.parse(String(init?.body)) });
+    return Response.json(captured.length);
+  };
+  try {
+    assert.equal(await routeProjectSource(env, create.value), 1);
+    assert.equal(await routeProjectSource(env, link.value), 2);
+    assert.equal(captured[0].path, "/rest/v1/rpc/create_project_from_source");
+    assert.equal(captured[0].body.p_source_status, "pending");
+    assert.equal(captured[0].body.p_next_action, "3件の実例を書き出す");
+    assert.equal(captured[1].path, "/rest/v1/rpc/link_project_source");
+    assert.equal(captured[1].body.p_project_updated_at, preciseTimestamp);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Project source API returns its target id and rejects unsupported methods", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json(23);
+  try {
+    const response = await projectSourceRoute({
+      request: mutationRequest("/api/project-source", "POST", "project-source-route", sourceCreateBody()),
+      env,
+    });
+    assert.equal(response.status, 201);
+    assert.deepEqual(await response.json(), { projectId: 23 });
+    const getResponse = await projectSourceRoute({ request: new Request("https://hub.example/api/project-source"), env });
+    assert.equal(getResponse.status, 405);
+    assert.equal(getResponse.headers.get("Allow"), "POST");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Unprocessed Project items can become an Action, reference, or rejection", async () => {
+  const actionRequest = mutationRequest("/api/project-items", "PATCH", "project-item-process", {
+    itemId: 21,
+    originalItemUpdatedAt: preciseTimestamp,
+    originalProjectUpdatedAt: preciseTimestamp,
+    treatment: "action_source",
+    actionContent: "画面で運用を1回試す",
+  });
+  const action = await readProjectItemProcessInput(actionRequest);
+  assert.equal(action.ok, true);
+  const reference = await readProjectItemProcessInput(mutationRequest("/api/project-items", "PATCH", "project-item-process", {
+    itemId: 21,
+    originalItemUpdatedAt: preciseTimestamp,
+    originalProjectUpdatedAt: preciseTimestamp,
+    treatment: "reference",
+    actionContent: null,
+  }));
+  assert.equal(reference.ok, true);
+  const invalid = await readProjectItemProcessInput(mutationRequest("/api/project-items", "PATCH", "project-item-process", {
+    itemId: 21,
+    originalItemUpdatedAt: preciseTimestamp,
+    originalProjectUpdatedAt: preciseTimestamp,
+    treatment: "reference",
+    actionContent: "Action should not be here",
+  }));
+  assert.equal(invalid.ok, false);
+  if (!action.ok) return;
+
+  const originalFetch = globalThis.fetch;
+  const captured: Array<{ path: string; body: Record<string, unknown> }> = [];
+  globalThis.fetch = async (input, init) => {
+    captured.push({ path: new URL(String(input)).pathname, body: JSON.parse(String(init?.body)) });
+    return Response.json(1);
+  };
+  try {
+    await processProjectItem(env, action.value);
+    assert.equal(captured[0].path, "/rest/v1/rpc/process_project_item");
+    assert.equal(captured[0].body.p_treatment, "action_source");
+    assert.equal(captured[0].body.p_action_content, "画面で運用を1回試す");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Project item API processes once and returns refreshed Project state", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/rpc/process_project_item")) return Response.json(1);
+    return tableResponse(input, init) || Response.json([], { status: 404 });
+  };
+  try {
+    const response = await projectItemsRoute({
+      request: mutationRequest("/api/project-items", "PATCH", "project-item-process", {
+        itemId: 21,
+        originalItemUpdatedAt: preciseTimestamp,
+        originalProjectUpdatedAt: preciseTimestamp,
+        treatment: "reference",
+        actionContent: null,
+      }),
+      env,
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).projects.length, 1);
+    const postResponse = await projectItemsRoute({ request: new Request("https://hub.example/api/project-items", { method: "POST" }), env });
+    assert.equal(postResponse.status, 405);
+    assert.equal(postResponse.headers.get("Allow"), "PATCH");
   } finally {
     globalThis.fetch = originalFetch;
   }

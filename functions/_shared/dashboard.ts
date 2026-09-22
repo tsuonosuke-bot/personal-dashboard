@@ -313,6 +313,7 @@ export function normalizeDashboard(
     navigation: [
       { id: "hub", label: "Hub", url: "/", current: false },
       { id: "compass", label: "Idea", url: null, current: true },
+      { id: "projects", label: "Projects", url: "/projects/", current: false },
       { id: "habits", label: "Habits", url: "/habits/", current: false },
       { id: "writing", label: "Writing", url: "/writing/", current: false },
       { id: "knowledge", label: "Knowledge", url: "/knowledge/", current: false },

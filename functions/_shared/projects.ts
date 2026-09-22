@@ -108,6 +108,39 @@ export interface ProjectCreateInput {
   nextAction: string;
 }
 
+export interface ProjectSourceSnapshot {
+  type: ProjectSourceType;
+  id: number;
+  content: string;
+  status: "pending" | "active";
+  result: string | null;
+}
+
+export type ProjectSourceRouteInput =
+  | {
+    operation: "create";
+    source: ProjectSourceSnapshot;
+    title: string;
+    outcome: string;
+    theme: string | null;
+    targetOn: string | null;
+    nextAction: string;
+  }
+  | {
+    operation: "link";
+    source: ProjectSourceSnapshot;
+    projectId: number;
+    originalProjectUpdatedAt: string;
+  };
+
+export interface ProjectItemProcessInput {
+  itemId: number;
+  originalItemUpdatedAt: string;
+  originalProjectUpdatedAt: string;
+  treatment: "action_source" | "reference" | "rejected";
+  actionContent: string | null;
+}
+
 export interface ProjectUpdateInput {
   id: number;
   title: string;
@@ -236,6 +269,15 @@ async function projectResponseError(response: Response, source: string): Promise
     // The public error never exposes database detail.
   }
   const markers: Array<[string, string, number]> = [
+    ["PROJECT_SOURCE_ALREADY_LINKED", "PROJECT_SOURCE_ALREADY_LINKED", 409],
+    ["project_items_one_project_per_source_idx", "PROJECT_SOURCE_ALREADY_LINKED", 409],
+    ["PROJECT_SOURCE_CONFLICT", "PROJECT_SOURCE_CONFLICT", 409],
+    ["PROJECT_SOURCE_INVALID", "PROJECT_SOURCE_INVALID", 400],
+    ["PROJECT_NOT_OPEN", "PROJECT_NOT_OPEN", 409],
+    ["PROJECT_ITEM_CONFLICT", "PROJECT_ITEM_CONFLICT", 409],
+    ["PROJECT_ITEM_ACTION_REQUIRED", "PROJECT_ITEM_INVALID", 400],
+    ["PROJECT_ITEM_ACTION_UNEXPECTED", "PROJECT_ITEM_INVALID", 400],
+    ["PROJECT_ITEM_TREATMENT_INVALID", "PROJECT_ITEM_INVALID", 400],
     ["PROJECT_CONFLICT", "PROJECT_UPDATE_CONFLICT", 409],
     ["ACTION_CONFLICT", "PROJECT_ACTION_CONFLICT", 409],
     ["PROJECT_NOT_ACTIVE", "PROJECT_NOT_ACTIVE", 409],
@@ -418,7 +460,7 @@ export async function loadProjects(env: DashboardEnv) {
 
 export function validateProjectMutationRequest(
   request: Request,
-  expectedHeader: "project-create" | "project-update" | "project-action-create" | "project-action-resolve",
+  expectedHeader: "project-create" | "project-update" | "project-action-create" | "project-action-resolve" | "project-source-route" | "project-item-process",
 ): { status: number; error: string } | null {
   let expectedOrigin: string;
   try {
@@ -474,6 +516,80 @@ export async function readProjectCreateInput(request: Request): Promise<Validati
   if (targetOn === undefined) return { ok: false, status: 400, error: "目標日はYYYY-MM-DD形式で入力してください。" };
   if (!nextAction) return { ok: false, status: 400, error: `Next Actionは1〜${MAX_ACTION_CHARS}文字で入力してください。` };
   return { ok: true, value: { title, outcome, theme, targetOn, nextAction } };
+}
+
+function projectSourceSnapshot(value: unknown): ProjectSourceSnapshot | null {
+  if (!isPlainObject(value) || !hasExactKeys(value, ["type", "id", "content", "status", "result"])) return null;
+  const id = positiveInteger(value.id);
+  if (!id || typeof value.content !== "string" || !value.content.trim() || value.content.length > MAX_OUTCOME_CHARS) return null;
+  if (value.result !== null && (typeof value.result !== "string" || value.result.length > MAX_OUTCOME_CHARS)) return null;
+  if (value.type === "inbox" && value.status === "pending") {
+    return { type: "inbox", id, content: value.content, status: "pending", result: value.result as string | null };
+  }
+  if (value.type === "want" && value.status === "active" && value.result === null) {
+    return { type: "want", id, content: value.content, status: "active", result: null };
+  }
+  return null;
+}
+
+export async function readProjectSourceRouteInput(request: Request): Promise<ValidationResult<ProjectSourceRouteInput>> {
+  const parsed = await readJson(request);
+  if (!parsed.ok) return parsed;
+  const source = projectSourceSnapshot(parsed.value.source);
+  if (!source) return { ok: false, status: 400, error: "元のInboxまたはWantの情報が正しくありません。" };
+
+  if (parsed.value.operation === "create") {
+    if (!hasExactKeys(parsed.value, ["operation", "source", "title", "outcome", "theme", "targetOn", "nextAction"])) {
+      return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
+    }
+    const title = requiredText(parsed.value.title, MAX_TITLE_CHARS);
+    const outcome = requiredText(parsed.value.outcome, MAX_OUTCOME_CHARS);
+    const theme = optionalText(parsed.value.theme, MAX_THEME_CHARS);
+    const targetOn = optionalDate(parsed.value.targetOn);
+    const nextAction = requiredText(parsed.value.nextAction, MAX_ACTION_CHARS);
+    if (!title || !outcome || theme === undefined || targetOn === undefined || !nextAction) {
+      return { ok: false, status: 400, error: "Project名・完了条件・最初のNext Actionを確認してください。" };
+    }
+    return { ok: true, value: { operation: "create", source, title, outcome, theme, targetOn, nextAction } };
+  }
+
+  if (parsed.value.operation === "link") {
+    if (!hasExactKeys(parsed.value, ["operation", "source", "projectId", "originalProjectUpdatedAt"])) {
+      return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
+    }
+    const projectId = positiveInteger(parsed.value.projectId);
+    const originalProjectUpdatedAt = timestamp(parsed.value.originalProjectUpdatedAt);
+    if (!projectId || !originalProjectUpdatedAt) {
+      return { ok: false, status: 400, error: "紐づけ先のProjectが正しくありません。" };
+    }
+    return { ok: true, value: { operation: "link", source, projectId, originalProjectUpdatedAt } };
+  }
+
+  return { ok: false, status: 400, error: "Projectへの整理方法が正しくありません。" };
+}
+
+export async function readProjectItemProcessInput(request: Request): Promise<ValidationResult<ProjectItemProcessInput>> {
+  const parsed = await readJson(request);
+  if (!parsed.ok) return parsed;
+  if (!hasExactKeys(parsed.value, ["itemId", "originalItemUpdatedAt", "originalProjectUpdatedAt", "treatment", "actionContent"])) {
+    return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
+  }
+  const itemId = positiveInteger(parsed.value.itemId);
+  const originalItemUpdatedAt = timestamp(parsed.value.originalItemUpdatedAt);
+  const originalProjectUpdatedAt = timestamp(parsed.value.originalProjectUpdatedAt);
+  const actionContent = optionalText(parsed.value.actionContent, MAX_ACTION_CHARS);
+  const treatment = parsed.value.treatment;
+  if (!itemId || !originalItemUpdatedAt || !originalProjectUpdatedAt || actionContent === undefined
+    || (treatment !== "action_source" && treatment !== "reference" && treatment !== "rejected")) {
+    return { ok: false, status: 400, error: "関連アイテムの整理内容が正しくありません。" };
+  }
+  if ((treatment === "action_source" && !actionContent) || (treatment !== "action_source" && actionContent !== null)) {
+    return { ok: false, status: 400, error: "Action化する場合だけ、具体的なActionを入力してください。" };
+  }
+  return {
+    ok: true,
+    value: { itemId, originalItemUpdatedAt, originalProjectUpdatedAt, treatment, actionContent },
+  };
 }
 
 export async function readProjectUpdateInput(request: Request): Promise<ValidationResult<ProjectUpdateInput>> {
@@ -563,6 +679,59 @@ export async function createProject(env: DashboardEnv, input: ProjectCreateInput
   if (!response.ok) throw await projectResponseError(response, "create_project_with_next_action");
 }
 
+export async function routeProjectSource(env: DashboardEnv, input: ProjectSourceRouteInput): Promise<number> {
+  const connectionInfo = connection(env);
+  const functionName = input.operation === "create" ? "create_project_from_source" : "link_project_source";
+  const endpoint = new URL(`/rest/v1/rpc/${functionName}`, connectionInfo.url);
+  const sourceParameters = {
+    p_source_type: input.source.type,
+    p_source_id: input.source.id,
+    p_source_content: input.source.content,
+    p_source_status: input.source.status,
+    p_source_result: input.source.result,
+  };
+  const body = input.operation === "create"
+    ? {
+      ...sourceParameters,
+      p_title: input.title,
+      p_outcome: input.outcome,
+      p_theme: input.theme,
+      p_target_on: input.targetOn,
+      p_next_action: input.nextAction,
+    }
+    : {
+      p_project_id: input.projectId,
+      p_project_updated_at: input.originalProjectUpdatedAt,
+      ...sourceParameters,
+    };
+  const response = await supabaseFetch(connectionInfo, endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw await projectResponseError(response, functionName);
+  const projectId = positiveInteger(await response.json());
+  if (!projectId) throw new DashboardError("SUPABASE_RESPONSE_INVALID", `${functionName} returned invalid data.`);
+  return projectId;
+}
+
+export async function processProjectItem(env: DashboardEnv, input: ProjectItemProcessInput): Promise<void> {
+  const connectionInfo = connection(env);
+  const endpoint = new URL("/rest/v1/rpc/process_project_item", connectionInfo.url);
+  const response = await supabaseFetch(connectionInfo, endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      p_project_item_id: input.itemId,
+      p_project_item_updated_at: input.originalItemUpdatedAt,
+      p_project_updated_at: input.originalProjectUpdatedAt,
+      p_treatment: input.treatment,
+      p_action_content: input.actionContent,
+    }),
+  });
+  if (!response.ok) throw await projectResponseError(response, "process_project_item");
+}
+
 export async function updateProject(env: DashboardEnv, input: ProjectUpdateInput): Promise<void> {
   const connectionInfo = connection(env);
   const endpoint = new URL("/rest/v1/projects", connectionInfo.url);
@@ -637,6 +806,12 @@ export function publicProjectError(error: unknown) {
     PROJECT_NOT_ACTIVE: "このProjectは進行中ではありません。最新状態を確認してください。",
     PROJECT_NOT_RESUMABLE: "このProjectは再開できる状態ではありません。",
     PROJECT_ACTION_INVALID: "Actionの状態変更に必要な情報が不足しています。",
+    PROJECT_SOURCE_CONFLICT: "元のInboxまたはWantは別の画面で変更されています。再読み込みしてからやり直してください。",
+    PROJECT_SOURCE_ALREADY_LINKED: "このInboxまたはWantは、すでに別のProjectへ紐づいています。",
+    PROJECT_SOURCE_INVALID: "Projectへ紐づけられない種類のデータです。",
+    PROJECT_NOT_OPEN: "完了・見送り済みのProjectには紐づけられません。",
+    PROJECT_ITEM_CONFLICT: "この関連アイテムは別の画面で整理されています。再読み込みしてからやり直してください。",
+    PROJECT_ITEM_INVALID: "関連アイテムの整理に必要な情報が不足しています。",
     PROJECT_REQUEST_FAILED: "Projectを処理できませんでした。",
   };
   return { code, status, message: messages[code] || messages.PROJECT_REQUEST_FAILED };

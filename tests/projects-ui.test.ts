@@ -18,6 +18,7 @@ test("Projects page keeps the goal, current action, waiting, and review loop vis
   assert.match(html, /value="on_hold"/);
   assert.match(script, /fetch\("\/api\/projects"/);
   assert.match(script, /fetch\("\/api\/project-actions"/);
+  assert.match(script, /fetch\("\/api\/project-items"/);
   assert.match(script, /"X-Dashboard-Action": "project-action-resolve"/);
   assert.match(script, /originalUpdatedAt: project\.nextAction\.updatedAt/);
   assert.match(script, /\/compass\/\?view=\$\{view\}&id=\$\{item\.sourceId\}/);
@@ -29,22 +30,44 @@ test("Projects page keeps the goal, current action, waiting, and review loop vis
 
 test("Projects migration links sources instead of moving them and enforces one next action", async () => {
   const migration = await readFile(
-    new URL("../supabase/migrations/202609220002_projects_mvp.sql", import.meta.url),
+    new URL("../supabase/migrations/202609220003_projects_mvp.sql", import.meta.url),
     "utf8",
   );
   assert.match(migration, /create table if not exists public\.projects/);
   assert.match(migration, /create table if not exists public\.project_items/);
   assert.match(migration, /source_type in \('inbox', 'want'\)/);
   assert.match(migration, /unique \(project_id, source_type, source_id\)/);
+  assert.match(migration, /project_items_one_project_per_source_idx/);
   assert.match(migration, /create table if not exists public\.project_actions/);
   assert.match(migration, /project_actions_one_next_idx/);
   assert.match(migration, /where status = 'next'/);
   assert.match(migration, /create_project_with_next_action/);
+  assert.match(migration, /create_project_from_source/);
+  assert.match(migration, /link_project_source/);
+  assert.match(migration, /process_project_item/);
+  assert.match(migration, /when v_project\.status = 'active' and not exists/);
+  assert.match(migration, /set status = 'done', result = format\('Project/);
+  assert.match(migration, /set status = 'completed'/);
   assert.match(migration, /resolve_project_next_action/);
   assert.match(migration, /alter table public\.projects enable row level security/);
 });
 
-test("Projects is a separate build entry without changing Compass page code", async () => {
+test("Compass offers Project as a separate commitment without replacing Inbox routes", async () => {
+  const [script, css] = await Promise.all([
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(script, /Projectとして進める/);
+  assert.match(script, /Object\.entries\(inboxQuickRoutes\)/);
+  assert.match(script, /fetch\("\/api\/project-source"/);
+  assert.match(script, /"X-Dashboard-Action": "project-source-route"/);
+  assert.match(script, /originalProjectUpdatedAt: project\.updatedAt/);
+  assert.match(script, /現在のNext Actionは勝手に変更しません/);
+  assert.match(css, /\.project-route-action/);
+  assert.match(css, /#365b7b/);
+});
+
+test("Projects remains a separate build entry", async () => {
   const [vite, packageJson] = await Promise.all([
     readFile(new URL("../vite.config.ts", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),

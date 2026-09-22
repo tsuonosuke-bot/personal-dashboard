@@ -321,7 +321,21 @@ async function saveProject(event) {
 function relatedItemRow(item) {
   const view = item.sourceType === "inbox" ? "inbox" : "wants";
   const label = item.sourceType === "inbox" ? "Inbox" : "Want";
-  return `<div class="related-row"><span><a href="/compass/?view=${view}&id=${item.sourceId}">${label} #${item.sourceId}</a> · ${escapeHtml(item.sourceContent)}</span><small>${treatmentLabels[item.treatment]}</small></div>`;
+  const source = `<div class="related-copy"><span><a href="/compass/?view=${view}&id=${item.sourceId}">${label} #${item.sourceId}</a> · ${escapeHtml(item.sourceContent)}</span><small>${treatmentLabels[item.treatment]}</small></div>`;
+  if (item.treatment !== "unprocessed") return `<div class="related-row">${source}</div>`;
+  const action = item.sourceContent.slice(0, 500);
+  return `<div class="related-row related-row-unprocessed" data-project-item-row="${item.id}">
+    ${source}
+    <form class="related-action-form" data-project-item-action="${item.id}">
+      <input maxlength="500" value="${escapeHtml(action)}" aria-label="Actionの内容" required />
+      <button type="submit">Actionにする</button>
+    </form>
+    <div class="related-treatment-actions">
+      <button type="button" data-project-item-treatment="reference" data-project-item-id="${item.id}">参考情報</button>
+      <button type="button" data-project-item-treatment="rejected" data-project-item-id="${item.id}">対象外</button>
+    </div>
+    <p class="form-error" data-project-item-error="${item.id}" role="alert" hidden></p>
+  </div>`;
 }
 
 function renderDetail(project) {
@@ -363,6 +377,14 @@ function renderDetail(project) {
   document.getElementById("detailEditButton")?.addEventListener("click", () => openProjectEditor(project));
   document.getElementById("detailResolveButton")?.addEventListener("click", () => openResolve(project));
   document.getElementById("detailActionForm")?.addEventListener("submit", (event) => saveProjectAction(event, project.id));
+  els.detailBody.querySelectorAll("[data-project-item-action]").forEach((form) => form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const input = form.querySelector("input");
+    if (input?.value.trim()) processRelatedItem(project.id, Number(form.dataset.projectItemAction), "action_source", input.value.trim());
+  }));
+  els.detailBody.querySelectorAll("[data-project-item-treatment]").forEach((button) => button.addEventListener("click", () => {
+    processRelatedItem(project.id, Number(button.dataset.projectItemId), button.dataset.projectItemTreatment, null);
+  }));
 }
 
 function openDetail(project, updateRoute = true) {
@@ -413,6 +435,43 @@ async function saveProjectAction(event, projectId) {
     setFormError(errorElement, error instanceof Error ? error.message : "Actionを保存できませんでした。");
   } finally {
     submit.disabled = false;
+  }
+}
+
+async function processRelatedItem(projectId, itemId, treatment, actionContent) {
+  const project = getProject(projectId);
+  const item = project?.items.find((candidate) => candidate.id === itemId);
+  const row = els.detailBody.querySelector(`[data-project-item-row="${itemId}"]`);
+  const errorElement = row?.querySelector(`[data-project-item-error="${itemId}"]`);
+  const controls = row?.querySelectorAll("button, input") || [];
+  if (!project || !item || item.treatment !== "unprocessed" || !row || !errorElement) return;
+  controls.forEach((control) => { control.disabled = true; });
+  setFormError(errorElement, "");
+  try {
+    const response = await fetch("/api/project-items", {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: { Accept: "application/json", "Content-Type": "application/json", "X-Dashboard-Action": "project-item-process" },
+      body: JSON.stringify({
+        itemId: item.id,
+        originalItemUpdatedAt: item.updatedAt,
+        originalProjectUpdatedAt: project.updatedAt,
+        treatment,
+        actionContent,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || "関連アイテムを整理できませんでした。");
+    setData(payload);
+    const fresh = getProject(project.id);
+    if (fresh) renderDetail(fresh);
+    const message = treatment === "action_source"
+      ? "関連アイテムをActionにしました。"
+      : treatment === "reference" ? "関連アイテムを参考情報にしました。" : "関連アイテムを対象外にしました。";
+    showToast(message);
+  } catch (error) {
+    setFormError(errorElement, error instanceof Error ? error.message : "関連アイテムを整理できませんでした。");
+    controls.forEach((control) => { control.disabled = false; });
   }
 }
 

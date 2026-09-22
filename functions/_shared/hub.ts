@@ -523,6 +523,7 @@ export function normalizeHub(
     navigation: {
       compass: "/compass/",
       compassUntriaged: "/compass/?view=wants&filter=untriaged",
+      projects: "/projects/",
       writing: "/writing/",
       financial: "/finance/",
       knowledge: "/knowledge/",

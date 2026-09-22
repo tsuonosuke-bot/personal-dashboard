@@ -36,6 +36,7 @@ test("hub combines sources and prioritizes the oldest untriaged Active Wants", (
   assert.equal(hub.summary.oldestUntriagedDays, 13);
   assert.equal(hub.navigation.knowledgeReview, "/knowledge/?view=quiz&mode=daily");
   assert.equal(hub.navigation.compassUntriaged, "/compass/?view=wants&filter=untriaged");
+  assert.equal(hub.navigation.projects, "/projects/");
   assert.equal(hub.navigation.writing, "/writing/");
   assert.deepEqual(hub.wants.map((item) => item.id), [1, 2]);
   assert.deepEqual(hub.wants.map((item) => item.url), [

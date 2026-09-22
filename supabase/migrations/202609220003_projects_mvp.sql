@@ -70,6 +70,9 @@ create index if not exists projects_status_review_idx
 create index if not exists project_items_project_treatment_idx
   on public.project_items (project_id, treatment, created_at desc);
 
+create unique index if not exists project_items_one_project_per_source_idx
+  on public.project_items (source_type, source_id);
+
 create index if not exists project_actions_project_status_idx
   on public.project_actions (project_id, status, created_at desc);
 
@@ -111,6 +114,257 @@ begin
   values (v_project_id, btrim(p_next_action), 'next');
 
   return v_project_id;
+end;
+$$;
+
+create or replace function public.create_project_from_source(
+  p_source_type text,
+  p_source_id bigint,
+  p_source_content text,
+  p_source_status text,
+  p_source_result text,
+  p_title text,
+  p_outcome text,
+  p_theme text,
+  p_target_on date,
+  p_next_action text
+)
+returns bigint
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_project_id bigint;
+  v_project_item_id bigint;
+begin
+  if p_source_type = 'inbox' then
+    perform 1
+    from public.idea_inbox
+    where id = p_source_id
+      and content = p_source_content
+      and status = p_source_status
+      and result is not distinct from p_source_result
+    for update;
+    if not found or p_source_status <> 'pending' then
+      raise exception 'PROJECT_SOURCE_CONFLICT';
+    end if;
+  elsif p_source_type = 'want' then
+    perform 1
+    from public.wants
+    where id = p_source_id
+      and content = p_source_content
+      and status = p_source_status
+    for update;
+    if not found or p_source_status <> 'active' then
+      raise exception 'PROJECT_SOURCE_CONFLICT';
+    end if;
+  else
+    raise exception 'PROJECT_SOURCE_INVALID';
+  end if;
+
+  if exists (
+    select 1 from public.project_items
+    where source_type = p_source_type and source_id = p_source_id
+  ) then
+    raise exception 'PROJECT_SOURCE_ALREADY_LINKED';
+  end if;
+
+  insert into public.projects (title, outcome, theme, target_on, status)
+  values (
+    btrim(p_title),
+    btrim(p_outcome),
+    nullif(btrim(p_theme), ''),
+    p_target_on,
+    'active'
+  )
+  returning id into v_project_id;
+
+  insert into public.project_items (
+    project_id, source_type, source_id, source_content, treatment
+  ) values (
+    v_project_id, p_source_type, p_source_id, p_source_content, 'action_source'
+  )
+  returning id into v_project_item_id;
+
+  insert into public.project_actions (project_id, project_item_id, content, status)
+  values (v_project_id, v_project_item_id, btrim(p_next_action), 'next');
+
+  if p_source_type = 'inbox' then
+    update public.idea_inbox
+    set status = 'done', result = format('Project「%s」に整理', btrim(p_title))
+    where id = p_source_id;
+  else
+    update public.wants
+    set status = 'completed'
+    where id = p_source_id;
+  end if;
+
+  return v_project_id;
+exception
+  when unique_violation then
+    raise exception 'PROJECT_SOURCE_ALREADY_LINKED';
+end;
+$$;
+
+create or replace function public.link_project_source(
+  p_project_id bigint,
+  p_project_updated_at timestamptz,
+  p_source_type text,
+  p_source_id bigint,
+  p_source_content text,
+  p_source_status text,
+  p_source_result text
+)
+returns bigint
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_project public.projects%rowtype;
+begin
+  if p_source_type = 'inbox' then
+    perform 1
+    from public.idea_inbox
+    where id = p_source_id
+      and content = p_source_content
+      and status = p_source_status
+      and result is not distinct from p_source_result
+    for update;
+    if not found or p_source_status <> 'pending' then
+      raise exception 'PROJECT_SOURCE_CONFLICT';
+    end if;
+  elsif p_source_type = 'want' then
+    perform 1
+    from public.wants
+    where id = p_source_id
+      and content = p_source_content
+      and status = p_source_status
+    for update;
+    if not found or p_source_status <> 'active' then
+      raise exception 'PROJECT_SOURCE_CONFLICT';
+    end if;
+  else
+    raise exception 'PROJECT_SOURCE_INVALID';
+  end if;
+
+  select * into v_project
+  from public.projects
+  where id = p_project_id and updated_at = p_project_updated_at
+  for update;
+
+  if not found then
+    raise exception 'PROJECT_CONFLICT';
+  end if;
+  if v_project.status in ('completed', 'dropped') then
+    raise exception 'PROJECT_NOT_OPEN';
+  end if;
+
+  if exists (
+    select 1 from public.project_items
+    where source_type = p_source_type and source_id = p_source_id
+  ) then
+    raise exception 'PROJECT_SOURCE_ALREADY_LINKED';
+  end if;
+
+  insert into public.project_items (
+    project_id, source_type, source_id, source_content, treatment
+  ) values (
+    p_project_id, p_source_type, p_source_id, p_source_content, 'unprocessed'
+  );
+
+  if p_source_type = 'inbox' then
+    update public.idea_inbox
+    set status = 'done', result = format('Project「%s」に整理', v_project.title)
+    where id = p_source_id;
+  else
+    update public.wants
+    set status = 'completed'
+    where id = p_source_id;
+  end if;
+
+  update public.projects
+  set updated_at = now()
+  where id = p_project_id;
+
+  return p_project_id;
+exception
+  when unique_violation then
+    raise exception 'PROJECT_SOURCE_ALREADY_LINKED';
+end;
+$$;
+
+create or replace function public.process_project_item(
+  p_project_item_id bigint,
+  p_project_item_updated_at timestamptz,
+  p_project_updated_at timestamptz,
+  p_treatment text,
+  p_action_content text
+)
+returns bigint
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_item public.project_items%rowtype;
+  v_project public.projects%rowtype;
+  v_action_status text;
+begin
+  select * into v_item
+  from public.project_items
+  where id = p_project_item_id
+    and updated_at = p_project_item_updated_at
+    and treatment = 'unprocessed'
+  for update;
+
+  if not found then
+    raise exception 'PROJECT_ITEM_CONFLICT';
+  end if;
+
+  select * into v_project
+  from public.projects
+  where id = v_item.project_id and updated_at = p_project_updated_at
+  for update;
+
+  if not found then
+    raise exception 'PROJECT_CONFLICT';
+  end if;
+  if v_project.status in ('completed', 'dropped') then
+    raise exception 'PROJECT_NOT_OPEN';
+  end if;
+
+  if p_treatment = 'action_source' then
+    if nullif(btrim(p_action_content), '') is null then
+      raise exception 'PROJECT_ITEM_ACTION_REQUIRED';
+    end if;
+    v_action_status := case
+      when v_project.status = 'active' and not exists (
+        select 1 from public.project_actions
+        where project_id = v_project.id and status = 'next'
+      ) then 'next'
+      else 'queued'
+    end;
+    insert into public.project_actions (project_id, project_item_id, content, status)
+    values (v_project.id, v_item.id, btrim(p_action_content), v_action_status);
+  elsif p_treatment in ('reference', 'rejected') then
+    if nullif(btrim(p_action_content), '') is not null then
+      raise exception 'PROJECT_ITEM_ACTION_UNEXPECTED';
+    end if;
+  else
+    raise exception 'PROJECT_ITEM_TREATMENT_INVALID';
+  end if;
+
+  update public.project_items
+  set treatment = p_treatment, updated_at = now()
+  where id = v_item.id;
+
+  update public.projects
+  set updated_at = now()
+  where id = v_project.id;
+
+  return v_project.id;
 end;
 $$;
 

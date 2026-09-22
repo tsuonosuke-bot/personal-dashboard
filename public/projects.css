@@ -173,6 +173,15 @@ form textarea { min-height: 70px; padding: 9px 10px; resize: vertical; line-heig
 .action-row, .related-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; line-height: 1.45; }
 .action-row small, .related-row small { color: var(--muted); white-space: nowrap; }
 .related-row a { color: var(--accent); font-weight: 700; text-decoration: none; }
+.related-copy { min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; width: 100%; }
+.related-row-unprocessed { display: grid; justify-content: stretch; gap: 8px; border-color: rgba(154, 100, 30, .36); background: #fffdf9; }
+.related-action-form { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.related-action-form input { min-width: 0; }
+.related-action-form button, .related-treatment-actions button { min-height: 36px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; background: #fff; cursor: pointer; color: var(--accent); font-size: 10px; font-weight: 750; }
+.related-action-form button { border-color: var(--accent); }
+.related-treatment-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.related-row-unprocessed .form-error { margin: 0; }
+.related-row-unprocessed button:disabled, .related-row-unprocessed input:disabled { cursor: wait; opacity: .55; }
 .empty-detail { margin: 0; padding: 12px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 11px; text-align: center; }
 .inline-action-form { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
 .inline-action-form input { min-width: 0; }
@@ -208,6 +217,8 @@ form textarea { min-height: 70px; padding: 9px 10px; resize: vertical; line-heig
   .editor { width: 100%; max-height: 92vh; border-radius: 15px 15px 0 0; }
   .form-grid { grid-template-columns: 1fr; }
   .inline-action-form { grid-template-columns: 1fr; }
+  .related-action-form { grid-template-columns: 1fr; }
+  .related-treatment-actions button { flex: 1; }
 }
 
 @media (max-width: 390px) {

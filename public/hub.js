@@ -1,6 +1,6 @@
 const ids = [
   "sourceBadge", "refreshButton", "dateLabel", "updatedLabel",
-  "compassLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
+  "compassLink", "projectsLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
   "reviewMetricLink", "dueKnowledge", "weakKnowledge", "untriagedMetricLink", "untriagedWants", "oldestUntriaged",
   "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
   "retryButton", "hubContent", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
@@ -56,6 +56,7 @@ function empty(message) {
 function renderNavigation(navigation) {
   hubNavigation = navigation;
   els.compassLink.href = navigation.compass;
+  els.projectsLink.href = navigation.projects || "/projects/";
   els.financialLink.href = navigation.financial;
   els.knowledgeLink.href = navigation.knowledge;
   els.habitsLink.href = navigation.habits;

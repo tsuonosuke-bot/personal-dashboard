@@ -38,6 +38,7 @@ test("dashboard summary and future navigation are normalized", () => {
   assert.equal(dashboard.wants[1].routes[0].status, "failed");
   assert.equal(dashboard.navigation.find((item) => item.id === "hub")?.url, "/");
   assert.equal(dashboard.navigation.find((item) => item.id === "habits")?.url, "/habits/");
+  assert.equal(dashboard.navigation.find((item) => item.id === "projects")?.url, "/projects/");
   assert.equal(dashboard.navigation.find((item) => item.id === "writing")?.url, "/writing/");
   assert.equal(dashboard.navigation.find((item) => item.id === "knowledge")?.url, "/knowledge/");
   assert.equal(dashboard.navigation.find((item) => item.id === "financial")?.url, "/finance/");

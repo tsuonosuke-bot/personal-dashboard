@@ -26,7 +26,11 @@ Projectを単なる保管フォルダにせず、完了条件と現在のNext Ac
 
 - 元のInbox／Wantは移動・複製せず、そのまま正本として残す。
 - `project_items`に元レコードの種別・IDと、表示用スナップショットを記録する。
-- Projectへ関連づけた直後は`unprocessed`とし、Action化・参考情報・不採用のいずれかへ整理する。
+- 1つのInbox／Wantは、同時に1つのProjectだけへ紐づける。
+- 新しいProjectを作る場合は完了条件と最初のNext Actionを同時に決め、元アイテムを`action_source`として記録する。
+- 既存Projectへ入れる場合は`unprocessed`として追加し、現在のNext Actionは変更しない。次回レビューでAction化・参考情報・不採用のいずれかへ整理する。
+- Action化すると、現在のNext Actionが空ならそのActionをNextにし、すでにNextがあれば「あとで行うAction」へ追加する。
+- Projectへの紐づけと、元のInboxを整理済み／Wantを完了にする更新は同じDB処理で確定する。片側だけ成功する状態は作らない。
 - 未整理の関連アイテム、またはNext ActionのないActive Projectは「要確認」として表示する。
 
 ## 状態
@@ -57,5 +61,5 @@ Projectを単なる保管フォルダにせず、完了条件と現在のNext Ac
 1. Project画面・API・DB migrationを独立実装して検証する。
 2. 進行中のInbox変更を本線へ取り込む。
 3. Inboxの既存9分類を維持したまま「Project」を追加し、`project_items`へ関連づける。
-4. migration適用前に既存`next_actions`の実スキーマを確認し、重複するActionデータの移行方針を決める。
-5. migration、デプロイ、通常URLでの実データ確認を順に行う。
+4. migrationを先に適用し、その後にFunctionsと画面をデプロイする。
+5. 通常URLで「新規Project」「既存Projectへの紐づけ」「Next Action完了後の分岐」を実データで各1件確認する。
