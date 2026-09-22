@@ -58,7 +58,11 @@
             <div><p class="section-kicker">YOUR MAP</p><h2 id="listTitle">Inbox</h2></div>
             <div class="workspace-tools">
               <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><span class="sr-only">検索</span><input id="searchInput" type="search" placeholder="キーワードで検索" autocomplete="off" /></label>
-              <select id="statusFilter" aria-label="ステータスで絞り込み"><option value="">すべてのステータス</option></select><button class="filter-chip" id="knowledgeFilter" type="button" aria-pressed="false">Knowledge登録待ち <b id="knowledgePendingCount">—</b></button>
+              <select id="statusFilter" aria-label="ステータスで絞り込み"><option value="">すべてのステータス</option></select>
+              <div class="pending-filter-group" id="pendingFilterGroup" aria-label="Wantsの登録待ちを表示">
+                <button class="filter-chip" id="knowledgeFilter" type="button" aria-pressed="false">Knowledge登録待ち <b id="knowledgePendingCount">—</b></button>
+                <button class="filter-chip" id="githubFilter" type="button" aria-pressed="false">GitHub登録待ち <b id="githubPendingCount">—</b></button>
+              </div>
               <div class="todo-filter-group" id="todoFilterGroup" hidden aria-label="ToDoの予定で絞り込み">
                 <button class="filter-chip" type="button" data-todo-filter="overdue">実施確認待ち</button>
                 <button class="filter-chip" type="button" data-todo-filter="today">今日</button>

@@ -220,7 +220,7 @@ test("Compass stores 欲しい as a typed active Want", async () => {
   assert.match(style, /\.route-chip-wish \{[^}]*var\(--blue\)/);
 });
 
-test("Compass separates Knowledge-bound items from other triage outcomes", async () => {
+test("Compass exposes Wants registration queues for Knowledge and GitHub", async () => {
   const [script, html, style] = await Promise.all([
     readFile(new URL("../public/app.js", import.meta.url), "utf8"),
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
@@ -229,11 +229,14 @@ test("Compass separates Knowledge-bound items from other triage outcomes", async
 
   assert.match(script, /function triageChips\(item, view\)/);
   assert.match(script, /route-chip route-chip-pending">Knowledge登録待ち/);
-  assert.match(script, /function isKnowledgePending\(item, view\)/);
+  assert.match(script, /function isDestinationPending\(item, view, destination\)/);
   assert.match(script, /state\.metricFilter === "knowledge"/);
+  assert.match(script, /state\.metricFilter === "github"/);
   assert.match(script, /sourceInboxId: sourceItem\.id/);
   assert.match(html, /id="knowledgeFilter"/);
   assert.match(html, /id="knowledgePendingCount"/);
+  assert.match(html, /id="githubFilter"/);
+  assert.match(html, /id="githubPendingCount"/);
   assert.match(style, /\.route-chip-pending \{[^}]*var\(--orange\)/);
 });
 

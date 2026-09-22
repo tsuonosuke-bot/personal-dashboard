@@ -33,6 +33,7 @@ test("dashboard summary and future navigation are normalized", () => {
     completedWants: 1,
     dueForReview: 0,
     knowledgePending: 0,
+    githubPending: 0,
   });
   assert.equal(dashboard.wants[0].routes.length, 1);
   assert.equal(dashboard.wants[1].routes[0].status, "failed");
@@ -86,6 +87,7 @@ test("Inbox rows carry where they were routed, from the linked Want or the resul
     source: "route",
   });
   assert.equal(dashboard.summary.knowledgePending, 1);
+  assert.equal(dashboard.summary.githubPending, 0);
   assert.equal(dashboard.wants[0].sourceInboxId, 1);
 });
 

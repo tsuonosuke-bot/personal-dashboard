@@ -328,8 +328,10 @@ export function normalizeDashboard(
       untriagedWants: untriagedWants.length,
       completedWants: completedWants.length,
       dueForReview: wants.filter((item) => item.status === "active" && item.revisitOn !== null && item.revisitOn <= today).length,
-      knowledgePending: inboxWithTriage.filter((item) => item.triage.destinations
-        .some((entry) => entry.destination === "knowledge" && entry.status === "planned")).length,
+      knowledgePending: wants.filter((item) => item.routes
+        .some((route) => route.destination === "knowledge" && route.status === "planned")).length,
+      githubPending: wants.filter((item) => item.routes
+        .some((route) => route.destination === "github" && route.status === "planned")).length,
     },
     inbox: inboxWithTriage,
     wants,

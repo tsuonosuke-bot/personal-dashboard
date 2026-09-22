@@ -19,7 +19,7 @@ const els = Object.fromEntries([
   "sourceBadge", "refreshButton",
   "pendingInbox", "inboxTotal", "activeWants", "completedWants", "pendingTodos",
   "inboxTabCount", "wantsTabCount", "todosTabCount", "listTitle", "searchInput",
-  "statusFilter", "knowledgeFilter", "knowledgePendingCount", "todoFilterGroup", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
+  "statusFilter", "pendingFilterGroup", "knowledgeFilter", "knowledgePendingCount", "githubFilter", "githubPendingCount", "todoFilterGroup", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher", "dashboardNav",
   "addInboxButton", "inboxModal", "inboxModalClose", "inboxCancelButton", "inboxForm",
   "inboxContent", "inboxCharacterCount", "inboxFormError", "inboxSubmitButton", "toast",
@@ -250,8 +250,8 @@ function currentItems() {
       && item.type !== "wish"
       && (!item.revisitOn || item.revisitOn <= todayInTokyo()));
   }
-  if (state.metricFilter === "knowledge") {
-    items = items.filter((item) => isKnowledgePending(item, state.view));
+  if (state.metricFilter === "knowledge" || state.metricFilter === "github") {
+    items = items.filter((item) => isDestinationPending(item, state.view, state.metricFilter));
   }
   if (state.view === "todos" && ["overdue", "today", "upcoming"].includes(state.metricFilter)) {
     items = items.filter((item) => item.status === "pending" && todoTiming(item) === state.metricFilter);
@@ -275,6 +275,7 @@ function updateStatusOptions() {
 function renderSummary() {
   const { summary } = state.data;
   els.knowledgePendingCount.textContent = summary.knowledgePending ?? 0;
+  els.githubPendingCount.textContent = summary.githubPending ?? 0;
   els.pendingInbox.textContent = summary.pendingInbox;
   els.inboxTotal.textContent = summary.inboxTotal;
   els.activeWants.textContent = summary.activeWants;
@@ -335,9 +336,9 @@ function triageEntries(item, view) {
   };
 }
 
-function isKnowledgePending(item, view) {
+function isDestinationPending(item, view, destination) {
   return triageEntries(item, view).destinations
-    .some((entry) => entry.destination === "knowledge" && entry.status === "planned");
+    .some((entry) => entry.destination === destination && entry.status === "planned");
 }
 
 function triageChips(item, view) {
@@ -382,10 +383,13 @@ function renderList() {
   els.resultCount.textContent = `${items.length}件を表示`;
   els.clearFilter.hidden = !(state.status || state.search || state.metricFilter);
   const knowledgeActive = state.metricFilter === "knowledge";
-  els.knowledgeFilter.hidden = state.view === "todos";
+  const githubActive = state.metricFilter === "github";
+  els.pendingFilterGroup.hidden = state.view === "todos";
   els.todoFilterGroup.hidden = state.view !== "todos";
   els.knowledgeFilter.classList.toggle("active", knowledgeActive);
   els.knowledgeFilter.setAttribute("aria-pressed", String(knowledgeActive));
+  els.githubFilter.classList.toggle("active", githubActive);
+  els.githubFilter.setAttribute("aria-pressed", String(githubActive));
   els.todoFilterGroup.querySelectorAll("[data-todo-filter]").forEach((button) => {
     const active = state.metricFilter === button.dataset.todoFilter;
     button.classList.toggle("active", active);
@@ -1888,7 +1892,7 @@ function setView(view, filter = defaultStatusByView[view], sync = true) {
   state.metricFilter = filter;
   state.status = filter === "untriaged"
     ? "active"
-    : filter === "knowledge"
+    : filter === "knowledge" || filter === "github"
       ? ""
       : view === "todos" && ["overdue", "today", "upcoming"].includes(filter)
         ? "pending"
@@ -1896,7 +1900,7 @@ function setView(view, filter = defaultStatusByView[view], sync = true) {
   updateStatusOptions();
   renderList();
   if (view === "todos" && !state.todosLoaded) void loadTodos(true);
-  const routeFilter = ["untriaged", "knowledge", "overdue", "today", "upcoming"].includes(filter) ? filter : null;
+  const routeFilter = ["untriaged", "knowledge", "github", "overdue", "today", "upcoming"].includes(filter) ? filter : null;
   if (sync) syncCompassRoute(view, null, "push", routeFilter);
 }
 
@@ -1904,7 +1908,7 @@ function applyCompassRoute(notify = true) {
   if (!state.data) return;
   const route = parseCompassRoute(window.location.href);
   state.view = route.view;
-  state.status = route.filter === "knowledge"
+  state.status = route.filter === "knowledge" || route.filter === "github"
     ? ""
     : route.view === "todos" && ["overdue", "today", "upcoming"].includes(route.filter)
       ? "pending"
@@ -2018,7 +2022,10 @@ els.clearFilter.addEventListener("click", () => {
   els.searchInput.value = ""; updateStatusOptions(); renderList(); syncCompassRoute(state.view);
 });
 els.knowledgeFilter.addEventListener("click", () => {
-  setView(state.view, state.metricFilter === "knowledge" ? defaultStatusByView[state.view] : "knowledge");
+  setView("wants", state.view === "wants" && state.metricFilter === "knowledge" ? defaultStatusByView.wants : "knowledge");
+});
+els.githubFilter.addEventListener("click", () => {
+  setView("wants", state.view === "wants" && state.metricFilter === "github" ? defaultStatusByView.wants : "github");
 });
 els.todoFilterGroup.querySelectorAll("[data-todo-filter]").forEach((button) => button.addEventListener("click", () => {
   const filter = button.dataset.todoFilter;
