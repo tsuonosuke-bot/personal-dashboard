@@ -3,12 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#f7f1eb" />
     <title>Habits — Personal Dashboard</title>
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/habits.css" />
+    <link rel="stylesheet" href="/habits.dark.css" />
     <link rel="stylesheet" href="/dashboard-shell.css" />
+    <link rel="stylesheet" href="/dashboard-shell.dark.css" />
   </head>
   <body>
     <div class="shell">
@@ -28,9 +31,12 @@
                 </svg>
                 <span>Dashboards</span>
               </summary>
-              <nav aria-label="ダッシュボードを切り替え">
-                <a href="/compass/">Idea</a><a href="/projects/">Projects</a><a href="/writing/">Writing</a><span aria-current="page">Habits</span><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a>
-              </nav>
+              <div class="dashboard-switcher-menu">
+                <nav aria-label="ダッシュボードを切り替え">
+                  <a href="/compass/">Idea</a><a href="/projects/">Projects</a><a href="/writing/">Writing</a><span aria-current="page">Habits</span><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a>
+                </nav>
+                <label class="theme-select"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label>
+              </div>
             </details>
             <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
             <button class="dashboard-refresh" id="refreshButton" type="button" aria-label="データを再読み込み" title="再読み込み">↻</button>

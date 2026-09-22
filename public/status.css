@@ -11,6 +11,9 @@ button, a { font: inherit; }
 .status-header strong { font-size: 19px; }
 .status-header small { margin-top: 3px; color: var(--muted); font-size: 9px; }
 .status-header button { color: var(--green); }
+.status-header .theme-select { display: inline-flex; flex: none; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 750; }
+.status-header .theme-select span { flex: none; }
+.status-header .theme-select select { min-height: 38px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); font: inherit; }
 .status-header button:disabled { opacity: .5; cursor: wait; }
 main { width: min(1040px, calc(100% - 28px)); margin: 0 auto; padding: 18px 0 48px; }
 .status-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }

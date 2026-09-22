@@ -22,7 +22,7 @@
 ## 操作
 
 1. 思いついた時は、AIを呼ばずにInboxへそのまま登録する。
-2. 後で未整理のInboxを開き、9つの扱い（予定・欲しい・考える・調べる・習慣・Focus・作りたい・気分・寝かせる）から選ぶ。どれにも確信がない場合は「整理する」を開き、既存の扱いと振り分け先を段階的に選ぶ。
+2. 後で未整理のInboxを開き、9つの扱い（予定・欲しいもの・執筆・調査・習慣・Focus・開発・日記・保留）から選ぶ。どれにも確信がない場合は「整理する」を開き、既存の扱いと振り分け先を段階的に選ぶ。
 3. 「整理する」では「AIに整理案を聞く」を押すか、自分で扱いを選ぶ。AIへの送信はボタンを押した時だけ行う。
 4. AIが確認質問を返した場合は回答を入力し、「回答をもとに再提案」を押す。回答しただけでは送信しない。
 5. クイック操作またはAI案を使う場合も、タイトル・補足・頻度を編集し、確認画面を経由する。
@@ -37,29 +37,37 @@
 | 扱い | 保存・処理先 | 確定後 |
 | --- | --- | --- |
 | 予定 | Google Calendar | 予定を作成し、Inboxを整理済みにする |
-| 欲しい | `wants`（`type='wish'`） | Active Wantとして残し、未整理件数からは除外する |
-| 考える | `writing_topics` | Writing候補を作成する |
-| 調べる | `want_routes`（`destination='knowledge'`, `status='planned'`） | Knowledge候補として積む。Knowledge DBへはまだ登録しない |
+| 欲しいもの | `wants`（`type='wish'`） | Active Wantとして残し、未整理件数からは除外する |
+| 執筆 | `writing_topics` | Writing候補を作成する |
+| 調査 | `want_routes`（`destination='knowledge'`, `status='planned'`） | Knowledge候補として積む。Knowledge DBへはまだ登録しない |
 | 習慣 | `habits` | Active Habitを作成する |
 | Focus | `focus_items` | Active Focusを作成する |
-| 作りたい | `want_routes`（`destination='github'`, `status='planned'`） | GitHub Issue候補として積む |
-| 気分 | `want_routes`（`destination='journal'`, `status='planned'`） | Journal候補として積む |
-| 寝かせる | `wants`（`type='want'`, `revisit_on`あり） | 再訪日まで未整理件数から外す |
+| 開発 | `want_routes`（`destination='github'`, `status='planned'`） | GitHub Issue候補として積む |
+| 日記 | `want_routes`（`destination='journal'`, `status='planned'`） | Journal候補として積む |
+| 保留 | `wants`（`type='want'`, `revisit_on`あり） | 再訪日まで未整理件数から外す |
 
 この9つは同格の入口であり、既存の「行動する・継続する・掘り下げる・残しておく・今回は見送る」は、詳細な手動整理とAI提案のための分類として残す。「その他」への置き換えは行わない。
 
-### 欲しいの運用
+### 一括変更
 
-1. 物やサービスを欲しい状態として残す場合は「欲しい」を選び、名称と任意メモを確認する。
+1. Inboxの「一括変更」で複数の未整理Inboxを選び、振り分け先（欲しいもの・執筆・調査・Focus・開発・日記・保留）を選ぶ。保留は共通の再訪日を指定する。
+2. 予定と習慣は日時・頻度を1件ずつ決める必要があるため、一括では選べない。個別に振り分ける。
+3. 各Inboxの内容をそのまま登録する（1行目をタイトル、複数行なら全文を補足にする）。整理済みなど未整理以外の選択分は対象外にする。
+4. 失敗した項目だけを選択状態で残し、原因を表示する。同じ振り分け先で再試行するときは作成済みのWantを使い回す。
+5. 振り分けを伴わずステータスだけ変える操作（整理済み・見送り・未整理）も引き続き選べる。
+
+### 欲しいものの運用
+
+1. 物やサービスを欲しい状態として残す場合は「欲しいもの」を選び、名称と任意メモを確認する。
 2. 確定するとWantsへ`type='wish'`・`status='active'`で登録し、元Inboxを整理済みにする。
 3. 購入日を勝手に予定化せず、必要になった時点で予定・調査・見送りなどへ明示的に振り分ける。
 4. `type='wish'`はActive Wants一覧には残るが、Hubの「未整理Wants」には含めない。
 
-### 寝かせるの運用
+### 保留の運用
 
-1. 今は動かさないものは「寝かせる」を選び、内容・再訪日・メモを確認して確定する。
+1. 今は動かさないものは「保留」を選び、内容・再訪日・メモを確認して確定する。
 2. 再訪日は必須で、既定は1ヶ月後。今日より前の日付は保存しない。
-3. 確定するとWantsへ`type='want'`・`revisit_on`つきで登録し、元Inboxを「寝かせる（再訪 日付）」として整理済みにする。
+3. 確定するとWantsへ`type='want'`・`revisit_on`つきで登録し、元Inboxを「保留（再訪 日付）」として整理済みにする（2026-09以前の「寝かせる（再訪 日付）」も同じ意味として読む）。
 4. 再訪日が来たWantはHubの未整理Wantsとして浮上し、そこで動かすか、寝かせ直すかを決める。
 
 ### Knowledge登録待ちの見分け方
@@ -67,7 +75,7 @@
 1. Inboxから振り分けた項目は、作成したWantに `source_inbox_id` が入り、元のInboxと振り分け先が結びつく。
 2. Ideaの一覧カードには振り分け先が表示される。Knowledge・GitHub・Journalは計画保存のままなので「登録待ち」として別の色で示す。
 3. 一覧の「Knowledge登録待ち」を押すと、実際のナレッジDB登録がまだの項目だけに絞り込める（`?filter=knowledge`）。
-4. この機能より前に処理したInboxは、処理結果の「〜へ振り分け」「寝かせる（再訪 日付）」という文言から振り分け先を復元する。「Wantsに登録」とだけ記録された旧データは振り分け先不明として扱う。
+4. この機能より前に処理したInboxは、処理結果の「〜へ振り分け」「保留（再訪 日付）」「寝かせる（再訪 日付）」という文言から振り分け先を復元する。「Wantsに登録」とだけ記録された旧データは振り分け先不明として扱う。
 5. 登録待ちは`want_routes`の`status='planned'`だけで判定する。ナレッジDBのタイトルとの一致では判定しない。
 
 ### 画面外で登録したKnowledgeを登録済みにする
@@ -83,7 +91,7 @@
 
 ### Knowledge候補を後でまとめて処理する
 
-1. 「調べる」を確定しても`public.knowledge`へは書き込まない。`want_routes`の`destination='knowledge'`かつ`status='planned'`が候補キューになる。
+1. 「調査」を確定しても`public.knowledge`へは書き込まない。`want_routes`の`destination='knowledge'`かつ`status='planned'`が候補キューになる。
 2. 後続のLLM処理は、この候補と元の`wants`をSupabaseから読み込み、関連候補をまとめて調査する。
 3. 調査結果を正式登録する前にKnowledge DB内の重複、カテゴリ、タグ、根拠を検証する。
 4. 登録できた候補だけをKnowledgeへ追加し、対応する`want_routes`を`created`と対象IDで更新する。調査不足・重複・登録失敗の候補は`planned`のまま残す。この更新をしない場合は、画面の「Knowledge登録済みにする」で解除する。
@@ -134,8 +142,8 @@ Inboxへ登録
 | Habits | `habits` へ登録し、対象IDを確認 |
 | Focus | `focus_items` へ登録し、対象IDを確認 |
 | アーカイブ | 振り分け完了として履歴を保存（「整理する」から選ぶ） |
-| 欲しい | `wants`へ`type='wish'`で登録。購入処理なし |
-| 寝かせる | `wants`へ`revisit_on`つきで登録し、再訪日に浮上させる |
+| 欲しいもの | `wants`へ`type='wish'`で登録。購入処理なし |
+| 保留 | `wants`へ`revisit_on`つきで登録し、再訪日に浮上させる |
 | Google Calendar | OAuth接続後、日付・時間を確認してメインカレンダーへ作成し、再取得したID・URLを保存 |
 | GitHub | `planned` として保存。外部送信なし |
 | Knowledge DB | Knowledge候補を`planned`として保存。後続LLMがまとめて調査し、重複・カテゴリ検証後に登録する。画面外で登録した場合は「Knowledge登録済みにする」で`created`にする |

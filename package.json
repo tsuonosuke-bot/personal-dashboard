@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test --test-isolation=none tests/*.test.ts",
     "check": "node --check public/api-client.js && node --check public/app.js && node --check public/hub.js && node --check public/habits.js && node --check public/projects.js && node --check public/status/status.js && node --check public/writing.js && npm run typecheck",
-    "predeploy:check": "npm test && npm run check && npm run build"
+    "predeploy:check": "npm test && npm run check && npm run build",
+    "theme": "node scripts/build-dark-theme.mjs public/hub.css public/styles.css public/dashboard-shell.css public/habits.css public/projects.css public/status.css public/writing.css",
+    "theme:check": "node scripts/build-dark-theme.mjs --check public/hub.css public/styles.css public/dashboard-shell.css public/habits.css public/projects.css public/status.css public/writing.css"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

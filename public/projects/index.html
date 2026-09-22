@@ -6,8 +6,11 @@
     <meta name="theme-color" content="#f2f4f6" />
     <title>Projects — Personal Hub</title>
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/projects.css" />
+    <link rel="stylesheet" href="/projects.dark.css" />
     <link rel="stylesheet" href="/dashboard-shell.css" />
+    <link rel="stylesheet" href="/dashboard-shell.dark.css" />
   </head>
   <body>
     <div class="page-shell">
@@ -27,9 +30,12 @@
                 </svg>
                 <span>Dashboards</span>
               </summary>
-              <nav aria-label="ダッシュボードを切り替え">
-                <a href="/compass/">Idea</a><span aria-current="page">Projects</span><a href="/writing/">Writing</a><a href="/habits/">Habits</a><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a>
-              </nav>
+              <div class="dashboard-switcher-menu">
+                <nav aria-label="ダッシュボードを切り替え">
+                  <a href="/compass/">Idea</a><span aria-current="page">Projects</span><a href="/writing/">Writing</a><a href="/habits/">Habits</a><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a>
+                </nav>
+                <label class="theme-select"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label>
+              </div>
             </details>
             <span class="source-badge" id="sourceBadge">接続確認中</span>
             <button class="dashboard-refresh" id="refreshButton" type="button" title="再読み込み" aria-label="データを再読み込み">↻</button>

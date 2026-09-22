@@ -18,13 +18,14 @@ const state = {
   bulkSelected: new Set(),
   bulkSubmitting: false,
   bulkError: "",
+  bulkWants: new Map(),
 };
 
 const els = Object.fromEntries([
   "sourceBadge", "refreshButton",
   "inboxTabCount", "wantsTabCount", "todosTabCount", "listTitle", "searchInput",
   "statusFilter", "pendingFilterGroup", "knowledgeFilter", "knowledgePendingCount", "githubFilter", "githubPendingCount", "todoFilterGroup", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
-  "bulkModeButton", "bulkToolbar", "bulkSelectAll", "bulkSelectionCount", "bulkStatusSelect", "bulkApplyButton", "bulkCancelButton", "bulkError",
+  "bulkModeButton", "bulkToolbar", "bulkSelectAll", "bulkSelectionCount", "bulkStatusSelect", "bulkRevisitField", "bulkRevisitOn", "bulkApplyButton", "bulkCancelButton", "bulkError",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher", "dashboardNav",
   "addInboxButton", "inboxModal", "inboxModalClose", "inboxCancelButton", "inboxForm",
   "inboxContent", "inboxCharacterCount", "inboxFormError", "inboxSubmitButton", "toast",
@@ -83,14 +84,14 @@ const WISH_ROUTE = "wish";
 
 const inboxQuickRoutes = {
   calendar: { label: "予定", description: "日付を決めて動く", intent: "act", destination: "calendar" },
-  wish: { label: "欲しい", description: "欲しいものとして残す" },
-  writing: { label: "考える", description: "Writingで考えを育てる", intent: "explore", destination: "writing" },
-  knowledge: { label: "調べる", description: "Knowledge候補として残す", intent: "explore", destination: "knowledge" },
+  wish: { label: "欲しいもの", description: "欲しいものとして残す" },
+  writing: { label: "執筆", description: "Writingで考えを育てる", intent: "explore", destination: "writing" },
+  knowledge: { label: "調査", description: "Knowledge候補として残す", intent: "explore", destination: "knowledge" },
   habit: { label: "習慣", description: "繰り返す行動にする", intent: "continue", destination: "habit" },
   focus: { label: "Focus", description: "意識し続ける", intent: "keep", destination: "focus" },
-  github: { label: "作りたい", description: "GitHub候補として残す", intent: "act", destination: "github" },
-  journal: { label: "気分", description: "Journal候補として残す", intent: "keep", destination: "journal" },
-  defer: { label: "寝かせる", description: "再訪日を決めて置く" },
+  github: { label: "開発", description: "GitHub候補として残す", intent: "act", destination: "github" },
+  journal: { label: "日記", description: "Journal候補として残す", intent: "keep", destination: "journal" },
+  defer: { label: "保留", description: "再訪日を決めて置く" },
 };
 
 const routeIntentMeta = {
@@ -123,13 +124,13 @@ const destinationsByIntent = {
 
 const quickWantRoutes = {
   calendar: { label: "予定", description: "日付を決めて動く", intent: "act", destination: "calendar" },
-  writing: { label: "考える", description: "Writingで考えを育てる", intent: "explore", destination: "writing" },
-  knowledge: { label: "調べる", description: "Knowledge候補として残す", intent: "explore", destination: "knowledge" },
+  writing: { label: "執筆", description: "Writingで考えを育てる", intent: "explore", destination: "writing" },
+  knowledge: { label: "調査", description: "Knowledge候補として残す", intent: "explore", destination: "knowledge" },
   habit: { label: "習慣", description: "繰り返す行動にする", intent: "continue", destination: "habit" },
   focus: { label: "Focus", description: "意識し続ける", intent: "keep", destination: "focus" },
-  github: { label: "作りたい", description: "GitHub候補として残す", intent: "act", destination: "github" },
-  journal: { label: "気分", description: "Journal候補として残す", intent: "keep", destination: "journal" },
-  archive: { label: "Archive", description: "今回は見送る", intent: "discard", destination: "archive" },
+  github: { label: "開発", description: "GitHub候補として残す", intent: "act", destination: "github" },
+  journal: { label: "日記", description: "Journal候補として残す", intent: "keep", destination: "journal" },
+  archive: { label: "見送り", description: "今回は見送る", intent: "discard", destination: "archive" },
 };
 
 const cadenceLabels = {
@@ -310,7 +311,7 @@ function statusLabel(status, view = state.view) {
 }
 
 function itemStatusLabel(item, view = state.view) {
-  if (view === "wants" && item.status === "active" && item.type === "wish") return "欲しい";
+  if (view === "wants" && item.status === "active" && item.type === "wish") return "欲しいもの";
   if (view === "wants" && item.status === "active" && item.revisitOn && item.revisitOn > todayInTokyo()) return "寝かせ中";
   return statusLabel(item.status);
 }
@@ -414,6 +415,11 @@ function renderBulkControls(items) {
   els.bulkApplyButton.disabled = state.bulkSubmitting || state.bulkSelected.size === 0;
   els.bulkCancelButton.disabled = state.bulkSubmitting;
   els.bulkStatusSelect.disabled = state.bulkSubmitting;
+  const deferring = els.bulkStatusSelect.value === `route:${DEFER_ROUTE}`;
+  els.bulkRevisitField.hidden = !deferring;
+  els.bulkRevisitOn.disabled = state.bulkSubmitting;
+  if (deferring && !els.bulkRevisitOn.value) els.bulkRevisitOn.value = defaultRevisitDate();
+  els.bulkApplyButton.textContent = els.bulkStatusSelect.value.startsWith("route:") ? "振り分けを確認" : "変更を確認";
   els.bulkError.textContent = state.bulkError;
   els.bulkError.hidden = !state.bulkError;
 }
@@ -464,9 +470,120 @@ function renderList() {
   }
 }
 
+// 予定と習慣は日時・頻度を1件ずつ決める必要があるため、一括振り分けの対象にしない。
+const BULK_ROUTE_KEYS = ["wish", "writing", "knowledge", "focus", "github", "journal", DEFER_ROUTE];
+
+function bulkRouteTitle(content) {
+  const firstLine = String(content || "").split("\n").map((line) => line.trim()).find(Boolean) || "";
+  return firstLine.length > 240 ? `${firstLine.slice(0, 239)}…` : firstLine;
+}
+
+// 失敗した項目を同じ振り分け先で再試行するときは、作成済みのWantを使い回して重複させない。
+async function bulkWantFor(item, key, extra) {
+  const cacheKey = `${item.id}:${key}`;
+  const existing = state.bulkWants.get(cacheKey);
+  if (existing) return existing;
+  const want = await createWantFromSource(item, extra);
+  state.bulkWants.set(cacheKey, want);
+  return want;
+}
+
+async function routeInboxItem(item, key, revisitOn) {
+  if (key === WISH_ROUTE) {
+    await bulkWantFor(item, key, { type: "wish", note: null });
+    await markInboxTriaged(item, "欲しいものとしてWantsに保存");
+    return;
+  }
+  if (key === DEFER_ROUTE) {
+    await bulkWantFor(item, key, { revisitOn, note: null });
+    await markInboxTriaged(item, `保留（再訪 ${revisitOn}）`);
+    return;
+  }
+  const quick = inboxQuickRoutes[key];
+  const want = await bulkWantFor(item, key);
+  const content = String(item.content || "").trim();
+  const title = bulkRouteTitle(content);
+  const response = await fetch("/api/want-routes", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": "want-route-create",
+    },
+    body: JSON.stringify({
+      wantId: want.id,
+      intent: quick.intent,
+      destination: quick.destination,
+      title,
+      detail: title === content ? null : content.slice(0, 2000),
+      cadence: null,
+      calendar: null,
+      idempotencyKey: crypto.randomUUID(),
+      original: { content: want.content, status: want.status },
+    }),
+  });
+  const payload = await readApiJson(response);
+  const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+  if (!response.ok) throw new Error(message || "振り分けを保存できませんでした。");
+  await markInboxTriaged(item, `${routeDestinationMeta[quick.destination]?.label || quick.destination}へ振り分け`);
+}
+
+async function applyInboxBulkRoute(selected, key) {
+  const label = inboxQuickRoutes[key].label;
+  const revisitOn = key === DEFER_ROUTE ? els.bulkRevisitOn.value : null;
+  if (key === DEFER_ROUTE && (!revisitOn || revisitOn < todayInTokyo())) {
+    state.bulkError = "再訪日は今日以降の日付を指定してください。";
+    renderList();
+    return;
+  }
+  const pending = selected.filter((item) => item.status === "pending");
+  const skipped = selected.length - pending.length;
+  if (!pending.length) {
+    state.bulkError = "未整理のInboxだけを振り分けられます。";
+    renderList();
+    return;
+  }
+  const target = key === DEFER_ROUTE ? `「保留（再訪 ${revisitOn}）」` : `「${label}」`;
+  const skippedNote = skipped ? `\n整理済みなど未整理以外の${skipped}件は対象外です。` : "";
+  if (!window.confirm(`${pending.length}件のInboxを${target}に振り分けますか？${skippedNote}\n\n各Inboxの内容をそのまま登録し、整理済みにします。`)) return;
+
+  state.bulkSubmitting = true;
+  state.bulkError = "";
+  renderBulkControls(currentItems());
+  const failed = [];
+  for (const [index, item] of pending.entries()) {
+    els.bulkSelectionCount.textContent = `${index + 1}/${pending.length}件を処理中`;
+    try {
+      await routeInboxItem(item, key, revisitOn);
+      state.bulkWants.delete(`${item.id}:${key}`);
+    } catch (error) {
+      failed.push({ id: item.id, message: error instanceof Error ? error.message : "振り分けできませんでした。" });
+    }
+  }
+  state.bulkSubmitting = false;
+  await loadDashboard();
+  if (failed.length) {
+    state.bulkMode = true;
+    state.bulkSelected = new Set(failed.map((item) => item.id));
+    state.bulkError = `${pending.length - failed.length}件を振り分けました。振り分けできなかったInbox: ${failed.map((item) => `#${item.id}（${item.message}）`).join("、")}`;
+    renderList();
+    return;
+  }
+  state.bulkMode = false;
+  clearBulkSelection();
+  renderList();
+  showToast(`${pending.length}件のInboxを${target}に振り分けました。`);
+}
+
 async function applyInboxBulkUpdate() {
   const selected = (state.data?.inbox || []).filter((item) => state.bulkSelected.has(item.id));
   if (!selected.length || state.bulkSubmitting) return;
+  if (els.bulkStatusSelect.value.startsWith("route:")) {
+    const key = els.bulkStatusSelect.value.slice("route:".length);
+    if (BULK_ROUTE_KEYS.includes(key)) await applyInboxBulkRoute(selected, key);
+    return;
+  }
   const nextStatus = els.bulkStatusSelect.value;
   const nextLabel = statusLabel(nextStatus, "inbox");
   if (!window.confirm(`${selected.length}件のInboxを「${nextLabel}」に変更しますか？\n\n既存の内容と整理結果はそのまま残ります。`)) return;
@@ -1713,7 +1830,7 @@ async function markInboxTriaged(sourceItem, result) {
 
 function renderWishForm(sourceItem) {
   els.drawerKicker.textContent = triageKicker(sourceItem, "inbox");
-  els.drawerTitle.textContent = "欲しい";
+  els.drawerTitle.textContent = "欲しいもの";
   els.drawerBody.innerHTML = `<form class="edit-form" id="wishForm">
     <div class="source-context"><span>元のInbox</span><p>${escapeHtml(sourceItem.content)}</p></div>
     <p class="route-boundary">購入予定にはせず、欲しいものとしてWantsに残します。必要になったら予定・調査・見送りへ振り分けられます。</p>
@@ -1795,7 +1912,7 @@ async function saveWish(event, sourceItem) {
 function renderDeferForm(sourceItem) {
   const revisitOn = defaultRevisitDate();
   els.drawerKicker.textContent = triageKicker(sourceItem, "inbox");
-  els.drawerTitle.textContent = "寝かせる";
+  els.drawerTitle.textContent = "保留";
   els.drawerBody.innerHTML = `<form class="edit-form" id="deferForm">
     <div class="source-context"><span>元のInbox</span><p>${escapeHtml(sourceItem.content)}</p></div>
     <p class="route-boundary">振り分け先は決めず、次に考える日だけ決めてWantsへ置きます。再訪日が来ると未整理のWantsとして浮上します。</p>
@@ -1816,7 +1933,7 @@ function renderDeferForm(sourceItem) {
     <p class="form-error" id="deferError" role="alert" hidden></p>
     <div class="drawer-actions">
       <button class="secondary-action" id="cancelDefer" type="button">戻る</button>
-      <button class="primary-action" id="saveDeferButton" type="submit">寝かせる</button>
+      <button class="primary-action" id="saveDeferButton" type="submit">保留にする</button>
     </div>
   </form>`;
 
@@ -1869,7 +1986,7 @@ async function saveDefer(event, sourceItem) {
     await createWantFromSource({ ...sourceItem, content }, { revisitOn, note: note || null });
     let inboxWarning = "";
     try {
-      await markInboxTriaged(sourceItem, `寝かせる（再訪 ${revisitOn}）`);
+      await markInboxTriaged(sourceItem, `保留（再訪 ${revisitOn}）`);
     } catch {
       inboxWarning = "Wantsへ置きましたが、元のInboxを整理済みにできませんでした。Inboxを再読込して確認してください。";
     }
@@ -1880,12 +1997,12 @@ async function saveDefer(event, sourceItem) {
     }
     showToast(inboxWarning || `${revisitOn}に再訪するWantとして寝かせ、Inboxを整理済みにしました。`);
   } catch (error) {
-    setDeferError(error instanceof Error ? error.message : "寝かせることができませんでした。");
+    setDeferError(error instanceof Error ? error.message : "保留にできませんでした。");
   } finally {
     if (submit.isConnected) {
       submit.disabled = false;
       cancel.disabled = false;
-      submit.textContent = "寝かせる";
+      submit.textContent = "保留にする";
     }
   }
 }
@@ -2144,6 +2261,10 @@ els.bulkSelectAll.addEventListener("change", () => {
   renderList();
 });
 els.bulkApplyButton.addEventListener("click", applyInboxBulkUpdate);
+els.bulkStatusSelect.addEventListener("change", () => {
+  state.bulkError = "";
+  renderBulkControls(currentItems());
+});
 els.knowledgeFilter.addEventListener("click", () => {
   setView("wants", state.view === "wants" && state.metricFilter === "knowledge" ? defaultStatusByView.wants : "knowledge");
 });

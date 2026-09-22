@@ -1,0 +1,305 @@
+/* Generated from projects.css by scripts/build-dark-theme.mjs. Do not edit. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #1c1d1f;
+  --paper--light: #f2f4f6;
+  --surface: #292929;
+  --surface--light: #ffffff;
+  --ink: #cfd7df;
+  --ink--light: #202830;
+  --muted: #a7b0b7;
+  --muted--light: #66727c;
+  --line: #4b5258;
+  --accent: #ecd09c;
+  --accent--light: #7d5a18;
+  --accent-hover: #f1d8aa;
+  --accent-hover--light: #634610;
+  --accent-soft: #443c26;
+  --accent-soft--light: #f4ecd8;
+  --attention: #d49a91;
+  --attention--light: #9a493c;
+  --attention-soft: #422b26;
+  --attention-soft--light: #f7e4e0;
+  --waiting: #b1a1c2;
+  --waiting--light: #6c5683;
+  --waiting-soft: #342d3a;
+  --waiting-soft--light: #eee8f3;
+  --done: #aad4c7;
+  --done--light: #39705f;
+  --done-soft: #2d3c37;
+  --done-soft--light: #e4f0ec;
+  --danger: #d1938f;
+  --danger--light: #9d4540;
+  --page-accent--light: var(--accent--light, var(--accent));
+  --page-accent-soft--light: var(--accent-soft--light, var(--accent-soft));
+}
+:root[data-theme="dark"] body {
+  background: var(--paper);
+  color: var(--ink);
+}
+:root[data-theme="dark"] button {
+  color: inherit;
+}
+:root[data-theme="dark"] a {
+  color: inherit;
+}
+:root[data-theme="dark"] .dashboard-brand-mark.projects {
+  background: var(--accent--light, var(--accent));
+}
+:root[data-theme="dark"] .summary-grid button {
+  border: 1px solid rgba(216, 158, 50, 0.16);
+  border-radius: 11px;
+  background: var(--surface);
+}
+:root[data-theme="dark"] .summary-grid button:hover {
+  border-color: var(--accent);
+  background: #2c2a25;
+}
+:root[data-theme="dark"] .summary-grid button.attention strong {
+  color: var(--attention);
+}
+:root[data-theme="dark"] .summary-grid span {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .summary-grid small {
+  color: #979fa6;
+}
+:root[data-theme="dark"] .project-board {
+  border: 1px solid rgba(216, 158, 50, 0.16);
+  border-radius: 13px;
+  background: var(--surface);
+}
+:root[data-theme="dark"] .eyebrow {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .tabs {
+  border-bottom: 1px solid var(--line);
+}
+:root[data-theme="dark"] .tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+}
+:root[data-theme="dark"] .tabs button.active {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .filters label span,
+:root[data-theme="dark"] form label > span {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .filters input,
+:root[data-theme="dark"] form input,
+:root[data-theme="dark"] form select,
+:root[data-theme="dark"] form textarea {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #292929;
+  color: var(--ink);
+}
+:root[data-theme="dark"] .filters input:focus,
+:root[data-theme="dark"] form input:focus,
+:root[data-theme="dark"] form select:focus,
+:root[data-theme="dark"] form textarea:focus {
+  outline: 2px solid rgba(216, 158, 50, 0.2);
+  border-color: var(--accent);
+}
+:root[data-theme="dark"] .filters button,
+:root[data-theme="dark"] .state-card button,
+:root[data-theme="dark"] .text-button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #292929;
+}
+:root[data-theme="dark"] .result-line {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .result-line span {
+  color: var(--ink);
+}
+:root[data-theme="dark"] .state-card {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+}
+:root[data-theme="dark"] .state-card.error strong {
+  color: var(--danger);
+}
+:root[data-theme="dark"] .project-card {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #292929;
+}
+:root[data-theme="dark"] .project-card.needs-attention {
+  border-color: rgba(186, 94, 79, 0.4);
+  background: #2b2626;
+}
+:root[data-theme="dark"] .project-copy p {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .badge {
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .badge.attention {
+  background: var(--attention-soft);
+  color: var(--attention);
+}
+:root[data-theme="dark"] .badge.waiting {
+  background: var(--waiting-soft);
+  color: var(--waiting);
+}
+:root[data-theme="dark"] .badge.done {
+  background: var(--done-soft);
+  color: var(--done);
+}
+:root[data-theme="dark"] .next-action {
+  border-left: 3px solid var(--accent);
+  border-radius: 5px 9px 9px 5px;
+  background: var(--accent-soft);
+}
+:root[data-theme="dark"] .next-action.missing {
+  border-left-color: var(--attention);
+  background: var(--attention-soft);
+  color: var(--attention);
+}
+:root[data-theme="dark"] .next-action.waiting {
+  border-left-color: var(--waiting);
+  background: var(--waiting-soft);
+}
+:root[data-theme="dark"] .next-action small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .card-actions button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #292929;
+}
+:root[data-theme="dark"] .card-actions .complete-action {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .project-meta {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .modal-backdrop {
+  border: 0;
+  background: rgba(24, 31, 37, .48);
+}
+:root[data-theme="dark"] .editor {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgba(27, 38, 47, .24);
+}
+:root[data-theme="dark"] .editor > header {
+  border-bottom: 1px solid var(--line);
+  background: rgba(41, 41, 41, 0.96);
+}
+:root[data-theme="dark"] .icon-button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #292929;
+}
+:root[data-theme="dark"] .form-hint {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .form-error {
+  color: var(--danger);
+}
+:root[data-theme="dark"] .editor-actions button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #292929;
+}
+:root[data-theme="dark"] .editor-actions .save-button {
+  border-color: var(--accent);
+  background: var(--accent--light, var(--accent));
+  color: #fff;
+}
+:root[data-theme="dark"] .detail-summary {
+  border-bottom: 1px solid var(--line);
+}
+:root[data-theme="dark"] .detail-summary p {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .detail-summary .detail-meta {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .detail-section header small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .detail-next {
+  border-radius: 9px;
+  background: var(--accent-soft);
+}
+:root[data-theme="dark"] .detail-next button {
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: #292929;
+  color: var(--accent);
+}
+:root[data-theme="dark"] .action-row,
+:root[data-theme="dark"] .related-row {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+:root[data-theme="dark"] .action-row small,
+:root[data-theme="dark"] .related-row small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .related-row a {
+  color: var(--accent);
+  text-decoration: none;
+}
+:root[data-theme="dark"] .related-row-unprocessed {
+  border-color: rgba(186, 94, 79, 0.34);
+  background: #2b2626;
+}
+:root[data-theme="dark"] .related-action-form button,
+:root[data-theme="dark"] .related-treatment-actions button {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #292929;
+  color: var(--accent);
+}
+:root[data-theme="dark"] .related-action-form button {
+  border-color: var(--accent);
+}
+:root[data-theme="dark"] .empty-detail {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+}
+:root[data-theme="dark"] .inline-action-form button {
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: #292929;
+  color: var(--accent);
+}
+:root[data-theme="dark"] .detail-toolbar button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #292929;
+}
+:root[data-theme="dark"] .completed-action {
+  border-radius: 8px;
+  background: var(--done-soft);
+}
+:root[data-theme="dark"] .resolution-options {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+:root[data-theme="dark"] .toast {
+  border-radius: 9px;
+  background: #24313b;
+  color: #fff;
+  box-shadow: 0 12px 34px rgba(20, 27, 33, .24);
+}
+@media (max-width: 680px) {
+  :root[data-theme="dark"] .editor {
+    border-radius: 15px 15px 0 0;
+  }
+}

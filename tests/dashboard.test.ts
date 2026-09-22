@@ -91,6 +91,19 @@ test("Inbox rows carry where they were routed, from the linked Want or the resul
   assert.equal(dashboard.wants[0].sourceInboxId, 1);
 });
 
+test("deferred Inbox results are read in both the new 保留 wording and the older 寝かせる wording", () => {
+  const dashboard = normalizeDashboard(
+    [
+      { id: 1, content: "新しい表記", status: "done", result: "保留（再訪 2099-02-01）", created_at: "2026-09-20T00:00:00Z" },
+      { id: 2, content: "旧い表記", status: "done", result: "寝かせる（再訪 2099-01-01）", created_at: "2026-09-20T00:00:00Z" },
+    ],
+    [],
+    {},
+    [],
+  );
+  assert.deepEqual(dashboard.inbox.map((item) => item.triage.revisitOn), ["2099-02-01", "2099-01-01"]);
+});
+
 test("dashboard route sends the secret key only in server-side headers", async () => {
   const originalFetch = globalThis.fetch;
   const requests: Array<{ url: string; headers: Record<string, string> }> = [];

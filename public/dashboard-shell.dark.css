@@ -1,0 +1,131 @@
+/* Generated from dashboard-shell.css by scripts/build-dark-theme.mjs. Do not edit. */
+:root[data-theme="dark"] {
+  --dashboard-paper: #1e1e1c;
+  --dashboard-paper--light: #f5f5f2;
+  --dashboard-ink: #d4dade;
+  --dashboard-ink--light: #20262a;
+  --dashboard-muted: #abb1ac;
+  --dashboard-muted--light: #6f7771;
+  --dashboard-line: #50544e;
+  --dashboard-surface: #292929;
+  --dashboard-surface--light: #fff;
+}
+:root[data-theme="dark"] .dashboard-header {
+  border-bottom: 1px solid var(--dashboard-line);
+  background: rgba(41, 41, 41, 0.92);
+}
+:root[data-theme="dark"] .dashboard-brand {
+  color: var(--dashboard-ink);
+}
+:root[data-theme="dark"] .dashboard-brand-mark {
+  border-radius: 10px;
+  color: #fff;
+}
+:root[data-theme="dark"] .dashboard-brand-mark.idea {
+  background: #2f6754;
+}
+:root[data-theme="dark"] .dashboard-brand-mark.writing {
+  background: #7a3f62;
+}
+:root[data-theme="dark"] .dashboard-brand-mark.habits {
+  background: #9a4727;
+}
+:root[data-theme="dark"] .idea-mark-icon {
+  fill: none;
+  stroke: currentColor;
+}
+:root[data-theme="dark"] .dashboard-brand small {
+  color: var(--dashboard-muted);
+}
+:root[data-theme="dark"] .dashboard-hub,
+:root[data-theme="dark"] .dashboard-switcher summary,
+:root[data-theme="dark"] .dashboard-refresh,
+:root[data-theme="dark"] .dashboard-primary,
+:root[data-theme="dark"] .dashboard-secondary {
+  border: 1px solid var(--dashboard-line);
+  border-radius: 8px;
+  background: var(--dashboard-surface);
+  color: var(--dashboard-ink);
+  text-decoration: none;
+}
+:root[data-theme="dark"] .dashboard-hub:hover,
+:root[data-theme="dark"] .dashboard-switcher summary:hover,
+:root[data-theme="dark"] .dashboard-secondary:hover,
+:root[data-theme="dark"] .dashboard-refresh:hover:not(:disabled) {
+  border-color: var(--page-accent, #789183);
+  color: var(--page-accent, #b4c2ba);
+}
+:root[data-theme="dark"] .dashboard-switcher-icon {
+  fill: none;
+  stroke: currentColor;
+}
+:root[data-theme="dark"] .dashboard-switcher-menu {
+  border: 1px solid var(--dashboard-line);
+  border-radius: 11px;
+  background: #292929;
+  box-shadow: 0 16px 42px rgba(30, 37, 32, .16);
+}
+:root[data-theme="dark"] .theme-select {
+  border-top: 1px solid var(--dashboard-line);
+  color: var(--dashboard-muted);
+}
+:root[data-theme="dark"] .theme-select select {
+  border: 1px solid var(--dashboard-line);
+  border-radius: 7px;
+  background: #292929;
+  color: var(--dashboard-ink);
+}
+:root[data-theme="dark"] .dashboard-switcher nav a,
+:root[data-theme="dark"] .dashboard-switcher nav span {
+  border-radius: 7px;
+  color: var(--dashboard-ink);
+  text-decoration: none;
+}
+:root[data-theme="dark"] .dashboard-switcher nav a:hover {
+  background: #1c1d1b;
+}
+:root[data-theme="dark"] .dashboard-switcher nav [aria-current="page"],
+:root[data-theme="dark"] .dashboard-switcher nav .current {
+  background: var(--page-accent-soft, #313632);
+  color: var(--page-accent, #b4c2ba);
+}
+:root[data-theme="dark"] .dashboard-switcher nav small {
+  color: var(--dashboard-muted);
+}
+:root[data-theme="dark"] .source-badge {
+  border: 1px solid var(--dashboard-line);
+  border-radius: 999px;
+  background: rgba(41, 41, 41, 0.78);
+  color: var(--dashboard-muted);
+}
+:root[data-theme="dark"] .source-badge::before,
+:root[data-theme="dark"] .source-badge i {
+  border-radius: 50%;
+  background: #9da39f;
+}
+:root[data-theme="dark"] .source-badge.live::before,
+:root[data-theme="dark"] .source-badge.live i {
+  background: #3b9b6b;
+  box-shadow: 0 0 0 3px rgba(59, 155, 107, .12);
+}
+:root[data-theme="dark"] .source-badge.error::before,
+:root[data-theme="dark"] .source-badge.error i {
+  background: #c75049;
+}
+:root[data-theme="dark"] .source-badge.demo::before,
+:root[data-theme="dark"] .source-badge.demo i {
+  background: #b7791f;
+}
+:root[data-theme="dark"] .dashboard-refresh {
+  color: var(--page-accent, #b4c2ba);
+}
+:root[data-theme="dark"] .dashboard-primary {
+  border-color: var(--page-accent, #789183);
+  background: var(--page-accent--light, var(--page-accent, #52645a));
+  color: #fff;
+}
+@media (max-width: 680px) {
+  :root[data-theme="dark"] .dashboard-brand-mark {
+    border-radius: 9px;
+  }
+}

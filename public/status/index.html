@@ -6,13 +6,16 @@
     <meta name="theme-color" content="#f3f2ed" />
     <title>接続状態 — Personal Hub</title>
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/status.css" />
+    <link rel="stylesheet" href="/status.dark.css" />
   </head>
   <body>
     <header class="status-header">
       <div>
         <a href="/">← Hub</a>
         <span><strong>接続状態</strong><small>Personal・Knowledge・Finance</small></span>
+        <label class="theme-select"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label>
         <button id="refreshButton" type="button">再確認</button>
       </div>
     </header>

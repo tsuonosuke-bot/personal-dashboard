@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#f3f2ed" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -11,7 +11,9 @@
     <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/hub.css" />
+    <link rel="stylesheet" href="/hub.dark.css" />
   </head>
   <body>
     <div class="page-shell">
@@ -30,6 +32,7 @@
               <a href="/knowledge/?view=quiz&amp;mode=daily"><span class="quick-add-icon knowledge" aria-hidden="true">K</span><span><strong>復習開始</strong><small>今日のキューへ</small></span></a>
             </nav>
           </details>
+          <label class="theme-select"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label>
           <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
           <button class="refresh-button" id="refreshButton" type="button" aria-label="データを再読み込み">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.8-4M4 4v4h4M4 13a8 8 0 0 0 14.8 4M20 20v-4h-4"/></svg>
