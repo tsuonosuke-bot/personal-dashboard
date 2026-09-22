@@ -94,6 +94,8 @@ a { color: inherit; }
 .quick-add-icon.finance { color: var(--blue); background: var(--blue-soft); }
 .quick-add-icon.projects { color: var(--gold); background: var(--gold-soft); }
 .quick-add-icon.knowledge { color: var(--violet); background: var(--violet-soft); }
+.theme-select { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; font-weight: 750; }
+.theme-select select { min-height: 31px; padding: 0 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--ink); font: inherit; font-size: 10px; }
 .source-badge { display: inline-flex; align-items: center; gap: 6px; min-height: 31px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.62); color: var(--muted); font-size: 9px; font-weight: 750; }
 .source-badge i { width: 6px; height: 6px; border-radius: 50%; background: #9da39f; }
 .source-badge.live i { background: #3a9669; box-shadow: 0 0 0 3px rgba(58,150,105,.12); }
@@ -299,6 +301,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 }
 
 @media (max-width: 620px) {
+  .theme-select > span { display: none; }
   .topbar { height: 52px; padding: 0 10px; }
   .brand { gap: 7px; }
   .brand-mark { width: 29px; height: 29px; border-radius: 8px; font-size: 13px; }

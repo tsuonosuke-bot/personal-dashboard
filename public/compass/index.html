@@ -3,12 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#f4f1ea" />
     <title>Idea — Inbox, Wants & ToDo</title>
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <script src="/theme.js"></script>
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.dark.css" />
     <link rel="stylesheet" href="/dashboard-shell.css" />
+    <link rel="stylesheet" href="/dashboard-shell.dark.css" />
   </head>
   <body>
     <div class="shell">
@@ -33,7 +36,10 @@
                 </svg>
                 <span>Dashboards</span>
               </summary>
-              <nav id="dashboardNav" aria-label="ダッシュボードを切り替え"><span class="nav-loading">リンクを確認中</span></nav>
+              <div class="dashboard-switcher-menu">
+                <nav id="dashboardNav" aria-label="ダッシュボードを切り替え"><span class="nav-loading">リンクを確認中</span></nav>
+                <label class="theme-select"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label>
+              </div>
             </details>
             <span class="source-badge" id="sourceBadge"><i></i>接続確認中</span>
             <button class="dashboard-refresh" id="refreshButton" type="button" title="再読み込み" aria-label="データを再読み込み">↻</button>
