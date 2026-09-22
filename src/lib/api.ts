@@ -52,12 +52,18 @@ export class ApiError extends Error {
   }
 }
 
+function appPath(path: string): string {
+  if (typeof window === "undefined") return path;
+  const basePath = new URL(import.meta.env.BASE_URL, window.location.href).pathname.replace(/\/$/, "");
+  return `${basePath}${path}`;
+}
+
 function nonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 async function requestJson(path: string, init: RequestInit): Promise<unknown> {
-  const response = await fetch(path, {
+  const response = await fetch(appPath(path), {
     credentials: "same-origin",
     ...init,
     headers: { Accept: "application/json", ...init.headers },
