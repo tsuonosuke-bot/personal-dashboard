@@ -205,7 +205,8 @@ function triageFromResult(result: string | null): InboxTriage {
     const status = PLAN_ONLY_DESTINATIONS.has(destination) ? "planned" : "created";
     return { destinations: [{ destination, status }], revisitOn: null, source: "result" };
   }
-  const deferred = /^寝かせる[(（]再訪\s*(\d{4}-\d{2}-\d{2})[)）]/.exec(result);
+  // 「寝かせる」は2026-09の表記統一前の文言。旧データも読めるよう両方を受け付ける。
+  const deferred = /^(?:保留|寝かせる)[(（]再訪\s*(\d{4}-\d{2}-\d{2})[)）]/.exec(result);
   if (deferred) return { destinations: [], revisitOn: deferred[1], source: "result" };
   if (result === "欲しいものとしてWantsに保存") {
     return { destinations: [{ destination: "wish", status: "created" }], revisitOn: null, source: "result" };

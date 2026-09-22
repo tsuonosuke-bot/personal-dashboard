@@ -217,14 +217,14 @@ test("Compass exposes all nine first-class Inbox outcomes without hiding the det
   assert.match(script, /id="triageInboxButton"/);
   assert.match(script, /data-inbox-route="\$\{key\}"/);
   assert.match(script, /calendar: \{ label: "予定"[^}]*destination: "calendar" \}/);
-  assert.match(script, /wish: \{ label: "欲しい"/);
-  assert.match(script, /writing: \{ label: "考える"[^}]*destination: "writing" \}/);
-  assert.match(script, /knowledge: \{ label: "調べる"[^}]*destination: "knowledge" \}/);
+  assert.match(script, /wish: \{ label: "欲しいもの"/);
+  assert.match(script, /writing: \{ label: "執筆"[^}]*destination: "writing" \}/);
+  assert.match(script, /knowledge: \{ label: "調査"[^}]*destination: "knowledge" \}/);
   assert.match(script, /habit: \{ label: "習慣"[^}]*destination: "habit" \}/);
   assert.match(script, /focus: \{ label: "Focus"[\s\S]*destination: "focus" \}/);
-  assert.match(script, /github: \{ label: "作りたい"[^}]*destination: "github" \}/);
-  assert.match(script, /journal: \{ label: "気分"[^}]*destination: "journal" \}/);
-  assert.match(script, /defer: \{ label: "寝かせる"/);
+  assert.match(script, /github: \{ label: "開発"[^}]*destination: "github" \}/);
+  assert.match(script, /journal: \{ label: "日記"[^}]*destination: "journal" \}/);
+  assert.match(script, /defer: \{ label: "保留"/);
   assert.match(script, /function renderTriageStart\(item\)/);
   assert.match(script, /async function createWantFromSource\(sourceItem, extra = \{\}\)/);
   assert.match(script, /async function markInboxTriaged\(sourceItem, result\)/);
@@ -276,7 +276,7 @@ test("Compass defers an Inbox item with a required revisit date", async () => {
   assert.match(script, /既定は1ヶ月後です。/);
   assert.match(script, /再訪日は今日以降の日付を指定してください。/);
   assert.match(script, /createWantFromSource\(\{ \.\.\.sourceItem, content \}, \{ revisitOn, note: note \|\| null \}\)/);
-  assert.match(script, /寝かせる（再訪 \$\{revisitOn\}）/);
+  assert.match(script, /保留（再訪 \$\{revisitOn\}）/);
 });
 
 test("Idea starts with utility actions and the workspace, without summary cards or a decorative hero", async () => {

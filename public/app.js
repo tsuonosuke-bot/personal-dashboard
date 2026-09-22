@@ -83,14 +83,14 @@ const WISH_ROUTE = "wish";
 
 const inboxQuickRoutes = {
   calendar: { label: "予定", description: "日付を決めて動く", intent: "act", destination: "calendar" },
-  wish: { label: "欲しい", description: "欲しいものとして残す" },
-  writing: { label: "考える", description: "Writingで考えを育てる", intent: "explore", destination: "writing" },
-  knowledge: { label: "調べる", description: "Knowledge候補として残す", intent: "explore", destination: "knowledge" },
+  wish: { label: "欲しいもの", description: "欲しいものとして残す" },
+  writing: { label: "執筆", description: "Writingで考えを育てる", intent: "explore", destination: "writing" },
+  knowledge: { label: "調査", description: "Knowledge候補として残す", intent: "explore", destination: "knowledge" },
   habit: { label: "習慣", description: "繰り返す行動にする", intent: "continue", destination: "habit" },
   focus: { label: "Focus", description: "意識し続ける", intent: "keep", destination: "focus" },
-  github: { label: "作りたい", description: "GitHub候補として残す", intent: "act", destination: "github" },
-  journal: { label: "気分", description: "Journal候補として残す", intent: "keep", destination: "journal" },
-  defer: { label: "寝かせる", description: "再訪日を決めて置く" },
+  github: { label: "開発", description: "GitHub候補として残す", intent: "act", destination: "github" },
+  journal: { label: "日記", description: "Journal候補として残す", intent: "keep", destination: "journal" },
+  defer: { label: "保留", description: "再訪日を決めて置く" },
 };
 
 const routeIntentMeta = {
@@ -123,13 +123,13 @@ const destinationsByIntent = {
 
 const quickWantRoutes = {
   calendar: { label: "予定", description: "日付を決めて動く", intent: "act", destination: "calendar" },
-  writing: { label: "考える", description: "Writingで考えを育てる", intent: "explore", destination: "writing" },
-  knowledge: { label: "調べる", description: "Knowledge候補として残す", intent: "explore", destination: "knowledge" },
+  writing: { label: "執筆", description: "Writingで考えを育てる", intent: "explore", destination: "writing" },
+  knowledge: { label: "調査", description: "Knowledge候補として残す", intent: "explore", destination: "knowledge" },
   habit: { label: "習慣", description: "繰り返す行動にする", intent: "continue", destination: "habit" },
   focus: { label: "Focus", description: "意識し続ける", intent: "keep", destination: "focus" },
-  github: { label: "作りたい", description: "GitHub候補として残す", intent: "act", destination: "github" },
-  journal: { label: "気分", description: "Journal候補として残す", intent: "keep", destination: "journal" },
-  archive: { label: "Archive", description: "今回は見送る", intent: "discard", destination: "archive" },
+  github: { label: "開発", description: "GitHub候補として残す", intent: "act", destination: "github" },
+  journal: { label: "日記", description: "Journal候補として残す", intent: "keep", destination: "journal" },
+  archive: { label: "見送り", description: "今回は見送る", intent: "discard", destination: "archive" },
 };
 
 const cadenceLabels = {
@@ -310,7 +310,7 @@ function statusLabel(status, view = state.view) {
 }
 
 function itemStatusLabel(item, view = state.view) {
-  if (view === "wants" && item.status === "active" && item.type === "wish") return "欲しい";
+  if (view === "wants" && item.status === "active" && item.type === "wish") return "欲しいもの";
   if (view === "wants" && item.status === "active" && item.revisitOn && item.revisitOn > todayInTokyo()) return "寝かせ中";
   return statusLabel(item.status);
 }
@@ -1713,7 +1713,7 @@ async function markInboxTriaged(sourceItem, result) {
 
 function renderWishForm(sourceItem) {
   els.drawerKicker.textContent = triageKicker(sourceItem, "inbox");
-  els.drawerTitle.textContent = "欲しい";
+  els.drawerTitle.textContent = "欲しいもの";
   els.drawerBody.innerHTML = `<form class="edit-form" id="wishForm">
     <div class="source-context"><span>元のInbox</span><p>${escapeHtml(sourceItem.content)}</p></div>
     <p class="route-boundary">購入予定にはせず、欲しいものとしてWantsに残します。必要になったら予定・調査・見送りへ振り分けられます。</p>
@@ -1795,7 +1795,7 @@ async function saveWish(event, sourceItem) {
 function renderDeferForm(sourceItem) {
   const revisitOn = defaultRevisitDate();
   els.drawerKicker.textContent = triageKicker(sourceItem, "inbox");
-  els.drawerTitle.textContent = "寝かせる";
+  els.drawerTitle.textContent = "保留";
   els.drawerBody.innerHTML = `<form class="edit-form" id="deferForm">
     <div class="source-context"><span>元のInbox</span><p>${escapeHtml(sourceItem.content)}</p></div>
     <p class="route-boundary">振り分け先は決めず、次に考える日だけ決めてWantsへ置きます。再訪日が来ると未整理のWantsとして浮上します。</p>
@@ -1816,7 +1816,7 @@ function renderDeferForm(sourceItem) {
     <p class="form-error" id="deferError" role="alert" hidden></p>
     <div class="drawer-actions">
       <button class="secondary-action" id="cancelDefer" type="button">戻る</button>
-      <button class="primary-action" id="saveDeferButton" type="submit">寝かせる</button>
+      <button class="primary-action" id="saveDeferButton" type="submit">保留にする</button>
     </div>
   </form>`;
 
@@ -1869,7 +1869,7 @@ async function saveDefer(event, sourceItem) {
     await createWantFromSource({ ...sourceItem, content }, { revisitOn, note: note || null });
     let inboxWarning = "";
     try {
-      await markInboxTriaged(sourceItem, `寝かせる（再訪 ${revisitOn}）`);
+      await markInboxTriaged(sourceItem, `保留（再訪 ${revisitOn}）`);
     } catch {
       inboxWarning = "Wantsへ置きましたが、元のInboxを整理済みにできませんでした。Inboxを再読込して確認してください。";
     }
@@ -1880,12 +1880,12 @@ async function saveDefer(event, sourceItem) {
     }
     showToast(inboxWarning || `${revisitOn}に再訪するWantとして寝かせ、Inboxを整理済みにしました。`);
   } catch (error) {
-    setDeferError(error instanceof Error ? error.message : "寝かせることができませんでした。");
+    setDeferError(error instanceof Error ? error.message : "保留にできませんでした。");
   } finally {
     if (submit.isConnected) {
       submit.disabled = false;
       cancel.disabled = false;
-      submit.textContent = "寝かせる";
+      submit.textContent = "保留にする";
     }
   }
 }
