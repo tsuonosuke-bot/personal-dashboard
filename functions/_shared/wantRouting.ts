@@ -62,7 +62,7 @@ type ValidationResult =
   | { ok: true; value: WantRouteInput }
   | { ok: false; status: number; error: string };
 
-interface RouteRow {
+export interface RouteRow {
   id?: unknown;
   want_id?: unknown;
   intent?: unknown;
@@ -80,7 +80,7 @@ interface RouteRow {
   updated_at?: unknown;
 }
 
-interface StoredRoute {
+export interface StoredRoute {
   id: number;
   wantId: number;
   intent: RouteIntent;
@@ -98,7 +98,7 @@ interface StoredRoute {
   updatedAt: string | null;
 }
 
-interface SupabaseConnection {
+export interface SupabaseConnection {
   url: URL;
   key: string;
 }
@@ -109,7 +109,7 @@ interface StoredWant {
   status: string;
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
+export function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -121,7 +121,7 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-function connection(env: DashboardEnv): SupabaseConnection {
+export function connection(env: DashboardEnv): SupabaseConnection {
   const rawUrl = env.SUPABASE_URL?.trim();
   const key = env.SUPABASE_SECRET_KEY?.trim();
   if (!rawUrl || !key) throw new DashboardError("SUPABASE_NOT_CONFIGURED", "Supabase is not configured.", 503);
@@ -135,11 +135,11 @@ function connection(env: DashboardEnv): SupabaseConnection {
   return { url, key };
 }
 
-function restEndpoint(connectionInfo: SupabaseConnection, table: string): URL {
+export function restEndpoint(connectionInfo: SupabaseConnection, table: string): URL {
   return new URL(`/rest/v1/${table}`, connectionInfo.url);
 }
 
-async function supabaseFetch(
+export async function supabaseFetch(
   connectionInfo: SupabaseConnection,
   endpoint: URL,
   init: RequestInit = {},
@@ -157,7 +157,7 @@ async function supabaseFetch(
   }
 }
 
-function responseError(response: Response, resource: string): DashboardError {
+export function responseError(response: Response, resource: string): DashboardError {
   const code = response.status === 401 || response.status === 403
     ? "SUPABASE_ACCESS_DENIED"
     : "SUPABASE_REQUEST_FAILED";
@@ -173,7 +173,7 @@ function isoOrNull(value: unknown): string | null {
   return new Date(value).toISOString();
 }
 
-function normalizeRoute(row: RouteRow): StoredRoute {
+export function normalizeRoute(row: RouteRow): StoredRoute {
   const id = Number(row.id);
   const wantId = Number(row.want_id);
   const intent = typeof row.intent === "string" && intentSet.has(row.intent) ? row.intent as RouteIntent : null;
@@ -384,7 +384,7 @@ async function completeWant(
   throw new DashboardError("WANT_AUTO_CLOSE_FAILED", "Want changed before automatic completion.", 409);
 }
 
-const routeSelect = "id,want_id,intent,destination,status,title,detail,cadence,target_id,target_url,error_code,destination_data,idempotency_key,created_at,updated_at";
+export const routeSelect = "id,want_id,intent,destination,status,title,detail,cadence,target_id,target_url,error_code,destination_data,idempotency_key,created_at,updated_at";
 
 async function findRoute(connectionInfo: SupabaseConnection, idempotencyKey: string): Promise<StoredRoute | null> {
   const endpoint = restEndpoint(connectionInfo, "want_routes");
