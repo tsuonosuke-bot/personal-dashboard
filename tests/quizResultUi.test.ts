@@ -17,7 +17,7 @@ test("復習結果にナレッジID・分類と新規タブの管理導線を表
   assert.match(source, /target="_blank"/);
   assert.match(source, /rel="noopener noreferrer"/);
   assert.match(source, /詳細・編集を新しいタブで開く/);
-  assert.match(source, /本文やタグの編集、アーカイブも行えます/);
+  assert.match(source, /本文・タグ・分類の編集も行えます/);
   assert.match(appSource, /onEdit=\{\(\) => openEdit\(selected\)\}/);
   assert.match(appSource, /onArchive=\{\(\) => void archiveKnowledge\(selected\)\}/);
 });
@@ -64,20 +64,18 @@ test("出題生成エラーは正常な問題を止めず、件数と原因を�
   assert.match(view, /failure\.position.*failure\.category.*failure\.reason/s);
 });
 
-test("採点結果で習熟度・分類・優先度を画面遷移なしに変更できる", async () => {
+test("採点結果で習熟度・優先度を画面遷移なしに変更できる", async () => {
   const [view, hook] = await Promise.all([
     readFile(new URL("../src/components/QuizView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/hooks/useQuiz.ts", import.meta.url), "utf8"),
   ]);
 
   assert.match(view, /<span>習熟度<\/span>/);
-  assert.match(view, /<span>分類<\/span>/);
   assert.match(view, /<span>優先度<\/span>/);
   assert.match(view, /MASTERY_ORDER\.map/);
-  assert.match(view, /categoryOptions\.map/);
   assert.match(view, /changeResultField\(result, \{\s*mastery:/);
-  assert.match(view, /changeResultField\(result, \{\s*category:/);
   assert.match(view, /changeResultField\(result, \{\s*priority:/);
+  assert.doesNotMatch(view, /の分類`\}/);
   assert.match(view, /onKnowledgeUpdate\(result\.id, result\.content_version, changes\)/);
   assert.match(hook, /mastery: updated\.mastery/);
   assert.match(hook, /category: updated\.category/);
@@ -99,4 +97,15 @@ test("復習・英会話・ダッシュボードの切替時にスクロール�
   assert.match(app, /const view = showQuiz \? "quiz" : showSpeaking \? "speaking" : "dashboard";/);
   assert.match(app, /useLayoutEffect\(\(\) => \{[\s\S]*?window\.scrollTo\(0, 0\);[\s\S]*?\}, \[view\]\);/);
   assert.ok(app.indexOf("window.scrollTo(0, 0)") < app.indexOf("if (showQuiz) {"));
+});
+
+test("採点結果から確認つきでアーカイブし、同じ画面で元に戻せる", async () => {
+  const view = await readFile(new URL("../src/components/QuizView.tsx", import.meta.url), "utf8");
+
+  assert.match(view, /window\.confirm\(`「\$\{result\.title\}」をアーカイブしますか？/);
+  assert.match(view, /saveResultChange\(result, \{ archived: true \}, "アーカイブしました。"\)/);
+  assert.match(view, /saveResultChange\(result, \{ archived: false \}, "復元しました。"\)/);
+  assert.match(view, /onKnowledgeUpdate\(result\.id, result\.content_version, changes\)/);
+  assert.match(view, /const editDisabled = saving \|\| archived;/);
+  assert.match(view, /アーカイブ済み/);
 });

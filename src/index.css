@@ -390,7 +390,11 @@ button.review-card { display: block; }
 .quiz-knowledge-link { color: #66558c; font-size: 12px; font-weight: 700; }
 .quiz-knowledge-actions span { color: #7a879b; font-size: 11px; }
 .quiz-results-note { margin: 0; color: #7a879b; font-size: 12px; line-height: 1.6; }
-.quiz-edit-fields { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.quiz-edit-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.quiz-archive-button { margin-left: auto; padding-block: 6px; font-size: 12px; }
+.quiz-result-item.archived .quiz-result-question,
+.quiz-result-item.archived .content-block { opacity: .6; }
+.quiz-archived-badge { background: #f1f5f9; color: #64748b; }
 .quiz-edit-control { display: flex; align-items: center; gap: 8px; min-width: 0; color: #526079; font-size: 12px; font-weight: 700; }
 .quiz-edit-control select { min-width: 88px; max-width: 220px; padding-block: 6px; }
 .quiz-edit-feedback { min-height: 17px; color: #15803d; font-size: 11px; }
@@ -408,6 +412,7 @@ button.review-card { display: block; }
   .quiz-edit-control { justify-content: space-between; }
   .quiz-edit-control select { flex: 1; max-width: none; }
   .quiz-edit-control span { flex: 0 0 4em; }
+  .quiz-archive-button { margin-left: 0; }
 }
 
 /* 英会話練習。復習画面と視覚的にも分け、発話に集中できる幅にする。 */

@@ -84,8 +84,8 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す。
   `categories`（登録済みカテゴリ名の配列。空配列は全カテゴリ）、`limit`、`format` で絞り込む
 - `POST /api/quiz/grade`: 署名済み出題トークンと`knowledge`を照合してClaude APIで採点し、
-  `record_answers_batch_once` RPCで出題nonceの重複を原子的に判定・一括記録。結果画面で習熟度・分類・
-  優先度を安全に変更できるよう、記録後の`mastery`・`priority`・`content_version`・`next_review_at`・定着／再学習状態も返す
+  `record_answers_batch_once` RPCで出題nonceの重複を原子的に判定・一括記録。結果画面で習熟度・
+  優先度の変更とアーカイブを安全に行えるよう、記録後の`mastery`・`priority`・`content_version`・`next_review_at`・定着／再学習状態も返す
 
 クイズAPIはブラウザにも `knowledge` の列を素で返さない。`start` は
 `{ id, question, format, choices, token }` だけ、`grade` は採点後なので `title` と模範解答を返す。
@@ -204,6 +204,8 @@ public/
 - QuizViewの出題カテゴリは登録済みカテゴリから組み立てる。固定の選択肢を持たない。
 - `KnowledgeDetailModal` は `onEdit` / `onArchive` を省くと読み取り専用になる。
   クイズの採点結果から出典を開くときは `onEdit` だけを渡し、アーカイブ操作は出さない。
+  採点結果のアーカイブは各問題の編集パネルで確認ダイアログつきで行い、同じ画面で元に戻せる。
+  分類は採点結果では変更させない（編集画面で行う）。
 
 ## デプロイと閲覧制限
 

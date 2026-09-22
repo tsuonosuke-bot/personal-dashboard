@@ -63,11 +63,12 @@ interface Props {
   onKnowledgeUpdate: (
     id: string,
     expectedVersion: number,
-    changes: Partial<KnowledgeDraft>,
+    changes: Partial<KnowledgeDraft> | { archived: boolean },
   ) => Promise<Knowledge>;
 }
 
-type ResultEdit = Pick<KnowledgeDraft, "mastery" | "category" | "priority">;
+type ResultEdit = Pick<KnowledgeDraft, "mastery" | "priority">;
+type ResultChange = Partial<ResultEdit> | { archived: boolean };
 
 type ResultEditFeedback = {
   id: string;
@@ -88,6 +89,7 @@ export function QuizView({
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editFeedback, setEditFeedback] = useState<ResultEditFeedback | null>(null);
+  const [archivedIds, setArchivedIds] = useState<ReadonlySet<string>>(() => new Set());
   const autoStarted = useRef(false);
 
   const categories = useMemo(
@@ -110,19 +112,27 @@ export function QuizView({
 
   const resetQuiz = () => {
     setEditFeedback(null);
+    setArchivedIds(new Set());
     quiz.reset();
   };
 
-  const changeResultField = async (result: QuizGradeResult, changes: Partial<ResultEdit>) => {
+  const saveResultChange = async (result: QuizGradeResult, changes: ResultChange, savedMessage: string) => {
     if (editFeedback?.status === "saving") return;
-    const unchanged = (Object.keys(changes) as (keyof ResultEdit)[])
-      .every((key) => changes[key] === result[key]);
-    if (unchanged) return;
-    setEditFeedback({ id: result.id, status: "saving", pending: changes });
+    setEditFeedback({
+      id: result.id,
+      status: "saving",
+      pending: "archived" in changes ? undefined : changes,
+    });
     try {
       const updated = await onKnowledgeUpdate(result.id, result.content_version, changes);
       quiz.syncKnowledgeResult(updated);
-      setEditFeedback({ id: result.id, status: "saved" });
+      setArchivedIds((current) => {
+        const next = new Set(current);
+        if (updated.archived) next.add(updated.id);
+        else next.delete(updated.id);
+        return next;
+      });
+      setEditFeedback({ id: result.id, status: "saved", message: savedMessage });
     } catch (caught) {
       setEditFeedback({
         id: result.id,
@@ -130,6 +140,18 @@ export function QuizView({
         message: caught instanceof Error ? caught.message : "保存に失敗しました。",
       });
     }
+  };
+
+  const changeResultField = (result: QuizGradeResult, changes: Partial<ResultEdit>) => {
+    const unchanged = (Object.keys(changes) as (keyof ResultEdit)[])
+      .every((key) => changes[key] === result[key]);
+    if (unchanged) return;
+    void saveResultChange(result, changes, "保存しました。");
+  };
+
+  const archiveResult = (result: QuizGradeResult) => {
+    if (!window.confirm(`「${result.title}」をアーカイブしますか？\n今後の復習に出題されなくなります。`)) return;
+    void saveResultChange(result, { archived: true }, "アーカイブしました。");
   };
 
   const openEdit = (item: Knowledge) => {
@@ -354,7 +376,7 @@ export function QuizView({
             )}
             {quiz.results.length > 0 && (
               <p className="quiz-results-note">
-                習熟度・分類・優先度はこの画面で変更できます。優先度は同じ期限内の出題順だけに使い、復習間隔は変えません。
+                習熟度・優先度の変更とアーカイブはこの画面で行えます。優先度は同じ期限内の出題順だけに使い、復習間隔は変えません。
               </p>
             )}
             <ul className="quiz-result-list">
@@ -416,21 +438,20 @@ export function QuizView({
                   : undefined;
                 const shown: ResultEdit = {
                   mastery: pending?.mastery ?? result.mastery,
-                  category: pending?.category ?? result.category,
                   priority: pending?.priority ?? result.priority,
                 };
-                const categoryOptions = categories.includes(shown.category)
-                  ? categories
-                  : [...categories, shown.category].sort();
-                const editDisabled = editFeedback?.status === "saving";
+                const archived = archivedIds.has(result.id);
+                const saving = editFeedback?.status === "saving";
+                const editDisabled = saving || archived;
                 const feedback = editFeedback?.id === result.id ? editFeedback : null;
                 return (
-                  <li key={question.id} className="quiz-result-item card">
+                  <li key={question.id} className={`quiz-result-item card${archived ? " archived" : ""}`}>
                     <div className="quiz-result-head">
                       <span className={`badge ${VERDICT_CLASS[result.verdict] ?? ""}`}>{result.verdict}</span>
                       <span className="quiz-result-q">q{result.quality}</span>
                       <span className="quiz-result-format">{question.format}</span>
                       {!result.recorded && <span className="muted">（同じ回答はすでに記録済みです）</span>}
+                      {archived && <span className="badge quiz-archived-badge">アーカイブ済み</span>}
                     </div>
                     <p className="quiz-result-question">{question.question}</p>
                     <div className="content-block quiz-user-answer-block">
@@ -463,7 +484,7 @@ export function QuizView({
                             aria-label={`${result.title}の習熟度`}
                             value={shown.mastery}
                             disabled={editDisabled}
-                            onChange={(event) => void changeResultField(result, {
+                            onChange={(event) => changeResultField(result, {
                               mastery: event.target.value as Mastery,
                             })}
                           >
@@ -473,27 +494,12 @@ export function QuizView({
                           </select>
                         </label>
                         <label className="quiz-edit-control">
-                          <span>分類</span>
-                          <select
-                            aria-label={`${result.title}の分類`}
-                            value={shown.category}
-                            disabled={editDisabled}
-                            onChange={(event) => void changeResultField(result, {
-                              category: event.target.value,
-                            })}
-                          >
-                            {categoryOptions.map((category) => (
-                              <option key={category} value={category}>{category}</option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="quiz-edit-control">
                           <span>優先度</span>
                           <select
                             aria-label={`${result.title}の優先度`}
                             value={shown.priority}
                             disabled={editDisabled}
-                            onChange={(event) => void changeResultField(result, {
+                            onChange={(event) => changeResultField(result, {
                               priority: event.target.value as KnowledgePriority,
                             })}
                           >
@@ -502,10 +508,27 @@ export function QuizView({
                             ))}
                           </select>
                         </label>
+                        {archived ? (
+                          <button
+                            className="quiz-archive-button"
+                            disabled={saving}
+                            onClick={() => void saveResultChange(result, { archived: false }, "復元しました。")}
+                          >
+                            元に戻す
+                          </button>
+                        ) : (
+                          <button
+                            className="danger-button quiz-archive-button"
+                            disabled={saving}
+                            onClick={() => archiveResult(result)}
+                          >
+                            アーカイブ
+                          </button>
+                        )}
                       </div>
                       <div className="quiz-edit-feedback" aria-live="polite">
                         {feedback?.status === "saving" && "保存中…"}
-                        {feedback?.status === "saved" && "保存しました。"}
+                        {feedback?.status === "saved" && feedback.message}
                         {feedback?.status === "error" && (
                           <span className="quiz-edit-error">{feedback.message}</span>
                         )}
@@ -533,7 +556,7 @@ export function QuizView({
                         >
                           詳細・編集を新しいタブで開く ↗
                         </a>
-                        <span>本文やタグの編集、アーカイブも行えます。</span>
+                        <span>本文・タグ・分類の編集も行えます。</span>
                       </div>
                     </div>
                   </li>
