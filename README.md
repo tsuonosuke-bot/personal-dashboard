@@ -236,4 +236,6 @@ WindowsでNodeのテスト分離プロセスが制限される環境を考慮し
 
 Hubは `display: standalone`、`scope: /` のWeb App Manifestを配信します。iOSの「ホーム画面に追加」はPersonal Hubのトップページで行ってください。FinanceとKnowledgeへの導線はHubと同じオリジン配下にあるため、ホーム画面アプリ内でURLバーを表示せずに切り替わります。変更前に追加したアイコンで古い範囲が残る場合は、ホーム画面のアイコンを一度削除して追加し直します。
 
+ホーム画面アイコンはiOSだけ黄色地（`#f3c218`）の `/apple-touch-icon.png` を使います。iOSは `apple-touch-icon` にSVGを使えないため180×180のPNGで配信し、`public/static/apple-touch-icon.svg` を原本として書き出します。Android・デスクトップのインストールはmanifestの `/icon.svg`（緑地）をそのまま使います。iOSはアイコンを端末側にキャッシュするため、色を変えた後は一度ホーム画面から削除して追加し直します。
+
 より標準化されたSSOへ移行する場合はCloudflare Accessも利用できます。3ホストを同じAccess applicationとAllow policyで保護し、各Pages環境の `AUTH_MODE=access`、`TEAM_DOMAIN`、`POLICY_AUD` を設定します。設定が欠けた場合は503、不正JWTは403でフェイルクローズします。
