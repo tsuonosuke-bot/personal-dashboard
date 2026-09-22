@@ -13,7 +13,7 @@ Browser
           ├─ /api/dashboard
           ├─ /api/inbox (POST / PATCH)
           ├─ /api/wants (POST / PATCH)
-          ├─ /api/want-routes (POST)
+          ├─ /api/want-routes (POST / PATCH)
           ├─ /api/scheduled-actions (GET / PATCH)
           ├─ /api/focus (GET / PATCH)
           ├─ /api/writing (GET / PATCH)
