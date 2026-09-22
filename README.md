@@ -43,7 +43,7 @@ SSO引き継ぎ後に日次キューへ遷移する。
 | `AUTH_MODE` | 任意 | `basic`（既定）または `access` |
 | `TEAM_DOMAIN` | Access時 | `https://<team>.cloudflareaccess.com` |
 | `POLICY_AUD` | Access時 | Access Application Audience tag |
-| `HUB_SERVICE_TOKEN` | Hub連携時 | Hubからナレッジ一覧と日次キュー状態のGETだけを許可する共有secret |
+| `HUB_SERVICE_TOKEN` | Hub連携時 | Hubから一覧・日次キュー・JSON書き出し・接続状態のGETだけを許可する共有secret |
 | `SSO_SHARED_SECRET` | Hub連携時 | Hubからの署名付き認証引き継ぎを検証する共有secret |
 | `QUIZ_SIGNING_SECRET` | クイズ時 | 出題内容を採点まで改ざん不能に保つ32文字以上の署名secret |
 | `SESSION_TTL_DAYS` | 任意 | 引き継いだセッションの日数。既定30 |
@@ -73,6 +73,8 @@ SSO引き継ぎ後に日次キューへ遷移する。
 - `PATCH /api/knowledge/:id` — 許可項目の編集、アーカイブまたは復元。本文は
   `{ expected_version, changes }` とし、読み込み後に別画面で更新されていれば409を返す
 - `GET /api/quiz-log` — クイズ履歴を新しい順に取得
+- `GET /api/export` — ナレッジ、復習履歴、英会話練習履歴を読み取り専用JSONとして書き出す
+- `GET /api/status` — 認証方式、DB接続先、適用migration、最終成功時刻だけを返す
 - `POST /api/quiz/start` — 復習クイズを出題（`{ categories, limit }`。`categories` は登録済み
   カテゴリ名の配列で、空配列なら全カテゴリ）。DBの `pick_quiz` で候補を選び、カテゴリ・タグ・前回のつまずきメモを添えてClaude APIで問題文を
   生成する。応答は `{ id, question, format, choices, token }` の配列で、正解（タイトル・説明）は
@@ -95,7 +97,7 @@ SSO引き継ぎ後に日次キューへ遷移する。
 次回復習日、アーカイブ状態だけで、ID・作成日時・学習統計は変更できない。
 更新には一覧取得時の `content_version` が必要で、競合時は上書きせず再読み込みを促す。
 アーカイブ直後は画面上で取り消せるほか、「アーカイブ済み」一覧から復元できる。
-DB接続設定がない場合は503、Supabase通信失敗は502を返す。
+DB接続設定がない場合は503、Supabase通信失敗は502を返す。HTMLや壊れたJSONなど想定外のAPI応答は、ブラウザ内部の解析エラーをそのまま出さず利用者向けの再試行メッセージへ変換する。各グラフには、合計・最大区分・正答率などを短く伝える表示テキストを付け、スクリーンリーダーとタッチ操作だけでも要点を確認できる。
 
 ### ナレッジ優先度と復習間隔
 
@@ -180,7 +182,7 @@ CSPは外部のスクリプトとスタイルを禁止し、rechartsに必要な
 `AUTH_MODE=access` ではCloudflare Access JWTの署名・issuer・audienceを検証する。
 Personal Hub、家計簿、ナレッジを同じAccess applicationで保護すると、1回のログインで3画面を移動できる。
 
-Basic認証を継続する場合も、3サイトへ同じ `SSO_SHARED_SECRET` を設定すれば、Hubからの署名付き引き継ぎで対象ホストに固定したHttpOnlyセッションを作成できる。`HUB_SERVICE_TOKEN` は `GET /api/knowledge` と `GET /api/review/queue` のみに使え、POST/PATCHや他のAPIは認証を迂回できない。
+Basic認証を継続する場合も、3サイトへ同じ `SSO_SHARED_SECRET` を設定すれば、Hubからの署名付き引き継ぎで対象ホストに固定したHttpOnlyセッションを作成できる。`HUB_SERVICE_TOKEN` は `GET /api/knowledge`、`GET /api/review/queue`、`GET /api/export`、`GET /api/status` のみに使え、POST/PATCHや他のAPIは認証を迂回できない。
 引き継ぎトークンのnonceはSupabaseで1回だけ消費されるため、同じURLの再利用は403になる。
 
 ### DBマイグレーション
@@ -197,6 +199,7 @@ Basic認証を継続する場合も、3サイトへ同じ `SSO_SHARED_SECRET` �
 署名済み出題トークン単位の重複記録防止を追加する。
 `20260921120000_daily_review_category_counts.sql` は、今すぐ復習できる残数を全アクティブカテゴリ別に集計し、
 日次キューの全体残数と同じスナップショットで返す。
+`20260922140000_connection_status.sql` は共通の接続状態画面で表示する最終適用migrationを登録する。
 適用後は新しい列・トリガー・関数定義と実行権限を確認する。
 
 ## 既存のブラウザ直接接続からの移行

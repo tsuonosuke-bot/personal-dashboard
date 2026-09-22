@@ -302,6 +302,7 @@ export default function App() {
                 <a href="https://personal-dashboard-7md.pages.dev/habits/">Habits</a>
                 <a href="https://personal-dashboard-7md.pages.dev/go/financial">Finance</a>
                 <span aria-current="page">Knowledge</span>
+                <a href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
               </nav>
             </details>
             <span className={`source-badge ${error ? "error" : loading ? "loading" : "live"}`}>
@@ -316,6 +317,8 @@ export default function App() {
       <main className="wrap">
 
       <div className="page-tools">
+        <a className="page-tool-link" href="api/export">JSON書き出し</a>
+        <a className="page-tool-link" href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
         <button
           className="archive-button"
           onClick={() => { setActionError(null); setArchiveOpen(true); }}
@@ -326,7 +329,13 @@ export default function App() {
       </div>
 
       {loading && <div className="msg">読み込み中...</div>}
-      {!loading && error && <div className="err">エラー: {error}</div>}
+      {!loading && error && (
+        <div className="err load-error" role="alert">
+          <strong>データを読み込めませんでした</strong>
+          <p>{error}</p>
+          <button type="button" onClick={handleReload}>再試行</button>
+        </div>
+      )}
       {notice && (
         <div className="notice" role="status">
           <span>{notice}</span>

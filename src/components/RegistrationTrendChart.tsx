@@ -13,6 +13,10 @@ export function RegistrationTrendChart({ knowledge }: { knowledge: Knowledge[] }
   );
   const total = data.reduce((sum, point) => sum + point.count, 0);
   const periodLabel = granularity === "day" ? "直近30日" : "直近12週";
+  const peak = data.reduce((current, point) => point.count > current.count ? point : current, data[0] ?? { label: "", count: 0 });
+  const summary = total === 0
+    ? `${periodLabel}の新規登録はありません。`
+    : `${periodLabel}の新規登録は合計${total}件です。最も多い期間は${peak.label}の${peak.count}件です。`;
 
   return (
     <section className="card full registration-trend-card" aria-labelledby="registration-trend-title">
@@ -44,7 +48,7 @@ export function RegistrationTrendChart({ knowledge }: { knowledge: Knowledge[] }
         <div
           className="chart-box registration-trend-box"
           role="img"
-          aria-label={`${periodLabel}の新規学習数、合計${total}件`}
+          aria-describedby="registration-trend-summary"
         >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 8, right: 8, bottom: 8, left: -20 }}>
@@ -62,6 +66,7 @@ export function RegistrationTrendChart({ knowledge }: { knowledge: Knowledge[] }
           </ResponsiveContainer>
         </div>
       )}
+      <p className="chart-summary" id="registration-trend-summary">{summary}</p>
     </section>
   );
 }

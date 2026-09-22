@@ -58,7 +58,7 @@ test("Cloudflare Accessモードは設定不足と不正JWTを拒否する", asy
   assert.doesNotMatch(await invalid.text(), /not-a-jwt/);
 });
 
-test("Hubサービスキーはナレッジ一覧と日次キューGETだけを許可する", async () => {
+test("Hubサービスキーは読み取り専用の一覧・日次キュー・書き出し・接続状態だけを許可する", async () => {
   const token = "hub-service-token-that-is-at-least-32-characters";
   const env = { HUB_SERVICE_TOKEN: token, DASHBOARD_PASSWORD: "password" };
   const allowed = await onRequest({
@@ -76,6 +76,16 @@ test("Hubサービスキーはナレッジ一覧と日次キューGETだけを�
   });
   assert.equal(queue.status, 200);
   assert.equal(await queue.text(), "queue");
+
+  for (const path of ["/api/export", "/api/status"]) {
+    const readOnly = await onRequest({
+      request: new Request(`https://dashboard.example${path}`, { headers: { "X-Hub-Service": token } }),
+      env,
+      next: async () => new Response(path),
+    });
+    assert.equal(readOnly.status, 200);
+    assert.equal(await readOnly.text(), path);
+  }
 
   const denied = await onRequest({
     request: new Request("https://dashboard.example/api/knowledge", {

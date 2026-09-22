@@ -2,15 +2,18 @@ import type { ReactNode } from "react";
 
 interface Props {
   title: string;
+  id: string;
+  summary: string;
   full?: boolean;
   children: ReactNode;
 }
 
-export function ChartCard({ title, full = false, children }: Props) {
+export function ChartCard({ title, id, summary, full = false, children }: Props) {
   return (
-    <div className={full ? "card full" : "card"}>
-      <div className="chart-title">{title}</div>
-      <div className="chart-box">{children}</div>
-    </div>
+    <section className={full ? "card full" : "card"} aria-labelledby={`${id}-title`}>
+      <div className="chart-title" id={`${id}-title`}>{title}</div>
+      <div className="chart-box" role="img" aria-describedby={`${id}-summary`}>{children}</div>
+      <p className="chart-summary" id={`${id}-summary`}>{summary}</p>
+    </section>
   );
 }

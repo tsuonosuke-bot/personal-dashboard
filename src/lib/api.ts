@@ -62,18 +62,53 @@ function nonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function responseMessage(response: Response): string {
+  if (response.status === 401) return "認証の有効期限が切れました。ページを再読み込みしてログインしてください。";
+  if (response.status === 403) return "この操作を行う権限を確認できませんでした。";
+  if (response.status === 404) return "要求した機能が見つかりませんでした。";
+  if (response.status === 429) return "アクセスが集中しています。少し待ってから再試行してください。";
+  if (response.status >= 500) return "サーバーへ接続できませんでした。少し待ってから再試行してください。";
+  return response.ok
+    ? "サーバーから想定外の応答を受信しました。再試行してください。"
+    : "処理を完了できませんでした。再試行してください。";
+}
+
+export async function readApiResponse(response: Response): Promise<unknown> {
+  const contentType = response.headers.get("Content-Type")?.toLowerCase() || "";
+  if (!contentType.includes("json")) throw new ApiError(responseMessage(response), response.status);
+  let text: string;
+  try {
+    text = await response.text();
+  } catch {
+    throw new ApiError(responseMessage(response), response.status);
+  }
+  if (!text.trim()) throw new ApiError(responseMessage(response), response.status);
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new ApiError("サーバーから想定外の応答を受信しました。再試行してください。", response.status);
+  }
+}
+
 async function requestJson(path: string, init: RequestInit): Promise<unknown> {
-  const response = await fetch(appPath(path), {
-    credentials: "same-origin",
-    ...init,
-    headers: { Accept: "application/json", ...init.headers },
-  });
+  let response: Response;
+  try {
+    response = await fetch(appPath(path), {
+      credentials: "same-origin",
+      ...init,
+      headers: { Accept: "application/json", ...init.headers },
+    });
+  } catch {
+    throw new ApiError("ネットワークへ接続できませんでした。通信状態を確認して再試行してください。", 0);
+  }
+
+  const responseBody = await readApiResponse(response);
 
   if (!response.ok) {
-    let message = `APIエラー (${response.status})`;
+    let message = responseMessage(response);
     let context: ApiErrorContext = {};
-    try {
-      const body = (await response.json()) as ErrorBody;
+    if (typeof responseBody === "object" && responseBody !== null) {
+      const body = responseBody as ErrorBody;
       message = nonEmptyString(body.error) ?? message;
       context = {
         stage: nonEmptyString(body.stage),
@@ -84,13 +119,11 @@ async function requestJson(path: string, init: RequestInit): Promise<unknown> {
           : [],
         reference: nonEmptyString(body.reference),
       };
-    } catch {
-      // JSONでないエラーレスポンスではステータスを表示する。
     }
     throw new ApiError(message, response.status, context);
   }
 
-  return response.json() as Promise<unknown>;
+  return responseBody;
 }
 
 const API_PAGE_SIZE = 1_000;

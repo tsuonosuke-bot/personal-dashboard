@@ -27,6 +27,7 @@ h2, h3, p { margin-top: 0; }
 .full { grid-column: 1 / -1; }
 .chart-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
 .chart-box { position: relative; height: 240px; }
+.chart-summary { margin: 9px 0 0; padding-top: 9px; border-top: 1px solid #edf0f4; color: #59677a; font-size: 11px; line-height: 1.55; }
 .chart-loading { min-height: 240px; display: grid; place-items: center; margin-bottom: 16px; color: #71829d; }
 .chart-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
 .chart-heading .chart-title { margin-bottom: 3px; }
@@ -248,6 +249,12 @@ button.review-card { display: block; }
 .head-actions button, .hub-link { min-height: 40px; border-radius: 8px; }
 .archive-button { color: #66558c; }
 .page-tools { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px; }
+.page-tool-link { min-height: 36px; display: inline-flex; align-items: center; padding: 7px 11px; border: 1px solid #ddd9e4; border-radius: 8px; background: #fff; color: #66558c; font-size: 12px; font-weight: 700; text-decoration: none; }
+.page-tool-link:hover { border-color: #66558c; }
+.load-error { padding: 20px; border-radius: 12px; }
+.load-error strong, .load-error p { display: block; }
+.load-error p { margin: 7px 0 12px; }
+.load-error button { min-height: 36px; padding: 7px 12px; border: 0; border-radius: 8px; background: #66558c; color: #fff; font-weight: 700; cursor: pointer; }
 .dashboard-switcher { position: relative; }
 .dashboard-switcher summary { min-height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #334155; font-size: 12px; font-weight: 700; list-style: none; cursor: pointer; }
 .dashboard-switcher summary::-webkit-details-marker { display: none; }
