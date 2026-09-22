@@ -80,7 +80,9 @@ select { height: 44px; padding: 0 34px 0 13px; border: 1px solid var(--line); bo
 .bulk-select-all input, .bulk-item-checkbox { width: 18px; height: 18px; accent-color: var(--green); }
 .bulk-toolbar > strong { color: var(--green); font-size: 11px; white-space: nowrap; }
 .bulk-status-field { display: flex; align-items: center; justify-content: flex-end; gap: 8px; color: var(--muted); font-size: 10px; font-weight: 700; }
+.bulk-status-field label { display: flex; align-items: center; gap: 8px; }
 .bulk-status-field select { height: 40px; min-width: 120px; }
+.bulk-status-field input[type="date"] { height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 11px; background: white; color: var(--ink); }
 .bulk-toolbar .primary-action, .bulk-toolbar .secondary-action { min-height: 40px; white-space: nowrap; }
 .bulk-error { grid-column: 1 / -1; margin: 0; padding: 9px 10px; border-radius: 8px; background: #fff5f4; color: #a53f39; font-size: 11px; line-height: 1.5; }
 .card-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }

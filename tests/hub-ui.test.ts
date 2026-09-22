@@ -123,6 +123,26 @@ test("Compass supports confirmation-safe bulk Inbox status changes", async () =>
   assert.match(style, /\.bulk-item-card\.selected/);
 });
 
+test("Compass bulk-routes pending Inbox items to the triage destinations that need no per-item input", async () => {
+  const [html, script] = await Promise.all([
+    readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+  ]);
+
+  for (const [key, label] of [["wish", "欲しいもの"], ["writing", "執筆"], ["knowledge", "調査"], ["focus", "Focus"], ["github", "開発"], ["journal", "日記"], ["defer", "保留"]]) {
+    assert.match(html, new RegExp(`<option value="route:${key}">${label}</option>`));
+  }
+  assert.doesNotMatch(html, /value="route:(calendar|habit)"/);
+  assert.match(html, /<optgroup label="ステータスだけ変更">/);
+  assert.match(html, /id="bulkRevisitOn" type="date"/);
+  assert.match(script, /const BULK_ROUTE_KEYS = \["wish", "writing", "knowledge", "focus", "github", "journal", DEFER_ROUTE\];/);
+  assert.match(script, /const pending = selected\.filter\(\(item\) => item\.status === "pending"\);/);
+  assert.match(script, /revisitOn < todayInTokyo\(\)/);
+  assert.match(script, /const cacheKey = `\$\{item\.id\}:\$\{key\}`;/);
+  assert.match(script, /await markInboxTriaged\(item, `\$\{routeDestinationMeta\[quick\.destination\]\?\.label \|\| quick\.destination\}へ振り分け`\);/);
+  assert.match(script, /振り分けできなかったInbox:/);
+});
+
 test("Compass edits Wants through a dedicated API", async () => {
   const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
 

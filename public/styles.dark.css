@@ -217,6 +217,12 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .bulk-status-field {
   color: var(--muted);
 }
+:root[data-theme="dark"] .bulk-status-field input[type="date"] {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #292929;
+  color: var(--ink);
+}
 :root[data-theme="dark"] .bulk-error {
   border-radius: 8px;
   background: #271f1e;
