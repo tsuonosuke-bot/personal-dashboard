@@ -48,6 +48,15 @@
 .dashboard-brand-mark.idea { background: #2f6754; }
 .dashboard-brand-mark.writing { background: #7a3f62; font-family: Georgia, serif; }
 .dashboard-brand-mark.habits { background: #9a4727; }
+.idea-mark-icon {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 .dashboard-brand h1 {
   margin: 0;

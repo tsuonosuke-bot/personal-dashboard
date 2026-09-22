@@ -256,6 +256,10 @@ test("Hub and personal dashboards use the requested page names and shared shell"
   assert.match(hub, /<h2>Finance<\/h2>/);
   assert.match(hub, /<h2>Knowledge<\/h2>/);
   assert.match(idea, /<h1>Idea<\/h1>/);
+  assert.match(hub, /class="idea-mark-icon"/);
+  assert.match(idea, /class="idea-mark-icon"/);
+  assert.doesNotMatch(hub, /class="card-icon"[^>]*>↗<\/span>/);
+  assert.doesNotMatch(idea, /class="dashboard-brand-mark idea"[^>]*>↗<\/span>/);
   assert.match(writing, /<h1>Writing<\/h1>/);
   assert.match(habits, /<h1>Habits<\/h1>/);
   assert.match(idea, /dashboard-shell\.css/);
