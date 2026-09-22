@@ -18,14 +18,21 @@ test("iOSのホーム画面アイコンはPNGで配信する", async () => {
   assert.equal(png.readUInt32BE(20), 180);
 });
 
-test("iOSアイコンの下地は黄色で、Android・ブラウザ用は既存の緑を保つ", async () => {
-  const appleIcon = await readFile(new URL("../public/static/apple-touch-icon.svg", import.meta.url), "utf8");
-  assert.match(appleIcon, /<rect width="512" height="512" fill="#f3c218"\/>/);
+test("iOS・Android・ブラウザのアイコンは同じ黄色地のPを使う", async () => {
+  const marks = await Promise.all(["apple-touch-icon.svg", "icon.svg", "icon-maskable.svg"].map(async (name) => {
+    const svg = await readFile(new URL(`../public/static/${name}`, import.meta.url), "utf8");
+    assert.match(svg, /fill="#f3c218"/, name);
+    assert.match(svg, /fill="#245949"/, name);
+    assert.ok(!svg.includes("#2f6750"), `${name} に旧アイコンの緑地が残っている`);
+    return svg;
+  }));
+  assert.ok(marks.every((svg) => /fill-rule="evenodd"/.test(svg)), "Pの抜き文字をevenoddで描く");
 
   const manifest = JSON.parse(await readFile(new URL("../public/static/manifest.webmanifest", import.meta.url), "utf8"));
-  assert.deepEqual(manifest.icons.map((icon: { src: string }) => icon.src), ["/icon.svg", "/icon-maskable.svg"]);
-  const icon = await readFile(new URL("../public/static/icon.svg", import.meta.url), "utf8");
-  assert.match(icon, /fill="#2f6750"/);
+  assert.deepEqual(manifest.icons.map((icon: { src: string; purpose: string }) => [icon.src, icon.purpose]), [
+    ["/icon.svg", "any"],
+    ["/icon-maskable.svg", "maskable"],
+  ]);
 });
 
 test("ホーム画面へ追加する各画面がapple-touch-iconを指す", async () => {
