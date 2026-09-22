@@ -59,6 +59,10 @@ export default function App() {
     () => [...new Set(knowledge.map((k) => k.category))].sort(),
     [knowledge],
   );
+  const registrationKnowledge = useMemo(
+    () => [...knowledge, ...archivedKnowledge],
+    [archivedKnowledge, knowledge],
+  );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -364,7 +368,11 @@ export default function App() {
           />
 
           <Suspense fallback={<div className="card chart-loading" role="status">グラフを読み込み中...</div>}>
-            <DashboardCharts knowledge={knowledge} quizLog={quizLog} />
+            <DashboardCharts
+              knowledge={knowledge}
+              registrationKnowledge={registrationKnowledge}
+              quizLog={quizLog}
+            />
           </Suspense>
 
           <FilterBar
