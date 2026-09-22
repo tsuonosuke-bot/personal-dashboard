@@ -27,7 +27,7 @@ main { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding-bottom: 28
 .page-heading p { margin: 0; color: var(--muted); font-size: 10px; }
 .primary-link { padding: 10px 13px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 9px; font-weight: 800; text-decoration: none; }
 .primary-link:hover { background: var(--accent-hover); }
-.summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 10px; }
 .summary-grid button { min-height: 82px; display: grid; align-content: center; justify-items: start; padding: 12px; border: 1px solid rgba(122,63,98,.14); border-radius: 11px; background: var(--surface); cursor: pointer; text-align: left; }
 .summary-grid button:hover { border-color: var(--accent); background: #fff9fc; }
 .summary-grid span { color: var(--muted); font-size: 12px; font-weight: 800; }
@@ -43,7 +43,7 @@ main { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding-bottom: 28
 .tabs button { padding: 8px 11px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 800; }
 .tabs button.active { border-bottom-color: var(--accent); color: var(--accent); }
 .tabs b { margin-left: 4px; }
-.filters { display: grid; grid-template-columns: minmax(0, 1fr) 170px auto; align-items: end; gap: 8px; }
+.filters { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; }
 .filters label, .editor label { display: grid; gap: 4px; }
 .filters label > span, .editor label > span { color: var(--muted); font-size: 11px; font-weight: 750; }
 .filters input, .filters select, .editor input, .editor select, .editor textarea { width: 100%; border: 1px solid #d3d6ce; border-radius: 8px; background: #fff; padding: 8px 9px; color: var(--ink); font-size: 13px; }
@@ -61,7 +61,6 @@ main { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding-bottom: 28
 .topic-open:hover { background: #fff9fc; }
 .topic-status { padding: 4px 6px; border-radius: 999px; font-size: 10px; font-weight: 850; }
 .topic-status.candidate { background: var(--idea-soft); color: var(--idea); }
-.topic-status.drafting { background: var(--accent-soft); color: var(--accent); }
 .topic-status.completed { background: var(--done-soft); color: var(--done); }
 .topic-card h3 { display: -webkit-box; overflow: hidden; margin: 0; -webkit-box-orient: vertical; -webkit-line-clamp: 3; font-size: 14px; line-height: 1.45; }
 .topic-card p { display: -webkit-box; overflow: hidden; margin: 0; color: var(--muted); -webkit-box-orient: vertical; -webkit-line-clamp: 3; font-size: 11px; line-height: 1.5; }

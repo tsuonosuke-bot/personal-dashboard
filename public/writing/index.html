@@ -39,25 +39,23 @@
 
       <main class="dashboard-main">
         <section class="summary-grid" aria-label="Writingサマリー">
-          <button type="button" data-summary-status="candidate"><span>アイデア</span><strong id="candidateCount">—</strong><small>Pomeraで書く候補</small></button>
-          <button type="button" data-summary-status="drafting"><span>Pomeraで執筆中</span><strong id="draftingCount">—</strong><small>今書いているテーマ</small></button>
-          <button type="button" data-summary-view="completed"><span>書き上げ</span><strong id="completedCount">—</strong><small>役目を終えたテーマ</small></button>
+          <button type="button" data-summary-view="candidate"><span>アイデア</span><strong id="candidateCount">—</strong><small>これから書くテーマ</small></button>
+          <button type="button" data-summary-view="completed"><span>完了</span><strong id="completedCount">—</strong><small>書き終えたテーマ</small></button>
         </section>
 
         <section class="writing-board" aria-labelledby="boardTitle">
           <header class="board-header">
-              <div><span class="eyebrow">TOPICS</span><h2 id="boardTitle">Pomeraで書くテーマ</h2></div>
+              <div><span class="eyebrow">TOPICS</span><h2 id="boardTitle">アイデア</h2></div>
           </header>
           <div class="tabs" role="tablist" aria-label="表示するWritingテーマ">
-            <button class="active" type="button" role="tab" aria-selected="true" data-view="active">進行中 <b id="activeTabCount">—</b></button>
-            <button type="button" role="tab" aria-selected="false" data-view="completed">書き上げ <b id="completedTabCount">—</b></button>
+            <button class="active" type="button" role="tab" aria-selected="true" data-view="candidate">アイデア <b id="candidateTabCount">—</b></button>
+            <button type="button" role="tab" aria-selected="false" data-view="completed">完了 <b id="completedTabCount">—</b></button>
           </div>
           <div class="filters">
             <label><span>検索</span><input id="searchInput" type="search" placeholder="タイトル・論点" /></label>
-            <label><span>状態</span><select id="statusFilter"><option value="">すべて</option></select></label>
             <button id="clearFilters" type="button" hidden>解除</button>
           </div>
-          <div class="result-line"><span id="resultCount">読み込み中</span><small>本文はPomeraで執筆。ここではテーマと状態だけを管理します</small></div>
+          <div class="result-line"><span id="resultCount">読み込み中</span><small>本文はPomeraで執筆。ここではアイデアと完了だけを管理します</small></div>
           <div class="state-card" id="loadingState" role="status">Writingテーマを読み込んでいます…</div>
           <div class="state-card error" id="errorState" role="alert" hidden><strong>読み込めませんでした</strong><p id="errorMessage"></p><button id="retryButton" type="button">再試行</button></div>
           <div class="topic-list" id="topicList" hidden></div>

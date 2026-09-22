@@ -6,12 +6,8 @@ const MAX_TITLE_CHARS = 240;
 const MAX_QUESTION_CHARS = 2_000;
 const WRITING_SELECT = "id,source_route_id,source_want_id,title,question,status,created_at,updated_at";
 
-export const WRITING_STATUSES = [
-  "candidate", "researching", "outlining", "drafting", "completed", "on_hold", "archived",
-] as const;
+export const WRITING_STATUSES = ["candidate", "completed"] as const;
 export type WritingStatus = (typeof WRITING_STATUSES)[number];
-export const WRITING_WORKFLOW_STATUSES = ["candidate", "drafting", "completed"] as const;
-export type WritingWorkflowStatus = (typeof WRITING_WORKFLOW_STATUSES)[number];
 
 interface WritingRow {
   id?: unknown;
@@ -39,7 +35,7 @@ export interface WritingUpdateInput {
   id: number;
   title: string;
   question: string | null;
-  status: WritingWorkflowStatus;
+  status: WritingStatus;
   originalUpdatedAt: string;
 }
 
@@ -70,10 +66,6 @@ function isoDate(value: unknown): string | null {
 
 function isWritingStatus(value: unknown): value is WritingStatus {
   return typeof value === "string" && (WRITING_STATUSES as readonly string[]).includes(value);
-}
-
-function isWritingWorkflowStatus(value: unknown): value is WritingWorkflowStatus {
-  return typeof value === "string" && (WRITING_WORKFLOW_STATUSES as readonly string[]).includes(value);
 }
 
 function connection(env: DashboardEnv): { url: URL; key: string } {
@@ -164,10 +156,8 @@ export async function loadWriting(env: DashboardEnv) {
   return {
     items: sorted,
     summary: {
-      active: sorted.filter((item) => !["completed", "archived"].includes(item.status)).length,
-      ideas: sorted.filter((item) => ["candidate", "researching", "outlining", "on_hold"].includes(item.status)).length,
-      drafting: sorted.filter((item) => item.status === "drafting").length,
-      completed: sorted.filter((item) => ["completed", "archived"].includes(item.status)).length,
+      ideas: sorted.filter((item) => item.status === "candidate").length,
+      completed: sorted.filter((item) => item.status === "completed").length,
     },
   };
 }
@@ -228,7 +218,7 @@ export async function readWritingUpdateInput(request: Request): Promise<Validati
     return { ok: false, status: 400, error: `タイトルは1〜${MAX_TITLE_CHARS}文字で入力してください。` };
   }
   if (question === undefined) return { ok: false, status: 400, error: `論点は${MAX_QUESTION_CHARS}文字以内で入力してください。` };
-  if (!isWritingWorkflowStatus(parsed.status)) return { ok: false, status: 400, error: "ステータスが正しくありません。" };
+  if (!isWritingStatus(parsed.status)) return { ok: false, status: 400, error: "ステータスが正しくありません。" };
   if (!originalUpdatedAt) return { ok: false, status: 400, error: "編集前の更新日時が正しくありません。" };
   return {
     ok: true,

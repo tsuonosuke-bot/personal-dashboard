@@ -72,9 +72,9 @@ Browser
 ## Writingの機能
 
 - IdeaでWantを「掘り下げる → Writing」に振り分けるとテーマを作成
-- アイデア・Pomeraで執筆中・書き上げ、の3状態だけを管理
+- アイデア・完了、の2状態だけを管理
 - 本文と構成はPomeraを正本とし、Dashboardではタイトルと短い論点だけを編集
-- 書き上げたテーマは進行中の一覧から外し、Writingとしての役目を終了
+- 完了したテーマはアイデアの一覧から外し、Writingとしての役目を終了
 - 元Wantへのリンクを常に保持し、Writingの直リンクでも編集画面を復元
 - `updated_at` を使って別画面からの上書きを409で防止
 
@@ -133,6 +133,8 @@ Habit MVPを有効にする場合は、続けて `supabase/migrations/2026092000
 Focus管理を有効にする場合は `supabase/migrations/202609200004_focus_board.sql` も適用します。Active FocusはDBトリガーで5件までに制限し、並び替えは現在の順序を確認してから1トランザクションで更新します。
 
 整理済みWantの自動完了を有効にする場合は、`supabase/migrations/202609200005_auto_complete_routed_wants.sql` まで適用します。既存の `planned` / `created` 振り分けがあるActive Wantを一度だけ `completed` に整合し、以後は成功した振り分けから同じ状態遷移を保証します。
+
+Writingを2状態へ簡素化する場合は、続けて `supabase/migrations/202609220002_writing_two_statuses.sql` を適用します。既存の `completed` / `archived` は「完了」に、それ以外のWriting状態は「アイデア」に統合します。
 
 - `writing_topics`: 掘り下げたいエッセイ候補
 - `habits` / `habit_logs`: 習慣の定義と実施記録

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   loadWriting,
@@ -43,7 +44,7 @@ function validInput(overrides: Record<string, unknown> = {}) {
     id: 7,
     title: "AIと思考について書く",
     question: "AIは思考を深めるのか",
-    status: "drafting",
+    status: "completed",
     originalUpdatedAt: "2026-09-20T00:00:00.000Z",
     ...overrides,
   };
@@ -69,14 +70,14 @@ test("Writing GET keeps the Supabase secret in server-side headers and summarize
     requests.push({ url: String(input), headers: init?.headers as Record<string, string> });
     return Response.json([
       row(),
-      row({ id: 8, source_route_id: 18, source_want_id: 28, status: "researching" }),
+      row({ id: 8, source_route_id: 18, source_want_id: 28 }),
       row({ id: 9, source_route_id: 19, source_want_id: 29, status: "completed" }),
     ]);
   };
   try {
     const payload = await loadWriting(env);
     assert.equal(payload.items.length, 3);
-    assert.deepEqual(payload.summary, { active: 2, ideas: 2, drafting: 0, completed: 1 });
+    assert.deepEqual(payload.summary, { ideas: 2, completed: 1 });
     assert.equal(requests.length, 1);
     assert.equal(requests[0].headers.apikey, "server-secret");
     assert.doesNotMatch(requests[0].url, /server-secret/);
@@ -96,7 +97,7 @@ test("Writing PATCH validates all editable fields", async () => {
   const valid = await readWritingUpdateInput(mutationRequest(validInput()));
   assert.equal(valid.ok, true);
   if (valid.ok) {
-    assert.equal(valid.value.status, "drafting");
+    assert.equal(valid.value.status, "completed");
   }
   const legacyStatus = await readWritingUpdateInput(mutationRequest(validInput({ status: "outlining" })));
   assert.equal(legacyStatus.ok, false);
@@ -111,7 +112,7 @@ test("Writing update uses id and updated_at for a conflict-safe write", async ()
   const requests: Array<{ url: URL; init?: RequestInit }> = [];
   globalThis.fetch = async (input, init) => {
     requests.push({ url: new URL(String(input)), init });
-    return Response.json([row({ status: "drafting" })]);
+    return Response.json([row({ status: "completed" })]);
   };
   try {
     const parsed = await readWritingUpdateInput(mutationRequest(validInput()));
@@ -119,7 +120,7 @@ test("Writing update uses id and updated_at for a conflict-safe write", async ()
     if (!parsed.ok) return;
     const item = await updateWritingTopic(env, parsed.value);
     const captured = requests[0];
-    assert.equal(item.status, "drafting");
+    assert.equal(item.status, "completed");
     assert.equal(captured.url.searchParams.get("id"), "eq.7");
     assert.equal(captured.url.searchParams.get("updated_at"), "eq.2026-09-20T00:00:00.000Z");
     assert.equal(captured.init?.method, "PATCH");
@@ -138,7 +139,7 @@ test("Writing update preserves PostgreSQL microsecond precision in its conflict 
   let seenUrl = "";
   globalThis.fetch = async (input) => {
     seenUrl = String(input);
-    return Response.json([row({ status: "drafting", updated_at: "2026-09-20T02:00:00.000Z" })]);
+    return Response.json([row({ status: "completed", updated_at: "2026-09-20T02:00:00.000Z" })]);
   };
   try {
     const response = await writingRoute({
@@ -172,7 +173,7 @@ test("Writing update reports an optimistic conflict instead of overwriting", asy
 test("Writing API supports GET and PATCH and rejects other methods", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (_input, init) => init?.method === "PATCH"
-    ? Response.json([row({ status: "drafting" })])
+    ? Response.json([row({ status: "completed" })])
     : Response.json([row()]);
   try {
     const getResponse = await writingRoute({ request: new Request("https://hub.example/api/writing"), env });
@@ -180,11 +181,19 @@ test("Writing API supports GET and PATCH and rejects other methods", async () =>
     assert.equal((await getResponse.json()).items.length, 1);
     const patchResponse = await writingRoute({ request: mutationRequest(validInput()), env });
     assert.equal(patchResponse.status, 200);
-    assert.equal((await patchResponse.json()).item.status, "drafting");
+    assert.equal((await patchResponse.json()).item.status, "completed");
     const deleteResponse = await writingRoute({ request: new Request("https://hub.example/api/writing", { method: "DELETE" }), env });
     assert.equal(deleteResponse.status, 405);
     assert.equal(deleteResponse.headers.get("Allow"), "GET, PATCH");
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("Writing migration folds legacy states into ideas and constrains the two-state workflow", async () => {
+  const migration = await readFile(new URL("../supabase/migrations/202609220002_writing_two_statuses.sql", import.meta.url), "utf8");
+  assert.match(migration, /when status in \('completed', 'archived'\) then 'completed'/);
+  assert.match(migration, /else 'candidate'/);
+  assert.match(migration, /check \(status in \('candidate', 'completed'\)\)/);
+  assert.doesNotMatch(migration, /delete\s+from/i);
 });

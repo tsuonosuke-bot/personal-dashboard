@@ -1,20 +1,13 @@
 const statusMeta = {
   candidate: { label: "アイデア", className: "candidate" },
-  drafting: { label: "Pomeraで執筆中", className: "drafting" },
-  completed: { label: "書き上げ", className: "completed" },
+  completed: { label: "完了", className: "completed" },
 };
 
-function workflowStatus(status) {
-  if (["completed", "archived"].includes(status)) return "completed";
-  if (status === "drafting") return "drafting";
-  return "candidate";
-}
-
-const state = { items: [], view: "active", status: "", search: "", selectedId: null };
+const state = { items: [], view: "candidate", search: "", selectedId: null };
 const els = Object.fromEntries([
-  "refreshButton", "candidateCount", "draftingCount", "completedCount",
-  "activeTabCount", "completedTabCount", "sourceBadge", "boardTitle",
-  "searchInput", "statusFilter", "clearFilters", "resultCount", "loadingState", "errorState",
+  "refreshButton", "candidateCount", "completedCount",
+  "candidateTabCount", "completedTabCount", "sourceBadge", "boardTitle",
+  "searchInput", "clearFilters", "resultCount", "loadingState", "errorState",
   "errorMessage", "retryButton", "topicList", "editorModal", "editorBackdrop", "editorClose",
   "editorKicker", "editorTitle", "editorForm", "sourceWantLink", "titleInput", "questionInput",
   "editorStatus", "formError", "editorCancel",
@@ -61,28 +54,21 @@ function routePath(id = null) {
 
 function summary() {
   return {
-    active: state.items.filter((item) => workflowStatus(item.status) !== "completed").length,
-    candidate: state.items.filter((item) => workflowStatus(item.status) === "candidate").length,
-    drafting: state.items.filter((item) => workflowStatus(item.status) === "drafting").length,
-    completed: state.items.filter((item) => workflowStatus(item.status) === "completed").length,
+    candidate: state.items.filter((item) => item.status === "candidate").length,
+    completed: state.items.filter((item) => item.status === "completed").length,
   };
 }
 
 function renderSummary() {
   const counts = summary();
   els.candidateCount.textContent = counts.candidate;
-  els.draftingCount.textContent = counts.drafting;
   els.completedCount.textContent = counts.completed;
-  els.activeTabCount.textContent = counts.active;
+  els.candidateTabCount.textContent = counts.candidate;
   els.completedTabCount.textContent = counts.completed;
 }
 
 function itemsForView() {
-  let items = state.items.filter((item) => {
-    if (state.view === "active") return workflowStatus(item.status) !== "completed";
-    return workflowStatus(item.status) === "completed";
-  });
-  if (state.status) items = items.filter((item) => workflowStatus(item.status) === state.status);
+  let items = state.items.filter((item) => item.status === state.view);
   const needle = state.search.trim().toLocaleLowerCase("ja");
   if (needle) {
     items = items.filter((item) => [item.title, item.question]
@@ -91,16 +77,8 @@ function itemsForView() {
   return items;
 }
 
-function renderStatusOptions() {
-  const statuses = state.view === "active" ? ["candidate", "drafting"] : ["completed"];
-  els.statusFilter.innerHTML = '<option value="">すべて</option>'
-    + statuses.map((status) => `<option value="${status}">${escapeHtml(statusMeta[status].label)}</option>`).join("");
-  if (!statuses.includes(state.status)) state.status = "";
-  els.statusFilter.value = state.status;
-}
-
 function cardMarkup(item) {
-  const status = statusMeta[workflowStatus(item.status)];
+  const status = statusMeta[item.status];
   return `<article class="topic-card">
     <button class="topic-open" type="button" data-topic-id="${item.id}">
       <span class="topic-status ${status.className}">${escapeHtml(status.label)}</span>
@@ -114,18 +92,17 @@ function cardMarkup(item) {
 
 function renderList() {
   renderSummary();
-  renderStatusOptions();
   const items = itemsForView();
-  els.boardTitle.textContent = state.view === "active" ? "Pomeraで書くテーマ" : "書き上げたテーマ";
+  els.boardTitle.textContent = state.view === "candidate" ? "アイデア" : "完了したテーマ";
   els.resultCount.textContent = `${items.length}件を表示`;
-  els.clearFilters.hidden = !(state.search || state.status);
+  els.clearFilters.hidden = !state.search;
   document.querySelectorAll("[data-view]").forEach((tab) => {
     const active = tab.dataset.view === state.view;
     tab.classList.toggle("active", active);
     tab.setAttribute("aria-selected", String(active));
   });
   if (!items.length) {
-    const message = state.view === "completed" ? "書き上げたテーマはまだありません" : "Pomeraで書くテーマはありません";
+    const message = state.view === "completed" ? "完了したテーマはまだありません" : "Writingのアイデアはありません";
     els.topicList.innerHTML = `<div class="empty"><span>✎</span><h3>${message}</h3><p>IdeaでWantをWritingへ振り分けると、ここに追加されます。</p><a href="/compass/?view=wants">Ideaを開く →</a></div>`;
   } else {
     els.topicList.innerHTML = items.map(cardMarkup).join("");
@@ -148,7 +125,7 @@ function showEditor(item) {
   els.sourceWantLink.textContent = `Want #${item.sourceWantId}を確認 →`;
   els.titleInput.value = item.title;
   els.questionInput.value = item.question || "";
-  els.editorStatus.value = workflowStatus(item.status);
+  els.editorStatus.value = item.status;
   els.formError.hidden = true;
   els.editorModal.hidden = false;
   document.body.style.overflow = "hidden";
@@ -262,17 +239,13 @@ async function saveTopic(event) {
 
 fillStatusOptions();
 document.querySelectorAll("[data-view]").forEach((tab) => tab.addEventListener("click", () => {
-  state.view = tab.dataset.view; state.status = ""; renderList();
-}));
-document.querySelectorAll("[data-summary-status]").forEach((button) => button.addEventListener("click", () => {
-  state.view = "active"; state.status = button.dataset.summaryStatus; renderList();
+  state.view = tab.dataset.view; renderList();
 }));
 document.querySelectorAll("[data-summary-view]").forEach((button) => button.addEventListener("click", () => {
-  state.view = button.dataset.summaryView; state.status = ""; renderList();
+  state.view = button.dataset.summaryView; renderList();
 }));
 els.searchInput.addEventListener("input", () => { state.search = els.searchInput.value; renderList(); });
-els.statusFilter.addEventListener("change", () => { state.status = els.statusFilter.value; renderList(); });
-els.clearFilters.addEventListener("click", () => { state.search = ""; state.status = ""; els.searchInput.value = ""; renderList(); });
+els.clearFilters.addEventListener("click", () => { state.search = ""; els.searchInput.value = ""; renderList(); });
 els.refreshButton.addEventListener("click", loadWriting);
 els.retryButton.addEventListener("click", loadWriting);
 els.editorClose.addEventListener("click", () => closeEditor());
