@@ -1,3 +1,5 @@
+import { readApiJson } from "./api-client.js";
+
 const state = { data: null, editing: null, saving: false };
 
 const ids = [
@@ -125,7 +127,7 @@ async function load() {
   els.refreshButton.disabled = true;
   try {
     const response = await fetch("/api/habits", { headers: { Accept: "application/json" }, cache: "no-store" });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     if (!response.ok) throw new Error(errorMessage(payload, "Habitを読み込めませんでした。"));
     state.data = payload;
     setSource(payload.source);
@@ -149,7 +151,7 @@ async function toggleLog(id, completed, button) {
       headers: { "Content-Type": "application/json", "X-Dashboard-Action": "habit-log" },
       body: JSON.stringify({ habitId: id, practicedOn: state.data.today, completed }),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     if (!response.ok) throw new Error(errorMessage(payload, "実施記録を更新できませんでした。"));
     showToast(completed ? "実施済みとして記録しました。" : "今日の記録を取り消しました。");
     await load();
@@ -200,7 +202,7 @@ els.habitForm.addEventListener("submit", async (event) => {
       headers: { "Content-Type": "application/json", "X-Dashboard-Action": editing ? "habit-update" : "habit-create" },
       body: JSON.stringify(body),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     if (!response.ok) throw new Error(errorMessage(payload, "Habitを保存できませんでした。"));
     state.saving = false;
     els.saveButton.disabled = false;

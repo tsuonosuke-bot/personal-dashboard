@@ -21,6 +21,8 @@ Browser
           ├─ /api/google-calendar-* (OAuth / status)
           ├─ /api/habits (GET / POST / PATCH)
           ├─ /api/habit-logs (PATCH)
+          ├─ /api/connection-status (GET)
+          ├─ /api/export/snapshot (GET)
           ├─ SUPABASE_SECRET_KEY (Cloudflare environment only)
           │   └─ Supabase REST API
           ├─ ANTHROPIC_API_KEY (Cloudflare environment only)
@@ -46,6 +48,10 @@ Browser
 ## Hubの機能
 
 - Idea、Writing、Habits、Finance、Knowledgeへの入口
+- 上部の「＋」からInbox追加、家計簿記録、Project作成、今日の復習へ直接移動
+- Knowledge JSON、Finance CSV、個人データを束ねた全体スナップショットの読み取り専用書き出し
+- Personal／Knowledge／Financeの認証方式・接続先・DB migration・最終成功時刻をまとめる接続状態画面
+- HTMLや壊れたJSONなど想定外のAPI応答を、内部解析エラーではなく再試行可能な案内へ変換
 - 今日の復習進捗と開始導線、期限超過、未整理Wantsのスナップショット
 - Knowledge Dashboardの当日固定キューを直接開始するショートカット
 - 未整理のActive Wantsの件数と最古の滞留日数を表示
@@ -148,6 +154,8 @@ Writingを2状態へ簡素化する場合は、続けて `supabase/migrations/20
 Projectsを有効にする場合は、アプリのデプロイより先に `supabase/migrations/202609220003_projects_mvp.sql` を適用します。Inbox／Wantの正本は元テーブルに残し、`project_items`で1つのProjectへ関連づけます。Projectへの関連づけと元アイテムの整理済み化は同一トランザクションで行い、Projectごとの現在のNext Actionは最大1件に制限します。適用後は、別クエリとして `supabase/verification/202609220003_projects_mvp_verify.sql` を実行してオブジェクトと不変条件を確認してください。
 
 Calendar予定の実施管理を有効にする場合は、`supabase/migrations/202609220004_scheduled_actions.sql` を適用します。既存の成功済みCalendar振り分けを `scheduled_actions` へ一度だけ移行し、以後はDBトリガーでToDoを自動作成します。
+
+共通の接続状態画面を有効にする場合は、公開より先に `supabase/migrations/202609220005_connection_status.sql` を適用します。接続状態の確認用テーブルだけを作成し、ユーザーデータは変更しません。
 
 - `writing_topics`: 掘り下げたいエッセイ候補
 - `habits` / `habit_logs`: 習慣の定義と実施記録

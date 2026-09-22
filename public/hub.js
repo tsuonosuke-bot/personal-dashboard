@@ -1,5 +1,7 @@
+import { readApiJson } from "./api-client.js";
+
 const ids = [
-  "sourceBadge", "refreshButton", "dateLabel", "updatedLabel",
+  "sourceBadge", "refreshButton", "quickAddMenu", "dateLabel", "updatedLabel",
   "compassLink", "projectsLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
   "reviewMetricLink", "dueKnowledge", "weakKnowledge",
   "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
@@ -228,7 +230,7 @@ async function focusApi(action, body) {
     },
     body: JSON.stringify(body),
   });
-  const payload = await response.json().catch(() => ({}));
+  const payload = await readApiJson(response);
   if (!response.ok) throw new Error(payload.error || "Focusを更新できませんでした。");
   return payload;
 }
@@ -236,7 +238,7 @@ async function focusApi(action, body) {
 async function loadFocusManagement(successMessage = "") {
   els.focusManageList.innerHTML = `<div class="focus-loading"><span class="spinner"></span><p>Focusを読み込んでいます</p></div>`;
   const response = await fetch("/api/focus", { headers: { Accept: "application/json" }, cache: "no-store" });
-  const payload = await response.json().catch(() => ({}));
+  const payload = await readApiJson(response);
   if (!response.ok) throw new Error(payload.error || "Focusを読み込めませんでした。");
   focusItems = Array.isArray(payload.items) ? payload.items : [];
   renderFocusManagement();
@@ -372,7 +374,7 @@ async function loadHub() {
   els.hubContent.hidden = true;
   try {
     const response = await fetch("/api/hub", { headers: { Accept: "application/json" }, cache: "no-store" });
-    const payload = await response.json();
+    const payload = await readApiJson(response);
     if (!response.ok) throw new Error(payload.error?.message || "データを読み込めませんでした。");
     const availability = payload.availability || { inbox: true, wants: true, focus: true, expenses: true, knowledge: true, journal: true, habits: true };
     renderNavigation(payload.navigation);
@@ -440,7 +442,14 @@ els.focusManageList.addEventListener("click", async (event) => {
   }
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !els.focusModal.hidden) closeFocusModal();
+  if (event.key !== "Escape") return;
+  if (els.quickAddMenu.open) {
+    els.quickAddMenu.removeAttribute("open");
+    els.quickAddMenu.querySelector("summary").focus();
+  } else if (!els.focusModal.hidden) closeFocusModal();
+});
+document.addEventListener("click", (event) => {
+  if (!els.quickAddMenu.contains(event.target)) els.quickAddMenu.removeAttribute("open");
 });
 setClock();
 loadHub();

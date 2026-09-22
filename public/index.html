@@ -21,6 +21,15 @@
           <b>Personal Hub</b>
         </a>
         <div class="topbar-actions">
+          <details class="quick-add-menu" id="quickAddMenu">
+            <summary><span aria-hidden="true">＋</span><span>追加</span></summary>
+            <nav aria-label="すぐに追加または開始">
+              <a href="/compass/?new=inbox"><span class="quick-add-icon idea" aria-hidden="true">I</span><span><strong>Inbox追加</strong><small>思いつきを記録</small></span></a>
+              <a href="/finance/?new=expense"><span class="quick-add-icon finance" aria-hidden="true">¥</span><span><strong>家計簿記録</strong><small>収支を追加</small></span></a>
+              <a href="/projects/?new=project"><span class="quick-add-icon projects" aria-hidden="true">P</span><span><strong>Project作成</strong><small>目標と次の一手</small></span></a>
+              <a href="/knowledge/?view=quiz&amp;mode=daily"><span class="quick-add-icon knowledge" aria-hidden="true">K</span><span><strong>復習開始</strong><small>今日のキューへ</small></span></a>
+            </nav>
+          </details>
           <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
           <button class="refresh-button" id="refreshButton" type="button" aria-label="データを再読み込み">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.8-4M4 4v4h4M4 13a8 8 0 0 0 14.8 4M20 20v-4h-4"/></svg>
@@ -78,6 +87,16 @@
             <a href="/knowledge/?view=quiz&amp;mode=daily" id="reviewMetricLink" class="metric review-shortcut"><span>今日の復習を開始 →</span><strong id="dueKnowledge">—</strong><small id="weakKnowledge">キューを確認中</small></a>
             <a href="/habits/" id="habitMetricLink" class="metric habit-shortcut"><span>今日・今週のHabit</span><strong id="remainingHabits">—</strong><small id="habitProgress">実施状況を確認中</small></a>
           </div>
+        </section>
+
+        <section class="data-tools" aria-label="データ管理">
+          <div><strong>データ管理</strong><small>読み取り専用の書き出しと接続確認</small></div>
+          <nav>
+            <a href="/knowledge/api/export">Knowledge JSON</a>
+            <a href="/finance/api/export">Finance CSV</a>
+            <a href="/api/export/snapshot">全体スナップショット</a>
+            <a class="status-link" href="/status/">接続状態</a>
+          </nav>
         </section>
 
         <div id="loadingState" class="state-card" role="status"><span class="spinner"></span><p>Supabaseから全体像を読み込んでいます</p></div>

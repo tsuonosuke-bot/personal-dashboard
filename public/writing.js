@@ -1,3 +1,5 @@
+import { readApiJson } from "./api-client.js";
+
 const statusMeta = {
   candidate: { label: "アイデア", className: "candidate" },
   completed: { label: "完了", className: "completed" },
@@ -177,7 +179,7 @@ async function loadWriting() {
   els.topicList.hidden = true;
   try {
     const response = await fetch("/api/writing", { headers: { Accept: "application/json" }, cache: "no-store" });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
     if (!response.ok || !Array.isArray(payload.items)) throw new Error(message || "Writingテーマを読み込めませんでした。");
     state.items = payload.items;
@@ -220,7 +222,7 @@ async function saveTopic(event) {
         originalUpdatedAt: item.updatedAt,
       }),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
     if (!response.ok || !payload.item) throw new Error(message || "Writingテーマを保存できませんでした。");
     state.items = [payload.item, ...state.items.filter((candidate) => candidate.id !== item.id)];

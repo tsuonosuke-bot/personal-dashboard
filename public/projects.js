@@ -1,3 +1,5 @@
+import { readApiJson } from "./api-client.js";
+
 const state = {
   data: null,
   view: "active",
@@ -198,7 +200,7 @@ async function loadProjects() {
   els.projectList.hidden = true;
   try {
     const response = await fetch("/api/projects", { headers: { Accept: "application/json" }, cache: "no-store" });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     const message = typeof payload.error === "string" ? payload.error : "Projectを読み込めませんでした。";
     if (!response.ok) throw new Error(message);
     setData(payload);
@@ -268,6 +270,11 @@ function openProjectEditor(project = null) {
 function closeProjectEditor() {
   els.projectModal.hidden = true;
   if (els.detailModal.hidden) document.body.style.overflow = "";
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("new") === "project") {
+    url.searchParams.delete("new");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }
 }
 
 async function saveProject(event) {
@@ -304,7 +311,7 @@ async function saveProject(event) {
       },
       body: JSON.stringify(body),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     if (!response.ok) throw new Error(payload.error || "Projectを保存できませんでした。");
     setData(payload);
     closeProjectEditor();
@@ -425,7 +432,7 @@ async function saveProjectAction(event, projectId) {
         originalProjectUpdatedAt: project.updatedAt,
       }),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     if (!response.ok) throw new Error(payload.error || "Actionを保存できませんでした。");
     setData(payload);
     const fresh = getProject(project.id);
@@ -460,7 +467,7 @@ async function processRelatedItem(projectId, itemId, treatment, actionContent) {
         actionContent,
       }),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     if (!response.ok) throw new Error(payload.error || "関連アイテムを整理できませんでした。");
     setData(payload);
     const fresh = getProject(project.id);
@@ -534,7 +541,7 @@ async function resolveAction(event) {
       headers: { Accept: "application/json", "Content-Type": "application/json", "X-Dashboard-Action": "project-action-resolve" },
       body: JSON.stringify(body),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     if (!response.ok) throw new Error(payload.error || "Actionを完了できませんでした。");
     setData(payload);
     closeResolve();
@@ -593,4 +600,7 @@ document.addEventListener("keydown", (event) => {
   else if (!els.detailModal.hidden) closeDetail();
 });
 
-loadProjects();
+const openNewProjectOnLoad = new URLSearchParams(window.location.search).get("new") === "project";
+loadProjects().then((loaded) => {
+  if (loaded && openNewProjectOnLoad) openProjectEditor();
+});

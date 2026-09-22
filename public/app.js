@@ -1,3 +1,4 @@
+import { readApiJson } from "./api-client.js";
 import { compassRoutePath, parseCompassRoute } from "./compass-routing.js";
 
 const state = {
@@ -204,7 +205,7 @@ async function refreshGoogleCalendarConnection(statusElement, submitButton) {
       headers: { Accept: "application/json" },
       cache: "no-store",
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
     if (!response.ok) throw new Error(message || "Google Calendarの接続状態を確認できませんでした。");
     state.calendarConnection = payload;
@@ -585,7 +586,7 @@ async function sendTodoUpdate(item, command, options = {}) {
     },
     body: JSON.stringify(todoRequestBody(item, command, options)),
   });
-  const payload = await response.json().catch(() => ({}));
+  const payload = await readApiJson(response);
   const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
   if (!response.ok) throw new Error(message || "ToDoを更新できませんでした。");
   return payload;
@@ -744,7 +745,7 @@ async function startProjectRoute(item, view) {
 
   try {
     const response = await fetch("/api/projects", { headers: { Accept: "application/json" }, cache: "no-store" });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     const message = typeof payload.error === "string" ? payload.error : "Projectを読み込めませんでした。";
     if (!response.ok || !Array.isArray(payload.projects)) throw new Error(message);
     if (requestToken !== state.aiRequestToken) return;
@@ -850,7 +851,7 @@ function renderProjectRouteForm(item, view, projects) {
         },
         body: JSON.stringify(body),
       });
-      const payload = await response.json().catch(() => ({}));
+      const payload = await readApiJson(response);
       const message = typeof payload.error === "string" ? payload.error : "Projectへ整理できませんでした。";
       if (!response.ok || !Number.isSafeInteger(Number(payload.projectId))) throw new Error(message);
       hideDrawer();
@@ -920,7 +921,7 @@ async function requestAiTriage(item, answers = null) {
         original: { content: item.content, status: item.status },
       }),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
     if (!response.ok) throw new Error(message || "AI整理案を取得できませんでした。");
     if (requestToken !== state.aiRequestToken || state.drawerItem?.id !== item.id || state.drawerItem?.view !== sourceView) return;
@@ -1187,7 +1188,7 @@ async function saveWantRoute(item, plan) {
         original: { content: target.content, status: target.status },
       }),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
     if (!response.ok) throw new Error(message || "振り分けを保存できませんでした。");
 
@@ -1270,7 +1271,7 @@ async function saveKnowledgeCompletion(event, item, route) {
         original: { destination: route.destination, status: route.status },
       }),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
     if (!response.ok) throw new Error(message || "Knowledge登録済みにできませんでした。");
 
@@ -1337,7 +1338,7 @@ async function closeItem(item, view) {
       },
       body: JSON.stringify(body),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
     if (!response.ok) throw new Error(message || `${meta.button}に失敗しました。`);
 
@@ -1434,7 +1435,7 @@ async function saveInbox(event, item) {
         original: { content: item.content, status: item.status, result: item.result },
       }),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
     if (!response.ok) throw new Error(message || "Inboxを更新できませんでした。");
 
@@ -1530,7 +1531,7 @@ async function saveItem(event, item, view) {
         original: { content: item.content, status: item.status },
       }),
     });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
     if (!response.ok) throw new Error(message || `${meta.title}を保存できませんでした。`);
 
@@ -1562,7 +1563,7 @@ async function createWantFromSource(sourceItem, extra = {}) {
     },
     body: JSON.stringify({ content: sourceItem.content, sourceInboxId: sourceItem.id, ...extra }),
   });
-  const payload = await response.json().catch(() => ({}));
+  const payload = await readApiJson(response);
   const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
   if (!response.ok) throw new Error(message || "Wantを作成できませんでした。");
   if (!Number.isSafeInteger(Number(payload.id))) throw new Error("保存結果を確認できませんでした。");
@@ -1594,7 +1595,7 @@ async function markInboxTriaged(sourceItem, result) {
       },
     }),
   });
-  const payload = await response.json().catch(() => ({}));
+  const payload = await readApiJson(response);
   const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
   if (!response.ok) throw new Error(message || "元のInboxを整理済みにできませんでした。");
 }
@@ -1861,7 +1862,7 @@ async function createInbox(event) {
       },
       body: JSON.stringify({ content }),
     });
-    const payload = await response.json();
+    const payload = await readApiJson(response);
     if (!response.ok) throw new Error(payload.error || "Inboxを保存できませんでした。");
     els.inboxForm.reset();
     els.inboxCharacterCount.textContent = "0";
@@ -1950,7 +1951,7 @@ async function loadTodos(render = state.view === "todos") {
   if (render) els.cardList.innerHTML = '<div class="loading"><span></span><p>Google CalendarとToDoを同期しています</p></div>';
   try {
     const response = await fetch("/api/scheduled-actions", { headers: { Accept: "application/json" }, cache: "no-store" });
-    const payload = await response.json().catch(() => ({}));
+    const payload = await readApiJson(response);
     if (!response.ok) throw new Error(payload.error?.message || payload.error || "ToDoを読み込めませんでした。");
     state.data.todos = Array.isArray(payload.items) ? payload.items : [];
     state.data.todosSummary = payload.summary || { pending: 0, completed: 0, skipped: 0 };
@@ -1980,7 +1981,7 @@ async function loadDashboard() {
   els.cardList.innerHTML = '<div class="loading"><span></span><p>Supabaseから読み込んでいます</p></div>';
   try {
     const response = await fetch("/api/dashboard", { headers: { Accept: "application/json" }, cache: "no-store" });
-    const payload = await response.json();
+    const payload = await readApiJson(response);
     if (!response.ok) throw new Error(payload.error?.message || "データを読み込めませんでした。");
     payload.todos = state.data?.todos || [];
     payload.todosSummary = state.data?.todosSummary || null;
