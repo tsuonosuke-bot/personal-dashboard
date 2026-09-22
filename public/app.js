@@ -485,7 +485,10 @@ function renderDrawerItem(item, view) {
             ? `<a href="${escapeHtml(route.targetUrl)}" target="_blank" rel="noopener noreferrer">正本を開く</a>`
             : "";
           const schedule = route.destination === "calendar" ? calendarSchedule(route.destinationData) : null;
-          return `<li><div><strong>${escapeHtml(meta.label)}</strong><span class="route-status route-status-${escapeHtml(route.status)}">${escapeHtml(status)}</span></div><p>${escapeHtml(route.title)}</p>${schedule ? `<small>${escapeHtml(formatCalendarSchedule(schedule))}</small>` : ""}${target}</li>`;
+          const completeAction = route.destination === "knowledge" && route.status === "planned"
+            ? `<button class="route-action" type="button" data-knowledge-complete="${route.id}">Knowledge登録済みにする</button>`
+            : "";
+          return `<li><div><strong>${escapeHtml(meta.label)}</strong><span class="route-status route-status-${escapeHtml(route.status)}">${escapeHtml(status)}</span></div><p>${escapeHtml(route.title)}</p>${schedule ? `<small>${escapeHtml(formatCalendarSchedule(schedule))}</small>` : ""}${target}${completeAction}</li>`;
         }).join("")}</ul>`
       : '<p class="route-empty">まだ振り分けられていません。</p>';
     body += `${item.note ? `<div class="detail-section"><span>メモ</span><p>${escapeHtml(item.note)}</p></div>` : ""}
@@ -506,6 +509,10 @@ function renderDrawerItem(item, view) {
   document.getElementById("triageWantButton")?.addEventListener("click", () => renderTriageStart(item));
   els.drawerBody.querySelectorAll("[data-quick-route]").forEach((button) => button.addEventListener("click", () => startQuickWantRoute(item, button.dataset.quickRoute)));
   els.drawerBody.querySelector("[data-project-route]")?.addEventListener("click", () => startProjectRoute(item, view));
+  els.drawerBody.querySelectorAll("[data-knowledge-complete]").forEach((button) => button.addEventListener("click", () => {
+    const route = (item.routes || []).find((entry) => entry.id === Number(button.dataset.knowledgeComplete));
+    if (route) renderKnowledgeCompletion(item, route);
+  }));
   document.getElementById("closeItemButton")?.addEventListener("click", () => closeItem(item, view));
 }
 
@@ -1214,6 +1221,77 @@ async function saveWantRoute(item, plan) {
       submit.disabled = false;
       edit.disabled = false;
       submit.textContent = routeConfirmationLabel(plan.destination);
+    }
+  }
+}
+
+function renderKnowledgeCompletion(item, route) {
+  els.drawerTitle.textContent = "Knowledge登録済みにする";
+  els.drawerBody.innerHTML = `<div class="route-preview">
+      <div><span>Want</span><p>${escapeHtml(item.content)}</p></div>
+      <div><span>Knowledge候補</span><p>${escapeHtml(route.title)}</p></div>
+    </div>
+    <p class="flow-note">ナレッジDBへ登録済みの候補だけを登録済みにします。この操作はナレッジDBへ書き込まず、登録待ちの表示を解除するだけです。</p>
+    <form class="edit-form" id="knowledgeCompleteForm">
+      <label class="form-field" for="knowledgeIdInput">
+        <span>Knowledge ID <small>空欄可</small></span>
+        <input id="knowledgeIdInput" name="knowledgeId" type="text" maxlength="36" autocomplete="off" spellcheck="false" placeholder="ナレッジDBのUUID">
+        <small>入力すると振り分け履歴から正本のナレッジを開けます。</small>
+      </label>
+      <p class="form-error" id="knowledgeCompleteError" role="alert" hidden></p>
+      <div class="drawer-actions">
+        <button class="secondary-action" id="cancelKnowledgeComplete" type="button">戻る</button>
+        <button class="primary-action" id="confirmKnowledgeComplete" type="submit">登録済みにする</button>
+      </div>
+    </form>`;
+  document.getElementById("cancelKnowledgeComplete").addEventListener("click", () => renderDrawerItem(item, "wants"));
+  document.getElementById("knowledgeCompleteForm")
+    .addEventListener("submit", (event) => saveKnowledgeCompletion(event, item, route));
+}
+
+async function saveKnowledgeCompletion(event, item, route) {
+  event.preventDefault();
+  const submit = document.getElementById("confirmKnowledgeComplete");
+  const errorElement = document.getElementById("knowledgeCompleteError");
+  const knowledgeId = document.getElementById("knowledgeIdInput").value.trim();
+  submit.disabled = true;
+  submit.textContent = "更新中…";
+  errorElement.hidden = true;
+  try {
+    const response = await fetch("/api/want-routes", {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Dashboard-Action": "want-route-complete",
+      },
+      body: JSON.stringify({
+        routeId: route.id,
+        knowledgeId: knowledgeId || null,
+        original: { destination: route.destination, status: route.status },
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+    if (!response.ok) throw new Error(message || "Knowledge登録済みにできませんでした。");
+
+    const refreshed = await loadDashboard();
+    if (!refreshed) {
+      closeDrawer();
+      showToast("Knowledge登録済みにしました。最新状態は再読込して確認してください。");
+      return;
+    }
+    const updated = (state.data?.wants || []).find((entry) => entry.id === item.id);
+    if (updated) renderDrawerItem(updated, "wants");
+    else closeDrawer();
+    showToast("Knowledge登録済みにしました。登録待ちから外れます。");
+  } catch (error) {
+    errorElement.textContent = error instanceof Error ? error.message : "Knowledge登録済みにできませんでした。";
+    errorElement.hidden = false;
+    if (submit.isConnected) {
+      submit.disabled = false;
+      submit.textContent = "登録済みにする";
     }
   }
 }

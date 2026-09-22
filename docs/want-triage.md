@@ -68,13 +68,25 @@
 2. Ideaの一覧カードには振り分け先が表示される。Knowledge・GitHub・Journalは計画保存のままなので「登録待ち」として別の色で示す。
 3. 一覧の「Knowledge登録待ち」を押すと、実際のナレッジDB登録がまだの項目だけに絞り込める（`?filter=knowledge`）。
 4. この機能より前に処理したInboxは、処理結果の「〜へ振り分け」「寝かせる（再訪 日付）」という文言から振り分け先を復元する。「Wantsに登録」とだけ記録された旧データは振り分け先不明として扱う。
+5. 登録待ちは`want_routes`の`status='planned'`だけで判定する。ナレッジDBのタイトルとの一致では判定しない。
+
+### 画面外で登録したKnowledgeを登録済みにする
+
+ナレッジDBへの登録はダッシュボードの外（LLMとの会話）で行うため、登録しただけでは`want_routes`は`planned`のまま残り、「Knowledge登録待ち」に出続ける。登録済みにするのは利用者の明示操作とする。
+
+1. Ideaで対象Wantの詳細を開き、振り分け履歴のKnowledge候補にある「Knowledge登録済みにする」を押す。
+2. Knowledge IDは任意。分かる場合はナレッジDBのUUIDを入力すると、存在を確認したうえで`target_id`に記録し、`/knowledge/?knowledge=<id>`を正本リンクとして残す。
+3. 空欄で確定した場合は`target_id`へ`manual`を記録し、正本リンクは残さない。
+4. 確定すると`want_routes`が`created`になり、「Knowledge登録待ち」とHubの件数から外れる。
+5. この操作はナレッジDBへ書き込まない。元のWantの状態（振り分け時に`completed`済み）も変更しない。
+6. 二重送信しても最初の結果を返し、記録済みの対象IDは書き換えない。`planned`以外へ変わっていた場合は409で拒否して再読込を求める。
 
 ### Knowledge候補を後でまとめて処理する
 
 1. 「調べる」を確定しても`public.knowledge`へは書き込まない。`want_routes`の`destination='knowledge'`かつ`status='planned'`が候補キューになる。
 2. 後続のLLM処理は、この候補と元の`wants`をSupabaseから読み込み、関連候補をまとめて調査する。
 3. 調査結果を正式登録する前にKnowledge DB内の重複、カテゴリ、タグ、根拠を検証する。
-4. 登録できた候補だけをKnowledgeへ追加し、対応する`want_routes`を`created`と対象IDで更新する。調査不足・重複・登録失敗の候補は`planned`のまま残す。
+4. 登録できた候補だけをKnowledgeへ追加し、対応する`want_routes`を`created`と対象IDで更新する。調査不足・重複・登録失敗の候補は`planned`のまま残す。この更新をしない場合は、画面の「Knowledge登録済みにする」で解除する。
 5. この後続処理はInbox整理とは別の明示実行とし、候補保存時には外部調査もKnowledge登録も開始しない。
 
 ### 振り分け履歴の持ち方
@@ -126,7 +138,7 @@ Inboxへ登録
 | 寝かせる | `wants`へ`revisit_on`つきで登録し、再訪日に浮上させる |
 | Google Calendar | OAuth接続後、日付・時間を確認してメインカレンダーへ作成し、再取得したID・URLを保存 |
 | GitHub | `planned` として保存。外部送信なし |
-| Knowledge DB | Knowledge候補を`planned`として保存。後続LLMがまとめて調査し、重複・カテゴリ検証後に登録する |
+| Knowledge DB | Knowledge候補を`planned`として保存。後続LLMがまとめて調査し、重複・カテゴリ検証後に登録する。画面外で登録した場合は「Knowledge登録済みにする」で`created`にする |
 | Journal | `planned` として保存。既存Journalの書込仕様確定前には登録しない |
 
 Google Calendarは `calendar.events` scopeだけを要求し、`primary` カレンダーへ `Asia/Tokyo` で一方向に新規作成します。日付のみなら終日、日時なしなら登録を拒否します。更新トークンはサーバーで暗号化し、Claudeとブラウザには渡しません。GitHub・Knowledge DB・Journalは、認証方法、下書き内容、重複防止、作成後の再取得方法を個別に合意してから有効化します。
