@@ -14,12 +14,17 @@ const state = {
   calendarConnection: null,
   todosLoaded: false,
   todoSource: null,
+  bulkMode: false,
+  bulkSelected: new Set(),
+  bulkSubmitting: false,
+  bulkError: "",
 };
 
 const els = Object.fromEntries([
   "sourceBadge", "refreshButton",
   "inboxTabCount", "wantsTabCount", "todosTabCount", "listTitle", "searchInput",
   "statusFilter", "pendingFilterGroup", "knowledgeFilter", "knowledgePendingCount", "githubFilter", "githubPendingCount", "todoFilterGroup", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
+  "bulkModeButton", "bulkToolbar", "bulkSelectAll", "bulkSelectionCount", "bulkStatusSelect", "bulkApplyButton", "bulkCancelButton", "bulkError",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher", "dashboardNav",
   "addInboxButton", "inboxModal", "inboxModalClose", "inboxCancelButton", "inboxForm",
   "inboxContent", "inboxCharacterCount", "inboxFormError", "inboxSubmitButton", "toast",
@@ -364,11 +369,53 @@ function cardMarkup(item) {
       <div class="item-footer"><span>Want · ${item.sourceWantId}</span><span>${item.rescheduleCount ? `日程変更 ${item.rescheduleCount}回` : "Calendar登録済み"}</span></div>
     </button>`;
   }
+  if (state.view === "inbox" && state.bulkMode) {
+    const checked = state.bulkSelected.has(item.id);
+    return `<label class="item-card bulk-item-card${checked ? " selected" : ""}" data-id="${item.id}">
+      <input class="bulk-item-checkbox" type="checkbox" value="${item.id}" ${checked ? "checked" : ""} aria-label="Inbox ${item.id}を選択">
+      <div class="bulk-item-content">
+        <div class="item-top"><span class="item-id">INBOX · ${item.id ?? "?"}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(itemStatusLabel(item))}</span></div>
+        <h3>${escapeHtml(item.content || "内容なし")}</h3>
+        <div class="item-footer"><span>${formatDate(item.createdAt)}</span><span class="route-chips">${triageChips(item, "inbox")}</span></div>
+      </div>
+    </label>`;
+  }
   return `<button class="item-card" type="button" data-id="${item.id}">
     <div class="item-top"><span class="item-id">${viewMeta[state.view].singular.toUpperCase()} · ${item.id ?? "?"}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(itemStatusLabel(item))}</span></div>
     <h3>${escapeHtml(item.content || "内容なし")}</h3>
     <div class="item-footer"><span>${formatDate(item.createdAt)}</span><span class="route-chips">${triageChips(item, state.view)}</span></div>
   </button>`;
+}
+
+function clearBulkSelection() {
+  state.bulkSelected.clear();
+  state.bulkError = "";
+}
+
+function setBulkMode(active) {
+  state.bulkMode = Boolean(active) && state.view === "inbox";
+  state.bulkSubmitting = false;
+  clearBulkSelection();
+  renderList();
+}
+
+function renderBulkControls(items) {
+  const inboxView = state.view === "inbox";
+  const active = inboxView && state.bulkMode;
+  els.bulkModeButton.hidden = !inboxView || active || items.length === 0;
+  els.bulkToolbar.hidden = !active;
+  if (!active) return;
+
+  const visibleIds = items.map((item) => item.id).filter((id) => Number.isSafeInteger(id));
+  const selectedVisible = visibleIds.filter((id) => state.bulkSelected.has(id));
+  els.bulkSelectionCount.textContent = `${state.bulkSelected.size}件選択`;
+  els.bulkSelectAll.checked = visibleIds.length > 0 && selectedVisible.length === visibleIds.length;
+  els.bulkSelectAll.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visibleIds.length;
+  els.bulkApplyButton.disabled = state.bulkSubmitting || state.bulkSelected.size === 0;
+  els.bulkCancelButton.disabled = state.bulkSubmitting;
+  els.bulkStatusSelect.disabled = state.bulkSubmitting;
+  els.bulkError.textContent = state.bulkError;
+  els.bulkError.hidden = !state.bulkError;
 }
 
 function renderList() {
@@ -395,6 +442,7 @@ function renderList() {
     tab.classList.toggle("active", active);
     tab.setAttribute("aria-selected", String(active));
   });
+  renderBulkControls(items);
   if (!items.length) {
     const description = state.view === "todos" && !state.todosLoaded
       ? "Google CalendarとToDoを同期しています。"
@@ -403,7 +451,70 @@ function renderList() {
     return;
   }
   els.cardList.innerHTML = items.map(cardMarkup).join("");
-  els.cardList.querySelectorAll(".item-card").forEach((card) => card.addEventListener("click", () => openDrawer(Number(card.dataset.id))));
+  if (state.view === "inbox" && state.bulkMode) {
+    els.cardList.querySelectorAll(".bulk-item-checkbox").forEach((checkbox) => checkbox.addEventListener("change", () => {
+      const id = Number(checkbox.value);
+      if (checkbox.checked) state.bulkSelected.add(id);
+      else state.bulkSelected.delete(id);
+      state.bulkError = "";
+      renderList();
+    }));
+  } else {
+    els.cardList.querySelectorAll(".item-card").forEach((card) => card.addEventListener("click", () => openDrawer(Number(card.dataset.id))));
+  }
+}
+
+async function applyInboxBulkUpdate() {
+  const selected = (state.data?.inbox || []).filter((item) => state.bulkSelected.has(item.id));
+  if (!selected.length || state.bulkSubmitting) return;
+  const nextStatus = els.bulkStatusSelect.value;
+  const nextLabel = statusLabel(nextStatus, "inbox");
+  if (!window.confirm(`${selected.length}件のInboxを「${nextLabel}」に変更しますか？\n\n既存の内容と整理結果はそのまま残ります。`)) return;
+
+  state.bulkSubmitting = true;
+  state.bulkError = "";
+  renderBulkControls(currentItems());
+  try {
+    const response = await fetch("/api/inbox-bulk", {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "X-Dashboard-Action": "inbox-bulk-update",
+      },
+      body: JSON.stringify({
+        status: nextStatus,
+        items: selected.map((item) => ({
+          id: item.id,
+          original: { content: item.content, status: item.status, result: item.result ?? null },
+        })),
+      }),
+    });
+    const payload = await readApiJson(response);
+    if (!response.ok && response.status !== 207) throw new Error(payload.error || "Inboxを一括変更できませんでした。");
+    const updated = Array.isArray(payload.updated) ? payload.updated : [];
+    const failed = Array.isArray(payload.failed) ? payload.failed : [];
+    state.bulkSubmitting = false;
+    if (failed.length) {
+      const failedIds = failed.map((item) => Number(item.id)).filter(Number.isSafeInteger);
+      const errorMessage = `${updated.length}件を変更しました。変更できなかったInbox: ${failed.map((item) => `#${item.id}`).join("、")}`;
+      await loadDashboard();
+      state.bulkMode = true;
+      state.bulkSelected = new Set(failedIds);
+      state.bulkError = errorMessage;
+      renderList();
+      return;
+    }
+    state.bulkMode = false;
+    clearBulkSelection();
+    await loadDashboard();
+    showToast(`${updated.length}件のInboxを「${nextLabel}」に変更しました。`);
+  } catch (error) {
+    state.bulkSubmitting = false;
+    state.bulkError = error instanceof Error ? error.message : "Inboxを一括変更できませんでした。";
+    renderList();
+  }
 }
 
 function triageSourceLabel(view = state.triageSource) {
@@ -1883,6 +1994,9 @@ async function createInbox(event) {
 
 function setView(view, filter = defaultStatusByView[view], sync = true) {
   hideDrawer();
+  state.bulkMode = false;
+  state.bulkSubmitting = false;
+  clearBulkSelection();
   state.view = view;
   state.metricFilter = filter;
   state.status = filter === "untriaged"
@@ -1902,6 +2016,9 @@ function setView(view, filter = defaultStatusByView[view], sync = true) {
 function applyCompassRoute(notify = true) {
   if (!state.data) return;
   const route = parseCompassRoute(window.location.href);
+  state.bulkMode = false;
+  state.bulkSubmitting = false;
+  clearBulkSelection();
   state.view = route.view;
   state.status = route.filter === "knowledge" || route.filter === "github"
     ? ""
@@ -2006,15 +2123,27 @@ async function loadDashboard() {
 }
 
 document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
-els.searchInput.addEventListener("input", () => { state.search = els.searchInput.value; renderList(); });
+els.searchInput.addEventListener("input", () => { state.search = els.searchInput.value; clearBulkSelection(); renderList(); });
 els.statusFilter.addEventListener("change", () => {
-  state.status = els.statusFilter.value; state.metricFilter = ""; renderList();
+  state.status = els.statusFilter.value; state.metricFilter = ""; clearBulkSelection(); renderList();
   syncCompassRoute(state.view);
 });
 els.clearFilter.addEventListener("click", () => {
   state.status = ""; state.search = ""; state.metricFilter = "";
-  els.searchInput.value = ""; updateStatusOptions(); renderList(); syncCompassRoute(state.view);
+  els.searchInput.value = ""; clearBulkSelection(); updateStatusOptions(); renderList(); syncCompassRoute(state.view);
 });
+els.bulkModeButton.addEventListener("click", () => setBulkMode(true));
+els.bulkCancelButton.addEventListener("click", () => setBulkMode(false));
+els.bulkSelectAll.addEventListener("change", () => {
+  const visibleIds = currentItems().map((item) => item.id).filter((id) => Number.isSafeInteger(id));
+  visibleIds.forEach((id) => {
+    if (els.bulkSelectAll.checked) state.bulkSelected.add(id);
+    else state.bulkSelected.delete(id);
+  });
+  state.bulkError = "";
+  renderList();
+});
+els.bulkApplyButton.addEventListener("click", applyInboxBulkUpdate);
 els.knowledgeFilter.addEventListener("click", () => {
   setView("wants", state.view === "wants" && state.metricFilter === "knowledge" ? defaultStatusByView.wants : "knowledge");
 });

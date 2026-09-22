@@ -68,7 +68,25 @@
             <button class="tab" type="button" role="tab" aria-selected="false" data-view="wants">Wants <span id="wantsTabCount">—</span></button>
             <button class="tab" type="button" role="tab" aria-selected="false" data-view="todos">ToDo <span id="todosTabCount">—</span></button>
           </div>
-          <div class="list-meta"><p id="resultCount">データを読み込んでいます</p><button id="clearFilter" class="text-button" type="button" hidden>絞り込みを解除</button></div>
+          <div class="list-meta">
+            <p id="resultCount">データを読み込んでいます</p>
+            <div class="list-meta-actions">
+              <button id="bulkModeButton" class="text-button" type="button" hidden>一括変更</button>
+              <button id="clearFilter" class="text-button" type="button" hidden>絞り込みを解除</button>
+            </div>
+          </div>
+          <section class="bulk-toolbar" id="bulkToolbar" aria-label="Inboxの一括変更" hidden>
+            <label class="bulk-select-all"><input id="bulkSelectAll" type="checkbox" /><span>表示中をすべて選択</span></label>
+            <strong id="bulkSelectionCount">0件選択</strong>
+            <label class="bulk-status-field"><span>変更後</span><select id="bulkStatusSelect">
+              <option value="done">整理済み</option>
+              <option value="skipped">見送り</option>
+              <option value="pending">未整理</option>
+            </select></label>
+            <button class="primary-action" id="bulkApplyButton" type="button" disabled>変更を確認</button>
+            <button class="secondary-action" id="bulkCancelButton" type="button">キャンセル</button>
+            <p class="bulk-error" id="bulkError" role="alert" hidden></p>
+          </section>
           <div class="card-list" id="cardList" aria-live="polite"><div class="loading"><span></span><p>Supabaseから読み込んでいます</p></div></div>
         </section>
       </main>

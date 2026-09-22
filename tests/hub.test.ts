@@ -91,6 +91,27 @@ test("Hub keeps wishes and future deferred Wants active without counting them as
   assert.equal(hub.summary.untriagedWants, 1);
 });
 
+test("Hub exposes numeric Project and Writing card metrics", () => {
+  const hub = normalizeHub(
+    [],
+    [],
+    [],
+    [],
+    {},
+    now,
+    { inbox: true, wants: true, focus: true, projects: true, writing: true, expenses: true, knowledge: true, journal: true },
+    [],
+    null,
+    [],
+    null,
+    [{ status: "active" }, { status: "waiting" }, { status: "completed" }],
+    [{ status: "candidate" }, { status: "candidate" }, { status: "completed" }],
+  );
+
+  assert.equal(hub.summary.activeProjects, 2);
+  assert.equal(hub.summary.writingIdeas, 2);
+});
+
 test("Focus preview keeps active items in board order and caps the Hub at five", () => {
   const focusRows = Array.from({ length: 7 }, (_, index) => ({
     id: index + 1,
@@ -110,7 +131,7 @@ test("Focus preview keeps active items in board order and caps the Hub at five",
     [],
     {},
     now,
-    { inbox: true, wants: true, focus: true, expenses: true, knowledge: true, journal: true },
+    { inbox: true, wants: true, focus: true, projects: true, writing: true, expenses: true, knowledge: true, journal: true },
     [],
     null,
     focusRows,
@@ -129,7 +150,7 @@ test("unavailable sections use null summaries instead of misleading zeroes", () 
     [],
     {},
     now,
-    { inbox: true, wants: true, focus: true, expenses: false, knowledge: false, journal: true },
+    { inbox: true, wants: true, focus: true, projects: true, writing: true, expenses: false, knowledge: false, journal: true },
   );
   assert.equal(hub.source.state, "partial");
   assert.deepEqual(hub.source.unavailable, ["expenses", "knowledge"]);
@@ -222,10 +243,12 @@ test("hub route keeps the Supabase secret in server-side headers", async () => {
     });
     const body = await response.text();
     assert.equal(response.status, 200);
-    assert.equal(requests.length, 11);
-    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 8);
+    assert.equal(requests.length, 13);
+    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 10);
     assert.equal(requests.filter((entry) => entry.headers["X-Hub-Service"] === "hub-service-token-that-is-at-least-32-characters").length, 3);
     assert.equal(requests.filter((entry) => entry.url.includes("/daily_journal?")).length, 3);
+    assert.ok(requests.some((entry) => entry.url.includes("/projects?select=status")));
+    assert.ok(requests.some((entry) => entry.url.includes("/writing_topics?select=status")));
     assert.ok(requests.every((entry) => !entry.url.includes("secret")));
     assert.doesNotMatch(body, /server-secret|hub-service-token/);
   } finally {

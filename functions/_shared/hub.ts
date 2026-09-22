@@ -10,13 +10,15 @@ export interface HubAvailability {
   inbox: boolean;
   wants: boolean;
   focus: boolean;
+  projects: boolean;
+  writing: boolean;
   expenses: boolean;
   knowledge: boolean;
   journal: boolean;
   habits?: boolean;
 }
 
-type TableName = "idea_inbox" | "wants" | "focus_items" | "expenses" | "knowledge" | "daily_journal";
+type TableName = "idea_inbox" | "wants" | "focus_items" | "projects" | "writing_topics" | "expenses" | "knowledge" | "daily_journal";
 
 interface InboxRow {
   id?: unknown;
@@ -31,6 +33,12 @@ interface WantRow {
   type?: unknown;
   revisit_on?: unknown;
   created_at?: unknown;
+}
+interface ProjectRow {
+  status?: unknown;
+}
+interface WritingRow {
+  status?: unknown;
 }
 interface ExpenseRow {
   id?: unknown;
@@ -108,6 +116,8 @@ const FULL_AVAILABILITY: HubAvailability = {
   inbox: true,
   wants: true,
   focus: true,
+  projects: true,
+  writing: true,
   expenses: true,
   knowledge: true,
   journal: true,
@@ -467,6 +477,8 @@ export function normalizeHub(
   habitOverview: HabitOverview | null = null,
   focusRows: FocusRow[] = [],
   reviewStatus: KnowledgeReviewStatus | null = null,
+  projectRows: ProjectRow[] = [],
+  writingRows: WritingRow[] = [],
 ) {
   const { today, year, month } = jstDateParts(now);
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -502,6 +514,8 @@ export function normalizeHub(
   const focus = normalizeFocusRows(focusRows)
     .filter((item) => item.status === "active")
     .slice(0, FOCUS_LIMIT);
+  const activeProjects = projectRows.filter((row) => ["active", "waiting", "on_hold"].includes(text(row.status).toLowerCase()));
+  const writingIdeas = writingRows.filter((row) => text(row.status).toLowerCase() === "candidate");
   const expenses = expenseRows.map((row) => ({
     id: integer(row.id),
     transactionDate: typeof row.transaction_date === "string" ? row.transaction_date : null,
@@ -555,6 +569,8 @@ export function normalizeHub(
       weakKnowledge: availability.knowledge ? knowledge.weakCount : null,
       activeWants: availability.wants ? activeWants.length : null,
       untriagedWants: availability.wants ? untriagedWants.length : null,
+      activeProjects: availability.projects ? activeProjects.length : null,
+      writingIdeas: availability.writing ? writingIdeas.length : null,
       activeHabits: availability.habits !== false ? habitOverview?.summary.active ?? 0 : null,
       completedHabitsToday: availability.habits !== false ? habitOverview?.summary.completedToday ?? 0 : null,
       remainingHabitsToday: availability.habits !== false ? habitOverview?.summary.remainingToday ?? 0 : null,
@@ -579,21 +595,25 @@ export function normalizeHub(
 export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
-  const [inbox, wants, focus, expenses, knowledge, reviewStatus, journal, habits] = await Promise.allSettled([
+  const [inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, journal, habits] = await Promise.allSettled([
     fetchRows(env, { table: "idea_inbox", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<InboxRow[]>,
     fetchRows(env, { table: "wants", select: "status,type,revisit_on" }) as Promise<WantRow[]>,
     fetchFocusRows(env),
+    fetchRows(env, { table: "projects", select: "status" }) as Promise<ProjectRow[]>,
+    fetchRows(env, { table: "writing_topics", select: "status" }) as Promise<WritingRow[]>,
     fetchDashboardRows(env, financialUrl, "/api/expenses") as Promise<ExpenseRow[]>,
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,
     fetchDashboardJson(env, knowledgeUrl, "/api/review/queue?limit=15") as Promise<KnowledgeReviewStatus>,
     loadJournalMoments(env, now),
     loadHabits(env, now),
   ] as const);
-  const results = { inbox, wants, focus, expenses, knowledge, reviewStatus, journal, habits };
+  const results = { inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, journal, habits };
   const availability: HubAvailability = {
     inbox: inbox.status === "fulfilled",
     wants: wants.status === "fulfilled",
     focus: focus.status === "fulfilled",
+    projects: projects.status === "fulfilled",
+    writing: writing.status === "fulfilled",
     expenses: expenses.status === "fulfilled",
     knowledge: knowledge.status === "fulfilled" && reviewStatus.status === "fulfilled",
     journal: journal.status === "fulfilled",
@@ -619,6 +639,8 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     habits.status === "fulfilled" ? habits.value : null,
     focus.status === "fulfilled" ? focus.value : [],
     reviewStatus.status === "fulfilled" ? reviewStatus.value : null,
+    projects.status === "fulfilled" ? projects.value : [],
+    writing.status === "fulfilled" ? writing.value : [],
   );
 }
 

@@ -2,7 +2,7 @@ import { readApiJson } from "./api-client.js";
 
 const ids = [
   "sourceBadge", "refreshButton", "quickAddMenu", "dateLabel", "updatedLabel",
-  "compassLink", "projectsLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
+  "compassLink", "projectsLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "projectsMeta", "writingMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
   "reviewMetricLink", "dueKnowledge", "weakKnowledge",
   "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
   "retryButton", "hubContent", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
@@ -33,6 +33,10 @@ function formatYen(value) {
 
 function formatCount(value) {
   return Number.isFinite(value) ? `${value}件` : "—";
+}
+
+function labeledCount(label, value) {
+  return Number.isFinite(value) ? `${label} ${value}件` : "—";
 }
 
 function formatDate(value, includeTime = false) {
@@ -85,11 +89,13 @@ function renderSummary(summary) {
   els.compassMeta.textContent = Number.isFinite(summary.untriagedWants)
     ? `Inbox ${formatCount(summary.pendingInbox)} · 未整理 ${formatCount(summary.untriagedWants)}`
     : `Inbox ${formatCount(summary.pendingInbox)} · Wants ${formatCount(summary.activeWants)}`;
+  els.projectsMeta.textContent = labeledCount("進行中", summary.activeProjects);
+  els.writingMeta.textContent = labeledCount("アイデア", summary.writingIdeas);
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
   els.knowledgeMeta.textContent = Number.isFinite(summary.remainingKnowledgeToday)
     ? `今日 残り${summary.remainingKnowledgeToday}件`
-    : "取得できません";
-  els.habitsMeta.textContent = Number.isFinite(summary.remainingHabitsToday) ? `残り ${summary.remainingHabitsToday}件` : "取得できません";
+    : "—";
+  els.habitsMeta.textContent = labeledCount("残り", summary.remainingHabitsToday);
   els.remainingHabits.textContent = formatCount(summary.remainingHabitsToday);
   els.habitProgress.textContent = Number.isFinite(summary.completedHabitsToday)
     ? `${summary.completedHabitsToday}件を今日記録`

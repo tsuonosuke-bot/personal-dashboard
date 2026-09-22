@@ -21,7 +21,10 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(html, /id="habitMetricLink"/);
   assert.match(html, /id="writingLink"/);
   assert.match(html, /class="dashboard-card writing-card" id="writingLink"/);
-  assert.match(html, /Pomeraで書くテーマ/);
+  assert.match(html, /id="projectsMeta">—/);
+  assert.match(html, /id="writingMeta">—/);
+  assert.doesNotMatch(html, /目標をNext Actionへ|Pomeraで書くテーマ/);
+  assert.ok(html.indexOf('id="hubContent"') < html.indexOf('class="data-tools"'));
   assert.match(html, /class="metric-grid"/);
   assert.match(html, /id="inboxList"/);
   assert.match(html, /未整理のInbox/);
@@ -33,6 +36,8 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(html, /過去のJournal/);
   assert.match(html, /読み取り専用/);
   assert.match(script, /renderInbox\(payload\.inbox \|\| \[\], availability\.inbox\)/);
+  assert.match(script, /labeledCount\("進行中", summary\.activeProjects\)/);
+  assert.match(script, /labeledCount\("アイデア", summary\.writingIdeas\)/);
   assert.match(script, /Inboxを取得できませんでした/);
   assert.match(script, /未整理のInboxはありません/);
   assert.match(script, /class="inbox-state">未整理/);
@@ -61,6 +66,8 @@ test("Hub keeps six primary destinations readable on desktop and mobile", async 
   assert.match(css, /\.projects-card \{ --accent: var\(--gold\); --soft: var\(--gold-soft\); \}/);
   assert.match(css, /\.finance-card \{ --accent: var\(--blue\); --soft: var\(--blue-soft\); \}/);
   assert.match(css, /\.writing-card \{ --accent: var\(--plum\); --soft: var\(--plum-soft\); \}/);
+  assert.match(css, /\.topbar \{[\s\S]*position: relative;[\s\S]*z-index: 50;/);
+  assert.match(css, /\.quick-add-menu \{ position: relative; z-index: 2; \}/);
   assert.match(css, /\.dashboard-grid \{ grid-template-columns: repeat\(3, 1fr\); gap: 5px; \}/);
   assert.match(css, /\.dashboard-card \{ min-height: 88px;/);
   assert.match(css, /\.metric-grid \{ grid-template-columns: 1fr 1fr;/);
@@ -94,6 +101,26 @@ test("Compass edits an Inbox and reloads the canonical data", async () => {
   assert.match(script, /method: "PATCH"/);
   assert.match(script, /X-Dashboard-Action": "inbox-update"/);
   assert.match(script, /const refreshed = await loadDashboard\(\)/);
+});
+
+test("Compass supports confirmation-safe bulk Inbox status changes", async () => {
+  const [html, script, style] = await Promise.all([
+    readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(html, /id="bulkModeButton"/);
+  assert.match(html, /id="bulkToolbar"/);
+  assert.match(html, /id="bulkSelectAll"/);
+  assert.match(html, /id="bulkStatusSelect"/);
+  assert.match(script, /class="item-card bulk-item-card/);
+  assert.match(script, /window\.confirm\(`\$\{selected\.length\}件のInbox/);
+  assert.match(script, /fetch\("\/api\/inbox-bulk"/);
+  assert.match(script, /"X-Dashboard-Action": "inbox-bulk-update"/);
+  assert.match(script, /変更できなかったInbox:/);
+  assert.match(style, /\.bulk-toolbar/);
+  assert.match(style, /\.bulk-item-card\.selected/);
 });
 
 test("Compass edits Wants through a dedicated API", async () => {

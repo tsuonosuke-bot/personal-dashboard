@@ -37,6 +37,8 @@ a { color: inherit; }
 .page-shell { min-height: 100vh; }
 
 .topbar {
+  position: relative;
+  z-index: 50;
   height: 58px;
   display: flex;
   align-items: center;
@@ -45,12 +47,13 @@ a { color: inherit; }
   border-bottom: 1px solid rgba(71, 85, 76, .14);
   background: rgba(247, 246, 241, .88);
   backdrop-filter: blur(10px);
+  overflow: visible;
 }
 .brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; }
 .brand-mark { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px; background: var(--ink); color: #fff; font: 700 14px/1 Inter, "Segoe UI", sans-serif; }
 .brand b { font: 700 16px/1.1 Inter, "Segoe UI", sans-serif; }
-.topbar-actions { display: flex; align-items: center; gap: 7px; }
-.quick-add-menu { position: relative; }
+.topbar-actions { position: relative; z-index: 1; display: flex; align-items: center; gap: 7px; }
+.quick-add-menu { position: relative; z-index: 2; }
 .quick-add-menu summary {
   min-height: 32px;
   display: inline-flex;
@@ -72,7 +75,7 @@ a { color: inherit; }
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  z-index: 30;
+  z-index: 60;
   width: 250px;
   display: grid;
   gap: 3px;
@@ -147,7 +150,7 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .review-shortcut { --metric-accent: var(--violet); --metric-tint: #faf9fc; }
 .habit-shortcut { --metric-accent: var(--rust); --metric-tint: #fcf8f6; }
 
-.data-tools { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 0 9px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.7); }
+.data-tools { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 3px 0 18px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.7); }
 .data-tools > div { min-width: 0; }
 .data-tools strong, .data-tools small { display: block; }
 .data-tools strong { font-size: 10px; }
