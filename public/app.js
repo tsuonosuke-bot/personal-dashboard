@@ -9,7 +9,6 @@ const state = {
   metricFilter: "",
   drawerItem: null,
   triageSource: "wants",
-  inboxWant: null,
   aiRequestToken: 0,
   calendarConnection: null,
   todosLoaded: false,
@@ -18,7 +17,7 @@ const state = {
   bulkSelected: new Set(),
   bulkSubmitting: false,
   bulkError: "",
-  bulkWants: new Map(),
+  bulkRouteKeys: new Map(),
 };
 
 const els = Object.fromEntries([
@@ -478,55 +477,33 @@ function bulkRouteTitle(content) {
   return firstLine.length > 240 ? `${firstLine.slice(0, 239)}…` : firstLine;
 }
 
-// 失敗した項目を同じ振り分け先で再試行するときは、作成済みのWantを使い回して重複させない。
-async function bulkWantFor(item, key, extra) {
+// 失敗した項目を同じ振り分け先で再試行するときは、同じ処理IDを使い回して重複させない。
+function bulkRouteKeyFor(item, key) {
   const cacheKey = `${item.id}:${key}`;
-  const existing = state.bulkWants.get(cacheKey);
-  if (existing) return existing;
-  const want = await createWantFromSource(item, extra);
-  state.bulkWants.set(cacheKey, want);
-  return want;
+  if (!state.bulkRouteKeys.has(cacheKey)) state.bulkRouteKeys.set(cacheKey, crypto.randomUUID());
+  return state.bulkRouteKeys.get(cacheKey);
 }
 
 async function routeInboxItem(item, key, revisitOn) {
+  const idempotencyKey = bulkRouteKeyFor(item, key);
+  const expected = inboxExpected(item);
   if (key === WISH_ROUTE) {
-    await bulkWantFor(item, key, { type: "wish", note: null });
-    await markInboxTriaged(item, "欲しいものとしてWantsに保存");
+    await routeInboxViaApi(item.id, "wish", { expected }, idempotencyKey);
     return;
   }
   if (key === DEFER_ROUTE) {
-    await bulkWantFor(item, key, { revisitOn, note: null });
-    await markInboxTriaged(item, `保留（再訪 ${revisitOn}）`);
+    await routeInboxViaApi(item.id, "defer", { expected, revisit_on: revisitOn }, idempotencyKey);
     return;
   }
   const quick = inboxQuickRoutes[key];
-  const want = await bulkWantFor(item, key);
   const content = String(item.content || "").trim();
   const title = bulkRouteTitle(content);
-  const response = await fetch("/api/want-routes", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-Dashboard-Action": "want-route-create",
-    },
-    body: JSON.stringify({
-      wantId: want.id,
-      intent: quick.intent,
-      destination: quick.destination,
-      title,
-      detail: title === content ? null : content.slice(0, 2000),
-      cadence: null,
-      calendar: null,
-      idempotencyKey: crypto.randomUUID(),
-      original: { content: want.content, status: want.status },
-    }),
-  });
-  const payload = await readApiJson(response);
-  const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
-  if (!response.ok) throw new Error(message || "振り分けを保存できませんでした。");
-  await markInboxTriaged(item, `${routeDestinationMeta[quick.destination]?.label || quick.destination}へ振り分け`);
+  await routeInboxViaApi(item.id, quick.destination, {
+    expected,
+    intent: quick.intent,
+    title,
+    detail: title === content ? null : content.slice(0, 2000),
+  }, idempotencyKey);
 }
 
 async function applyInboxBulkRoute(selected, key) {
@@ -556,7 +533,7 @@ async function applyInboxBulkRoute(selected, key) {
     els.bulkSelectionCount.textContent = `${index + 1}/${pending.length}件を処理中`;
     try {
       await routeInboxItem(item, key, revisitOn);
-      state.bulkWants.delete(`${item.id}:${key}`);
+      state.bulkRouteKeys.delete(`${item.id}:${key}`);
     } catch (error) {
       failed.push({ id: item.id, message: error instanceof Error ? error.message : "振り分けできませんでした。" });
     }
@@ -1036,6 +1013,7 @@ function renderProjectRouteForm(item, view, projects) {
   form.querySelectorAll('input[name="projectMode"]').forEach((radio) => radio.addEventListener("change", updateMode));
   updateMode();
   cancel.addEventListener("click", () => renderDrawerItem(item, view));
+  const projectRouteKey = crypto.randomUUID();
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     errorElement.hidden = true;
@@ -1069,19 +1047,34 @@ function renderProjectRouteForm(item, view, projects) {
     }
 
     try {
-      const response = await fetch("/api/project-source", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "X-Dashboard-Action": "project-source-route",
-        },
-        body: JSON.stringify(body),
-      });
-      const payload = await readApiJson(response);
-      const message = typeof payload.error === "string" ? payload.error : "Projectへ整理できませんでした。";
-      if (!response.ok || !Number.isSafeInteger(Number(payload.projectId))) throw new Error(message);
+      if (view === "inbox") {
+        const params = body.operation === "link"
+          ? { expected: inboxExpected(item), project_id: body.projectId, project_updated_at: body.originalProjectUpdatedAt }
+          : {
+            expected: inboxExpected(item),
+            title: body.title,
+            outcome: body.outcome,
+            theme: body.theme,
+            target_on: body.targetOn,
+            next_action: body.nextAction,
+          };
+        const payload = await routeInboxViaApi(item.id, body.operation === "link" ? "project_link" : "project_create", params, projectRouteKey);
+        if (!Number.isSafeInteger(Number(payload.project_id))) throw new Error("Projectへ整理できませんでした。");
+      } else {
+        const response = await fetch("/api/project-source", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "X-Dashboard-Action": "project-source-route",
+          },
+          body: JSON.stringify(body),
+        });
+        const payload = await readApiJson(response);
+        const message = typeof payload.error === "string" ? payload.error : "Projectへ整理できませんでした。";
+        if (!response.ok || !Number.isSafeInteger(Number(payload.projectId))) throw new Error(message);
+      }
       hideDrawer();
       syncCompassRoute(view, null, "replace", state.metricFilter);
       const refreshed = await loadDashboard();
@@ -1392,42 +1385,43 @@ async function saveWantRoute(item, plan) {
   errorElement.hidden = true;
   const fromInbox = state.triageSource === "inbox";
   try {
-    if (fromInbox && state.inboxWant?.sourceId !== item.id) {
-      state.inboxWant = { sourceId: item.id, want: await createWantFromSource(item) };
-    }
-    const target = fromInbox ? state.inboxWant.want : { id: item.id, content: item.content, status: item.status };
-    const response = await fetch("/api/want-routes", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-Dashboard-Action": "want-route-create",
-      },
-      body: JSON.stringify({
-        wantId: target.id,
+    let routeStatus;
+    if (fromInbox) {
+      const params = {
+        expected: inboxExpected(item),
         intent: plan.intent,
-        destination: plan.destination,
         title: plan.title,
         detail: plan.detail || null,
-        cadence: plan.cadence,
-        calendar: plan.calendar || null,
-        idempotencyKey: plan.idempotencyKey,
-        original: { content: target.content, status: target.status },
-      }),
-    });
-    const payload = await readApiJson(response);
-    const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
-    if (!response.ok) throw new Error(message || "振り分けを保存できませんでした。");
-
-    let inboxWarning = "";
-    if (fromInbox) {
-      state.inboxWant = null;
-      try {
-        await markInboxTriaged(item, `${routeDestinationMeta[plan.destination]?.label || plan.destination}へ振り分け`);
-      } catch {
-        inboxWarning = "振り分けは完了しましたが、元のInboxを整理済みにできませんでした。Inboxを再読込して確認してください。";
-      }
+      };
+      if (plan.destination === "habit") params.cadence = plan.cadence;
+      if (plan.destination === "calendar") params.calendar = plan.calendar;
+      const payload = await routeInboxViaApi(item.id, plan.destination, params, plan.idempotencyKey);
+      routeStatus = payload.route?.status;
+    } else {
+      const response = await fetch("/api/want-routes", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-Dashboard-Action": "want-route-create",
+        },
+        body: JSON.stringify({
+          wantId: item.id,
+          intent: plan.intent,
+          destination: plan.destination,
+          title: plan.title,
+          detail: plan.detail || null,
+          cadence: plan.cadence,
+          calendar: plan.calendar || null,
+          idempotencyKey: plan.idempotencyKey,
+          original: { content: item.content, status: item.status },
+        }),
+      });
+      const payload = await readApiJson(response);
+      const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+      if (!response.ok) throw new Error(message || "振り分けを保存できませんでした。");
+      routeStatus = payload.status;
     }
 
     const refreshed = await loadDashboard();
@@ -1437,9 +1431,9 @@ async function saveWantRoute(item, plan) {
       return;
     }
     const closedLabel = fromInbox ? "Inboxを整理済みにしました" : "Wantを完了しました";
-    showToast(inboxWarning || (plan.destination === "calendar" && payload.status === "created"
+    showToast(plan.destination === "calendar" && routeStatus === "created"
       ? `Google Calendarへ予定を登録し、${closedLabel}。`
-      : payload.status === "created" ? `振り分け先へ登録し、${closedLabel}。` : `振り分け計画を保存し、${closedLabel}。外部への登録はまだ行っていません。`));
+      : routeStatus === "created" ? `振り分け先へ登録し、${closedLabel}。` : `振り分け計画を保存し、${closedLabel}。外部への登録はまだ行っていません。`);
   } catch (error) {
     errorElement.textContent = error instanceof Error ? error.message : "振り分けを保存できませんでした。";
     errorElement.hidden = false;
@@ -1540,35 +1534,29 @@ async function closeItem(item, view) {
   button.textContent = "クローズ中…";
   setCloseItemError("");
 
-  const body = view === "inbox"
-    ? {
-        id: item.id,
-        content: item.content,
-        status: meta.closedStatus,
-        result: item.result,
-        original: { content: item.content, status: item.status, result: item.result },
-      }
-    : {
-        id: item.id,
-        content: item.content,
-        status: meta.closedStatus,
-        original: { content: item.content, status: item.status },
-      };
-
   try {
-    const response = await fetch(meta.endpoint, {
-      method: "PATCH",
-      credentials: "same-origin",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        "X-Dashboard-Action": meta.actionHeader,
-      },
-      body: JSON.stringify(body),
-    });
-    const payload = await readApiJson(response);
-    const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
-    if (!response.ok) throw new Error(message || `${meta.button}に失敗しました。`);
+    if (view === "inbox") {
+      await routeInboxViaApi(item.id, "close", { expected: inboxExpected(item) }, crypto.randomUUID());
+    } else {
+      const response = await fetch(meta.endpoint, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-Dashboard-Action": meta.actionHeader,
+        },
+        body: JSON.stringify({
+          id: item.id,
+          content: item.content,
+          status: meta.closedStatus,
+          original: { content: item.content, status: item.status },
+        }),
+      });
+      const payload = await readApiJson(response);
+      const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+      if (!response.ok) throw new Error(message || `${meta.button}に失敗しました。`);
+    }
 
     closeDrawer();
     const refreshed = await loadDashboard();
@@ -1780,52 +1768,26 @@ async function saveItem(event, item, view) {
   }
 }
 
-async function createWantFromSource(sourceItem, extra = {}) {
-  const response = await fetch("/api/wants", {
+function inboxExpected(item) {
+  return { content: item.content, result: item.result ?? null };
+}
+
+// Inboxの振り分けはすべて inbox-route-v1 のDB関数で1トランザクションに確定する。
+async function routeInboxViaApi(inboxId, exit, params, idempotencyKey) {
+  const response = await fetch("/api/inbox-route", {
     method: "POST",
     credentials: "same-origin",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      "X-Dashboard-Action": "want-create",
+      "X-Dashboard-Action": "inbox-route",
     },
-    body: JSON.stringify({ content: sourceItem.content, sourceInboxId: sourceItem.id, ...extra }),
+    body: JSON.stringify({ inboxId, exit, params, idempotencyKey }),
   });
   const payload = await readApiJson(response);
   const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
-  if (!response.ok) throw new Error(message || "Wantを作成できませんでした。");
-  if (!Number.isSafeInteger(Number(payload.id))) throw new Error("保存結果を確認できませんでした。");
-  return {
-    id: Number(payload.id),
-    content: typeof payload.content === "string" ? payload.content : sourceItem.content,
-    status: "active",
-  };
-}
-
-async function markInboxTriaged(sourceItem, result) {
-  const response = await fetch("/api/inbox", {
-    method: "PATCH",
-    credentials: "same-origin",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-Dashboard-Action": "inbox-update",
-    },
-    body: JSON.stringify({
-      id: sourceItem.id,
-      content: sourceItem.content,
-      status: "done",
-      result,
-      original: {
-        content: sourceItem.content,
-        status: sourceItem.status,
-        result: sourceItem.result ?? null,
-      },
-    }),
-  });
-  const payload = await readApiJson(response);
-  const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
-  if (!response.ok) throw new Error(message || "元のInboxを整理済みにできませんでした。");
+  if (!response.ok) throw new Error(message || "振り分けを保存できませんでした。");
+  return payload;
 }
 
 function renderWishForm(sourceItem) {
@@ -1854,7 +1816,8 @@ function renderWishForm(sourceItem) {
   const content = document.getElementById("wishContent");
   content.addEventListener("input", () => { document.getElementById("wishContentCount").textContent = content.value.length; });
   document.getElementById("cancelWish").addEventListener("click", () => renderDrawerItem(sourceItem, "inbox"));
-  form.addEventListener("submit", (event) => saveWish(event, sourceItem));
+  const idempotencyKey = crypto.randomUUID();
+  form.addEventListener("submit", (event) => saveWish(event, sourceItem, idempotencyKey));
   content.focus();
   content.setSelectionRange(content.value.length, content.value.length);
 }
@@ -1866,7 +1829,7 @@ function setWishError(message) {
   error.hidden = !message;
 }
 
-async function saveWish(event, sourceItem) {
+async function saveWish(event, sourceItem, idempotencyKey) {
   event.preventDefault();
   const form = event.currentTarget;
   const content = form.elements.content.value.trim();
@@ -1885,19 +1848,17 @@ async function saveWish(event, sourceItem) {
   setWishError("");
 
   try {
-    await createWantFromSource({ ...sourceItem, content }, { type: "wish", note: note || null });
-    let inboxWarning = "";
-    try {
-      await markInboxTriaged(sourceItem, "欲しいものとしてWantsに保存");
-    } catch {
-      inboxWarning = "Wantsへ保存しましたが、元のInboxを整理済みにできませんでした。Inboxを再読込して確認してください。";
-    }
+    await routeInboxViaApi(sourceItem.id, "wish", {
+      expected: inboxExpected(sourceItem),
+      content,
+      note: note || null,
+    }, idempotencyKey);
     const refreshed = await loadDashboard();
     if (!refreshed) {
       setWishError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
       return;
     }
-    showToast(inboxWarning || "欲しいものとしてWantsに保存し、Inboxを整理済みにしました。");
+    showToast("欲しいものとしてWantsに保存し、Inboxを整理済みにしました。");
   } catch (error) {
     setWishError(error instanceof Error ? error.message : "欲しいものとして保存できませんでした。");
   } finally {
@@ -1941,7 +1902,8 @@ function renderDeferForm(sourceItem) {
   const content = document.getElementById("deferContent");
   content.addEventListener("input", () => { document.getElementById("deferContentCount").textContent = content.value.length; });
   document.getElementById("cancelDefer").addEventListener("click", () => renderDrawerItem(sourceItem, "inbox"));
-  form.addEventListener("submit", (event) => saveDefer(event, sourceItem));
+  const idempotencyKey = crypto.randomUUID();
+  form.addEventListener("submit", (event) => saveDefer(event, sourceItem, idempotencyKey));
   content.focus();
   content.setSelectionRange(content.value.length, content.value.length);
 }
@@ -1953,7 +1915,7 @@ function setDeferError(message) {
   error.hidden = !message;
 }
 
-async function saveDefer(event, sourceItem) {
+async function saveDefer(event, sourceItem, idempotencyKey) {
   event.preventDefault();
   const form = event.currentTarget;
   const content = form.elements.content.value.trim();
@@ -1983,19 +1945,18 @@ async function saveDefer(event, sourceItem) {
   setDeferError("");
 
   try {
-    await createWantFromSource({ ...sourceItem, content }, { revisitOn, note: note || null });
-    let inboxWarning = "";
-    try {
-      await markInboxTriaged(sourceItem, `保留（再訪 ${revisitOn}）`);
-    } catch {
-      inboxWarning = "Wantsへ置きましたが、元のInboxを整理済みにできませんでした。Inboxを再読込して確認してください。";
-    }
+    await routeInboxViaApi(sourceItem.id, "defer", {
+      expected: inboxExpected(sourceItem),
+      content,
+      revisit_on: revisitOn,
+      note: note || null,
+    }, idempotencyKey);
     const refreshed = await loadDashboard();
     if (!refreshed) {
       setDeferError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
       return;
     }
-    showToast(inboxWarning || `${revisitOn}に再訪するWantとして寝かせ、Inboxを整理済みにしました。`);
+    showToast(`${revisitOn}に再訪するWantとして寝かせ、Inboxを整理済みにしました。`);
   } catch (error) {
     setDeferError(error instanceof Error ? error.message : "保留にできませんでした。");
   } finally {

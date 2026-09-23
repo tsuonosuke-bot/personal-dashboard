@@ -151,11 +151,15 @@ Inboxへ登録
 
 Google Calendarは `calendar.events` scopeだけを要求し、`primary` カレンダーへ `Asia/Tokyo` で一方向に新規作成します。日付のみなら終日、日時なしなら登録を拒否します。更新トークンはサーバーで暗号化し、Claudeとブラウザには渡しません。GitHub・Knowledge DB・Journalは、認証方法、下書き内容、重複防止、作成後の再取得方法を個別に合意してから有効化します。
 
+## DB関数への集約
+
+Inboxからの振り分け（9つの扱い・アーカイブ・Project・Inboxクローズ）は、すべて `route_inbox_item` などのDB関数（契約 `inbox-route-v1`）で1トランザクションに確定する。ダッシュボードは `/api/inbox-route` 経由でこれを呼び、Claude.aiの `idea-inbox` スキルも同じ関数を直接呼ぶ。出口ごとのパラメータと予定の2段階確定は [inbox-route-rpc.md](inbox-route-rpc.md) を正本とする。Wantからの振り分け（`/api/want-routes`）は従来どおり。
+
 ## 失敗時
 
 - 振り分け先への登録に失敗した場合は、元Inbox・元Wantの内容や状態を変更しない。
 - 内部登録またはGoogle Calendar登録に失敗した振り分けは `failed` として記録する。
 - 同じ処理IDを再送しても、作成済みの対象を重複登録しない。
 - 振り分け成功後に元Wantの完了だけ失敗した場合、同じ処理IDで完了処理だけを再試行する。
-- 振り分け成功後に元Inboxの整理済み化だけ失敗した場合は、その旨を表示し、Inboxの再読込を促す。振り分け自体はやり直さない。
+- Inboxからの振り分けは、Want作成・振り分け先登録・Inboxの整理済み化を1トランザクションで行うため、Inboxだけ未整理で残る途中状態はない（予定はGoogle Calendar作成の成否で確定・失敗記録する）。
 - InboxまたはWantが別画面で変更されていた場合は409で拒否し、再読込を求める。
