@@ -21,3 +21,9 @@ test("theme resolves before styles load and the switcher sits in the dashboard m
   assert.match(select, /data-theme-select=""/);
   assert.match(select, /<option value="system">自動<\/option>/);
 });
+
+test("theme script pins the browser color scheme to the resolved theme", async () => {
+  const script = await readFile(new URL("../public/theme.js", import.meta.url), "utf8");
+  assert.match(script, /root\.style\.colorScheme = theme;/);
+  assert.match(script, /if \(scheme\) scheme\.content = theme;/);
+});
