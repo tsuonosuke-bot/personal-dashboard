@@ -139,7 +139,7 @@ test("Compass bulk-routes pending Inbox items to the triage destinations that ne
   assert.match(script, /const pending = selected\.filter\(\(item\) => item\.status === "pending"\);/);
   assert.match(script, /revisitOn < todayInTokyo\(\)/);
   assert.match(script, /const cacheKey = `\$\{item\.id\}:\$\{key\}`;/);
-  assert.match(script, /await markInboxTriaged\(item, `\$\{routeDestinationMeta\[quick\.destination\]\?\.label \|\| quick\.destination\}へ振り分け`\);/);
+  assert.match(script, /await routeInboxViaApi\(item\.id, quick\.destination, \{/);
   assert.match(script, /振り分けできなかったInbox:/);
 });
 
@@ -246,10 +246,10 @@ test("Compass exposes all nine first-class Inbox outcomes without hiding the det
   assert.match(script, /journal: \{ label: "日記"[^}]*destination: "journal" \}/);
   assert.match(script, /defer: \{ label: "保留"/);
   assert.match(script, /function renderTriageStart\(item\)/);
-  assert.match(script, /async function createWantFromSource\(sourceItem, extra = \{\}\)/);
-  assert.match(script, /async function markInboxTriaged\(sourceItem, result\)/);
-  assert.match(script, /"X-Dashboard-Action": "inbox-update"/);
-  assert.match(script, /へ振り分け`\)/);
+  // 振り分けの書き込みはすべてDB関数（inbox-route-v1）経由。画面側でWant作成とInbox更新を分けて呼ばない。
+  assert.match(script, /async function routeInboxViaApi\(inboxId, exit, params, idempotencyKey\)/);
+  assert.match(script, /"X-Dashboard-Action": "inbox-route"/);
+  assert.doesNotMatch(script, /createWantFromSource|markInboxTriaged/);
   assert.doesNotMatch(script, /createWantButton|markInboxPromoted|Wantsに登録/);
   assert.doesNotMatch(script, /action-create|action-update|createActionButton|editActionButton/);
 });
@@ -261,7 +261,7 @@ test("Compass stores 欲しい as a typed active Want", async () => {
   ]);
 
   assert.match(script, /function renderWishForm\(sourceItem\)/);
-  assert.match(script, /\{ type: "wish", note: note \|\| null \}/);
+  assert.match(script, /routeInboxViaApi\(sourceItem\.id, "wish", \{/);
   assert.match(script, /欲しいものとしてWantsに保存/);
   assert.match(script, /item\.type !== "wish"/);
   assert.match(style, /\.route-chip-wish \{[^}]*var\(--blue\)/);
@@ -279,7 +279,7 @@ test("Compass exposes Wants registration queues for Knowledge and GitHub", async
   assert.match(script, /function isDestinationPending\(item, view, destination\)/);
   assert.match(script, /state\.metricFilter === "knowledge"/);
   assert.match(script, /state\.metricFilter === "github"/);
-  assert.match(script, /sourceInboxId: sourceItem\.id/);
+  assert.match(script, /body: JSON\.stringify\(\{ inboxId, exit, params, idempotencyKey \}\)/);
   assert.match(html, /id="knowledgeFilter"/);
   assert.match(html, /id="knowledgePendingCount"/);
   assert.match(html, /id="githubFilter"/);
@@ -295,7 +295,7 @@ test("Compass defers an Inbox item with a required revisit date", async () => {
   assert.match(script, /function defaultRevisitDate\(\)/);
   assert.match(script, /既定は1ヶ月後です。/);
   assert.match(script, /再訪日は今日以降の日付を指定してください。/);
-  assert.match(script, /createWantFromSource\(\{ \.\.\.sourceItem, content \}, \{ revisitOn, note: note \|\| null \}\)/);
+  assert.match(script, /routeInboxViaApi\(sourceItem\.id, "defer", \{[\s\S]*revisit_on: revisitOn,/);
   assert.match(script, /保留（再訪 \$\{revisitOn\}）/);
 });
 
