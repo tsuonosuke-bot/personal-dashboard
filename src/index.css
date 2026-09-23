@@ -550,6 +550,7 @@ button.review-card { display: block; }
 :root[data-theme="dark"] .recharts-legend-item-text { fill: #b9b3c2; color: #b9b3c2 !important; }
 :root[data-theme="dark"] .recharts-default-tooltip { border-color: #4a4552 !important; background: #242129 !important; color: #e6e1ec; }
 :root[data-theme="dark"] .recharts-tooltip-label { color: #e6e1ec; }
+:root[data-theme="dark"] .recharts-tooltip-item { color: #e6e1ec !important; }
 :root[data-theme="dark"] .recharts-pie-sector path,
 :root[data-theme="dark"] .recharts-sector { stroke: #242129; }
 :root[data-theme="dark"] .recharts-pie-label-text { fill: #e6e1ec; }
