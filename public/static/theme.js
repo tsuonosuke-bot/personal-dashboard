@@ -22,6 +22,11 @@
     const theme = preference === "system" ? (media && media.matches ? "dark" : "light") : preference;
     root.dataset.theme = theme;
     root.dataset.themePreference = preference;
+    // Declaring "light dark" lets the browser draw form controls for the OS theme; pin it to the
+    // resolved theme so a manual choice never pairs white UA text with white authored backgrounds.
+    root.style.colorScheme = theme;
+    const scheme = document.querySelector('meta[name="color-scheme"]');
+    if (scheme) scheme.content = theme;
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
       if (!meta.dataset.lightColor) meta.dataset.lightColor = meta.content;

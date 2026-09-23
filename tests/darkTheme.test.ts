@@ -31,5 +31,7 @@ test("theme script follows the OS unless light or dark is chosen, and keeps the 
   assert.match(script, /const KEY = "dashboard-theme";/);
   assert.match(script, /preference === "system" \? \(media && media\.matches \? "dark" : "light"\) : preference/);
   assert.match(script, /window\.addEventListener\("storage"/);
+  assert.match(script, /root\.style\.colorScheme = theme;/);
+  assert.match(script, /if \(scheme\) scheme\.content = theme;/);
   assert.match(script, /meta\.content = theme === "dark" \? DARK_THEME_COLOR : meta\.dataset\.lightColor/);
 });
