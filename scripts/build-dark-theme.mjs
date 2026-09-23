@@ -316,6 +316,10 @@ function outputPath(input) {
   return input.replace(/\.css$/, ".dark.css");
 }
 
+function normalizeNewlines(value) {
+  return value.replace(/\r\n?/g, "\n");
+}
+
 const args = process.argv.slice(2);
 const check = args.includes("--check");
 const inputs = args.filter((arg) => arg !== "--check");
@@ -330,7 +334,9 @@ if (inputs.length > 0) {
     if (check) {
       let current = "";
       try { current = readFileSync(output, "utf8"); } catch { /* missing counts as stale */ }
-      if (current !== generated) {
+      // Git may check tracked CSS out as CRLF on Windows while generated output uses LF.
+      // Theme freshness is about CSS content, not the working tree's newline convention.
+      if (normalizeNewlines(current) !== normalizeNewlines(generated)) {
         stale = true;
         console.error(`${output} is stale. Run the theme build script.`);
       }
