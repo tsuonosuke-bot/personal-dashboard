@@ -1368,7 +1368,7 @@ function renderRoutePreview(item, plan) {
       ${plan.cadence ? `<div><span>頻度</span><strong>${escapeHtml(cadenceLabels[plan.cadence])}</strong></div>` : ""}
       ${plan.calendar ? `<div><span>予定日時</span><strong>${escapeHtml(formatCalendarSchedule(plan.calendar))}</strong><small>メインカレンダー · Asia/Tokyo</small></div>` : ""}
     </div>
-    <p class="flow-note">${escapeHtml(plan.destination === "calendar" ? `登録するとGoogle Calendarへ予定を作成し、${triageCompletionNote()}` : destinationMeta.internal ? `確定するとPersonal Dashboard内の管理先へ登録し、${triageCompletionNote()}` : `確定すると振り分け計画を保存し、${triageCompletionNote()}外部システムへの送信は、接続方法の合意後に別途行います。`)}</p>
+    <p class="flow-note">${escapeHtml(plan.destination === "calendar" ? `登録するとGoogle Calendarへ予定を作成し、${triageCompletionNote()}` : destinationMeta.internal ? `確定するとPersonal Dashboard内の管理先へ登録し、${triageCompletionNote()}${plan.destination === "focus" ? "表示中のFocusが5件のときは表示解除中に入り、Hubの「管理」で入れ替えられます。" : ""}` : `確定すると振り分け計画を保存し、${triageCompletionNote()}外部システムへの送信は、接続方法の合意後に別途行います。`)}</p>
     <p class="form-error" id="routeSaveError" role="alert" hidden></p>
     <div class="drawer-actions"><button class="secondary-action" id="editRoutePlan" type="button">修正する</button><button class="primary-action" id="confirmRoutePlan" type="button">${routeConfirmationLabel(plan.destination)}</button></div>`;
   document.getElementById("editRoutePlan").addEventListener("click", () => renderRouteForm(item, plan.intent, plan.destination, plan, plan.origin));

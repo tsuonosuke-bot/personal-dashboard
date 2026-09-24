@@ -223,6 +223,8 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .focus-editor-actions button { min-height: 31px; padding: 0 10px; border-radius: 8px; cursor: pointer; font-size: 8px; font-weight: 800; white-space: nowrap; }
 .focus-save { border: 0; background: var(--green); color: #fff; }
 .focus-toggle { border: 1px solid var(--line); background: #fff; color: var(--muted); }
+.focus-swap-field { display: grid; gap: 4px; grid-column: 1 / -1; }
+.focus-swap-field select { min-height: 32px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); font: inherit; font-size: 12px; padding: 0 8px; }
 .focus-add-link { display: inline-block; margin-top: 13px; color: var(--green); font-size: 9px; font-weight: 800; text-decoration: none; }
 
 .record-list { display: grid; }

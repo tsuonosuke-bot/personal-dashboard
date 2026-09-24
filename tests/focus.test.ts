@@ -167,7 +167,7 @@ test("Focus activation returns the five-item limit as a clear conflict", async (
       env,
     });
     assert.equal(response.status, 409);
-    assert.deepEqual(await response.json(), { error: "表示できるFocusは5件までです。先に1件を表示解除してください。" });
+    assert.deepEqual(await response.json(), { error: "表示できるFocusは5件までです。表示中の1件と入れ替えてください。" });
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -224,4 +224,52 @@ test("Focus migration enforces five active items and restricts the reorder RPC",
   assert.match(sql, /create or replace function public\.reorder_focus_items/i);
   assert.match(sql, /revoke all on function public\.reorder_focus_items\(bigint\[\], bigint\[\]\) from public/i);
   assert.match(sql, /grant execute on function public\.reorder_focus_items\(bigint\[\], bigint\[\]\) to service_role/i);
+});
+
+test("Focus swap sends both IDs to one RPC and returns the new active board", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; body: string }> = [];
+  globalThis.fetch = async (input, init) => {
+    requests.push({ url: String(input), body: String(init?.body) });
+    return Response.json([focusRow({ id: 1, sort_order: 1 }), focusRow({ id: 7, sort_order: 2 })]);
+  };
+  try {
+    const response = await focusRoute({ request: patchRequest("focus-swap", { activateId: 7, archiveId: 2 }), env });
+    assert.equal(response.status, 200);
+    const body = await response.json() as { items: Array<{ id: number }> };
+    assert.deepEqual(body.items.map((item) => item.id), [1, 7]);
+    assert.equal(requests.length, 1);
+    assert.equal(new URL(requests[0].url).pathname, "/rest/v1/rpc/swap_focus_items");
+    assert.deepEqual(JSON.parse(requests[0].body), { p_activate_id: 7, p_archive_id: 2 });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Focus swap rejects invalid IDs and reports conflicts", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ message: "FOCUS_SWAP_CONFLICT" }), { status: 400 });
+  try {
+    for (const body of [{ activateId: 3, archiveId: 3 }, { activateId: 0, archiveId: 2 }, { activateId: 3 }]) {
+      const invalid = await focusRoute({ request: patchRequest("focus-swap", body), env });
+      assert.equal(invalid.status, 400);
+    }
+    const conflict = await focusRoute({ request: patchRequest("focus-swap", { activateId: 7, archiveId: 2 }), env });
+    assert.equal(conflict.status, 409);
+    assert.deepEqual(await conflict.json(), { error: "Focusが別の画面で更新されています。再読み込みしてからやり直してください。" });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Focus overflow migration stores new items as archived and restricts the swap RPC", async () => {
+  const sql = await readFile(new URL("../supabase/migrations/202609240001_focus_overflow_and_swap.sql", import.meta.url), "utf8");
+  assert.match(sql, /if tg_op = 'INSERT' then\s+new\.status := 'archived';/);
+  assert.match(sql, /message = 'FOCUS_ACTIVE_LIMIT'/);
+  assert.match(sql, /create or replace function public\.swap_focus_items/);
+  assert.match(sql, /revoke all on function public\.swap_focus_items\(bigint, bigint\) from anon;/);
+  assert.match(sql, /grant execute on function public\.swap_focus_items\(bigint, bigint\) to service_role;/);
+  const hub = await readFile(new URL("../public/hub.js", import.meta.url), "utf8");
+  assert.match(hub, /data-focus-action="swap"/);
+  assert.match(hub, /focusApi\("focus-swap"/);
 });

@@ -189,7 +189,7 @@ test("Focusが5件なら元Wantを残したまま上限エラーを返す", asyn
       env,
     });
     assert.equal(response.status, 409);
-    assert.deepEqual(await response.json(), { error: "表示できるFocusは5件までです。先に1件を表示解除してください。" });
+    assert.deepEqual(await response.json(), { error: "表示できるFocusは5件までです。表示中の1件と入れ替えてください。" });
     assert.equal(failedRouteRecorded, true);
     assert.equal(wantCompleted, false);
   } finally {

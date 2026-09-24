@@ -10,6 +10,7 @@ const ids = [
 ];
 
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
+const FOCUS_BOARD_LIMIT = 5;
 let focusItems = [];
 let focusReturnTarget = null;
 
@@ -220,8 +221,13 @@ function renderFocusManagement() {
       <label><span>補足</span><textarea name="note" maxlength="2000" rows="2" placeholder="なぜ残したいか（任意）">${escapeHtml(item.note || "")}</textarea></label>
       <div class="focus-editor-actions">
         <button class="focus-save" type="submit">保存</button>
-        <button class="focus-toggle" type="button" data-focus-action="${active ? "archive" : "activate"}">${active ? "表示から外す" : "再び表示"}</button>
+        ${active || activeItems.length < FOCUS_BOARD_LIMIT
+          ? `<button class="focus-toggle" type="button" data-focus-action="${active ? "archive" : "activate"}">${active ? "表示から外す" : "再び表示"}</button>`
+          : `<button class="focus-toggle" type="button" data-focus-action="swap">入れ替えて表示</button>`}
       </div>
+      ${!active && activeItems.length >= FOCUS_BOARD_LIMIT ? `<label class="focus-swap-field"><span>入れ替える表示中Focus</span><select name="swapTarget">
+        ${activeItems.map((target, index) => `<option value="${target.id}"${index === activeItems.length - 1 ? " selected" : ""}>${String(index + 1).padStart(2, "0")} ${escapeHtml(target.content)}</option>`).join("")}
+      </select></label>` : ""}
     </form>`;
   }).join("");
 }
@@ -438,6 +444,11 @@ els.focusManageList.addEventListener("click", async (event) => {
     if (action === "up" || action === "down") {
       await reorderFocus(id, action);
       await loadFocusManagement("並び順を更新しました。");
+    } else if (action === "swap") {
+      const archiveId = Number(form.elements.swapTarget?.value);
+      if (!archiveId) throw new Error("入れ替える表示中Focusを選んでください。");
+      await focusApi("focus-swap", { activateId: id, archiveId });
+      await loadFocusManagement("入れ替えて表示しました。外したFocusは表示解除中に残ります。");
     } else {
       await saveFocusForm(form, action === "activate" ? "active" : "archived");
       await loadFocusManagement(action === "activate" ? "Focusに再表示しました。" : "表示から外しました。");

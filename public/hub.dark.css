@@ -411,6 +411,12 @@ html[data-theme="dark"] {
   background: #292929;
   color: var(--muted);
 }
+:root[data-theme="dark"] .focus-swap-field select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #292929;
+  color: var(--ink);
+}
 :root[data-theme="dark"] .focus-add-link {
   color: var(--green);
   text-decoration: none;
