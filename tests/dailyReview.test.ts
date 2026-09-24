@@ -222,3 +222,49 @@ test("日次キューは実施数、次バッチ、q別復習間隔を表示す�
   assert.match(source, /ReviewCategoryCounts/);
   assert.doesNotMatch(source, /この配分で更新/);
 });
+
+test("採点中の項目を除いて出題し、除外分だけ多めに選ぶ", async () => {
+  const originalFetch = globalThis.fetch;
+  const pending = "123e4567-e89b-42d3-a456-426614174000";
+  let pickBody: unknown = null;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/rpc/pick_daily_review_queue")) {
+      pickBody = JSON.parse(String(init?.body));
+      return Response.json([{
+        id: pending, title: "採点中", explanation: null, category: "英語", mastery: "学習中", times_asked: 1, pool: "A",
+        stability_hours: 24, relearning_stage: null,
+      }]);
+    }
+    throw new Error(`unexpected request: ${url}`);
+  };
+  try {
+    const response = await quizStartRoute({
+      request: mutationRequest("/api/quiz/start", {
+        categories: [], limit: 15, format: "おまかせ", mode: "daily", excludeIds: [pending.toUpperCase()],
+      }, "quiz-session"),
+      env,
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(pickBody, { p_limit: 16 });
+    assert.deepEqual(await response.json(), { items: [], reason: "in_grading", mode: "daily" });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("除外IDはUUIDの配列だけを受け付ける", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error("should not fetch"); };
+  try {
+    for (const excludeIds of ["x", ["not-uuid"], Array.from({ length: 61 }, () => "123e4567-e89b-42d3-a456-426614174000")]) {
+      const response = await quizStartRoute({
+        request: mutationRequest("/api/quiz/start", { categories: [], limit: 15, mode: "daily", excludeIds }, "quiz-session"),
+        env,
+      });
+      assert.equal(response.status, 400);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

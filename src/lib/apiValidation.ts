@@ -167,7 +167,7 @@ export function parseQuizStartResponse(value: unknown): QuizStart {
   const entity = "出題応答";
   if (!isRecord(value) || !Array.isArray(value.items)) return fail(entity);
   const { reason } = value;
-  if (reason !== undefined && reason !== "no_knowledge" && reason !== "done_today") {
+  if (reason !== undefined && reason !== "no_knowledge" && reason !== "done_today" && reason !== "in_grading") {
     return fail(entity, "reason");
   }
   const items = value.items.map(parseQuizQuestion);

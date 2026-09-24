@@ -10,6 +10,11 @@ export const MAX_CHOICE_CHARS = 500;
 export const MAX_QUIZ_TOKEN_CHARS = 16_000;
 export const MAX_QUIZ_CATEGORIES = 50;
 export const MAX_CATEGORY_CHARS = 100;
+export const MAX_EXCLUDE_IDS = 60;
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
 
 /** quiz_log.format のCHECK制約で許可されている値のうち、ダッシュボードから出題できるもの。 */
 export const QUIZ_FORMATS = ["一問一答", "四択", "記述説明", "産出"] as const;
@@ -39,6 +44,8 @@ export interface StartRequestInput {
   format: QuizFormatRequest;
   /** dailyは当日固定キュー、customは従来のカテゴリ指定出題。 */
   mode: "daily" | "custom";
+  /** バックグラウンドで採点中の項目。記録前に同じ項目を二重に出題しない。 */
+  excludeIds: string[];
 }
 
 export interface GradeAnswerInput {
@@ -136,7 +143,18 @@ export function validateStartRequest(
     return { ok: false, error: "今日の復習キューではカテゴリを指定できません。" };
   }
 
-  return { ok: true, value: { categories, limit: rawLimit, format: rawFormat, mode: rawMode } };
+  const rawExclude = "excludeIds" in input ? input.excludeIds : [];
+  if (!Array.isArray(rawExclude) || rawExclude.length > MAX_EXCLUDE_IDS) {
+    return { ok: false, error: `除外する項目は${MAX_EXCLUDE_IDS}件以内の配列で指定してください。` };
+  }
+  const excludeIds: string[] = [];
+  for (const raw of rawExclude) {
+    if (typeof raw !== "string" || !isUuid(raw)) return { ok: false, error: "除外する項目のIDが正しくありません。" };
+    const value = raw.toLowerCase();
+    if (!excludeIds.includes(value)) excludeIds.push(value);
+  }
+
+  return { ok: true, value: { categories, limit: rawLimit, format: rawFormat, mode: rawMode, excludeIds } };
 }
 
 export function validateGradeRequest(

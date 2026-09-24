@@ -40,11 +40,11 @@ test("JSON本文の構文を検証する", async () => {
 test("出題要求のcategories/limit/formatを検証し、既定値を補う", () => {
   assert.deepEqual(
     validateStartRequest({}),
-    { ok: true, value: { categories: [], limit: 15, format: "おまかせ", mode: "custom" } },
+    { ok: true, value: { categories: [], limit: 15, format: "おまかせ", mode: "custom", excludeIds: [] } },
   );
   assert.deepEqual(
     validateStartRequest({ categories: ["英語", " 歴史 ", "英語"], limit: 5, format: "四択" }),
-    { ok: true, value: { categories: ["英語", "歴史"], limit: 5, format: "四択", mode: "custom" } },
+    { ok: true, value: { categories: ["英語", "歴史"], limit: 5, format: "四択", mode: "custom", excludeIds: [] } },
   );
   assert.equal(validateStartRequest({ categories: "英語" }).ok, false);
   assert.equal(validateStartRequest({ categories: [""] }).ok, false);

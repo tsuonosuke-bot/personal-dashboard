@@ -148,7 +148,7 @@ export interface QuizQuestion {
   token: string;
 }
 
-export type QuizEmptyReason = "no_knowledge" | "done_today";
+export type QuizEmptyReason = "no_knowledge" | "done_today" | "in_grading";
 
 export interface QuizGenerationFailure {
   /** DBが選んだ元の出題順（1始まり）。 */

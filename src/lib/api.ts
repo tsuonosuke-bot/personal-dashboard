@@ -180,6 +180,22 @@ export function getSpeakingPracticeLog(from: string): Promise<SpeakingPracticeLo
   );
 }
 
+export async function addDeepDiveToInbox(knowledgeId: string, note: string): Promise<{ id: number }> {
+  const data = await requestJson("/api/inbox", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": "inbox-deep-dive",
+    },
+    body: JSON.stringify({ knowledgeId, note }),
+  });
+  const id = typeof data === "object" && data !== null ? (data as { id?: unknown }).id : undefined;
+  if (typeof id !== "number" || !Number.isSafeInteger(id)) {
+    throw new ApiError("Inboxへの登録結果を確認できませんでした。", 502);
+  }
+  return { id };
+}
+
 export async function recordSpeakingPractice(
   input: SpeakingPracticeWrite,
 ): Promise<SpeakingPracticeLog> {
@@ -256,8 +272,9 @@ export async function startQuiz(
   limit: number,
   format: QuizFormatRequest,
   mode: "daily" | "custom" = "custom",
+  excludeIds: string[] = [],
 ): Promise<QuizStart> {
-  const data = await postQuiz("/api/quiz/start", { categories, limit, format, mode });
+  const data = await postQuiz("/api/quiz/start", { categories, limit, format, mode, excludeIds });
   return parseQuizStartResponse(data);
 }
 

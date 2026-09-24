@@ -3,7 +3,7 @@ export interface SupabaseEnv {
   SUPABASE_SECRET_KEY?: string;
 }
 
-export type SupabaseTable = "knowledge" | "quiz_log" | "speaking_practice_log" | "knowledge_mastery_history";
+export type SupabaseTable = "knowledge" | "quiz_log" | "speaking_practice_log" | "knowledge_mastery_history" | "idea_inbox";
 
 interface QueryDefinition {
   table: SupabaseTable;
