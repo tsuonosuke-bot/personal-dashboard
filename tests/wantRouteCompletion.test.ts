@@ -234,9 +234,110 @@ test("ヘッダー・送信元・入力形式を検証する", async () => {
   }
 });
 
-test("Idea画面は登録待ちのKnowledge候補だけに登録済み操作を出す", async () => {
+test("GitHub候補をIssue URLつきで登録済みにする", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: URL; init?: RequestInit }> = [];
+  const issueUrl = "https://github.com/tsuonosuke-bot/personal-dashboard/issues/40";
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    requests.push({ url, init });
+    if (url.pathname.endsWith("/want_routes") && init?.method === "PATCH") {
+      return Response.json([plannedRouteRow({ destination: "github", intent: "act", status: "created", target_id: "40", target_url: issueUrl })]);
+    }
+    if (url.pathname.endsWith("/want_routes")) return Response.json([plannedRouteRow({ destination: "github", intent: "act" })]);
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  try {
+    const response = await routeEndpoint({
+      request: request({ routeId: 42, issueUrl, original: { destination: "github", status: "planned" } }),
+      env,
+    });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.status, "created");
+    assert.equal(payload.targetUrl, issueUrl);
+    const update = requests.find((entry) => entry.init?.method === "PATCH");
+    assert.ok(update);
+    assert.equal(update.url.searchParams.get("destination"), "eq.github");
+    assert.equal(update.url.searchParams.get("status"), "eq.planned");
+    const sent = JSON.parse(String(update.init?.body));
+    assert.equal(sent.target_id, "40");
+    assert.equal(sent.target_url, issueUrl);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Issue URLを空欄にしたGitHub候補はmanualとして登録済みにする", async () => {
+  const originalFetch = globalThis.fetch;
+  const sent: Array<Record<string, unknown>> = [];
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/want_routes") && init?.method === "PATCH") {
+      sent.push(JSON.parse(String(init.body)));
+      return Response.json([plannedRouteRow({ destination: "github", intent: "act", status: "created", target_id: "manual" })]);
+    }
+    if (url.pathname.endsWith("/want_routes")) return Response.json([plannedRouteRow({ destination: "github", intent: "act" })]);
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  try {
+    const response = await routeEndpoint({
+      request: request({ routeId: 42, issueUrl: "  ", original: { destination: "github", status: "planned" } }),
+      env,
+    });
+    assert.equal(response.status, 200);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].target_id, "manual");
+    assert.equal(sent[0].target_url, null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("GitHub候補の完了ではIssue URLの形式と振り分け先の一致を検証する", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/want_routes")) return Response.json([plannedRouteRow()]);
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  try {
+    for (const issueUrl of [
+      "https://example.com/owner/repo/issues/1",
+      "https://github.com/owner/repo/pull/1",
+      "javascript:alert(1)",
+    ]) {
+      const response = await routeEndpoint({
+        request: request({ routeId: 42, issueUrl, original: { destination: "github", status: "planned" } }),
+        env,
+      });
+      assert.equal(response.status, 400, issueUrl);
+    }
+    const mixedKeys = await routeEndpoint({
+      request: request({ routeId: 42, knowledgeId: null, original: { destination: "github", status: "planned" } }),
+      env,
+    });
+    assert.equal(mixedKeys.status, 400);
+
+    const knowledgeRoute = await routeEndpoint({
+      request: request({ routeId: 42, issueUrl: null, original: { destination: "github", status: "planned" } }),
+      env,
+    });
+    assert.equal(knowledgeRoute.status, 409);
+    assert.deepEqual(await knowledgeRoute.json(), {
+      error: "このGitHub候補は別の画面で更新されています。再読み込みしてからやり直してください。",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Idea画面は登録待ちのKnowledge・GitHub候補だけに登録済み操作を出す", async () => {
   const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
-  assert.match(script, /route\.destination === "knowledge" && route\.status === "planned"/);
-  assert.match(script, /data-knowledge-complete/);
+  assert.match(script, /route\.status === "planned" \? routeCompletionMeta\[route\.destination\]/);
+  assert.match(script, /data-route-complete/);
+  assert.match(script, /action: "Knowledge登録済みにする"/);
+  assert.match(script, /action: "GitHub登録済みにする"/);
+  assert.match(script, /route-chip-pending">GitHub登録待ち/);
   assert.match(script, /"X-Dashboard-Action": "want-route-complete"/);
 });

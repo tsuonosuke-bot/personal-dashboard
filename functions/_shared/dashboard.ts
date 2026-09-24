@@ -370,6 +370,8 @@ export function publicError(error: unknown) {
     KNOWLEDGE_ROUTE_NOT_FOUND: "対象のKnowledge候補が見つかりません。再読み込みしてからやり直してください。",
     KNOWLEDGE_ROUTE_CONFLICT: "このKnowledge候補は別の画面で更新されています。再読み込みしてからやり直してください。",
     KNOWLEDGE_ENTRY_NOT_FOUND: "指定したKnowledge IDはナレッジDBに見つかりません。IDを確認してください。",
+    GITHUB_ROUTE_NOT_FOUND: "対象のGitHub候補が見つかりません。再読み込みしてからやり直してください。",
+    GITHUB_ROUTE_CONFLICT: "このGitHub候補は別の画面で更新されています。再読み込みしてからやり直してください。",
     HABIT_UPDATE_CONFLICT: "このHabitは別の画面で更新されています。再読み込みしてからやり直してください。",
     HABIT_DATE_INVALID: "現在は今日の実施記録だけを変更できます。",
     HABIT_NOT_FOUND: "対象のHabitが見つかりません。再読み込みしてください。",

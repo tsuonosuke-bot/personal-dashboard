@@ -115,6 +115,7 @@ Browser
 - Inbox由来のWantは `source_inbox_id` で元のInboxと結び付け、一覧カードに振り分け先・再訪日を表示
 - Knowledge・GitHub・Journalは計画保存のままのため「登録待ち」として区別し、「Knowledge登録待ち」で絞り込み（`?filter=knowledge`）
 - ナレッジDBへ画面外（LLMとの会話など）で登録した候補は、Wantの振り分け履歴から「Knowledge登録済みにする」で登録待ちを解除（Knowledge IDを入力すると正本へのリンクも残る）
+- GitHub Issueを画面外で作成した候補は、同じく「GitHub登録済みにする」で登録待ちを解除（Issue URLを入力すると正本へのリンクも残る）
 - 検索、ステータス絞り込み、詳細ドロワー、再読込
 - `/compass/?view=wants&filter=untriaged` で未整理のActive Wantsへ直接移動（既存URLとの互換名）
 - `/api/health` による接続状態確認
