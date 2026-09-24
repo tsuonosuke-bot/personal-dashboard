@@ -411,6 +411,51 @@ html[data-theme="dark"] {
   background: #292929;
   color: var(--muted);
 }
+:root[data-theme="dark"] .focus-card .focus-knowledge-line {
+  color: var(--orange);
+}
+:root[data-theme="dark"] .focus-knowledge-editor > span {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .focus-knowledge-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #292929;
+}
+:root[data-theme="dark"] .focus-knowledge-chip a {
+  color: var(--ink);
+  text-decoration: none;
+}
+:root[data-theme="dark"] .focus-knowledge-chip button {
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+}
+:root[data-theme="dark"] .focus-knowledge-empty {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .focus-knowledge-search input {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #292929;
+  color: var(--ink);
+}
+:root[data-theme="dark"] .focus-knowledge-search button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #292929;
+  color: var(--ink);
+}
+:root[data-theme="dark"] .focus-knowledge-results button {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+}
+:root[data-theme="dark"] .focus-knowledge-results button small {
+  color: var(--muted);
+}
 :root[data-theme="dark"] .focus-swap-field select {
   border: 1px solid var(--line);
   border-radius: 8px;

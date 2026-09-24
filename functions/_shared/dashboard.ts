@@ -382,6 +382,8 @@ export function publicError(error: unknown) {
     FOCUS_REORDER_CONFLICT: "Focusの並び順が別の画面で変更されています。再読み込みしてからやり直してください。",
     FOCUS_REORDER_INVALID: "Focusの並び順を更新できませんでした。再読み込みしてからやり直してください。",
     FOCUS_LIMIT_REACHED: "表示できるFocusは5件までです。表示中の1件と入れ替えてください。",
+    FOCUS_KNOWLEDGE_LIMIT: "1つのFocusに紐づけられるナレッジは10件までです。",
+    FOCUS_KNOWLEDGE_NOT_FOUND: "Focusまたはナレッジが見つかりません。再読み込みしてからやり直してください。",
     FOCUS_SWAP_CONFLICT: "Focusが別の画面で更新されています。再読み込みしてからやり直してください。",
     FOCUS_SWAP_INVALID: "入れ替えるFocusが正しくありません。",
     WRITING_UPDATE_CONFLICT: "このWritingテーマは別の画面で更新されています。再読み込みしてからやり直してください。",

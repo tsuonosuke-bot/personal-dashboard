@@ -1,4 +1,5 @@
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
+import { loadFocusKnowledgeLinks } from "./focusKnowledge.ts";
 
 const MAX_REQUEST_CHARS = 16_000;
 const MAX_CONTENT_CHARS = 240;
@@ -202,8 +203,10 @@ export async function loadFocus(env: DashboardEnv) {
     if (rows.length < PAGE_SIZE) break;
   }
   const sorted = sortFocusItems(items);
+  const links = await loadFocusKnowledgeLinks(env);
   return {
-    items: sorted,
+    items: sorted.map((item) => ({ ...item, knowledge: links?.get(item.id) || [] })),
+    knowledgeLinksAvailable: links !== null,
     activeCount: sorted.filter((item) => item.status === "active").length,
     limit: FOCUS_LIMIT,
   };
