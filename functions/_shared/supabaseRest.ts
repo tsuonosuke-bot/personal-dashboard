@@ -3,7 +3,7 @@ export interface SupabaseEnv {
   SUPABASE_SECRET_KEY?: string;
 }
 
-export type SupabaseTable = "knowledge" | "quiz_log" | "speaking_practice_log" | "knowledge_mastery_history" | "idea_inbox";
+export type SupabaseTable = "knowledge" | "quiz_log" | "speaking_practice_log" | "knowledge_mastery_history" | "idea_inbox" | "knowledge_insights";
 
 interface QueryDefinition {
   table: SupabaseTable;
@@ -11,7 +11,7 @@ interface QueryDefinition {
 }
 
 export interface SupabaseRequest extends QueryDefinition {
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   count?: "exact";
 }

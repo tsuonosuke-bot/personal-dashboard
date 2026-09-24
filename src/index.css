@@ -423,6 +423,80 @@ button.review-card { display: block; }
 .quiz-deep-dive small { font-size: 11px; line-height: 1.5; }
 .quiz-deep-dive-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .quiz-deep-dive-saved { margin: 0; color: #15803d; font-size: 12px; }
+.insight-notes { display: grid; gap: 8px; }
+.insight-notes-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.insight-notes-head h3 { margin: 0; color: #334155; font-size: 13px; }
+.insight-notes-head h3 span { color: #7a879b; font-size: 11px; font-weight: 600; }
+.insight-notes-head .text-button, .insight-note-meta .text-button { color: #66558c; font-size: 12px; font-weight: 700; }
+.insight-note-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.insight-note { display: grid; gap: 4px; padding: 9px 11px; border: 1px solid #f3e3a1; border-left: 4px solid #eab308; border-radius: 8px; background: #fffbea; }
+.insight-note p { margin: 0; color: #3f3a1e; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.insight-note-meta { display: flex; align-items: center; gap: 10px; color: #8a7f55; font-size: 11px; }
+.insight-note textarea, .insight-add textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: 14px; }
+.insight-add { display: grid; gap: 6px; }
+.insight-add small { font-size: 11px; }
+.insight-note-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.insights-view { display: grid; gap: 12px; }
+.insights-toolbar { display: grid; gap: 8px; }
+.insights-toolbar p { margin: 0; color: #526079; font-size: 13px; }
+.insights-toolbar small { font-size: 11px; }
+.insights-toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.insights-toolbar-actions input { flex: 1 1 200px; min-width: 0; padding: 8px 10px; font: inherit; font-size: 14px; }
+.insight-themes { display: grid; gap: 8px; }
+.insight-themes h2 { margin: 0; font-size: 15px; }
+.insight-themes h2 span { color: #7a879b; font-size: 12px; font-weight: 600; }
+.insight-themes ol { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.insight-theme { display: grid; gap: 6px; border-color: #d8d0ea; }
+.insight-theme-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.insight-theme-head strong { color: #3b2f63; font-size: 14px; }
+.insight-theme p { margin: 0; color: #334155; font-size: 13px; line-height: 1.6; }
+.insight-theme-importance { color: #526079; }
+.insight-theme details { font-size: 12px; }
+.insight-theme summary { color: #66558c; cursor: pointer; font-weight: 700; }
+.insight-theme details ul { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.insight-theme details li { display: grid; gap: 2px; padding: 6px 8px; border-radius: 6px; background: #fffbea; }
+.insight-theme details a, .insight-group-head a { color: #66558c; font-weight: 700; }
+.insight-group-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.insight-group { display: grid; gap: 8px; }
+.insight-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 14px; }
+.insight-group-head .muted { font-size: 12px; }
+.insight-notes { display: grid; gap: 8px; }
+.insight-notes-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.insight-notes-head h3 { margin: 0; color: #334155; font-size: 13px; }
+.insight-notes-head h3 span { color: #7a879b; font-size: 11px; font-weight: 600; }
+.insight-notes-head .text-button, .insight-note-meta .text-button { color: #66558c; font-size: 12px; font-weight: 700; }
+.insight-note-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.insight-note { display: grid; gap: 4px; padding: 9px 11px; border: 1px solid #f3e3a1; border-left: 4px solid #eab308; border-radius: 8px; background: #fffbea; }
+.insight-note p { margin: 0; color: #3f3a1e; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.insight-note-meta { display: flex; align-items: center; gap: 10px; color: #8a7f55; font-size: 11px; }
+.insight-note textarea, .insight-add textarea { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: 14px; }
+.insight-add { display: grid; gap: 6px; }
+.insight-add small { font-size: 11px; }
+.insight-note-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.insights-view { display: grid; gap: 12px; }
+.insights-toolbar { display: grid; gap: 8px; }
+.insights-toolbar p { margin: 0; color: #526079; font-size: 13px; }
+.insights-toolbar small { font-size: 11px; }
+.insights-toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.insights-toolbar-actions input { flex: 1 1 200px; min-width: 0; padding: 8px 10px; font: inherit; font-size: 14px; }
+.insight-themes { display: grid; gap: 8px; }
+.insight-themes h2 { margin: 0; font-size: 15px; }
+.insight-themes h2 span { color: #7a879b; font-size: 12px; font-weight: 600; }
+.insight-themes ol { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.insight-theme { display: grid; gap: 6px; border-color: #d8d0ea; }
+.insight-theme-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.insight-theme-head strong { color: #3b2f63; font-size: 14px; }
+.insight-theme p { margin: 0; color: #334155; font-size: 13px; line-height: 1.6; }
+.insight-theme-importance { color: #526079; }
+.insight-theme details { font-size: 12px; }
+.insight-theme summary { color: #66558c; cursor: pointer; font-weight: 700; }
+.insight-theme details ul { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+.insight-theme details li { display: grid; gap: 2px; padding: 6px 8px; border-radius: 6px; background: #fffbea; }
+.insight-theme details a, .insight-group-head a { color: #66558c; font-weight: 700; }
+.insight-group-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.insight-group { display: grid; gap: 8px; }
+.insight-group-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 14px; }
+.insight-group-head .muted { font-size: 12px; }
 .quiz-early-note { margin: 0 0 12px; color: #7a879b; font-size: 13px; }
 .quiz-verdict-ok { background: #f0fdf4; color: #15803d; }
 .quiz-verdict-partial { background: #fffbeb; color: #b45309; }

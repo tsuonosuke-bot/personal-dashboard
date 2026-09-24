@@ -14,6 +14,7 @@ import { ALL, DEFAULT_PAGE_SIZE } from "./constants";
 import { useFilteredKnowledge } from "./hooks/useFilteredKnowledge";
 import { useDailyReview } from "./hooks/useDailyReview";
 import { useKnowledgeData } from "./hooks/useKnowledgeData";
+import { useInsights } from "./hooks/useInsights";
 import { dashboardRoutePath, parseDashboardRoute } from "./lib/dashboardRoute";
 import type {
   Filters, Knowledge, KnowledgeDraft, ReviewFilter, SortKey, SortState,
@@ -25,6 +26,8 @@ const QuizView = lazy(() => import("./components/QuizView")
   .then((module) => ({ default: module.QuizView })));
 const LearningLogView = lazy(() => import("./components/LearningLogView")
   .then((module) => ({ default: module.LearningLogView })));
+const InsightsView = lazy(() => import("./components/InsightsView")
+  .then((module) => ({ default: module.InsightsView })));
 const SpeakingPracticeView = lazy(() => import("./components/SpeakingPracticeView")
   .then((module) => ({ default: module.SpeakingPracticeView })));
 
@@ -33,6 +36,7 @@ export default function App() {
   const [showQuiz, setShowQuiz] = useState(() => initialRoute.kind === "quiz");
   const [showSpeaking, setShowSpeaking] = useState(() => initialRoute.kind === "speaking");
   const [showLog, setShowLog] = useState(() => initialRoute.kind === "log");
+  const [showInsights, setShowInsights] = useState(() => initialRoute.kind === "insights");
   const [quizMode, setQuizMode] = useState<"daily" | "custom">(() => (
     initialRoute.kind === "quiz" ? initialRoute.mode : "custom"
   ));
@@ -41,6 +45,7 @@ export default function App() {
     reload, createKnowledge, updateKnowledge,
   } = useKnowledgeData();
   const dailyReview = useDailyReview();
+  const insightStore = useInsights();
   const [filters, setFilters] = useState<Filters>({
     search: "",
     category: ALL,
@@ -59,7 +64,7 @@ export default function App() {
   const [archiveOpen, setArchiveOpen] = useState(false);
 
   // 画面を切り替えても同じdocumentのままなので、直前の画面のスクロール位置が残る。
-  const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : showLog ? "log" : "dashboard";
+  const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : showLog ? "log" : showInsights ? "insights" : "dashboard";
   const previousView = useRef(view);
   useLayoutEffect(() => {
     if (previousView.current === view) return;
@@ -93,22 +98,25 @@ export default function App() {
       setQuizMode(route.mode);
       setShowSpeaking(false);
       setShowLog(false);
+      setShowInsights(false);
       setShowQuiz(true);
       return;
     }
 
-    if (route.kind === "speaking" || route.kind === "log") {
+    if (route.kind === "speaking" || route.kind === "log" || route.kind === "insights") {
       setSelected(null);
       setArchiveOpen(false);
       setShowQuiz(false);
       setShowSpeaking(route.kind === "speaking");
       setShowLog(route.kind === "log");
+      setShowInsights(route.kind === "insights");
       return;
     }
 
     setShowQuiz(false);
     setShowSpeaking(false);
     setShowLog(false);
+    setShowInsights(false);
     if (loading || error) return;
 
     if (route.kind === "knowledge") {
@@ -173,6 +181,7 @@ export default function App() {
     setQuizMode(mode);
     setShowSpeaking(false);
     setShowLog(false);
+    setShowInsights(false);
     setShowQuiz(open);
   };
 
@@ -181,6 +190,7 @@ export default function App() {
     setSelected(null);
     setShowQuiz(false);
     setShowLog(false);
+    setShowInsights(false);
     setShowSpeaking(open);
   };
 
@@ -189,7 +199,17 @@ export default function App() {
     setSelected(null);
     setShowQuiz(false);
     setShowSpeaking(false);
+    setShowInsights(false);
     setShowLog(open);
+  };
+
+  const setInsightsOpen = (open: boolean) => {
+    replaceRoute(open ? { kind: "insights" } : { kind: "dashboard" });
+    setSelected(null);
+    setShowQuiz(false);
+    setShowSpeaking(false);
+    setShowLog(false);
+    setShowInsights(open);
   };
 
   const openKnowledge = (item: Knowledge) => {
@@ -283,6 +303,7 @@ export default function App() {
           dailyStatus={dailyReview.status}
           onRecorded={reloadAfterReview}
           onKnowledgeUpdate={updateKnowledge}
+          insightStore={insightStore}
         />
       </Suspense>
     );
@@ -296,6 +317,18 @@ export default function App() {
           loading={loading}
           error={error}
           onExit={() => setSpeakingOpen(false)}
+        />
+      </Suspense>
+    );
+  }
+
+  if (showInsights) {
+    return (
+      <Suspense fallback={<div className="msg">読み込み中...</div>}>
+        <InsightsView
+          knowledge={registrationKnowledge}
+          store={insightStore}
+          onExit={() => setInsightsOpen(false)}
         />
       </Suspense>
     );
@@ -361,6 +394,7 @@ export default function App() {
 
       <div className="page-tools">
         <button className="page-tool-link" onClick={() => setLogOpen(true)}>学習ログ</button>
+        <button className="page-tool-link" onClick={() => setInsightsOpen(true)}>示唆 {insightStore.insights.length}件</button>
         <a className="page-tool-link" href="api/export">JSON書き出し</a>
         <a className="page-tool-link" href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
         <button
@@ -454,6 +488,7 @@ export default function App() {
           onClose={closeKnowledge}
           onEdit={() => openEdit(selected)}
           onArchive={() => void archiveKnowledge(selected)}
+          insightStore={insightStore}
         />
       )}
       {formTarget !== undefined && (

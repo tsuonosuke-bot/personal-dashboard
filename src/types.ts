@@ -254,3 +254,24 @@ export interface QuizGradeResponse {
   results: QuizGradeResult[];
   failures: QuizGradeFailure[];
 }
+
+/** ナレッジごとに残す「自分にとってどう役立つか」の付箋。出題・採点には使わない。 */
+export interface KnowledgeInsight {
+  id: number;
+  knowledge_id: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InsightTheme {
+  title: string;
+  summary: string;
+  importance: string;
+  insight_ids: number[];
+}
+
+export interface InsightAnalysis {
+  themes: InsightTheme[];
+  analyzed_count: number;
+}

@@ -73,6 +73,9 @@ SSO引き継ぎ後に日次キューへ遷移する。
 - `PATCH /api/knowledge/:id` — 許可項目の編集、アーカイブまたは復元。本文は
   `{ expected_version, changes }` とし、読み込み後に別画面で更新されていれば409を返す
 - `GET /api/quiz-log` — クイズ履歴を新しい順に取得
+- `GET/POST /api/insights`、`PATCH/DELETE /api/insights/:id` — ナレッジごとの示唆（付箋）の一覧・追加・編集・削除。
+  出題・採点には使わない
+- `POST /api/insights/analyze` — 示唆をAIでテーマごとにまとめ、複数のナレッジに共通する示唆を返す（保存しない）
 - `POST /api/inbox` — 採点結果の「あとで深掘りする」から、深掘りしたい点を出典ナレッジ名つきで
   `idea_inbox`（未整理）へ1件登録する。採点・復習予定は変更しない
 - `GET /api/export` — ナレッジ、復習履歴、英会話練習履歴を読み取り専用JSONとして書き出す

@@ -1,10 +1,12 @@
 import type {
-  DailyReviewStatus, Knowledge, KnowledgeDraft, MasteryHistoryEvent, QuizFormatRequest, QuizGradeResponse, QuizLog,
+  DailyReviewStatus, InsightAnalysis, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizFormatRequest, QuizGradeResponse, QuizLog,
   QuizStart, RecoveryPreview, SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
   SpeakingPracticeWrite,
 } from "../types";
 import {
   parseDailyReviewStatus,
+  parseInsightAnalysis,
+  parseKnowledgeInsight,
   parseKnowledge,
   parseMasteryHistoryEvent,
   parsePageEnvelope,
@@ -178,6 +180,48 @@ export function getSpeakingPracticeLog(from: string): Promise<SpeakingPracticeLo
     `/api/speaking-practice?from=${encodeURIComponent(from)}`,
     parseSpeakingPracticeLog,
   );
+}
+
+const INSIGHT_HEADERS = {
+  "Content-Type": "application/json",
+  "X-Dashboard-Action": "knowledge-insight",
+};
+
+export function getInsights(): Promise<KnowledgeInsight[]> {
+  return getAllPages("/api/insights", parseKnowledgeInsight);
+}
+
+export async function createInsight(knowledgeId: string, body: string): Promise<KnowledgeInsight> {
+  const data = await requestJson("/api/insights", {
+    method: "POST",
+    headers: INSIGHT_HEADERS,
+    body: JSON.stringify({ knowledge_id: knowledgeId, body }),
+  });
+  return parseKnowledgeInsight(data);
+}
+
+export async function updateInsight(insight: KnowledgeInsight, body: string): Promise<KnowledgeInsight> {
+  const data = await requestJson(`/api/insights/${insight.id}`, {
+    method: "PATCH",
+    headers: INSIGHT_HEADERS,
+    body: JSON.stringify({ body, expected_updated_at: insight.updated_at }),
+  });
+  return parseKnowledgeInsight(data);
+}
+
+export async function deleteInsight(id: number): Promise<void> {
+  await requestJson(`/api/insights/${id}`, {
+    method: "DELETE",
+    headers: { "X-Dashboard-Action": "knowledge-insight" },
+  });
+}
+
+export async function analyzeInsights(): Promise<InsightAnalysis> {
+  const data = await requestJson("/api/insights/analyze", {
+    method: "POST",
+    headers: { "X-Dashboard-Action": "knowledge-insight" },
+  });
+  return parseInsightAnalysis(data);
 }
 
 export async function addDeepDiveToInbox(knowledgeId: string, note: string): Promise<{ id: number }> {
