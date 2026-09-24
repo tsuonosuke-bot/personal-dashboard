@@ -1,7 +1,6 @@
 import type { DashboardEnv } from "./dashboard.ts";
 import { loadHabits } from "./habits.ts";
 import { FOCUS_LIMIT, normalizeFocusRows, type FocusRow } from "./focus.ts";
-import { loadFocusKnowledgeLinks, type LinkedKnowledge } from "./focusKnowledge.ts";
 
 export interface HubEnv extends DashboardEnv {
   HUB_SERVICE_TOKEN?: string;
@@ -480,7 +479,6 @@ export function normalizeHub(
   reviewStatus: KnowledgeReviewStatus | null = null,
   projectRows: ProjectRow[] = [],
   writingRows: WritingRow[] = [],
-  focusKnowledge: Map<number, LinkedKnowledge[]> | null = null,
 ) {
   const { today, year, month } = jstDateParts(now);
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -515,8 +513,7 @@ export function normalizeHub(
     .filter((want) => want.type !== "wish" && (want.revisitOn === null || want.revisitOn <= today));
   const focus = normalizeFocusRows(focusRows)
     .filter((item) => item.status === "active")
-    .slice(0, FOCUS_LIMIT)
-    .map((item) => ({ ...item, knowledge: focusKnowledge?.get(item.id) || [] }));
+    .slice(0, FOCUS_LIMIT);
   const activeProjects = projectRows.filter((row) => ["active", "waiting", "on_hold"].includes(text(row.status).toLowerCase()));
   const writingIdeas = writingRows.filter((row) => text(row.status).toLowerCase() === "candidate");
   const expenses = expenseRows.map((row) => ({
@@ -598,7 +595,7 @@ export function normalizeHub(
 export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
-  const [inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, journal, habits, focusKnowledge] = await Promise.allSettled([
+  const [inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, journal, habits] = await Promise.allSettled([
     fetchRows(env, { table: "idea_inbox", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<InboxRow[]>,
     fetchRows(env, { table: "wants", select: "status,type,revisit_on" }) as Promise<WantRow[]>,
     fetchFocusRows(env),
@@ -609,7 +606,6 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     fetchDashboardJson(env, knowledgeUrl, "/api/review/queue?limit=15") as Promise<KnowledgeReviewStatus>,
     loadJournalMoments(env, now),
     loadHabits(env, now),
-    loadFocusKnowledgeLinks(env).catch(() => null),
   ] as const);
   const results = { inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, journal, habits };
   const availability: HubAvailability = {
@@ -645,7 +641,6 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     reviewStatus.status === "fulfilled" ? reviewStatus.value : null,
     projects.status === "fulfilled" ? projects.value : [],
     writing.status === "fulfilled" ? writing.value : [],
-    focusKnowledge.status === "fulfilled" ? focusKnowledge.value : null,
   );
 }
 

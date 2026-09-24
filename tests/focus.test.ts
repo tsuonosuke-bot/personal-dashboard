@@ -51,28 +51,17 @@ test("Focus GET uses the server-side Supabase key and returns board metadata", a
   const requests: Array<{ url: string; headers: Record<string, string> }> = [];
   globalThis.fetch = async (input, init) => {
     requests.push({ url: String(input), headers: init?.headers as Record<string, string> });
-    if (String(input).includes("/focus_knowledge_links")) {
-      return Response.json([{ focus_id: 2, knowledge_id: "6f1b2f5c-9a58-4a2f-8f0e-2b1d7a9c4e31", knowledge: { id: "6f1b2f5c-9a58-4a2f-8f0e-2b1d7a9c4e31", title: "Knowledge title", category: "IT" } }]);
-    }
     return Response.json([focusRow({ id: 2, sort_order: 2 }), focusRow({ id: 1, sort_order: 1 })]);
   };
   try {
     const response = await focusRoute({ request: new Request("https://hub.example/api/focus"), env });
-    const body = await response.json() as {
-      items: Array<{ id: number; knowledge: Array<{ title: string; url: string }> }>;
-      activeCount: number;
-      limit: number;
-      knowledgeLinksAvailable: boolean;
-    };
+    const body = await response.json() as { items: Array<{ id: number }>; activeCount: number; limit: number };
     assert.equal(response.status, 200);
     assert.deepEqual(body.items.map((item) => item.id), [1, 2]);
     assert.equal(body.activeCount, 2);
     assert.equal(body.limit, 5);
-    assert.equal(body.knowledgeLinksAvailable, true);
-    assert.deepEqual(body.items[0].knowledge, []);
-    assert.deepEqual(body.items[1].knowledge.map((item) => item.url), ["/knowledge/?knowledge=6f1b2f5c-9a58-4a2f-8f0e-2b1d7a9c4e31"]);
-    assert.equal(requests.length, 2);
-    assert.ok(requests.every((request) => request.headers.apikey === "server-secret"));
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].headers.apikey, "server-secret");
     assert.match(requests[0].url, /\/rest\/v1\/focus_items/);
     assert.doesNotMatch(JSON.stringify(body), /server-secret/);
   } finally {
