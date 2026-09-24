@@ -89,6 +89,17 @@
 5. この操作はナレッジDBへ書き込まない。元のWantの状態（振り分け時に`completed`済み）も変更しない。
 6. 二重送信しても最初の結果を返し、記録済みの対象IDは書き換えない。`planned`以外へ変わっていた場合は409で拒否して再読込を求める。
 
+### 画面外で作成したGitHub Issueを登録済みにする
+
+GitHub Issueの作成もダッシュボードの外（LLMとの会話やGitHub上）で行うため、Knowledgeと同じく利用者の明示操作で登録済みにする。
+
+1. Ideaの「GitHub登録待ち」（`?filter=github`）で対象Wantの詳細を開き、振り分け履歴のGitHub候補にある「GitHub登録済みにする」を押す。
+2. Issue URLは任意。`https://github.com/<owner>/<repo>/issues/<番号>` を入力すると、Issue番号を`target_id`、URLを`target_url`に記録し、正本リンクとして残す。
+3. 空欄で確定した場合は`target_id`へ`manual`を記録し、正本リンクは残さない。
+4. 確定すると`want_routes`が`created`になり、「GitHub登録待ち」とHubの件数から外れる。
+5. この操作はGitHubへ書き込まない。Issueの実在確認もしない（サーバーにGitHubの認証情報を持たせない）。
+6. 二重送信・競合時の扱いはKnowledgeと同じ。
+
 ### Knowledge候補を後でまとめて処理する
 
 1. 「調査」を確定しても`public.knowledge`へは書き込まない。`want_routes`の`destination='knowledge'`かつ`status='planned'`が候補キューになる。
@@ -107,7 +118,9 @@
 2. Personal Hubの先頭にActive Focusが指定順で表示される。
 3. Hubの「管理」から文言・補足を編集し、上下で並び替える。
 4. 今は表示しない項目は「表示から外す」にする。元Wantと振り分け履歴は削除しない。
-5. Active Focusは5件まで。再表示または新規振り分け時に満杯なら、先に1件を表示から外す。
+5. Active Focusは5件まで。満杯のときに新しく振り分けたFocusは失敗させず「表示解除中」（控え）として登録する。
+6. 表示解除中のFocusは、満杯なら管理画面の「入れ替えて表示」で表示中の1件を選んで入れ替える（`swap_focus_items`で1トランザクション。新しいFocusは外した項目の順番に入り、外した項目は表示解除中に残る）。空きがあれば「再び表示」で戻す。
+7. Focusはどこかで得た示唆なので、管理画面の「関連ナレッジ」からナレッジDBをタイトル検索して紐づけられる（`focus_knowledge_links`、1件のFocusにつき10件まで）。紐づけはナレッジDB本体を変更しない。FocusまたはKnowledgeを削除すると紐づけだけが消える。
 
 ## AIを呼ぶタイミングと権限
 
@@ -145,7 +158,7 @@ Inboxへ登録
 | 欲しいもの | `wants`へ`type='wish'`で登録。購入処理なし |
 | 保留 | `wants`へ`revisit_on`つきで登録し、再訪日に浮上させる |
 | Google Calendar | OAuth接続後、日付・時間を確認してメインカレンダーへ作成し、再取得したID・URLを保存 |
-| GitHub | `planned` として保存。外部送信なし |
+| GitHub | `planned` として保存。外部送信なし。Issue作成後に「GitHub登録済みにする」で`created`にする |
 | Knowledge DB | Knowledge候補を`planned`として保存。後続LLMがまとめて調査し、重複・カテゴリ検証後に登録する。画面外で登録した場合は「Knowledge登録済みにする」で`created`にする |
 | Journal | `planned` として保存。既存Journalの書込仕様確定前には登録しない |
 

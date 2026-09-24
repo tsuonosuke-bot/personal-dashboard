@@ -58,7 +58,8 @@ Browser
 - 未整理のActive Wantsを古い順で最大3件表示
 - 未整理件数と一覧からIdeaの絞り込み表示へ直接移動
 - Wantから選んだFocusを最大5件、指定順で固定表示
-- Focusの言葉・補足の編集、表示解除／再表示、並び替え
+- Focusの言葉・補足の編集、表示解除／再表示、並び替え、満杯時の入れ替え（満杯中に追加したFocusは表示解除中に入る）
+- Focus（示唆）に関連ナレッジを紐づけ（管理画面でタイトル検索して最大10件。Hubのカードに関連ナレッジを表示）
 - 直近5件の家計簿レコード
 - 苦手を最大2件、今日の復習残件、期限超過、新規を組み合わせたナレッジ候補
 - 1か月前・半年前・1年前の各基準日以前で最も近い `daily_journal` を表示
@@ -115,6 +116,7 @@ Browser
 - Inbox由来のWantは `source_inbox_id` で元のInboxと結び付け、一覧カードに振り分け先・再訪日を表示
 - Knowledge・GitHub・Journalは計画保存のままのため「登録待ち」として区別し、「Knowledge登録待ち」で絞り込み（`?filter=knowledge`）
 - ナレッジDBへ画面外（LLMとの会話など）で登録した候補は、Wantの振り分け履歴から「Knowledge登録済みにする」で登録待ちを解除（Knowledge IDを入力すると正本へのリンクも残る）
+- GitHub Issueを画面外で作成した候補は、同じく「GitHub登録済みにする」で登録待ちを解除（Issue URLを入力すると正本へのリンクも残る）
 - 検索、ステータス絞り込み、詳細ドロワー、再読込
 - `/compass/?view=wants&filter=untriaged` で未整理のActive Wantsへ直接移動（既存URLとの互換名）
 - `/api/health` による接続状態確認
@@ -145,7 +147,7 @@ Google Calendar連携を有効にする場合は、続けて `supabase/migration
 
 Habit MVPを有効にする場合は、続けて `supabase/migrations/202609200003_habits_mvp.sql` を適用します。これにより直接登録、開始日、日次・週次の冪等な記録キーが追加されます。
 
-Focus管理を有効にする場合は `supabase/migrations/202609200004_focus_board.sql` も適用します。Active FocusはDBトリガーで5件までに制限し、並び替えは現在の順序を確認してから1トランザクションで更新します。
+Focus管理を有効にする場合は `supabase/migrations/202609200004_focus_board.sql` も適用します。Active FocusはDBトリガーで5件までに制限し、並び替えは現在の順序を確認してから1トランザクションで更新します。満杯時の追加と入れ替えには `supabase/migrations/202609240001_focus_overflow_and_swap.sql` を適用します。Focusとナレッジの紐づけには `supabase/migrations/202609240002_focus_knowledge_links.sql` を適用します（未適用でもFocus自体は表示され、紐づけ欄だけが出ません）。
 
 整理済みWantの自動完了を有効にする場合は、`supabase/migrations/202609200005_auto_complete_routed_wants.sql` まで適用します。既存の `planned` / `created` 振り分けがあるActive Wantを一度だけ `completed` に整合し、以後は成功した振り分けから同じ状態遷移を保証します。
 

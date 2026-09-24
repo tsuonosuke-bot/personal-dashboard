@@ -1,4 +1,5 @@
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
+import { loadFocusKnowledgeLinks } from "./focusKnowledge.ts";
 
 const MAX_REQUEST_CHARS = 16_000;
 const MAX_CONTENT_CHARS = 240;
@@ -50,6 +51,11 @@ export interface FocusUpdateInput {
 export interface FocusReorderInput {
   ids: number[];
   originalIds: number[];
+}
+
+export interface FocusSwapInput {
+  activateId: number;
+  archiveId: number;
 }
 
 type ValidationResult<T> =
@@ -126,6 +132,12 @@ async function focusResponseError(response: Response): Promise<DashboardError> {
   if (detail.includes("FOCUS_REORDER_CONFLICT")) {
     return new DashboardError("FOCUS_REORDER_CONFLICT", "Focus order changed before update.", 409);
   }
+  if (detail.includes("FOCUS_SWAP_CONFLICT")) {
+    return new DashboardError("FOCUS_SWAP_CONFLICT", "Focus changed before swap.", 409);
+  }
+  if (detail.includes("FOCUS_SWAP_INVALID")) {
+    return new DashboardError("FOCUS_SWAP_INVALID", "Focus swap request is invalid.", 400);
+  }
   if (detail.includes("FOCUS_REORDER_INVALID")) {
     return new DashboardError("FOCUS_REORDER_INVALID", "Focus reorder request is invalid.", 400);
   }
@@ -191,16 +203,20 @@ export async function loadFocus(env: DashboardEnv) {
     if (rows.length < PAGE_SIZE) break;
   }
   const sorted = sortFocusItems(items);
+  const links = await loadFocusKnowledgeLinks(env);
   return {
-    items: sorted,
+    items: sorted.map((item) => ({ ...item, knowledge: links?.get(item.id) || [] })),
+    knowledgeLinksAvailable: links !== null,
     activeCount: sorted.filter((item) => item.status === "active").length,
     limit: FOCUS_LIMIT,
   };
 }
 
+export type FocusAction = "focus-update" | "focus-reorder" | "focus-swap";
+
 export function validateFocusMutationRequest(
   request: Request,
-  actionHeader: "focus-update" | "focus-reorder",
+  actionHeader: FocusAction,
 ): { status: number; error: string } | null {
   let expectedOrigin: string;
   try {
@@ -308,6 +324,21 @@ export async function readFocusReorderInput(request: Request): Promise<Validatio
   return { ok: true, value: { ids: value.ids, originalIds: value.originalIds } };
 }
 
+export async function readFocusSwapInput(request: Request): Promise<ValidationResult<FocusSwapInput>> {
+  const parsed = await readJson(request);
+  if (!parsed.ok) return parsed;
+  const value = parsed.value;
+  if (!isPlainObject(value) || !hasOnlyKeys(value, ["activateId", "archiveId"])) {
+    return { ok: false, status: 400, error: "入れ替えの形式が正しくありません。" };
+  }
+  const activateId = positiveInteger(value.activateId);
+  const archiveId = positiveInteger(value.archiveId);
+  if (!activateId || !archiveId || activateId === archiveId || !Number.isSafeInteger(value.activateId) || !Number.isSafeInteger(value.archiveId)) {
+    return { ok: false, status: 400, error: "入れ替えるFocusが正しくありません。" };
+  }
+  return { ok: true, value: { activateId, archiveId } };
+}
+
 function setSnapshotFilter(endpoint: URL, name: string, value: string | number | null): void {
   endpoint.searchParams.set(name, value === null ? "is.null" : `eq.${value}`);
 }
@@ -341,6 +372,20 @@ export async function reorderFocusItems(env: DashboardEnv, input: FocusReorderIn
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ p_ids: input.ids, p_original_ids: input.originalIds }),
+  });
+  if (!response.ok) throw await focusResponseError(response);
+  const rows: unknown = await response.json();
+  if (!Array.isArray(rows)) throw new DashboardError("SUPABASE_RESPONSE_INVALID", "focus_items returned invalid data.");
+  return normalizeFocusRows(rows as FocusRow[]);
+}
+
+export async function swapFocusItems(env: DashboardEnv, input: FocusSwapInput): Promise<FocusItem[]> {
+  const connectionInfo = connection(env);
+  const endpoint = new URL("/rest/v1/rpc/swap_focus_items", connectionInfo.url);
+  const response = await supabaseFetch(connectionInfo, endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ p_activate_id: input.activateId, p_archive_id: input.archiveId }),
   });
   if (!response.ok) throw await focusResponseError(response);
   const rows: unknown = await response.json();
