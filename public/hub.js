@@ -12,7 +12,6 @@ const ids = [
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
 const FOCUS_BOARD_LIMIT = 5;
 let focusItems = [];
-let focusKnowledgeAvailable = false;
 let focusReturnTarget = null;
 
 function escapeHtml(value) {
@@ -167,12 +166,6 @@ function renderInbox(items, available = true) {
   `; }).join("");
 }
 
-function focusKnowledgeSummary(knowledge) {
-  if (!Array.isArray(knowledge) || knowledge.length === 0) return "";
-  const rest = knowledge.length > 1 ? ` ほか${knowledge.length - 1}件` : "";
-  return `<span class="focus-knowledge-line">ナレッジ: ${escapeHtml(knowledge[0].title)}${rest}</span>`;
-}
-
 function renderFocus(items, available = true) {
   els.manageFocusButton.disabled = !available;
   if (!available) {
@@ -188,7 +181,6 @@ function renderFocus(items, available = true) {
       <span class="focus-number">${String(index + 1).padStart(2, "0")}</span>
       <strong>${escapeHtml(item.content)}</strong>
       ${item.note ? `<small>${escapeHtml(item.note)}</small>` : ""}
-      ${focusKnowledgeSummary(item.knowledge)}
     </button>
   `).join("");
 }
@@ -206,54 +198,6 @@ function focusSnapshot(item) {
     status: item.status,
     sortOrder: item.sortOrder,
   };
-}
-
-function focusKnowledgeEditor(item) {
-  const linked = Array.isArray(item.knowledge) ? item.knowledge : [];
-  const chips = linked.length
-    ? linked.map((knowledge) => `<span class="focus-knowledge-chip"><a href="${escapeHtml(knowledge.url)}">${escapeHtml(knowledge.title)}</a><button type="button" data-focus-action="knowledge-unlink" data-knowledge-id="${escapeHtml(knowledge.id)}" aria-label="${escapeHtml(knowledge.title)}の紐づけを外す">×</button></span>`).join("")
-    : '<small class="focus-knowledge-empty">まだ紐づいていません</small>';
-  return `<div class="focus-knowledge-editor">
-      <span>関連ナレッジ</span>
-      <div class="focus-knowledge-chips">${chips}</div>
-      <div class="focus-knowledge-search">
-        <input type="search" name="knowledgeQuery" maxlength="50" placeholder="ナレッジをタイトルで検索" aria-label="紐づけるナレッジを検索">
-        <button type="button" data-focus-action="knowledge-search">検索</button>
-      </div>
-      <div class="focus-knowledge-results" data-focus-knowledge-results></div>
-    </div>`;
-}
-
-async function searchFocusKnowledge(form) {
-  const query = form.elements.knowledgeQuery.value.trim();
-  const results = form.querySelector("[data-focus-knowledge-results]");
-  if (!query) {
-    results.innerHTML = "";
-    return;
-  }
-  const response = await fetch(`/api/focus-knowledge?q=${encodeURIComponent(query)}`, { headers: { Accept: "application/json" }, cache: "no-store" });
-  const payload = await readApiJson(response);
-  if (!response.ok) throw new Error(payload.error || "ナレッジを検索できませんでした。");
-  const item = focusItems.find((candidate) => candidate.id === Number(form.dataset.focusId));
-  const linkedIds = new Set((item?.knowledge || []).map((knowledge) => knowledge.id));
-  const candidates = (Array.isArray(payload.items) ? payload.items : []).filter((knowledge) => !linkedIds.has(knowledge.id));
-  results.innerHTML = candidates.length
-    ? candidates.map((knowledge) => `<button type="button" data-focus-action="knowledge-link" data-knowledge-id="${escapeHtml(knowledge.id)}"><strong>${escapeHtml(knowledge.title)}</strong>${knowledge.category ? `<small>${escapeHtml(knowledge.category)}</small>` : ""}</button>`).join("")
-    : '<small class="focus-knowledge-empty">該当するナレッジがありません</small>';
-}
-
-async function changeFocusKnowledge(method, focusId, knowledgeId) {
-  const response = await fetch("/api/focus-knowledge", {
-    method,
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "X-Dashboard-Action": method === "POST" ? "focus-knowledge-link" : "focus-knowledge-unlink",
-    },
-    body: JSON.stringify({ focusId, knowledgeId }),
-  });
-  const payload = await readApiJson(response);
-  if (!response.ok) throw new Error(payload.error || "ナレッジの紐づけを更新できませんでした。");
 }
 
 function renderFocusManagement() {
@@ -284,7 +228,6 @@ function renderFocusManagement() {
       ${!active && activeItems.length >= FOCUS_BOARD_LIMIT ? `<label class="focus-swap-field"><span>入れ替える表示中Focus</span><select name="swapTarget">
         ${activeItems.map((target, index) => `<option value="${target.id}"${index === activeItems.length - 1 ? " selected" : ""}>${String(index + 1).padStart(2, "0")} ${escapeHtml(target.content)}</option>`).join("")}
       </select></label>` : ""}
-      ${focusKnowledgeAvailable ? focusKnowledgeEditor(item) : ""}
     </form>`;
   }).join("");
 }
@@ -310,7 +253,6 @@ async function loadFocusManagement(successMessage = "") {
   const payload = await readApiJson(response);
   if (!response.ok) throw new Error(payload.error || "Focusを読み込めませんでした。");
   focusItems = Array.isArray(payload.items) ? payload.items : [];
-  focusKnowledgeAvailable = payload.knowledgeLinksAvailable === true;
   renderFocusManagement();
   renderFocus(focusItems.filter((item) => item.status === "active"), true);
   setFocusMessage(successMessage);
@@ -490,12 +432,6 @@ els.focusManageList.addEventListener("submit", async (event) => {
     form.querySelectorAll("button, input, textarea").forEach((control) => { control.disabled = false; });
   }
 });
-els.focusManageList.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" || event.target?.name !== "knowledgeQuery") return;
-  event.preventDefault();
-  event.target.closest(".focus-editor")?.querySelector('[data-focus-action="knowledge-search"]')?.click();
-});
-
 els.focusManageList.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-focus-action]");
   const form = button?.closest(".focus-editor");
@@ -505,14 +441,7 @@ els.focusManageList.addEventListener("click", async (event) => {
   setFocusMessage();
   button.disabled = true;
   try {
-    if (action === "knowledge-search") {
-      await searchFocusKnowledge(form);
-      button.disabled = false;
-    } else if (action === "knowledge-link" || action === "knowledge-unlink") {
-      await changeFocusKnowledge(action === "knowledge-link" ? "POST" : "DELETE", id, button.dataset.knowledgeId);
-      await loadFocusManagement(action === "knowledge-link" ? "ナレッジを紐づけました。" : "ナレッジの紐づけを外しました。");
-      els.focusManageList.querySelector(`[data-focus-id="${id}"] input[name="knowledgeQuery"]`)?.focus();
-    } else if (action === "up" || action === "down") {
+    if (action === "up" || action === "down") {
       await reorderFocus(id, action);
       await loadFocusManagement("並び順を更新しました。");
     } else if (action === "swap") {

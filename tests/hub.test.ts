@@ -243,9 +243,8 @@ test("hub route keeps the Supabase secret in server-side headers", async () => {
     });
     const body = await response.text();
     assert.equal(response.status, 200);
-    assert.equal(requests.length, 14);
-    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 11);
-    assert.ok(requests.some((entry) => entry.url.includes("/focus_knowledge_links?")));
+    assert.equal(requests.length, 13);
+    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 10);
     assert.equal(requests.filter((entry) => entry.headers["X-Hub-Service"] === "hub-service-token-that-is-at-least-32-characters").length, 3);
     assert.equal(requests.filter((entry) => entry.url.includes("/daily_journal?")).length, 3);
     assert.ok(requests.some((entry) => entry.url.includes("/projects?select=status")));
