@@ -375,8 +375,6 @@ function renderJournal(items, available = true) {
 
 function renderJournalTrend(trend, available = true) {
   els.journalTrend.innerHTML = renderJournalTrendHtml(trend, available);
-  const viewport = els.journalTrend.querySelector(".journal-trend-viewport");
-  if (viewport) viewport.scrollLeft = viewport.scrollWidth - viewport.clientWidth;
 }
 
 function setSource(source, hasError = false) {
@@ -407,6 +405,8 @@ async function loadHub() {
     setSource(payload.source);
     els.loadingState.hidden = true;
     els.hubContent.hidden = false;
+    const journalViewport = els.journalTrend.querySelector(".journal-trend-viewport");
+    if (journalViewport) journalViewport.scrollLeft = journalViewport.scrollWidth - journalViewport.clientWidth;
   } catch (error) {
     setSource(null, true);
     els.loadingState.hidden = true;
