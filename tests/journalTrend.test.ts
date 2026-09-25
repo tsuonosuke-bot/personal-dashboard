@@ -15,6 +15,10 @@ test("mood graph leaves missing dates disconnected and lists exact recorded date
   assert.match(html, /日付ごとの記録を見る/);
   assert.match(html, /<time datetime="2026-09-12">/);
   assert.match(html, /<time datetime="2026-09-14">/);
+  assert.equal((html.match(/class="journal-trend-tick"/g) || []).length, 14);
+  assert.match(html, /<text x="62" y="164" text-anchor="start">6\/17<\/text>/);
+  assert.match(html, /<text x="132" y="164" text-anchor="middle">6\/24<\/text>/);
+  assert.match(html, /<text x="952" y="164" text-anchor="end">9\/14<\/text>/);
 });
 
 test("mood graph distinguishes empty data from an unavailable source", () => {

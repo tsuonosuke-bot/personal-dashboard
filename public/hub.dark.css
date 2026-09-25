@@ -513,8 +513,11 @@ html[data-theme="dark"] {
   stroke: #d9e3dc;
 }
 :root[data-theme="dark"] .journal-trend-grid text,
-:root[data-theme="dark"] .journal-trend-axis {
+:root[data-theme="dark"] .journal-trend-tick text {
   fill: var(--muted);
+}
+:root[data-theme="dark"] .journal-trend-tick line {
+  stroke: var(--muted);
 }
 :root[data-theme="dark"] .journal-trend-line {
   stroke: var(--green);

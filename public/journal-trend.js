@@ -9,6 +9,11 @@ function displayDate(value) {
   return `${year}年${month}月${day}日`;
 }
 
+function shortDate(value) {
+  const [, month, day] = value.split("-").map(Number);
+  return `${month}/${day}`;
+}
+
 function isPlainDate(value) {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
@@ -36,7 +41,12 @@ export function renderJournalTrendHtml(trend, available = true) {
     if (!Number.isInteger(day.mood) || day.mood < -2 || day.mood > 2 || !Number.isInteger(previous.mood) || previous.mood < -2 || previous.mood > 2) return "";
     return `<line class="journal-trend-line" x1="${x(index)}" y1="${y(previous.mood)}" x2="${x(index + 1)}" y2="${y(day.mood)}"/>`;
   }).join("");
-  const axis = `<text class="journal-trend-axis" x="62" y="164">${displayDate(trend.startDate)}</text><text class="journal-trend-axis" x="952" y="164" text-anchor="end">${displayDate(trend.endDate)}</text>`;
+  const axisDates = Array.from({ length: 13 }, (_, week) => week * 7).concat(89);
+  const axis = axisDates.map((index) => {
+    const position = x(index);
+    const anchor = index === 0 ? "start" : index === 89 ? "end" : "middle";
+    return `<g class="journal-trend-tick"><line x1="${position}" x2="${position}" y1="143" y2="149"/><text x="${position}" y="164" text-anchor="${anchor}">${shortDate(days[index].date)}</text></g>`;
+  }).join("");
   const records = [...recorded].reverse().map((day) => `<li><time datetime="${day.date}">${displayDate(day.date)}</time><strong>${moodLabel(day.mood)}</strong></li>`).join("");
 
   return `<div class="journal-trend">
