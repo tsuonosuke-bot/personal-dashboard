@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import type { InsightStore } from "../hooks/useInsights";
+import { useInsightGroups } from "../hooks/useInsightGroups";
 import { analyzeInsights, ApiError } from "../lib/api";
 import { dashboardRoutePath } from "../lib/dashboardRoute";
 import type { InsightAnalysis, Knowledge, KnowledgeInsight } from "../types";
+import { InsightGroupsPanel } from "./InsightGroupsPanel";
 
 interface Props {
   knowledge: Knowledge[];
@@ -15,6 +17,8 @@ function formatDate(value: string): string {
 }
 
 export function InsightsView({ knowledge, store, onExit }: Props) {
+  const [mode, setMode] = useState<"questions" | "all">("questions");
+  const groupStore = useInsightGroups();
   const [query, setQuery] = useState("");
   const [analysis, setAnalysis] = useState<InsightAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -62,6 +66,13 @@ export function InsightsView({ knowledge, store, onExit }: Props) {
         <h1>示唆</h1>
       </header>
       <main className="quiz-body insights-view">
+        <div className="insight-view-tabs card" role="group" aria-label="示唆の見方">
+          <button type="button" aria-pressed={mode === "questions"} onClick={() => setMode("questions")}>問いで考える</button>
+          <button type="button" aria-pressed={mode === "all"} onClick={() => setMode("all")}>すべての示唆</button>
+        </div>
+        {mode === "questions" ? (
+          <InsightGroupsPanel knowledge={knowledge} insights={store.insights} store={groupStore} />
+        ) : <>
         <div className="insights-toolbar card">
           <p>
             ナレッジごとに残した「自分にとってどう役立つか」のメモです。{store.insights.length}件・
@@ -146,6 +157,7 @@ export function InsightsView({ knowledge, store, onExit }: Props) {
             </li>
           ))}
         </ul>
+        </>}
       </main>
     </div>
   );

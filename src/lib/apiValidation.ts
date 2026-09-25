@@ -1,5 +1,5 @@
 import type {
-  DailyReviewCategoryCount, DailyReviewStatus, InsightAnalysis, Knowledge, KnowledgeInsight, KnowledgePriority, Mastery, MasteryHistoryEvent, QuizEmptyReason, QuizFormat,
+  DailyReviewCategoryCount, DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgePriority, Mastery, MasteryHistoryEvent, QuizEmptyReason, QuizFormat,
   QuizGenerationFailure, QuizGradeFailure, QuizGradeFailurePhase, QuizGradeResponse, QuizGradeResult, QuizLog, QuizQuestion,
   QuizStart, QuizVerdict, RecoveryPreview,
   RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
@@ -460,6 +460,34 @@ export function parseKnowledgeInsight(value: unknown): KnowledgeInsight {
     created_at: stringValue(value, "created_at", entity),
     updated_at: stringValue(value, "updated_at", entity),
   };
+}
+
+export function parseInsightGroup(value: unknown): InsightGroup {
+  const entity = "示唆グループ";
+  if (!isRecord(value)) return fail(entity);
+  const id = numberValue(value, "id", entity);
+  const title = stringValue(value, "title", entity);
+  const guidingQuestion = stringValue(value, "guiding_question", entity);
+  if (!Number.isSafeInteger(id) || id < 1) return fail(entity, "id");
+  if (!title.trim() || title.length > 120) return fail(entity, "title");
+  if (!guidingQuestion.trim() || guidingQuestion.length > 300) return fail(entity, "guiding_question");
+  return {
+    id,
+    title,
+    guiding_question: guidingQuestion,
+    created_at: stringValue(value, "created_at", entity),
+    updated_at: stringValue(value, "updated_at", entity),
+  };
+}
+
+export function parseInsightGroupMember(value: unknown): InsightGroupMember {
+  const entity = "示唆グループの所属";
+  if (!isRecord(value)) return fail(entity);
+  const groupId = numberValue(value, "group_id", entity);
+  const insightId = numberValue(value, "insight_id", entity);
+  if (!Number.isSafeInteger(groupId) || groupId < 1) return fail(entity, "group_id");
+  if (!Number.isSafeInteger(insightId) || insightId < 1) return fail(entity, "insight_id");
+  return { group_id: groupId, insight_id: insightId };
 }
 
 export function parseInsightAnalysis(value: unknown): InsightAnalysis {

@@ -1,11 +1,13 @@
 import type {
-  DailyReviewStatus, InsightAnalysis, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizFormatRequest, QuizGradeResponse, QuizLog,
+  DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizFormatRequest, QuizGradeResponse, QuizLog,
   QuizStart, RecoveryPreview, SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
   SpeakingPracticeWrite,
 } from "../types";
 import {
   parseDailyReviewStatus,
   parseInsightAnalysis,
+  parseInsightGroup,
+  parseInsightGroupMember,
   parseKnowledgeInsight,
   parseKnowledge,
   parseMasteryHistoryEvent,
@@ -222,6 +224,62 @@ export async function analyzeInsights(): Promise<InsightAnalysis> {
     headers: { "X-Dashboard-Action": "knowledge-insight" },
   });
   return parseInsightAnalysis(data);
+}
+
+const INSIGHT_GROUP_HEADERS = {
+  "Content-Type": "application/json",
+  "X-Dashboard-Action": "knowledge-insight-group",
+};
+
+export function getInsightGroups(): Promise<InsightGroup[]> {
+  return getAllPages("/api/insight-groups", parseInsightGroup);
+}
+
+export function getInsightGroupMembers(): Promise<InsightGroupMember[]> {
+  return getAllPages("/api/insight-group-members", parseInsightGroupMember);
+}
+
+export async function createInsightGroup(title: string, guidingQuestion: string): Promise<InsightGroup> {
+  const data = await requestJson("/api/insight-groups", {
+    method: "POST",
+    headers: INSIGHT_GROUP_HEADERS,
+    body: JSON.stringify({ title, guiding_question: guidingQuestion }),
+  });
+  return parseInsightGroup(data);
+}
+
+export async function updateInsightGroup(group: InsightGroup, title: string, guidingQuestion: string): Promise<InsightGroup> {
+  const data = await requestJson(`/api/insight-groups/${group.id}`, {
+    method: "PATCH",
+    headers: INSIGHT_GROUP_HEADERS,
+    body: JSON.stringify({ title, guiding_question: guidingQuestion, expected_updated_at: group.updated_at }),
+  });
+  return parseInsightGroup(data);
+}
+
+export async function deleteInsightGroup(group: InsightGroup): Promise<void> {
+  await requestJson(`/api/insight-groups/${group.id}`, {
+    method: "DELETE",
+    headers: INSIGHT_GROUP_HEADERS,
+    body: JSON.stringify({ expected_updated_at: group.updated_at }),
+  });
+}
+
+export async function addInsightGroupMember(groupId: number, insightId: number): Promise<InsightGroupMember> {
+  const data = await requestJson("/api/insight-group-members", {
+    method: "POST",
+    headers: INSIGHT_GROUP_HEADERS,
+    body: JSON.stringify({ group_id: groupId, insight_id: insightId }),
+  });
+  return parseInsightGroupMember(data);
+}
+
+export async function removeInsightGroupMember(groupId: number, insightId: number): Promise<void> {
+  await requestJson("/api/insight-group-members", {
+    method: "DELETE",
+    headers: INSIGHT_GROUP_HEADERS,
+    body: JSON.stringify({ group_id: groupId, insight_id: insightId }),
+  });
 }
 
 export async function addDeepDiveToInbox(knowledgeId: string, note: string): Promise<{ id: number }> {

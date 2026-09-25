@@ -83,6 +83,14 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - 出題・採点・定着間隔の計算には一切使わない。`pick_quiz`・`record_answer`・クイズAPIから参照しない
 - 他: `id`, `knowledge_id`（ナレッジ削除で連動削除）, `body`, `created_at`, `updated_at`
 
+### 示唆の問いグループ
+
+- `insight_groups` は自分で付けるテーマ名と、先に思い出すための `guiding_question` を保持する
+- `insight_group_members` は `knowledge_insights.id` とグループの多対多の所属だけを保持する。示唆本文は複製しない
+- グループ削除では所属だけを消し、示唆本文を残す。示唆削除では所属を連動削除する
+- グループを閲覧・整理しても `quiz_log`、習熟度、次回復習時刻を更新しない
+- タグ別画面は既存の `knowledge.tags` を厳密一致で集計し、タグなしも表示する。タグの一括補完は行わない
+
 ### DBアクセス
 
 Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは次だけ。
@@ -102,6 +110,8 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `PATCH /api/insights/:id` / `DELETE /api/insights/:id`: 示唆1件の編集・削除。編集は`updated_at`で競合を検出して409
 - `POST /api/insights/analyze`: 新しい順に最大300件の示唆とナレッジ名だけをClaude APIへ送り、複数のナレッジに
   共通するテーマを返す。根拠IDは渡した示唆に限り、結果は保存しない
+- `GET/POST /api/insight-groups`、`PATCH/DELETE /api/insight-groups/:id`: 手動で問いグループを取得・作成・編集・削除する。編集・削除は `updated_at` で競合を検出する
+- `GET/POST/DELETE /api/insight-group-members`: 示唆ID単位の所属を取得・追加・解除する。示唆本文には触れない
 - `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す。
   `categories`（登録済みカテゴリ名の配列。空配列は全カテゴリ）、`limit`、`format` で絞り込む。
   `excludeIds`（バックグラウンドで採点中のナレッジID、最大60件）は選定関数へ渡さず、その件数だけ多めに

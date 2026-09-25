@@ -100,6 +100,10 @@ export function QuizView({
     () => [...new Set(knowledge.map((item) => item.category))].sort(),
     [knowledge],
   );
+  const tagSuggestions = useMemo(
+    () => [...new Set(knowledge.flatMap((item) => item.tags))].sort((a, b) => a.localeCompare(b, "ja")),
+    [knowledge],
+  );
   const detail = knowledge.find((item) => item.id === detailId) ?? null;
 
   useEffect(() => {
@@ -641,6 +645,7 @@ export function QuizView({
           key={editTarget.id}
           knowledge={editTarget}
           categories={categories}
+          tagSuggestions={tagSuggestions}
           saving={editSaving}
           error={editError}
           onClose={closeEdit}

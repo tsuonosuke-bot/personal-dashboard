@@ -28,6 +28,8 @@ const LearningLogView = lazy(() => import("./components/LearningLogView")
   .then((module) => ({ default: module.LearningLogView })));
 const InsightsView = lazy(() => import("./components/InsightsView")
   .then((module) => ({ default: module.InsightsView })));
+const TagGroupsView = lazy(() => import("./components/TagGroupsView")
+  .then((module) => ({ default: module.TagGroupsView })));
 const SpeakingPracticeView = lazy(() => import("./components/SpeakingPracticeView")
   .then((module) => ({ default: module.SpeakingPracticeView })));
 
@@ -37,6 +39,7 @@ export default function App() {
   const [showSpeaking, setShowSpeaking] = useState(() => initialRoute.kind === "speaking");
   const [showLog, setShowLog] = useState(() => initialRoute.kind === "log");
   const [showInsights, setShowInsights] = useState(() => initialRoute.kind === "insights");
+  const [showTags, setShowTags] = useState(() => initialRoute.kind === "tags");
   const [quizMode, setQuizMode] = useState<"daily" | "custom">(() => (
     initialRoute.kind === "quiz" ? initialRoute.mode : "custom"
   ));
@@ -64,7 +67,7 @@ export default function App() {
   const [archiveOpen, setArchiveOpen] = useState(false);
 
   // 画面を切り替えても同じdocumentのままなので、直前の画面のスクロール位置が残る。
-  const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : showLog ? "log" : showInsights ? "insights" : "dashboard";
+  const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : showLog ? "log" : showInsights ? "insights" : showTags ? "tags" : "dashboard";
   const previousView = useRef(view);
   useLayoutEffect(() => {
     if (previousView.current === view) return;
@@ -76,6 +79,10 @@ export default function App() {
   const categories = useMemo(
     () => [...new Set(knowledge.map((k) => k.category))].sort(),
     [knowledge],
+  );
+  const tagSuggestions = useMemo(
+    () => [...new Set([...knowledge, ...archivedKnowledge].flatMap((item) => item.tags))].sort((a, b) => a.localeCompare(b, "ja")),
+    [archivedKnowledge, knowledge],
   );
   const registrationKnowledge = useMemo(
     () => [...knowledge, ...archivedKnowledge],
@@ -99,17 +106,19 @@ export default function App() {
       setShowSpeaking(false);
       setShowLog(false);
       setShowInsights(false);
+      setShowTags(false);
       setShowQuiz(true);
       return;
     }
 
-    if (route.kind === "speaking" || route.kind === "log" || route.kind === "insights") {
+    if (route.kind === "speaking" || route.kind === "log" || route.kind === "insights" || route.kind === "tags") {
       setSelected(null);
       setArchiveOpen(false);
       setShowQuiz(false);
       setShowSpeaking(route.kind === "speaking");
       setShowLog(route.kind === "log");
       setShowInsights(route.kind === "insights");
+      setShowTags(route.kind === "tags");
       return;
     }
 
@@ -117,6 +126,7 @@ export default function App() {
     setShowSpeaking(false);
     setShowLog(false);
     setShowInsights(false);
+    setShowTags(false);
     if (loading || error) return;
 
     if (route.kind === "knowledge") {
@@ -127,12 +137,12 @@ export default function App() {
         return;
       }
       const archived = archivedKnowledge.find((item) => item.id === route.knowledgeId);
-      setSelected(null);
-      replaceRoute({ kind: "dashboard" });
       if (archived) {
-        setArchiveOpen(true);
-        if (notify) setNotice("対象のナレッジはアーカイブ済みです。アーカイブ一覧を表示します。");
+        setArchiveOpen(false);
+        setSelected(archived);
       } else {
+        setSelected(null);
+        replaceRoute({ kind: "dashboard" });
         setArchiveOpen(false);
         if (notify) setNotice("対象のナレッジが見つかりません。一覧を表示します。");
       }
@@ -182,6 +192,7 @@ export default function App() {
     setShowSpeaking(false);
     setShowLog(false);
     setShowInsights(false);
+    setShowTags(false);
     setShowQuiz(open);
   };
 
@@ -191,6 +202,7 @@ export default function App() {
     setShowQuiz(false);
     setShowLog(false);
     setShowInsights(false);
+    setShowTags(false);
     setShowSpeaking(open);
   };
 
@@ -200,6 +212,7 @@ export default function App() {
     setShowQuiz(false);
     setShowSpeaking(false);
     setShowInsights(false);
+    setShowTags(false);
     setShowLog(open);
   };
 
@@ -209,7 +222,18 @@ export default function App() {
     setShowQuiz(false);
     setShowSpeaking(false);
     setShowLog(false);
+    setShowTags(false);
     setShowInsights(open);
+  };
+
+  const setTagsOpen = (open: boolean) => {
+    replaceRoute(open ? { kind: "tags" } : { kind: "dashboard" });
+    setSelected(null);
+    setShowQuiz(false);
+    setShowSpeaking(false);
+    setShowLog(false);
+    setShowInsights(false);
+    setShowTags(open);
   };
 
   const openKnowledge = (item: Knowledge) => {
@@ -243,6 +267,7 @@ export default function App() {
 
   const openEdit = (item: Knowledge) => {
     replaceRoute({ kind: "dashboard" });
+    setShowTags(false);
     setSelected(null);
     setActionError(null);
     setFormTarget(item);
@@ -272,6 +297,7 @@ export default function App() {
     try {
       const archived = await updateKnowledge(item.id, item.content_version, { archived: true });
       replaceRoute({ kind: "dashboard" });
+      setShowTags(false);
       setSelected(null);
       setNotice("ナレッジをアーカイブしました。");
       setUndoArchived(archived);
@@ -330,6 +356,32 @@ export default function App() {
           store={insightStore}
           onExit={() => setInsightsOpen(false)}
         />
+      </Suspense>
+    );
+  }
+
+  if (showTags) {
+    return (
+      <Suspense fallback={<div className="msg">読み込み中...</div>}>
+        <TagGroupsView
+          knowledge={knowledge}
+          insights={insightStore.insights}
+          loading={loading}
+          error={error}
+          onOpenKnowledge={openKnowledge}
+          onExit={() => setTagsOpen(false)}
+        />
+        {selected && (
+          <KnowledgeDetailModal
+            knowledge={selected}
+            quizLog={quizLog}
+            mutating={mutating}
+            onClose={closeKnowledge}
+            onEdit={() => openEdit(selected)}
+            onArchive={() => void archiveKnowledge(selected)}
+            insightStore={insightStore}
+          />
+        )}
       </Suspense>
     );
   }
@@ -394,6 +446,7 @@ export default function App() {
 
       <div className="page-tools">
         <button className="page-tool-link" onClick={() => setLogOpen(true)}>学習ログ</button>
+        <button className="page-tool-link" onClick={() => setTagsOpen(true)}>タグで探す</button>
         <button className="page-tool-link" onClick={() => setInsightsOpen(true)}>示唆 {insightStore.insights.length}件</button>
         <a className="page-tool-link" href="api/export">JSON書き出し</a>
         <a className="page-tool-link" href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
@@ -486,8 +539,8 @@ export default function App() {
           quizLog={quizLog}
           mutating={mutating}
           onClose={closeKnowledge}
-          onEdit={() => openEdit(selected)}
-          onArchive={() => void archiveKnowledge(selected)}
+          onEdit={selected.archived ? undefined : () => openEdit(selected)}
+          onArchive={selected.archived ? undefined : () => void archiveKnowledge(selected)}
           insightStore={insightStore}
         />
       )}
@@ -496,6 +549,7 @@ export default function App() {
           key={formTarget?.id ?? "new"}
           knowledge={formTarget}
           categories={categories}
+          tagSuggestions={tagSuggestions}
           saving={mutating}
           error={actionError}
           onClose={() => { setFormTarget(undefined); setActionError(null); }}

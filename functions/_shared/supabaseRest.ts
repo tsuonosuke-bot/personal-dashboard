@@ -3,7 +3,7 @@ export interface SupabaseEnv {
   SUPABASE_SECRET_KEY?: string;
 }
 
-export type SupabaseTable = "knowledge" | "quiz_log" | "speaking_practice_log" | "knowledge_mastery_history" | "idea_inbox" | "knowledge_insights";
+export type SupabaseTable = "knowledge" | "quiz_log" | "speaking_practice_log" | "knowledge_mastery_history" | "idea_inbox" | "knowledge_insights" | "insight_groups" | "insight_group_members";
 
 interface QueryDefinition {
   table: SupabaseTable;
@@ -14,6 +14,7 @@ export interface SupabaseRequest extends QueryDefinition {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   count?: "exact";
+  preferResolution?: "ignore-duplicates";
 }
 
 export type SupabaseRowsResult =
@@ -142,7 +143,9 @@ export async function requestSupabaseRows(
       headers.Prefer = "count=exact";
     } else if (method !== "GET") {
       headers["Content-Type"] = "application/json";
-      headers.Prefer = "return=representation";
+      headers.Prefer = query.preferResolution
+        ? `return=representation,resolution=${query.preferResolution}`
+        : "return=representation";
     }
 
     const response = await fetch(endpoint, {

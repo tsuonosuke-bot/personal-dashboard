@@ -18,7 +18,8 @@ test("knowledge details follow direct URLs, history, and safe fallbacks", async 
   assert.match(source, /window\.history\.pushState\(/);
   assert.match(source, /window\.addEventListener\("popstate", handlePopState\)/);
   assert.match(source, /knowledge\.find\(\(item\) => item\.id === route\.knowledgeId\)/);
-  assert.match(source, /対象のナレッジはアーカイブ済みです。アーカイブ一覧を表示します/);
+  assert.match(source, /if \(archived\) \{\s*setArchiveOpen\(false\);\s*setSelected\(archived\)/);
+  assert.match(source, /onEdit=\{selected\.archived \? undefined : \(\) => openEdit\(selected\)\}/);
   assert.match(source, /対象のナレッジが見つかりません。一覧を表示します/);
   assert.match(source, /onOpen=\{openKnowledge\}/);
   assert.match(source, /onClose=\{closeKnowledge\}/);

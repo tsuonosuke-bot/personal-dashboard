@@ -264,6 +264,20 @@ export interface KnowledgeInsight {
   updated_at: string;
 }
 
+/** 自分で名付けた問い。示唆そのものは既存のknowledge_insightsを参照する。 */
+export interface InsightGroup {
+  id: number;
+  title: string;
+  guiding_question: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InsightGroupMember {
+  group_id: number;
+  insight_id: number;
+}
+
 export interface InsightTheme {
   title: string;
   summary: string;
