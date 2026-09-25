@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { journalTargets, loadHub, normalizeHub, normalizeJournalMoment } from "../functions/_shared/hub.ts";
+import { journalTargets, journalTrendRange, loadHub, normalizeHub, normalizeJournalMoment, normalizeJournalTrend } from "../functions/_shared/hub.ts";
 import { onRequest as hubRoute } from "../functions/api/hub.ts";
 
 const now = new Date("2026-09-14T03:00:00.000Z");
@@ -190,6 +190,26 @@ test("Journal uses the closest past entry and exposes safe Notion links", () => 
   const future = normalizeJournalMoment(target, { entry_date: "2026-09-01", summary: "未来" });
   assert.equal(future.entry, null);
   assert.equal(normalizeJournalMoment(target, null).entry, null);
+  assert.equal(normalizeJournalMoment(target, { entry_date: "2026-08-28", mood: null }).entry?.mood, null);
+});
+
+test("Journal trend uses JST dates, keeps missing days empty, and treats zero as a recorded mood", () => {
+  const edge = new Date("2026-09-24T15:30:00.000Z");
+  assert.equal(journalTrendRange(edge).endDate, "2026-09-25");
+  const trend = normalizeJournalTrend([
+    { entry_date: "2026-09-23", mood: -2 },
+    { entry_date: "2026-09-24", mood: null },
+    { entry_date: "2026-09-25", mood: 0 },
+    { entry_date: "2026-09-26", mood: 2 },
+    { entry_date: "2026-09-22", mood: 3 },
+  ], edge);
+  assert.equal(trend.days.length, 90);
+  assert.deepEqual(trend.days.slice(-4), [
+    { date: "2026-09-22", mood: null },
+    { date: "2026-09-23", mood: -2 },
+    { date: "2026-09-24", mood: null },
+    { date: "2026-09-25", mood: 0 },
+  ]);
 });
 
 test("Journal queries each target with a past-only descending lookup", async () => {
@@ -213,9 +233,12 @@ test("Journal queries each target with a past-only descending lookup", async () 
       SUPABASE_SECRET_KEY: "server-secret",
       HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
     }, now);
-    assert.equal(journalRequests.length, 3);
-    assert.deepEqual(journalRequests.map((url) => url.searchParams.get("entry_date")), ["lte.2026-08-14", "lte.2026-03-14", "lte.2025-09-14"]);
-    assert.ok(journalRequests.every((url) => url.searchParams.get("order") === "entry_date.desc" && url.searchParams.get("limit") === "1"));
+    const moments = journalRequests.filter((url) => url.searchParams.get("select")?.includes("summary"));
+    const trend = journalRequests.find((url) => url.searchParams.get("select") === "entry_date,mood");
+    assert.equal(journalRequests.length, 4);
+    assert.deepEqual(moments.map((url) => url.searchParams.get("entry_date")), ["lte.2026-08-14", "lte.2026-03-14", "lte.2025-09-14"]);
+    assert.ok(moments.every((url) => url.searchParams.get("order") === "entry_date.desc" && url.searchParams.get("limit") === "1"));
+    assert.equal(trend?.searchParams.get("and"), "(entry_date.gte.2026-06-17,entry_date.lte.2026-09-14)");
     assert.deepEqual(hub.journalMoments.map((item) => item.entry?.entryDate), ["2026-08-10", "2026-03-14", "2025-09-14"]);
     assert.equal(hub.journalMoments[0].entry?.daysBeforeTarget, 4);
   } finally {
@@ -243,10 +266,10 @@ test("hub route keeps the Supabase secret in server-side headers", async () => {
     });
     const body = await response.text();
     assert.equal(response.status, 200);
-    assert.equal(requests.length, 13);
-    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 10);
+    assert.equal(requests.length, 14);
+    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 11);
     assert.equal(requests.filter((entry) => entry.headers["X-Hub-Service"] === "hub-service-token-that-is-at-least-32-characters").length, 3);
-    assert.equal(requests.filter((entry) => entry.url.includes("/daily_journal?")).length, 3);
+    assert.equal(requests.filter((entry) => entry.url.includes("/daily_journal?")).length, 4);
     assert.ok(requests.some((entry) => entry.url.includes("/projects?select=status")));
     assert.ok(requests.some((entry) => entry.url.includes("/writing_topics?select=status")));
     assert.ok(requests.every((entry) => !entry.url.includes("secret")));
@@ -305,10 +328,37 @@ test("Journal failure stays isolated from the other Hub sections", async () => {
     }, now);
     assert.equal(hub.source.state, "partial");
     assert.equal(hub.availability.journal, false);
+    assert.equal(hub.availability.journalTrend, false);
     assert.equal(hub.availability.wants, true);
     assert.equal(hub.availability.expenses, true);
     assert.equal(hub.availability.knowledge, true);
-    assert.deepEqual(hub.source.unavailable, ["journal"]);
+    assert.deepEqual(hub.source.unavailable, ["journal", "journalTrend"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Journal trend failure keeps the existing retrospective cards available", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/daily_journal") && url.searchParams.get("select") === "entry_date,mood") {
+      return Response.json({ error: "offline" }, { status: 503 });
+    }
+    if (url.pathname.endsWith("/daily_journal")) return Response.json([]);
+    if (url.hostname.includes("pages.dev")) return Response.json({ items: [], total: 0, limit: 1000, offset: 0 });
+    return Response.json([]);
+  };
+  try {
+    const hub = await loadHub({
+      SUPABASE_URL: "https://compass.supabase.co",
+      SUPABASE_SECRET_KEY: "server-secret",
+      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
+    }, now);
+    assert.equal(hub.availability.journal, true);
+    assert.equal(hub.availability.journalTrend, false);
+    assert.equal(hub.journalMoments.length, 3);
+    assert.deepEqual(hub.source.unavailable, ["journalTrend"]);
   } finally {
     globalThis.fetch = originalFetch;
   }

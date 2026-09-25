@@ -15,6 +15,7 @@ export interface HubAvailability {
   expenses: boolean;
   knowledge: boolean;
   journal: boolean;
+  journalTrend?: boolean;
   habits?: boolean;
 }
 
@@ -102,6 +103,12 @@ export interface JournalMoment {
   };
 }
 
+export interface JournalTrend {
+  startDate: string;
+  endDate: string;
+  days: Array<{ date: string; mood: number | null }>;
+}
+
 interface QueryDefinition {
   table: TableName;
   select: string;
@@ -121,6 +128,7 @@ const FULL_AVAILABILITY: HubAvailability = {
   expenses: true,
   knowledge: true,
   journal: true,
+  journalTrend: true,
   habits: true,
 };
 
@@ -155,6 +163,12 @@ function number(value: unknown): number {
 function integer(value: unknown): number | null {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function moodValue(value: unknown): number | null {
+  if (typeof value !== "number" && (typeof value !== "string" || value.trim() === "")) return null;
+  const parsed = integer(value);
+  return parsed !== null && parsed >= -2 && parsed <= 2 ? parsed : null;
 }
 
 function date(value: unknown): string | null {
@@ -339,6 +353,17 @@ async function loadJournalMoments(env: HubEnv, now: Date): Promise<JournalMoment
   return targets.map((target, index) => normalizeJournalMoment(target, rows[index]));
 }
 
+async function loadJournalTrend(env: HubEnv, now: Date): Promise<JournalTrend> {
+  const { startDate, endDate } = journalTrendRange(now);
+  const rows = await fetchRows(env, {
+    table: "daily_journal",
+    select: "entry_date,mood",
+    order: "entry_date.asc",
+    filters: { and: `(entry_date.gte.${startDate},entry_date.lte.${endDate})` },
+  }) as DailyJournalRow[];
+  return normalizeJournalTrend(rows, now);
+}
+
 function jstDateParts(now: Date) {
   const shifted = new Date(now.getTime() + 9 * 60 * 60 * 1_000);
   return {
@@ -370,13 +395,35 @@ function daysBetween(earlier: string, later: string): number {
   return Math.round((Date.parse(`${later}T00:00:00.000Z`) - Date.parse(`${earlier}T00:00:00.000Z`)) / 86_400_000);
 }
 
+export function journalTrendRange(now = new Date()): { startDate: string; endDate: string } {
+  const endDate = jstDateParts(now).today;
+  const startDate = new Date(Date.parse(`${endDate}T00:00:00.000Z`) - 89 * 86_400_000).toISOString().slice(0, 10);
+  return { startDate, endDate };
+}
+
+export function normalizeJournalTrend(rows: DailyJournalRow[], now = new Date()): JournalTrend {
+  const { startDate, endDate } = journalTrendRange(now);
+  const byDate = new Map<string, number>();
+  for (const row of rows) {
+    const entryDate = plainDate(row.entry_date);
+    const mood = moodValue(row.mood);
+    if (entryDate && entryDate >= startDate && entryDate <= endDate && mood !== null) byDate.set(entryDate, mood);
+  }
+  const start = Date.parse(`${startDate}T00:00:00.000Z`);
+  const days = Array.from({ length: 90 }, (_, index) => {
+    const date = new Date(start + index * 86_400_000).toISOString().slice(0, 10);
+    return { date, mood: byDate.get(date) ?? null };
+  });
+  return { startDate, endDate, days };
+}
+
 export function normalizeJournalMoment(
   target: Omit<JournalMoment, "entry">,
   row: DailyJournalRow | null,
 ): JournalMoment {
   const entryDate = plainDate(row?.entry_date);
   if (!row || !entryDate || entryDate > target.targetDate) return { ...target, entry: null };
-  const mood = integer(row.mood);
+  const mood = moodValue(row.mood);
   return {
     ...target,
     entry: {
@@ -384,7 +431,7 @@ export function normalizeJournalMoment(
       daysBeforeTarget: daysBetween(entryDate, target.targetDate),
       summary: text(row.summary) || "要約なし",
       emotionSummary: text(row.emotion_summary) || null,
-      mood: mood !== null && mood >= -2 && mood <= 2 ? mood : null,
+      mood,
       emotions: textArray(row.emotions),
       themes: textArray(row.themes),
       entities: textArray(row.entities),
@@ -479,6 +526,7 @@ export function normalizeHub(
   reviewStatus: KnowledgeReviewStatus | null = null,
   projectRows: ProjectRow[] = [],
   writingRows: WritingRow[] = [],
+  journalTrend: JournalTrend = normalizeJournalTrend([], now),
 ) {
   const { today, year, month } = jstDateParts(now);
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -583,6 +631,7 @@ export function normalizeHub(
     inbox: pendingInbox.slice(0, 3),
     focus,
     journalMoments,
+    journalTrend,
     selection: {
       knowledge: "苦手を最大2件、復習期限、新規ナレッジの順で重複を除いて選定",
       inbox: "未整理のInboxを古い順で最大3件表示",
@@ -595,7 +644,7 @@ export function normalizeHub(
 export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
-  const [inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, journal, habits] = await Promise.allSettled([
+  const [inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, journal, journalTrend, habits] = await Promise.allSettled([
     fetchRows(env, { table: "idea_inbox", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<InboxRow[]>,
     fetchRows(env, { table: "wants", select: "status,type,revisit_on" }) as Promise<WantRow[]>,
     fetchFocusRows(env),
@@ -605,9 +654,10 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,
     fetchDashboardJson(env, knowledgeUrl, "/api/review/queue?limit=15") as Promise<KnowledgeReviewStatus>,
     loadJournalMoments(env, now),
+    loadJournalTrend(env, now),
     loadHabits(env, now),
   ] as const);
-  const results = { inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, journal, habits };
+  const results = { inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, journal, journalTrend, habits };
   const availability: HubAvailability = {
     inbox: inbox.status === "fulfilled",
     wants: wants.status === "fulfilled",
@@ -617,6 +667,7 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     expenses: expenses.status === "fulfilled",
     knowledge: knowledge.status === "fulfilled" && reviewStatus.status === "fulfilled",
     journal: journal.status === "fulfilled",
+    journalTrend: journalTrend.status === "fulfilled",
     habits: habits.status === "fulfilled",
   };
   for (const [name, result] of Object.entries(results)) {
@@ -641,6 +692,7 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     reviewStatus.status === "fulfilled" ? reviewStatus.value : null,
     projects.status === "fulfilled" ? projects.value : [],
     writing.status === "fulfilled" ? writing.value : [],
+    journalTrend.status === "fulfilled" ? journalTrend.value : normalizeJournalTrend([], now),
   );
 }
 

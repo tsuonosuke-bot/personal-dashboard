@@ -485,6 +485,64 @@ html[data-theme="dark"] {
   background: var(--orange-soft);
   color: #e4aa8e;
 }
+:root[data-theme="dark"] .journal-trend {
+  border: 1px solid #4a564d;
+  border-radius: 11px;
+  background: #212421;
+}
+:root[data-theme="dark"] .journal-trend-heading strong {
+  color: var(--green);
+}
+:root[data-theme="dark"] .journal-trend-heading small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .journal-trend-heading p {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .journal-trend-heading p b {
+  color: var(--green);
+}
+:root[data-theme="dark"] .journal-trend-viewport:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+:root[data-theme="dark"] .journal-trend-viewport svg {
+  color: var(--green);
+}
+:root[data-theme="dark"] .journal-trend-grid line {
+  stroke: #d9e3dc;
+}
+:root[data-theme="dark"] .journal-trend-grid text,
+:root[data-theme="dark"] .journal-trend-axis {
+  fill: var(--muted);
+}
+:root[data-theme="dark"] .journal-trend-line {
+  stroke: var(--green);
+}
+:root[data-theme="dark"] .journal-trend-point {
+  fill: var(--green);
+  stroke: #fff;
+}
+:root[data-theme="dark"] .journal-trend-records {
+  border-top: 1px solid #4c584f;
+}
+:root[data-theme="dark"] .journal-trend-records summary {
+  color: var(--green);
+}
+:root[data-theme="dark"] .journal-trend-records summary:focus-visible {
+  outline: 2px solid var(--green);
+}
+:root[data-theme="dark"] .journal-trend-records li {
+  border-bottom: 1px solid #4f5950;
+}
+:root[data-theme="dark"] .journal-trend-records li strong {
+  color: var(--green);
+}
+:root[data-theme="dark"] .journal-trend-state {
+  border: 1px solid #55554d;
+  border-radius: 10px;
+  color: var(--muted);
+}
 :root[data-theme="dark"] .journal-card {
   border: 1px solid #55554d;
   border-radius: 11px;
@@ -555,6 +613,9 @@ html[data-theme="dark"] {
   }
   :root[data-theme="dark"] .panel {
     border-radius: 11px;
+  }
+  :root[data-theme="dark"] .journal-trend-scale {
+    color: var(--muted);
   }
 }
 @media (max-width: 620px) {

@@ -1,4 +1,5 @@
 import { readApiJson } from "./api-client.js";
+import { renderJournalTrendHtml } from "./journal-trend.js";
 
 const ids = [
   "sourceBadge", "refreshButton", "quickAddMenu", "dateLabel", "updatedLabel",
@@ -6,7 +7,7 @@ const ids = [
   "reviewMetricLink", "dueKnowledge", "weakKnowledge",
   "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
   "retryButton", "hubContent", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
-  "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
+  "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "journalTrend", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
 ];
 
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
@@ -372,6 +373,12 @@ function renderJournal(items, available = true) {
   }).join("");
 }
 
+function renderJournalTrend(trend, available = true) {
+  els.journalTrend.innerHTML = renderJournalTrendHtml(trend, available);
+  const viewport = els.journalTrend.querySelector(".journal-trend-viewport");
+  if (viewport) viewport.scrollLeft = viewport.scrollWidth - viewport.clientWidth;
+}
+
 function setSource(source, hasError = false) {
   const partial = !hasError && source?.state === "partial";
   els.sourceBadge.className = `source-badge ${hasError ? "error" : partial ? "partial" : "live"}`;
@@ -396,6 +403,7 @@ async function loadHub() {
     renderExpenses(payload.recentExpenses, availability.expenses);
     renderKnowledge(payload.knowledge, payload.navigation.knowledge, availability.knowledge);
     renderJournal(payload.journalMoments, availability.journal);
+    renderJournalTrend(payload.journalTrend, availability.journalTrend !== false);
     setSource(payload.source);
     els.loadingState.hidden = true;
     els.hubContent.hidden = false;

@@ -260,6 +260,28 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
 .inbox-state { display: inline-block; margin-bottom: 4px; padding: 3px 5px; border-radius: 999px; background: var(--orange-soft); color: #9a4b25; font-size: 7px; font-weight: 850; }
 
 .journal-panel { grid-column: 1 / -1; }
+.journal-trend { margin-bottom: 10px; padding: 10px 11px 7px; border: 1px solid #d7e2da; border-radius: 11px; background: #f8fbf8; }
+.journal-trend-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 5px; }
+.journal-trend-heading > div { display: grid; gap: 2px; }
+.journal-trend-heading strong { color: var(--green); font-size: 12px; }
+.journal-trend-heading small { color: var(--muted); font-size: 9px; }
+.journal-trend-heading p { margin: 0; color: var(--muted); font-size: 9px; white-space: nowrap; }
+.journal-trend-heading p b { margin-left: 4px; color: var(--green); font-size: 11px; }
+.journal-trend-scale { display: none; }
+.journal-trend-viewport { overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; }
+.journal-trend-viewport:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.journal-trend-viewport svg { display: block; width: 976px; height: 176px; color: var(--green); }
+.journal-trend-grid line { stroke: #d9e3dc; stroke-width: 1; }
+.journal-trend-grid text, .journal-trend-axis { fill: var(--muted); font-size: 9px; }
+.journal-trend-line { stroke: var(--green); stroke-width: 2; stroke-linecap: round; }
+.journal-trend-point { fill: var(--green); stroke: #fff; stroke-width: 1.5; }
+.journal-trend-records { border-top: 1px solid #dfe8e1; }
+.journal-trend-records summary { padding: 7px 0 2px; color: var(--green); cursor: pointer; font-size: 9px; font-weight: 750; }
+.journal-trend-records summary:focus-visible { outline: 2px solid var(--green); }
+.journal-trend-records ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 12px; max-height: 180px; margin: 7px 0 0; padding: 0; overflow-y: auto; list-style: none; }
+.journal-trend-records li { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid #e7ede8; font-size: 9px; }
+.journal-trend-records li strong { color: var(--green); }
+.journal-trend-state { margin: 0 0 10px; padding: 14px; border: 1px solid #e3e3dc; border-radius: 10px; color: var(--muted); font-size: 10px; }
 .journal-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 8px; }
 .journal-card { min-width: 0; border: 1px solid #e3e3dc; border-radius: 11px; background: #fbfbf8; }
 .journal-card summary { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; min-height: 126px; padding: 12px 34px 12px 12px; cursor: pointer; list-style: none; }
@@ -343,6 +365,9 @@ main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
   .section-heading h2 { font-size: 15px; }
   .inbox-list { grid-template-columns: 1fr; }
   .journal-list { grid-template-columns: 1fr; }
+  .journal-trend-heading { align-items: flex-start; flex-direction: column; }
+  .journal-trend-scale { display: block; margin: 0 0 4px; color: var(--muted); font-size: 8px; line-height: 1.5; }
+  .journal-trend-records ol { grid-template-columns: 1fr; }
   .inbox-card { min-height: 48px; padding: 7px 8px; }
   .inbox-card small { display: none; }
   .record-row { min-height: 43px; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 6px; }

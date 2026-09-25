@@ -33,6 +33,7 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(html, /id="focusModal"/);
   assert.match(html, /id="allInboxLink"/);
   assert.match(html, /id="journalList"/);
+  assert.match(html, /id="journalTrend"/);
   assert.match(html, /過去のJournal/);
   assert.match(html, /読み取り専用/);
   assert.match(script, /renderInbox\(payload\.inbox \|\| \[\], availability\.inbox\)/);
@@ -50,6 +51,7 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(script, /focus-reorder/);
   assert.match(script, /表示から外す/);
   assert.match(script, /renderJournal\(payload\.journalMoments, availability\.journal\)/);
+  assert.match(script, /renderJournalTrend\(payload\.journalTrend, availability\.journalTrend !== false\)/);
   assert.match(script, /target="_blank" rel="noopener noreferrer"/);
   assert.match(script, /reviewMetricLink\.href = navigation\.knowledgeReview/);
   assert.doesNotMatch(script, /reviewStartLink|spendMetricLink|spendComparison|els\.currentMonthSpend|els\.pendingInbox|untriagedMetricLink|oldestUntriaged|renderWants/);
