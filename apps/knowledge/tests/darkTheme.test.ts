@@ -16,7 +16,7 @@ test("theme resolves before styles load and the switcher sits in the dashboard m
   ]);
   assert.match(html, /<script src="\.\/theme\.js"><\/script>/);
   assert.ok(html.indexOf("theme.js") < html.indexOf("/src/main.tsx"));
-  assert.match(main, /import "\.\/index\.css";\nimport "\.\/index\.dark\.css";/);
+  assert.match(main, /import "\.\/index\.css";\r?\nimport "\.\/index\.dark\.css";/);
   assert.match(app, /<ThemeSelect \/>/);
   assert.match(select, /data-theme-select=""/);
   assert.match(select, /<option value="system">自動<\/option>/);

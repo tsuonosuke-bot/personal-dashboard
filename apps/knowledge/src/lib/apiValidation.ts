@@ -1,5 +1,5 @@
 import type {
-  DailyReviewCategoryCount, DailyReviewStatus, Knowledge, KnowledgePriority, Mastery, MasteryHistoryEvent, QuizEmptyReason, QuizFormat,
+  DailyReviewCategoryCount, DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgePriority, Mastery, MasteryHistoryEvent, QuizEmptyReason, QuizFormat,
   QuizGenerationFailure, QuizGradeFailure, QuizGradeFailurePhase, QuizGradeResponse, QuizGradeResult, QuizLog, QuizQuestion,
   QuizStart, QuizVerdict, RecoveryPreview,
   RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
@@ -167,7 +167,7 @@ export function parseQuizStartResponse(value: unknown): QuizStart {
   const entity = "出題応答";
   if (!isRecord(value) || !Array.isArray(value.items)) return fail(entity);
   const { reason } = value;
-  if (reason !== undefined && reason !== "no_knowledge" && reason !== "done_today") {
+  if (reason !== undefined && reason !== "no_knowledge" && reason !== "done_today" && reason !== "in_grading") {
     return fail(entity, "reason");
   }
   const items = value.items.map(parseQuizQuestion);
@@ -444,4 +444,67 @@ export function parseSpeakingPracticeStart(value: unknown): SpeakingPracticeStar
     };
   });
   return { items };
+}
+
+export function parseKnowledgeInsight(value: unknown): KnowledgeInsight {
+  const entity = "示唆";
+  if (!isRecord(value)) return fail(entity);
+  const id = numberValue(value, "id", entity);
+  if (!Number.isSafeInteger(id) || id < 1) return fail(entity, "id");
+  const body = stringValue(value, "body", entity);
+  if (!body.trim() || body.length > 1_000) return fail(entity, "body");
+  return {
+    id,
+    knowledge_id: stringValue(value, "knowledge_id", entity),
+    body,
+    created_at: stringValue(value, "created_at", entity),
+    updated_at: stringValue(value, "updated_at", entity),
+  };
+}
+
+export function parseInsightGroup(value: unknown): InsightGroup {
+  const entity = "示唆グループ";
+  if (!isRecord(value)) return fail(entity);
+  const id = numberValue(value, "id", entity);
+  const title = stringValue(value, "title", entity);
+  const guidingQuestion = stringValue(value, "guiding_question", entity);
+  if (!Number.isSafeInteger(id) || id < 1) return fail(entity, "id");
+  if (!title.trim() || title.length > 120) return fail(entity, "title");
+  if (!guidingQuestion.trim() || guidingQuestion.length > 300) return fail(entity, "guiding_question");
+  return {
+    id,
+    title,
+    guiding_question: guidingQuestion,
+    created_at: stringValue(value, "created_at", entity),
+    updated_at: stringValue(value, "updated_at", entity),
+  };
+}
+
+export function parseInsightGroupMember(value: unknown): InsightGroupMember {
+  const entity = "示唆グループの所属";
+  if (!isRecord(value)) return fail(entity);
+  const groupId = numberValue(value, "group_id", entity);
+  const insightId = numberValue(value, "insight_id", entity);
+  if (!Number.isSafeInteger(groupId) || groupId < 1) return fail(entity, "group_id");
+  if (!Number.isSafeInteger(insightId) || insightId < 1) return fail(entity, "insight_id");
+  return { group_id: groupId, insight_id: insightId };
+}
+
+export function parseInsightAnalysis(value: unknown): InsightAnalysis {
+  const entity = "示唆のまとめ";
+  if (!isRecord(value) || !Array.isArray(value.themes)) return fail(entity);
+  const analyzedCount = numberValue(value, "analyzed_count", entity);
+  if (!Number.isSafeInteger(analyzedCount) || analyzedCount < 0) return fail(entity, "analyzed_count");
+  const themes = value.themes.map((theme) => {
+    if (!isRecord(theme) || !Array.isArray(theme.insight_ids)) return fail(entity, "themes");
+    const ids = theme.insight_ids;
+    if (!ids.every((id) => Number.isSafeInteger(id))) return fail(entity, "insight_ids");
+    return {
+      title: stringValue(theme, "title", entity),
+      summary: stringValue(theme, "summary", entity),
+      importance: stringValue(theme, "importance", entity),
+      insight_ids: ids as number[],
+    };
+  });
+  return { themes, analyzed_count: analyzedCount };
 }

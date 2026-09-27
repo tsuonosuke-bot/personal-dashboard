@@ -1,6 +1,8 @@
 import { useId } from "react";
 import { PRIORITY_INTERVAL_HINTS } from "../constants";
+import type { InsightStore } from "../hooks/useInsights";
 import { useModalDialog } from "../hooks/useModalDialog";
+import { InsightNotes } from "./InsightNotes";
 import type { Knowledge, QuizLog } from "../types";
 
 interface Props {
@@ -11,6 +13,8 @@ interface Props {
   /** 呼び出し元で許可する操作だけを表示できるよう省略可能にする。 */
   onEdit?: () => void;
   onArchive?: () => void;
+  /** 渡したときだけ示唆（付箋）の閲覧・追加欄を出す。 */
+  insightStore?: InsightStore;
 }
 
 function displayDateTime(value: string): string {
@@ -30,7 +34,7 @@ function displayRelearning(stage: Knowledge["relearning_stage"]): string {
 }
 
 export function KnowledgeDetailModal({
-  knowledge, quizLog, mutating, onClose, onEdit, onArchive,
+  knowledge, quizLog, mutating, onClose, onEdit, onArchive, insightStore,
 }: Props) {
   const titleId = useId();
   const history = quizLog
@@ -51,6 +55,7 @@ export function KnowledgeDetailModal({
 
         <div className="detail-body">
           <div className="detail-status">
+            {knowledge.archived && <span className="tag">アーカイブ済み</span>}
             <span className={`mastery-pill mastery-${knowledge.mastery}`}>{knowledge.mastery}</span>
             <span className={`badge priority-${knowledge.priority}`}>優先度 {knowledge.priority}</span>
             {knowledge.tags.map((tag) => <span className="tag" key={tag}>#{tag}</span>)}
@@ -64,6 +69,8 @@ export function KnowledgeDetailModal({
               <h3>出典メモ</h3><p>{knowledge.source_note}</p>
             </div>
           )}
+
+          {insightStore && <InsightNotes knowledgeId={knowledge.id} store={insightStore} />}
 
           <div className="metric-grid">
             <div><span>正答率</span><strong>{knowledge.accuracy == null ? "-" : `${Math.round(knowledge.accuracy * 100)}%`}</strong></div>

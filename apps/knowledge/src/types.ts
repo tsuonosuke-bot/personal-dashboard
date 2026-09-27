@@ -148,7 +148,7 @@ export interface QuizQuestion {
   token: string;
 }
 
-export type QuizEmptyReason = "no_knowledge" | "done_today";
+export type QuizEmptyReason = "no_knowledge" | "done_today" | "in_grading";
 
 export interface QuizGenerationFailure {
   /** DBが選んだ元の出題順（1始まり）。 */
@@ -253,4 +253,39 @@ export interface QuizGradeFailure {
 export interface QuizGradeResponse {
   results: QuizGradeResult[];
   failures: QuizGradeFailure[];
+}
+
+/** ナレッジごとに残す「自分にとってどう役立つか」の付箋。出題・採点には使わない。 */
+export interface KnowledgeInsight {
+  id: number;
+  knowledge_id: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 自分で名付けた問い。示唆そのものは既存のknowledge_insightsを参照する。 */
+export interface InsightGroup {
+  id: number;
+  title: string;
+  guiding_question: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InsightGroupMember {
+  group_id: number;
+  insight_id: number;
+}
+
+export interface InsightTheme {
+  title: string;
+  summary: string;
+  importance: string;
+  insight_ids: number[];
+}
+
+export interface InsightAnalysis {
+  themes: InsightTheme[];
+  analyzed_count: number;
 }

@@ -3,6 +3,8 @@ export type DashboardRoute =
   | { kind: "quiz"; mode: "custom" | "daily" }
   | { kind: "speaking" }
   | { kind: "log" }
+  | { kind: "insights" }
+  | { kind: "tags" }
   | { kind: "knowledge"; knowledgeId: string }
   | { kind: "invalid-knowledge" };
 
@@ -23,6 +25,8 @@ export function parseDashboardRoute(value: string | URL): DashboardRoute {
   }
   if (url.searchParams.get("view") === "speaking") return { kind: "speaking" };
   if (url.searchParams.get("view") === "log") return { kind: "log" };
+  if (url.searchParams.get("view") === "insights") return { kind: "insights" };
+  if (url.searchParams.get("view") === "tags") return { kind: "tags" };
   const knowledgeId = url.searchParams.get("knowledge");
   if (knowledgeId === null) return { kind: "dashboard" };
   return isKnowledgeId(knowledgeId)
@@ -41,6 +45,8 @@ export function dashboardRoutePath(value: string | URL, route: DashboardRoute): 
   }
   if (route.kind === "speaking") url.searchParams.set("view", "speaking");
   if (route.kind === "log") url.searchParams.set("view", "log");
+  if (route.kind === "insights") url.searchParams.set("view", "insights");
+  if (route.kind === "tags") url.searchParams.set("view", "tags");
   if (route.kind === "knowledge") url.searchParams.set("knowledge", route.knowledgeId);
   return `${url.pathname}${url.search}${url.hash}`;
 }
