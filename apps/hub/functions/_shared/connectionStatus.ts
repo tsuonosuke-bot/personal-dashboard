@@ -13,8 +13,8 @@ export interface ServiceConnectionStatus {
   lastSuccessAt: string | null;
 }
 
-const DEFAULT_FINANCIAL_URL = "https://financial-dashboard-9q8.pages.dev/";
-const DEFAULT_KNOWLEDGE_URL = "https://knowledge-dashboard-27t.pages.dev/";
+const DEFAULT_FINANCIAL_URL = "https://finance-9qq.pages.dev/";
+const DEFAULT_KNOWLEDGE_URL = "https://knowledge-50b.pages.dev/";
 
 function authMethod(value: string | undefined): string {
   return value?.trim().toLowerCase() === "access"

@@ -168,7 +168,7 @@ GitHub 連携でビルド・公開する。
 | Build output directory | `dist` |
 | Node バージョン | `.node-version`（22） |
 
-公開URL: https://knowledge-dashboard-27t.pages.dev
+公開URL: https://knowledge-50b.pages.dev
 
 Cloudflare Pages の **Settings → Variables and Secrets** で、Production と Preview の
 両方へ必要な環境変数を登録する。少なくとも `DASHBOARD_PASSWORD`、

@@ -13,8 +13,8 @@ interface ProxyContext {
 type DashboardTarget = "finance" | "knowledge";
 
 const TARGETS: Record<DashboardTarget, { env: keyof DashboardProxyEnv; fallback: string }> = {
-  finance: { env: "NAV_FINANCIAL_URL", fallback: "https://financial-dashboard-9q8.pages.dev/" },
-  knowledge: { env: "NAV_KNOWLEDGE_URL", fallback: "https://knowledge-dashboard-27t.pages.dev/" },
+  finance: { env: "NAV_FINANCIAL_URL", fallback: "https://finance-9qq.pages.dev/" },
+  knowledge: { env: "NAV_KNOWLEDGE_URL", fallback: "https://knowledge-50b.pages.dev/" },
 };
 
 function upstreamBase(target: DashboardTarget, env: DashboardProxyEnv): URL {

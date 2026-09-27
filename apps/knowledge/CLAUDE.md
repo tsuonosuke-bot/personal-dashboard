@@ -252,7 +252,7 @@ public/
 
 モノレポ `personal-dashboard` の `apps/knowledge` をCloudflare PagesにGitHub連携でデプロイする
 （Root directory `apps/knowledge`）。mainへのpushで本番が更新される。
-本番: https://knowledge-dashboard-27t.pages.dev
+本番: https://knowledge-50b.pages.dev
 
 Functionsの環境変数はCloudflareのVariables and SecretsでProduction/Preview双方に設定し、
 値を変更したら再デプロイする。

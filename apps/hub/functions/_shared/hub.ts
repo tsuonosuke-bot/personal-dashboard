@@ -117,8 +117,8 @@ interface QueryDefinition {
 }
 
 const PAGE_SIZE = 1_000;
-const DEFAULT_FINANCIAL_URL = "https://financial-dashboard-9q8.pages.dev/";
-const DEFAULT_KNOWLEDGE_URL = "https://knowledge-dashboard-27t.pages.dev/";
+const DEFAULT_FINANCIAL_URL = "https://finance-9qq.pages.dev/";
+const DEFAULT_KNOWLEDGE_URL = "https://knowledge-50b.pages.dev/";
 const FULL_AVAILABILITY: HubAvailability = {
   inbox: true,
   wants: true,
