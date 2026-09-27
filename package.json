@@ -1,0 +1,15 @@
+{
+  "name": "personal-dashboards",
+  "private": true,
+  "workspaces": [
+    "apps/hub",
+    "apps/knowledge",
+    "apps/finance"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm test --workspaces",
+    "build": "npm run build --workspaces",
+    "theme:check": "npm run theme:check --workspaces"
+  }
+}
