@@ -30,8 +30,8 @@ npm run build -w apps/knowledge   # 1アプリだけ
 | 項目 | hub | knowledge | finance |
 | --- | --- | --- | --- |
 | Root directory | `apps/hub` | `apps/knowledge` | `apps/finance` |
-| Build command | `npm run build` | `npm run build` | `npm run build` |
+| Build command | `cd ../.. && npm ci && npm run build -w apps/hub` | `cd ../.. && npm ci && npm run build -w apps/knowledge` | `cd ../.. && npm ci && npm run build -w apps/finance` |
 | Output directory | `dist` | `dist` | `dist` |
 | Build watch paths (include) | `apps/hub/*`, `package.json`, `package-lock.json` | `apps/knowledge/*`, `package.json`, `package-lock.json` | `apps/finance/*`, `package.json`, `package-lock.json` |
 
-アプリのディレクトリで `npm install` / `npm ci` を実行しても、npmがルートのworkspaceを検出してルートのlockfileで入る。
+Root directory直下にlockfileが無いため、Build commandでルートの `npm ci` を明示する。
