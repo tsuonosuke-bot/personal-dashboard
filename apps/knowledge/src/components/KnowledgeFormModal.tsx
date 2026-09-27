@@ -1,11 +1,13 @@
-import { useId, useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent, type KeyboardEvent } from "react";
 import { MASTERY_ORDER, PRIORITY_INTERVAL_HINTS, PRIORITY_ORDER } from "../constants";
 import { useModalDialog } from "../hooks/useModalDialog";
 import type { Knowledge, KnowledgeDraft, KnowledgePriority, Mastery } from "../types";
+import "./KnowledgeFormModal.css";
 
 interface Props {
   knowledge: Knowledge | null;
   categories: string[];
+  tagSuggestions?: string[];
   saving: boolean;
   error: string | null;
   onClose: () => void;
@@ -13,23 +15,49 @@ interface Props {
 }
 
 export function KnowledgeFormModal({
-  knowledge, categories, saving, error, onClose, onSave,
+  knowledge, categories, tagSuggestions = [], saving, error, onClose, onSave,
 }: Props) {
   const titleId = useId();
   const categoryListId = useId();
+  const tagInputId = useId();
+  const tagHelpId = useId();
   const [title, setTitle] = useState(knowledge?.title ?? "");
   const [category, setCategory] = useState(knowledge?.category ?? "");
   const [mastery, setMastery] = useState<Mastery>(knowledge?.mastery ?? "未学習");
   const [priority, setPriority] = useState<KnowledgePriority>(knowledge?.priority ?? "中");
   const [explanation, setExplanation] = useState(knowledge?.explanation ?? "");
   const [sourceNote, setSourceNote] = useState(knowledge?.source_note ?? "");
-  const [tags, setTags] = useState((knowledge?.tags ?? []).join(", "));
+  const [tags, setTags] = useState(() => appendUniqueTags([], knowledge?.tags ?? []));
+  const [tagInput, setTagInput] = useState("");
   const [nextReviewOn, setNextReviewOn] = useState(knowledge?.next_review_on ?? "");
   const dialogRef = useModalDialog(onClose, saving);
+  const availableSuggestions = appendUniqueTags([], tagSuggestions)
+    .filter((tag) => !tags.some((selected) => tagKey(selected) === tagKey(tag)))
+    .filter((tag) => tag.toLocaleLowerCase().includes(tagInput.trim().toLocaleLowerCase()));
+
+  const addTags = (entries: string[]) => {
+    setTags((current) => appendUniqueTags(current, entries, tagSuggestions));
+    setTagInput("");
+  };
+
+  const handleTagInput = (value: string) => {
+    const entries = value.split(/[,\n]/);
+    if (entries.length > 1) {
+      setTags((current) => appendUniqueTags(current, entries.slice(0, -1), tagSuggestions));
+    }
+    setTagInput(entries[entries.length - 1] ?? "");
+  };
+
+  const handleTagKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter" && !event.nativeEvent.isComposing && tagInput.trim()) {
+      event.preventDefault();
+      addTags([tagInput]);
+    }
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const parsedTags = [...new Set(tags.split(/[,\n]/).map((tag) => tag.trim()).filter(Boolean))];
+    const parsedTags = appendUniqueTags(tags, tagInput.split(/[,\n]/), tagSuggestions);
     await onSave({
       title,
       category,
@@ -88,10 +116,54 @@ export function KnowledgeFormModal({
               <span>出典メモ</span>
               <textarea rows={3} maxLength={5_000} value={sourceNote} onChange={(event) => setSourceNote(event.target.value)} />
             </label>
-            <label className="field full-field">
-              <span>タグ</span>
-              <input maxLength={1_500} placeholder="カンマ区切り" value={tags} onChange={(event) => setTags(event.target.value)} />
-            </label>
+            <div className="field full-field tag-picker">
+              <label htmlFor={tagInputId}>タグ</label>
+              <small id={tagHelpId} className="field-hint">既存のタグから選ぶか、自由に入力できます。1〜2個が目安です。カンマ・Enterで追加できます。</small>
+              {tags.length > 0 && (
+                <div className="tag-picker-selected" role="group" aria-label="追加済みのタグ">
+                  {tags.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className="tag-picker-chip"
+                      aria-label={`タグ「${tag}」を削除`}
+                      title={`タグ「${tag}」を削除`}
+                      onClick={() => {
+                        setTags((current) => current.filter((selected) => selected !== tag));
+                        if (tagKey(tagInput) === tagKey(tag)) setTagInput("");
+                      }}
+                      disabled={saving}
+                    >
+                      <span>{tag}</span><span aria-hidden="true">×</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="tag-picker-entry">
+                <input
+                  id={tagInputId}
+                  type="text"
+                  maxLength={1_500}
+                  placeholder="タグを入力（カンマ区切りも可）"
+                  aria-describedby={tagHelpId}
+                  value={tagInput}
+                  onChange={(event) => handleTagInput(event.target.value)}
+                  onKeyDown={handleTagKeyDown}
+                  disabled={saving}
+                />
+                <button type="button" onClick={() => addTags([tagInput])} disabled={saving || !tagInput.trim()}>追加</button>
+              </div>
+              {availableSuggestions.length > 0 && (
+                <div className="tag-picker-suggestions" role="group" aria-label="既存のタグ候補">
+                  <span>既存のタグから選ぶ</span>
+                  <div>
+                    {availableSuggestions.map((tag) => (
+                      <button key={tag} type="button" aria-label={`タグ「${tag}」を追加`} onClick={() => addTags([tag])} disabled={saving}>{tag} <span aria-hidden="true">＋</span></button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           {error && <div className="form-error" role="alert">{error}</div>}
           <div className="modal-actions">
@@ -104,4 +176,23 @@ export function KnowledgeFormModal({
       </section>
     </div>
   );
+}
+
+function tagKey(tag: string) {
+  return tag.trim().toLocaleLowerCase();
+}
+
+function appendUniqueTags(current: string[], entries: string[], suggestions: string[] = []) {
+  const result = [...current];
+  const seen = new Set(current.map(tagKey));
+  for (const entry of entries) {
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
+    const tag = suggestions.find((suggestion) => tagKey(suggestion) === tagKey(trimmed))?.trim() ?? trimmed;
+    const key = tagKey(tag);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(tag);
+  }
+  return result;
 }

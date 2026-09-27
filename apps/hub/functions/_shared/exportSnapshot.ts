@@ -1,8 +1,8 @@
 import type { HubEnv } from "./hub.ts";
 
 const PAGE_SIZE = 1_000;
-const DEFAULT_FINANCIAL_URL = "https://financial-dashboard-9q8.pages.dev/";
-const DEFAULT_KNOWLEDGE_URL = "https://knowledge-dashboard-27t.pages.dev/";
+const DEFAULT_FINANCIAL_URL = "https://finance-9qq.pages.dev/";
+const DEFAULT_KNOWLEDGE_URL = "https://knowledge-50b.pages.dev/";
 const PERSONAL_TABLES = [
   "idea_inbox",
   "wants",

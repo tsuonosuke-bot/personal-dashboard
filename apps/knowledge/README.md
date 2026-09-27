@@ -73,9 +73,15 @@ SSO引き継ぎ後に日次キューへ遷移する。
 - `PATCH /api/knowledge/:id` — 許可項目の編集、アーカイブまたは復元。本文は
   `{ expected_version, changes }` とし、読み込み後に別画面で更新されていれば409を返す
 - `GET /api/quiz-log` — クイズ履歴を新しい順に取得
+- `GET/POST /api/insights`、`PATCH/DELETE /api/insights/:id` — ナレッジごとの示唆（付箋）の一覧・追加・編集・削除。
+  出題・採点には使わない
+- `POST /api/insights/analyze` — 示唆をAIでテーマごとにまとめ、複数のナレッジに共通する示唆を返す（保存しない）
+- `POST /api/inbox` — 採点結果の「あとで深掘りする」から、深掘りしたい点を出典ナレッジ名つきで
+  `idea_inbox`（未整理）へ1件登録する。採点・復習予定は変更しない
 - `GET /api/export` — ナレッジ、復習履歴、英会話練習履歴を読み取り専用JSONとして書き出す
 - `GET /api/status` — 認証方式、DB接続先、適用migration、最終成功時刻だけを返す
-- `POST /api/quiz/start` — 復習クイズを出題（`{ categories, limit }`。`categories` は登録済み
+- `POST /api/quiz/start` — 復習クイズを出題（`{ categories, limit, excludeIds? }`。`excludeIds` はバックグラウンドで
+  採点中のナレッジIDで、二重出題を避けるため除外する。`categories` は登録済み
   カテゴリ名の配列で、空配列なら全カテゴリ）。DBの `pick_quiz` で候補を選び、カテゴリ・タグ・前回のつまずきメモを添えてClaude APIで問題文を
   生成する。応答は `{ id, question, format, choices, token }` の配列で、正解（タイトル・説明）は
   返さない。四択の正解は平文で含めず、回答照合用のHMACだけを`token`へ保存する。`token` は
@@ -162,7 +168,7 @@ GitHub 連携でビルド・公開する。
 | Build output directory | `dist` |
 | Node バージョン | `.node-version`（22） |
 
-公開URL: https://knowledge-dashboard-27t.pages.dev
+公開URL: https://knowledge-50b.pages.dev
 
 Cloudflare Pages の **Settings → Variables and Secrets** で、Production と Preview の
 両方へ必要な環境変数を登録する。少なくとも `DASHBOARD_PASSWORD`、

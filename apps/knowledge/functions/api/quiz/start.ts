@@ -15,6 +15,7 @@ import {
 import {
   AUTO_FORMAT,
   MAX_CHOICE_CHARS,
+  MAX_QUIZ_LIMIT,
   MAX_QUESTION_CHARS,
   readQuizJsonBody,
   validateQuizRequest,
@@ -594,13 +595,15 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const validated = validateStartRequest(json.value);
   if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
 
-  const { categories, limit, format, mode } = validated.value;
+  const { categories, limit, format, mode, excludeIds } = validated.value;
+  // 採点中の項目は選定関数へ渡せないため、その分だけ多めに選んでから除く（選定順は保つ）。
+  const pickLimit = Math.min(MAX_QUIZ_LIMIT, limit + excludeIds.length);
   const picked = mode === "daily"
-    ? await requestSupabaseFunction(context.env, "pick_daily_review_queue", { p_limit: limit })
+    ? await requestSupabaseFunction(context.env, "pick_daily_review_queue", { p_limit: pickLimit })
     : await requestSupabaseFunction(context.env, "pick_quiz", {
       p_include: categories.length > 0 ? categories : null,
       p_exclude: null,
-      p_limit: limit,
+      p_limit: pickLimit,
       p_include_mastered: false,
     });
   if (!picked.ok) return dependencyError(
@@ -615,13 +618,18 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       action: "クイズ選定処理の戻り値を確認してください。",
     });
   }
-  const rows = picked.data.filter(isPickedItem);
-  if (rows.length !== picked.data.length) {
+  const validRows = picked.data.filter(isPickedItem);
+  if (validRows.length !== picked.data.length) {
     return quizStartError({
       stage: "出題対象の検証",
       reason: "DBから返った出題対象に必須項目の不足または型の不一致があります。",
       action: "クイズ選定処理の戻り値とDBマイグレーションを確認してください。",
     });
+  }
+  const excluded = new Set(excludeIds);
+  const rows = validRows.filter((row) => !excluded.has(row.id.toLowerCase())).slice(0, limit);
+  if (rows.length === 0 && validRows.length > 0) {
+    return jsonResponse({ items: [], reason: "in_grading", mode });
   }
   if (rows.length === 0) {
     if (mode === "daily") {

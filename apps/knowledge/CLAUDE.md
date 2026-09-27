@@ -77,6 +77,20 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
   `repetitions`, `practiced_at`
 - 音声データは保存しない
 
+### `knowledge_insights`
+
+- ナレッジごとの「自分にとってどう役立つか」の付箋（示唆）。1ナレッジに複数、本文は1〜1,000文字
+- 出題・採点・定着間隔の計算には一切使わない。`pick_quiz`・`record_answer`・クイズAPIから参照しない
+- 他: `id`, `knowledge_id`（ナレッジ削除で連動削除）, `body`, `created_at`, `updated_at`
+
+### 示唆の問いグループ
+
+- `insight_groups` は自分で付けるテーマ名と、先に思い出すための `guiding_question` を保持する
+- `insight_group_members` は `knowledge_insights.id` とグループの多対多の所属だけを保持する。示唆本文は複製しない
+- グループ削除では所属だけを消し、示唆本文を残す。示唆削除では所属を連動削除する
+- グループを閲覧・整理しても `quiz_log`、習熟度、次回復習時刻を更新しない
+- タグ別画面は既存の `knowledge.tags` を厳密一致で集計し、タグなしも表示する。タグの一括補完は行わない
+
 ### DBアクセス
 
 Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは次だけ。
@@ -89,8 +103,19 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `GET /api/mastery-history`: 習熟度履歴の明示した列を古い順に制限付きページング
 - `GET /api/speaking-practice`: 指定期間の英会話練習履歴を新しい順に取得
 - `POST /api/speaking-practice`: 検証済みの1練習を`attempt_id`で冪等記録
+- `POST /api/inbox`: 採点結果から「あとで深掘り」したい点を`idea_inbox`へ1件登録する（`status=pending`、
+  `source=knowledge-quiz`）。出典ナレッジはIDで引き直してタイトルを添え、他の列や任意内容は受け付けない
+- `GET /api/insights`: 示唆の明示した列を新しい順に制限付きページング
+- `POST /api/insights`: 存在を確認したナレッジに示唆を1件追加
+- `PATCH /api/insights/:id` / `DELETE /api/insights/:id`: 示唆1件の編集・削除。編集は`updated_at`で競合を検出して409
+- `POST /api/insights/analyze`: 新しい順に最大300件の示唆とナレッジ名だけをClaude APIへ送り、複数のナレッジに
+  共通するテーマを返す。根拠IDは渡した示唆に限り、結果は保存しない
+- `GET/POST /api/insight-groups`、`PATCH/DELETE /api/insight-groups/:id`: 手動で問いグループを取得・作成・編集・削除する。編集・削除は `updated_at` で競合を検出する
+- `GET/POST/DELETE /api/insight-group-members`: 示唆ID単位の所属を取得・追加・解除する。示唆本文には触れない
 - `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す。
-  `categories`（登録済みカテゴリ名の配列。空配列は全カテゴリ）、`limit`、`format` で絞り込む
+  `categories`（登録済みカテゴリ名の配列。空配列は全カテゴリ）、`limit`、`format` で絞り込む。
+  `excludeIds`（バックグラウンドで採点中のナレッジID、最大60件）は選定関数へ渡さず、その件数だけ多めに
+  選んでからサーバー側で除く。全件が採点中なら `reason: "in_grading"` の空応答を返す
 - `POST /api/quiz/grade`: 署名済み出題トークンと`knowledge`を照合してClaude APIで採点し、
   `record_answers_batch_once` RPCで出題nonceの重複を原子的に判定・一括記録。結果画面で習熟度・
   優先度の変更とアーカイブを安全に行えるよう、記録後の`mastery`・`priority`・`content_version`・`next_review_at`・定着／再学習状態も返す
@@ -163,6 +188,8 @@ DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECT
   この照合を外すと、of と誤答したのに「for を即答できている」と講評して正解になる事故と、
   書いていない「前提作業」を書いたことにして減点する事故が戻る
 - 無回答（空文字）はAIの判定に関わらずq0・不正解で記録する。空欄のまま提出した項目を進めない
+- 採点はバックグラウンドで進める（`useQuiz` の採点ジョブ）。待つ間に次の出題へ進めるが、採点中の項目は
+  `excludeIds` で除外して二重に出題しない。採点失敗時は同じ回答のまま再採点でき、重複記録は出題nonceで防ぐ
 - 0件時は `knowledge` の件数を数えて「対象なし」と「本日出題済み」を切り分ける
 Secret keyはservice_roleのためRLSを迂回する。ブラウザのanon keyでは
 `record_answer` / `record_answers_batch` は書き込めない設計を変えない。
@@ -197,6 +224,8 @@ functions/
   api/quiz/start.ts         復習クイズの出題API
   api/quiz/grade.ts         復習クイズの採点・記録API
   api/speaking-practice.ts  復習とは独立した英会話練習履歴API
+  api/inbox.ts              採点結果から深掘りしたい点をidea_inboxへ登録するAPI
+  api/insights.ts           示唆（付箋）の一覧・追加API。insights/[id].ts で編集・削除、insights/analyze.ts でAIまとめ
 public/
   manifest.webmanifest      PWA用マニフェスト
   sw.js                     ホーム画面起動のための最小限のService Worker（キャッシュしない）
@@ -223,7 +252,7 @@ public/
 
 モノレポ `personal-dashboard` の `apps/knowledge` をCloudflare PagesにGitHub連携でデプロイする
 （Root directory `apps/knowledge`）。mainへのpushで本番が更新される。
-本番: https://knowledge-dashboard-27t.pages.dev
+本番: https://knowledge-50b.pages.dev
 
 Functionsの環境変数はCloudflareのVariables and SecretsでProduction/Preview双方に設定し、
 値を変更したら再デプロイする。

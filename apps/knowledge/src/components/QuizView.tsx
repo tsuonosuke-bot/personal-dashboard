@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  DEFAULT_QUIZ_FORMAT, DEFAULT_QUIZ_LIMIT, QUIZ_FORMAT_OPTIONS, QUIZ_LIMIT_OPTIONS, useQuiz,
+  DEFAULT_QUIZ_FORMAT, DEFAULT_QUIZ_LIMIT, QUIZ_FORMAT_OPTIONS, QUIZ_LIMIT_OPTIONS, useQuiz, type GradingJob,
 } from "../hooks/useQuiz";
 import { MASTERY_ORDER, PRIORITY_ORDER } from "../constants";
+import { addDeepDiveToInbox } from "../lib/api";
 import { dashboardRoutePath } from "../lib/dashboardRoute";
+import type { InsightStore } from "../hooks/useInsights";
+import { InsightNotes } from "./InsightNotes";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import { KnowledgeFormModal } from "./KnowledgeFormModal";
 import { ReviewCategoryCounts } from "./ReviewCategoryCounts";
@@ -60,6 +63,7 @@ interface Props {
   onRecorded: () => void | Promise<void>;
   autoStartDaily?: boolean;
   dailyStatus: DailyReviewStatus | null;
+  insightStore: InsightStore;
   onKnowledgeUpdate: (
     id: string,
     expectedVersion: number,
@@ -78,7 +82,7 @@ type ResultEditFeedback = {
 };
 
 export function QuizView({
-  knowledge, quizLog, onExit, onRecorded, onKnowledgeUpdate, autoStartDaily = false, dailyStatus,
+  knowledge, quizLog, onExit, onRecorded, onKnowledgeUpdate, autoStartDaily = false, dailyStatus, insightStore,
 }: Props) {
   const quiz = useQuiz(onRecorded);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -94,6 +98,10 @@ export function QuizView({
 
   const categories = useMemo(
     () => [...new Set(knowledge.map((item) => item.category))].sort(),
+    [knowledge],
+  );
+  const tagSuggestions = useMemo(
+    () => [...new Set(knowledge.flatMap((item) => item.tags))].sort((a, b) => a.localeCompare(b, "ja")),
     [knowledge],
   );
   const detail = knowledge.find((item) => item.id === detailId) ?? null;
@@ -187,10 +195,21 @@ export function QuizView({
     }
   };
 
+  const exit = () => {
+    if (quiz.gradingIds.length > 0 && !window.confirm(
+      "採点中の問題があります。採点と記録はこのまま続きますが、戻るとこの回の結果は表示できません。戻りますか？",
+    )) return;
+    onExit();
+  };
+
+  const startNextDaily = () => void quiz.start([], dailyStatus?.limit ?? DEFAULT_QUIZ_LIMIT, format, "daily");
+  const otherJobs = quiz.jobs.filter((job) => job.id !== quiz.viewingJob?.id
+    && (job.status === "grading" || !job.seen));
+
   return (
     <div className="quiz-page">
       <header className="quiz-header">
-        <button className="text-button" onClick={onExit}>← ダッシュボードへ戻る</button>
+        <button className="text-button" onClick={exit}>← ダッシュボードへ戻る</button>
         <h1>復習</h1>
       </header>
 
@@ -227,6 +246,10 @@ export function QuizView({
           </div>
         )}
 
+        {otherJobs.length > 0 && (
+          <GradingJobsBanner jobs={otherJobs} onView={quiz.viewJob} onRetry={quiz.retryJob} />
+        )}
+
         {quiz.stage === "setup" && (
           <div className="quiz-setup card">
             <div className="daily-quiz-start">
@@ -241,7 +264,7 @@ export function QuizView({
               <button
                 className="primary-button"
                 disabled={dailyStatus?.remaining === 0}
-                onClick={() => void quiz.start([], dailyStatus?.limit ?? DEFAULT_QUIZ_LIMIT, format, "daily")}
+                onClick={startNextDaily}
               >
                 {dailyStatus?.remaining
                   ? `次の${Math.min(dailyStatus.limit, dailyStatus.remaining)}件を開始`
@@ -311,7 +334,9 @@ export function QuizView({
         {quiz.stage === "empty" && (
           <div className="quiz-setup card">
             <p>
-              {quiz.emptyReason === "done_today"
+              {quiz.emptyReason === "in_grading"
+                ? "今すぐ復習できる問題は、すべて採点中です。採点が終わるまでお待ちください。"
+                : quiz.emptyReason === "done_today"
                 ? dailyStatus?.retry_waiting
                   ? `今すぐ復習できる問題はありません。${dailyStatus.retry_waiting}件が段階別の再復習時刻を待っています。`
                   : "今すぐ復習できる問題はありません。"
@@ -345,47 +370,75 @@ export function QuizView({
             onSkip={quiz.skipCurrent}
             onBack={quiz.goBack}
             onNext={quiz.goNext}
-            onSubmit={() => void quiz.submit()}
+            onSubmit={quiz.submit}
             isLast={quiz.index === quiz.questions.length - 1}
           />
         )}
 
-        {quiz.stage === "grading" && <div className="msg">採点中...</div>}
-
-        {quiz.stage === "results" && (
+        {quiz.stage === "results" && quiz.viewingJob && (() => {
+          const job = quiz.viewingJob;
+          return (
           <div className="quiz-results">
-            {quiz.generationFailures.length > 0 && (
+            {job.status === "grading" && (
+              <div className="quiz-grading-status card" role="status">
+                <span className="spinner" aria-hidden="true" />
+                <div>
+                  <strong>採点中…（{job.questions.filter((q) => !job.skipped[q.id]).length}問）</strong>
+                  <span>採点はバックグラウンドで続きます。待つ間に次の復習を始められます。終わるとこの画面か上部の通知から結果を確認できます。</span>
+                </div>
+                <div className="quiz-grading-actions">
+                  {quiz.questions.length > 0 ? (
+                    <button className="primary-button" onClick={quiz.resumeQuiz}>解答中の問題に戻る</button>
+                  ) : (
+                    <button className="primary-button" disabled={dailyStatus?.remaining === 0} onClick={startNextDaily}>
+                      待つ間に次の復習を始める
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            {job.status === "error" && job.error && (
+              <div className="err compact quiz-generation-error" role="alert">
+                <strong>{job.error.message}</strong>
+                {job.error.reason && <p>{job.error.reason}</p>}
+                {job.error.action && <p><b>対処:</b> {job.error.action}</p>}
+                {job.error.reference && <small>問い合わせ用ID: {job.error.reference}</small>}
+                <p className="muted">回答は保持しています。同じ回答で再採点しても二重には記録されません。</p>
+                <button className="primary-button" onClick={() => quiz.retryJob(job.id)}>もう一度採点する</button>
+              </div>
+            )}
+            {job.generationFailures.length > 0 && (
               <GenerationFailureNotice
-                requestedCount={quiz.requestedCount}
-                deliveredCount={quiz.questions.length}
-                failures={quiz.generationFailures}
+                requestedCount={job.requestedCount}
+                deliveredCount={job.questions.length}
+                failures={job.generationFailures}
               />
             )}
-            {quiz.failures.length > 0 && (
+            {job.failures.length > 0 && (
               <div className="quiz-partial-summary" role="status">
                 <strong>
-                  採点結果を{quiz.results.length}問表示し、{quiz.failures.length}問でエラーが発生しました。
+                  採点結果を{job.results.length}問表示し、{job.failures.length}問でエラーが発生しました。
                 </strong>
                 <span>正常な問題の採点は完了しています。エラー原因は該当する問題にだけ表示します。</span>
               </div>
             )}
-            {Object.values(quiz.skipped).some(Boolean) && (
+            {Object.values(job.skipped).some(Boolean) && (
               <div className="quiz-skipped-summary" role="status">
-                記録しなかった問題: {Object.values(quiz.skipped).filter(Boolean).length}問
+                記録しなかった問題: {Object.values(job.skipped).filter(Boolean).length}問
               </div>
             )}
-            {quiz.results.length > 0 && (
+            {job.results.length > 0 && (
               <p className="quiz-results-note">
                 習熟度・優先度の変更とアーカイブはこの画面で行えます。優先度は同じ期限内の出題順だけに使い、復習間隔は変えません。
               </p>
             )}
             <ul className="quiz-result-list">
-              {quiz.questions.map((question, questionIndex) => {
-                const result = quiz.results.find((r) => r.id === question.id);
-                const failure = quiz.failures.find((item) => item.index === questionIndex);
-                const userAnswer = quiz.answers[question.id] ?? "";
+              {job.status !== "grading" && job.questions.map((question, questionIndex) => {
+                const result = job.results.find((r) => r.id === question.id);
+                const failure = job.failures.find((item) => item.index === questionIndex);
+                const userAnswer = job.answers[question.id] ?? "";
                 const hasUserAnswer = userAnswer.trim().length > 0;
-                if (quiz.skipped[question.id]) {
+                if (job.skipped[question.id]) {
                   return (
                     <li key={question.id} className="quiz-result-item quiz-result-skipped card">
                       <div className="quiz-result-head">
@@ -476,6 +529,8 @@ export function QuizView({
                       <h3>解説</h3>
                       <p>{result.explanation}</p>
                     </div>
+                    <DeepDiveInbox knowledgeId={result.id} title={result.title} />
+                    <InsightNotes knowledgeId={result.id} store={insightStore} compact />
                     <div className="quiz-knowledge-panel">
                       <div className="quiz-edit-fields">
                         <label className="quiz-edit-control">
@@ -564,11 +619,15 @@ export function QuizView({
               })}
             </ul>
             <div className="quiz-result-actions">
-              <button className="primary-button" onClick={resetQuiz}>もう一度</button>
-              <button onClick={onExit}>ダッシュボードへ戻る</button>
+              {quiz.questions.length > 0 && (
+                <button className="primary-button" onClick={quiz.resumeQuiz}>解答中の問題に戻る</button>
+              )}
+              <button className={quiz.questions.length > 0 ? "" : "primary-button"} onClick={resetQuiz}>もう一度</button>
+              <button onClick={exit}>ダッシュボードへ戻る</button>
             </div>
           </div>
-        )}
+          );
+        })()}
       </main>
 
       {detail && (
@@ -578,6 +637,7 @@ export function QuizView({
           mutating={false}
           onClose={() => setDetailId(null)}
           onEdit={() => openEdit(detail)}
+          insightStore={insightStore}
         />
       )}
       {editTarget && (
@@ -585,12 +645,111 @@ export function QuizView({
           key={editTarget.id}
           knowledge={editTarget}
           categories={categories}
+          tagSuggestions={tagSuggestions}
           saving={editSaving}
           error={editError}
           onClose={closeEdit}
           onSave={saveEdit}
         />
       )}
+    </div>
+  );
+}
+
+function GradingJobsBanner({
+  jobs, onView, onRetry,
+}: {
+  jobs: GradingJob[];
+  onView: (id: number) => void;
+  onRetry: (id: number) => void;
+}) {
+  return (
+    <ul className="quiz-grading-banner" aria-live="polite">
+      {jobs.map((job) => {
+        const count = job.questions.filter((q) => !job.skipped[q.id]).length;
+        if (job.status === "grading") {
+          return (
+            <li key={job.id} className="grading">
+              <span className="spinner" aria-hidden="true" />
+              <span>前の{count}問を採点中…</span>
+            </li>
+          );
+        }
+        if (job.status === "error") {
+          return (
+            <li key={job.id} className="error">
+              <span>前の{count}問の採点に失敗しました。</span>
+              <button className="text-button" onClick={() => onRetry(job.id)}>再採点</button>
+              <button className="text-button" onClick={() => onView(job.id)}>詳細</button>
+            </li>
+          );
+        }
+        const correct = job.results.filter((result) => result.verdict === "正解").length;
+        return (
+          <li key={job.id} className="done">
+            <span>前の{count}問の採点が完了しました（正解 {correct}/{job.results.length}）。</span>
+            <button className="text-button" onClick={() => onView(job.id)}>結果を見る</button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+const MAX_DEEP_DIVE_CHARS = 1_000;
+
+function DeepDiveInbox({ knowledgeId, title }: { knowledgeId: string; title: string }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [message, setMessage] = useState<string | null>(null);
+
+  const save = async () => {
+    if (status === "saving" || !note.trim()) return;
+    setStatus("saving");
+    setMessage(null);
+    try {
+      await addDeepDiveToInbox(knowledgeId, note);
+      setStatus("saved");
+      setOpen(false);
+    } catch (caught) {
+      setStatus("error");
+      setMessage(caught instanceof Error ? caught.message : "Inboxに登録できませんでした。");
+    }
+  };
+
+  if (status === "saved") {
+    return <p className="quiz-deep-dive-saved" role="status">深掘りしたい点をInboxに登録しました。Ideaの未整理Inboxから整理できます。</p>;
+  }
+  if (!open) {
+    return (
+      <button className="text-button quiz-deep-dive-toggle" onClick={() => setOpen(true)}>
+        あとで深掘りする（Inboxへ登録）
+      </button>
+    );
+  }
+  return (
+    <div className="quiz-deep-dive">
+      <label>
+        <span>深掘りしたい点</span>
+        <textarea
+          rows={3}
+          value={note}
+          maxLength={MAX_DEEP_DIVE_CHARS}
+          placeholder="例: なぜ for ではなく of になるのか調べる"
+          aria-label={`${title}について深掘りしたい点`}
+          autoFocus
+          onChange={(event) => setNote(event.target.value)}
+        />
+      </label>
+      <small className="muted">「深掘り元: 復習「{title}」」を添えて未整理のInboxに入ります。採点結果や復習予定は変わりません。</small>
+      {message && <p className="quiz-edit-error" role="alert">{message}</p>}
+      <div className="quiz-deep-dive-actions">
+        <button onClick={() => { setOpen(false); setMessage(null); }} disabled={status === "saving"}>やめる</button>
+        <button className="primary-button" onClick={() => void save()} disabled={status === "saving" || !note.trim()}>
+          {status === "saving" ? "登録中…" : "Inboxに登録"}
+        </button>
+      </div>
     </div>
   );
 }

@@ -283,8 +283,8 @@ test("hub route keeps successful sections when one upstream is unavailable", asy
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
     const url = String(input);
-    if (url.includes("financial-dashboard")) return Response.json({ error: "offline" }, { status: 503 });
-    if (url.includes("knowledge-dashboard")) return Response.json({ items: [], total: 0, limit: 1000, offset: 0 });
+    if (url.includes("finance-9qq.pages.dev")) return Response.json({ error: "offline" }, { status: 503 });
+    if (url.includes("knowledge-50b.pages.dev")) return Response.json({ items: [], total: 0, limit: 1000, offset: 0 });
     return Response.json([]);
   };
   try {
