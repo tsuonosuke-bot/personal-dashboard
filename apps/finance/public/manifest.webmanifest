@@ -1,0 +1,16 @@
+{
+  "name": "Finance — Personal Hub",
+  "short_name": "Finance",
+  "description": "Personal Hubの家計簿ダッシュボード",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "ja",
+  "background_color": "#f5f5f2",
+  "theme_color": "#355f52",
+  "icons": [
+    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
