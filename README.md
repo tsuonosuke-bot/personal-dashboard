@@ -35,3 +35,8 @@ npm run build -w apps/knowledge   # 1アプリだけ
 | Build watch paths (include) | `apps/hub/*`, `package.json`, `package-lock.json` | `apps/knowledge/*`, `package.json`, `package-lock.json` | `apps/finance/*`, `package.json`, `package-lock.json` |
 
 Root directory直下にlockfileが無いため、Build commandでルートの `npm ci` を明示する。
+
+## Supabaseバックアップ
+
+GitHub Actionsで週1回、共有DBを暗号化してArtifactに保存する。初期設定とリストア手順は
+[`docs/supabase-backup.md`](docs/supabase-backup.md)。

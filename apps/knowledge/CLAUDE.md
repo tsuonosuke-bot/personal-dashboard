@@ -146,6 +146,7 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
   同一トランザクションで行う
 - `get_recent_quiz_notes(p_knowledge_ids, p_per_item=2)`: 選択された各項目について直近N件を返す
 - `consume_dashboard_handoff_nonce(p_nonce, p_expires_at)`: SSO引き継ぎnonceを一度だけ消費する
+- `prune_dashboard_handoff_nonce()`: 期限切れから1日を過ぎたnonceを削除する。pg_cron `prune-dashboard-handoff-nonce` が毎日3:20（JST）に実行
 - `jst_today()`: 日本時間の今日。日付判定は必ずこれを経由する
 
 q別の基準間隔はq0=10分、q1=30分、q2=6時間、q3=12時間、q4=1日以上、q5=3日以上。
