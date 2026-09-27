@@ -221,7 +221,8 @@ public/
 
 ## デプロイと閲覧制限
 
-Cloudflare PagesにGitHub連携でデプロイしている。mainへのpushで本番が更新される。
+モノレポ `personal-dashboard` の `apps/knowledge` をCloudflare PagesにGitHub連携でデプロイする
+（Root directory `apps/knowledge`）。mainへのpushで本番が更新される。
 本番: https://knowledge-dashboard-27t.pages.dev
 
 Functionsの環境変数はCloudflareのVariables and SecretsでProduction/Preview双方に設定し、

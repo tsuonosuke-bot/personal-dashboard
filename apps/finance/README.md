@@ -126,12 +126,13 @@ FunctionsだけがSupabase Secret keyを保持し、ブラウザへは必要な�
 
 ## Cloudflare Pagesへのデプロイ
 
-ナレッジDBと同じCloudflare PagesのGitHub連携方式を想定します。
+このモノレポ（personal-dashboard）とCloudflare PagesをGitHub連携します。
 
 | 項目 | 値 |
 | --- | --- |
 | Framework preset | **None** |
-| Build command | `npm run build` |
+| Root directory | `apps/finance` |
+| Build command | `cd ../.. && npm ci && npm run build -w apps/finance` |
 | Build output directory | `dist` |
 | Node version | `.node-version`（22） |
 
