@@ -284,6 +284,8 @@ export interface InsightGroupMember {
 
 export interface InsightTheme {
   title: string;
+  /** 問いとして保存するときの問い文の下書き。空文字のこともある。 */
+  guiding_question: string;
   summary: string;
   importance: string;
   insight_ids: number[];

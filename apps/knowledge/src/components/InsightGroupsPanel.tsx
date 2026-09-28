@@ -7,14 +7,16 @@ interface Props {
   knowledge: Knowledge[];
   insights: KnowledgeInsight[];
   store: InsightGroupStore;
+  /** URLで指定された問いを最初に開く。 */
+  initialGroupId?: number | null;
 }
 
 function errorMessage(caught: unknown): string {
   return caught instanceof Error ? caught.message : "操作を完了できませんでした。";
 }
 
-export function InsightGroupsPanel({ knowledge, insights, store }: Props) {
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+export function InsightGroupsPanel({ knowledge, insights, store, initialGroupId = null }: Props) {
+  const [selectedId, setSelectedId] = useState<number | null>(initialGroupId);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState("");

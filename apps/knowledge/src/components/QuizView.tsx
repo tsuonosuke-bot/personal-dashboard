@@ -5,6 +5,7 @@ import {
 import { MASTERY_ORDER, PRIORITY_ORDER } from "../constants";
 import { addDeepDiveToInbox } from "../lib/api";
 import { dashboardRoutePath } from "../lib/dashboardRoute";
+import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
 import { InsightNotes } from "./InsightNotes";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
@@ -64,6 +65,7 @@ interface Props {
   autoStartDaily?: boolean;
   dailyStatus: DailyReviewStatus | null;
   insightStore: InsightStore;
+  insightGroupStore: InsightGroupStore;
   onKnowledgeUpdate: (
     id: string,
     expectedVersion: number,
@@ -83,6 +85,7 @@ type ResultEditFeedback = {
 
 export function QuizView({
   knowledge, quizLog, onExit, onRecorded, onKnowledgeUpdate, autoStartDaily = false, dailyStatus, insightStore,
+  insightGroupStore,
 }: Props) {
   const quiz = useQuiz(onRecorded);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -530,7 +533,7 @@ export function QuizView({
                       <p>{result.explanation}</p>
                     </div>
                     <DeepDiveInbox knowledgeId={result.id} title={result.title} />
-                    <InsightNotes knowledgeId={result.id} store={insightStore} compact />
+                    <InsightNotes knowledgeId={result.id} store={insightStore} groupStore={insightGroupStore} compact />
                     <div className="quiz-knowledge-panel">
                       <div className="quiz-edit-fields">
                         <label className="quiz-edit-control">
@@ -638,6 +641,7 @@ export function QuizView({
           onClose={() => setDetailId(null)}
           onEdit={() => openEdit(detail)}
           insightStore={insightStore}
+          insightGroupStore={insightGroupStore}
         />
       )}
       {editTarget && (

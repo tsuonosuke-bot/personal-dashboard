@@ -21,6 +21,8 @@ export interface InsightGroupStore {
   remove: (group: InsightGroup) => Promise<void>;
   addMember: (groupId: number, insightId: number) => Promise<void>;
   removeMember: (groupId: number, insightId: number) => Promise<void>;
+  /** 複数の示唆を順に追加し、最後に1回だけ読み直す。追加できなかった示唆IDを返す。 */
+  addMembers: (groupId: number, insightIds: readonly number[]) => Promise<number[]>;
 }
 
 function oldestFirst(groups: InsightGroup[]): InsightGroup[] {
@@ -80,5 +82,20 @@ export function useInsightGroups(): InsightGroupStore {
     await reload();
   }, [reload]);
 
-  return { groups, members, loading, error, reload, create, update, remove, addMember, removeMember };
+  const addMembers = useCallback(async (groupId: number, insightIds: readonly number[]) => {
+    const failed: number[] = [];
+    for (const insightId of insightIds) {
+      try {
+        const member = await addInsightGroupMember(groupId, insightId);
+        setMembers((current) => current.some((item) => item.group_id === groupId && item.insight_id === insightId)
+          ? current : [...current, member]);
+      } catch {
+        failed.push(insightId);
+      }
+    }
+    await reload();
+    return failed;
+  }, [reload]);
+
+  return { groups, members, loading, error, reload, create, update, remove, addMember, removeMember, addMembers };
 }

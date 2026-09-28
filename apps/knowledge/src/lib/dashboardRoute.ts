@@ -1,10 +1,11 @@
+export type OrganizeTab = "questions" | "insights" | "tags";
+
 export type DashboardRoute =
   | { kind: "dashboard" }
   | { kind: "quiz"; mode: "custom" | "daily" }
   | { kind: "speaking" }
   | { kind: "log" }
-  | { kind: "insights" }
-  | { kind: "tags" }
+  | { kind: "organize"; tab: OrganizeTab; questionId: number | null }
   | { kind: "knowledge"; knowledgeId: string }
   | { kind: "invalid-knowledge" };
 
@@ -25,8 +26,19 @@ export function parseDashboardRoute(value: string | URL): DashboardRoute {
   }
   if (url.searchParams.get("view") === "speaking") return { kind: "speaking" };
   if (url.searchParams.get("view") === "log") return { kind: "log" };
-  if (url.searchParams.get("view") === "insights") return { kind: "insights" };
-  if (url.searchParams.get("view") === "tags") return { kind: "tags" };
+  const view = url.searchParams.get("view");
+  // 旧URL（view=insights / view=tags）は統合した「整理」ページの該当タブで開く。
+  if (view === "insights") return { kind: "organize", tab: "questions", questionId: null };
+  if (view === "tags") return { kind: "organize", tab: "tags", questionId: null };
+  if (view === "organize") {
+    const tab = url.searchParams.get("tab");
+    const question = url.searchParams.get("question") ?? "";
+    return {
+      kind: "organize",
+      tab: tab === "insights" || tab === "tags" ? tab : "questions",
+      questionId: /^[1-9]\d{0,15}$/.test(question) ? Number(question) : null,
+    };
+  }
   const knowledgeId = url.searchParams.get("knowledge");
   if (knowledgeId === null) return { kind: "dashboard" };
   return isKnowledgeId(knowledgeId)
@@ -39,14 +51,19 @@ export function dashboardRoutePath(value: string | URL, route: DashboardRoute): 
   url.searchParams.delete("view");
   url.searchParams.delete("mode");
   url.searchParams.delete("knowledge");
+  url.searchParams.delete("tab");
+  url.searchParams.delete("question");
   if (route.kind === "quiz") {
     url.searchParams.set("view", "quiz");
     if (route.mode === "daily") url.searchParams.set("mode", "daily");
   }
   if (route.kind === "speaking") url.searchParams.set("view", "speaking");
   if (route.kind === "log") url.searchParams.set("view", "log");
-  if (route.kind === "insights") url.searchParams.set("view", "insights");
-  if (route.kind === "tags") url.searchParams.set("view", "tags");
+  if (route.kind === "organize") {
+    url.searchParams.set("view", "organize");
+    if (route.tab !== "questions") url.searchParams.set("tab", route.tab);
+    if (route.questionId !== null) url.searchParams.set("question", String(route.questionId));
+  }
   if (route.kind === "knowledge") url.searchParams.set("knowledge", route.knowledgeId);
   return `${url.pathname}${url.search}${url.hash}`;
 }

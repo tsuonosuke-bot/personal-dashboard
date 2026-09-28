@@ -774,12 +774,50 @@
 :root[data-theme="dark"] .insight-group-head a {
   color: #a89cc3;
 }
-:root[data-theme="dark"] .insight-view-tabs button {
+:root[data-theme="dark"] .organize-guide p {
+  color: #a7b1c3;
+}
+:root[data-theme="dark"] .organize-guide dl div {
+  border-radius: 10px;
+  background: #201f23;
+}
+:root[data-theme="dark"] .organize-guide dt {
+  color: #b2a6cd;
+}
+:root[data-theme="dark"] .organize-guide dd {
+  color: #9ea9b9;
+}
+:root[data-theme="dark"] .organize-tabs button {
   border: 0;
   background: transparent;
   color: #9ea9b9;
 }
-:root[data-theme="dark"] .insight-view-tabs button[aria-pressed="true"] {
+:root[data-theme="dark"] .organize-tabs button span {
+  color: #7c8ea8;
+}
+:root[data-theme="dark"] .organize-tabs button[aria-pressed="true"] {
+  background: #1b191e;
+  color: #b2a6cd;
+}
+:root[data-theme="dark"] .question-chip {
+  border-radius: 999px;
+  background: #1b191e;
+  color: #b2a6cd;
+  text-decoration: none;
+}
+:root[data-theme="dark"] .question-chip:hover {
+  background: #332b40;
+}
+:root[data-theme="dark"] .question-picker {
+  border-radius: 10px;
+  background: #201f23;
+}
+:root[data-theme="dark"] .question-picker label,
+:root[data-theme="dark"] .insight-add-question {
+  color: #a7b1c3;
+}
+:root[data-theme="dark"] .theme-question-saved {
+  border-radius: 10px;
   background: #1b191e;
   color: #b2a6cd;
 }

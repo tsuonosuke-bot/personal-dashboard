@@ -8,7 +8,7 @@ export interface InsightStore {
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
-  create: (knowledgeId: string, body: string) => Promise<void>;
+  create: (knowledgeId: string, body: string) => Promise<KnowledgeInsight>;
   update: (insight: KnowledgeInsight, body: string) => Promise<void>;
   remove: (id: number) => Promise<void>;
 }
@@ -41,6 +41,7 @@ export function useInsights(): InsightStore {
   const create = useCallback(async (knowledgeId: string, body: string) => {
     const created = await createInsight(knowledgeId, body);
     setInsights((current) => newestFirst([created, ...current]));
+    return created;
   }, []);
 
   const update = useCallback(async (insight: KnowledgeInsight, body: string) => {

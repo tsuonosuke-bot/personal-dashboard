@@ -94,6 +94,20 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - グループを閲覧・整理しても `quiz_log`、習熟度、次回復習時刻を更新しない
 - タグ別画面は既存の `knowledge.tags` を厳密一致で集計し、タグなしも表示する。タグの一括補完は行わない
 
+### 整理ページ（問い・示唆・タグ）
+
+- `?view=organize&tab=questions|insights|tags&question=<id>` の1ページで、問い・すべての示唆・タグをタブで切り替える。
+  旧URLの `?view=insights` は問いタブ、`?view=tags` はタグタブで開く
+- 画面上でカテゴリ＝分野、タグ＝分野の中の小分類や出典、問い＝分野をまたいで示唆を束ねるもの、と使い分けを示す
+- 問いの状態（`useInsightGroups`）はAppで1つだけ持ち、整理ページ・ナレッジ詳細・採点結果で共有する
+- 示唆を書く欄では任意で問いを選べる。示唆を保存してから所属を追加し、所属だけ失敗したら示唆を二重登録させず、
+  後から「問いに入れる」でやり直してもらう
+- 既存の示唆は「問いに入れる」から既存の問いへ追加するか、その場で新しい問いを作って入れる
+- 示唆には所属する問いのチップを表示し、押すと整理ページのその問いを開く
+- AIまとめ（`/api/insights/analyze`）は各テーマに `guiding_question`（問い文の下書き、欠ければ空文字）を返す。
+  テーマごとの「この問いとして保存」で、テーマ名と問い文を直してから問いを作り、根拠の示唆をまとめて入れる。
+  まとめ結果そのものは保存しない
+
 ### DBアクセス
 
 Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは次だけ。
@@ -216,7 +230,8 @@ src/
     useModalDialog.ts       モーダルのフォーカス管理
     useQuiz.ts              復習クイズの出題・回答・採点フロー管理
   components/               表示、編集、詳細、アーカイブ復元、復習クイズ画面（QuizView）、
-                            英会話練習画面（SpeakingPracticeView）
+                            英会話練習画面（SpeakingPracticeView）、整理ページ（OrganizeView）と
+                            その各タブ（InsightGroupsPanel / InsightListPanel / TagGroupsPanel）
 functions/
   _middleware.ts            全リクエストのBasic認証とセキュリティヘッダー
   _shared/supabaseRest.ts   Supabase REST API / RPC呼び出し

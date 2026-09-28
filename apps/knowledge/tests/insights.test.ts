@@ -114,14 +114,19 @@ test("示唆を削除する", async () => {
 test("AIのまとめは渡した示唆のIDだけを根拠として残す", () => {
   const themes = readThemes({
     themes: [
-      { title: "相手に動いてもらう言い方", summary: "要約", importance: "3つのナレッジに現れる", insight_ids: [1, 2, 99, 2] },
+      { title: "相手に動いてもらう言い方", guiding_question: "角を立てずに頼むには？", summary: "要約", importance: "3つのナレッジに現れる", insight_ids: [1, 2, 99, 2] },
       { title: "根拠なし", summary: "要約", importance: "理由", insight_ids: [99] },
       { title: "", summary: "要約", importance: "理由", insight_ids: [1] },
     ],
   }, new Set([1, 2, 3]));
   assert.deepEqual(themes, [
-    { title: "相手に動いてもらう言い方", summary: "要約", importance: "3つのナレッジに現れる", insight_ids: [1, 2] },
+    { title: "相手に動いてもらう言い方", guiding_question: "角を立てずに頼むには？", summary: "要約", importance: "3つのナレッジに現れる", insight_ids: [1, 2] },
   ]);
+  // 問い文の下書きが欠けてもテーマは残し、保存時に書いてもらう
+  assert.deepEqual(
+    readThemes({ themes: [{ title: "t", summary: "s", importance: "i", insight_ids: [1] }] }, new Set([1]))?.[0].guiding_question,
+    "",
+  );
   assert.equal(readThemes({ themes: [] }, new Set([1])), null);
 });
 

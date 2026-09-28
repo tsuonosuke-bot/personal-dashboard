@@ -1,24 +1,23 @@
 import { useMemo, useState } from "react";
+import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
-import { useInsightGroups } from "../hooks/useInsightGroups";
 import { analyzeInsights, ApiError } from "../lib/api";
 import { dashboardRoutePath } from "../lib/dashboardRoute";
 import type { InsightAnalysis, Knowledge, KnowledgeInsight } from "../types";
-import { InsightGroupsPanel } from "./InsightGroupsPanel";
+import { QuestionChips, ThemeToQuestion } from "./InsightQuestions";
 
 interface Props {
   knowledge: Knowledge[];
   store: InsightStore;
-  onExit: () => void;
+  groupStore: InsightGroupStore;
 }
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" });
 }
 
-export function InsightsView({ knowledge, store, onExit }: Props) {
-  const [mode, setMode] = useState<"questions" | "all">("questions");
-  const groupStore = useInsightGroups();
+/** 「すべての示唆」タブ。ナレッジごとの示唆一覧と、AIによる共通点のまとめ。 */
+export function InsightListPanel({ knowledge, store, groupStore }: Props) {
   const [query, setQuery] = useState("");
   const [analysis, setAnalysis] = useState<InsightAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -60,19 +59,7 @@ export function InsightsView({ knowledge, store, onExit }: Props) {
   };
 
   return (
-    <div className="quiz-page">
-      <header className="quiz-header">
-        <button className="text-button" onClick={onExit}>← ダッシュボードへ戻る</button>
-        <h1>示唆</h1>
-      </header>
-      <main className="quiz-body insights-view">
-        <div className="insight-view-tabs card" role="group" aria-label="示唆の見方">
-          <button type="button" aria-pressed={mode === "questions"} onClick={() => setMode("questions")}>問いで考える</button>
-          <button type="button" aria-pressed={mode === "all"} onClick={() => setMode("all")}>すべての示唆</button>
-        </div>
-        {mode === "questions" ? (
-          <InsightGroupsPanel knowledge={knowledge} insights={store.insights} store={groupStore} />
-        ) : <>
+    <div className="insights-view">
         <div className="insights-toolbar card">
           <p>
             ナレッジごとに残した「自分にとってどう役立つか」のメモです。{store.insights.length}件・
@@ -95,7 +82,7 @@ export function InsightsView({ knowledge, store, onExit }: Props) {
               {analyzing ? "まとめ中…" : "AIで共通点をまとめる"}
             </button>
           </div>
-          <small className="muted">AIに送るのは新しい順に最大300件の示唆とナレッジ名だけです。結果は保存しません。</small>
+          <small className="muted">AIに送るのは新しい順に最大300件の示唆とナレッジ名だけです。まとめ自体は保存せず、「この問いとして保存」を押したテーマだけが問いになります。</small>
         </div>
 
         {analysisError && <div className="err compact" role="alert">{analysisError}</div>}
@@ -114,6 +101,12 @@ export function InsightsView({ knowledge, store, onExit }: Props) {
                     </div>
                     <p>{theme.summary}</p>
                     <p className="insight-theme-importance"><b>重要そうな理由:</b> {theme.importance}</p>
+                    <ThemeToQuestion
+                      store={groupStore}
+                      title={theme.title}
+                      guidingQuestion={theme.guiding_question}
+                      insightIds={related.map((item) => item.id)}
+                    />
                     <details>
                       <summary>根拠の示唆を見る</summary>
                       <ul>
@@ -150,6 +143,7 @@ export function InsightsView({ knowledge, store, onExit }: Props) {
                 {notes.map((note) => (
                   <li key={note.id} className="insight-note">
                     <p>{note.body}</p>
+                    <QuestionChips store={groupStore} insightId={note.id} />
                     <div className="insight-note-meta"><span>{formatDate(note.created_at)}</span></div>
                   </li>
                 ))}
@@ -157,8 +151,6 @@ export function InsightsView({ knowledge, store, onExit }: Props) {
             </li>
           ))}
         </ul>
-        </>}
-      </main>
     </div>
   );
 }

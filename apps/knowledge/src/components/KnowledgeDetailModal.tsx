@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { PRIORITY_INTERVAL_HINTS } from "../constants";
+import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
 import { useModalDialog } from "../hooks/useModalDialog";
 import { InsightNotes } from "./InsightNotes";
@@ -15,6 +16,8 @@ interface Props {
   onArchive?: () => void;
   /** 渡したときだけ示唆（付箋）の閲覧・追加欄を出す。 */
   insightStore?: InsightStore;
+  /** 渡すと、示唆を問いに入れたり、入っている問いを表示したりできる。 */
+  insightGroupStore?: InsightGroupStore;
 }
 
 function displayDateTime(value: string): string {
@@ -34,7 +37,7 @@ function displayRelearning(stage: Knowledge["relearning_stage"]): string {
 }
 
 export function KnowledgeDetailModal({
-  knowledge, quizLog, mutating, onClose, onEdit, onArchive, insightStore,
+  knowledge, quizLog, mutating, onClose, onEdit, onArchive, insightStore, insightGroupStore,
 }: Props) {
   const titleId = useId();
   const history = quizLog
@@ -70,7 +73,7 @@ export function KnowledgeDetailModal({
             </div>
           )}
 
-          {insightStore && <InsightNotes knowledgeId={knowledge.id} store={insightStore} />}
+          {insightStore && <InsightNotes knowledgeId={knowledge.id} store={insightStore} groupStore={insightGroupStore} />}
 
           <div className="metric-grid">
             <div><span>正答率</span><strong>{knowledge.accuracy == null ? "-" : `${Math.round(knowledge.accuracy * 100)}%`}</strong></div>

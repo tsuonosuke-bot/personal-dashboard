@@ -19,6 +19,8 @@ interface InsightRow {
 
 export interface InsightTheme {
   title: string;
+  /** そのテーマを問いとして保存するときの、思い出すための問い文の下書き。無ければ空文字。 */
+  guiding_question: string;
   summary: string;
   importance: string;
   insight_ids: number[];
@@ -29,7 +31,9 @@ const SYSTEM_PROMPT = `あなたは、学習者が自分の学びに残した「
 
 - テーマは2〜${MAX_THEMES}件。単なるカテゴリ分け（英語、ITなど）ではなく、示唆の中身に共通する考え方や行動でまとめる
 - 異なるナレッジから2件以上の示唆が集まるテーマを優先する。1件だけでも特に重要なら入れてよい
-- title は短い言い切り、summary はそのテーマで学習者が繰り返し考えていることを2〜3文で、学習者の言葉を尊重して書く
+- title は短い言い切り（120文字以内）。学習者がそのまま問いのテーマ名として保存できる言葉にする
+- guiding_question は、学習者がこのテーマの示唆を自分で思い出すための問い（300文字以内、「〜には？」「〜とき、どう判断する？」の形）。答えそのものを書かない
+- summary はそのテーマで学習者が繰り返し考えていることを2〜3文で、学習者の言葉を尊重して書く
 - importance には、なぜそれが学習者にとって重要そうかを、示唆の出現回数や広がりを根拠に1〜2文で書く
 - insight_ids には根拠にした示唆のIDだけを入れる。渡されていないIDを作らない
 - 重要度が高い順に並べる`;
@@ -48,11 +52,12 @@ const TOOL = {
           type: "object",
           properties: {
             title: { type: "string" },
+            guiding_question: { type: "string" },
             summary: { type: "string" },
             importance: { type: "string" },
             insight_ids: { type: "array", minItems: 1, items: { type: "integer" } },
           },
-          required: ["title", "summary", "importance", "insight_ids"],
+          required: ["title", "guiding_question", "summary", "importance", "insight_ids"],
         },
       },
     },
@@ -71,14 +76,16 @@ export function readThemes(input: unknown, knownIds: ReadonlySet<number>): Insig
   for (const raw of (input as { themes: unknown[] }).themes.slice(0, MAX_THEMES)) {
     if (typeof raw !== "object" || raw === null) continue;
     const record = raw as Record<string, unknown>;
-    const title = text(record.title, 100);
+    const title = text(record.title, 120);
+    // 問い文は保存時に学習者が直せるので、欠けても長すぎてもテーマ自体は捨てない。
+    const guidingQuestion = text(record.guiding_question, 300) ?? "";
     const summary = text(record.summary, 1_000);
     const importance = text(record.importance, 1_000);
     const ids = Array.isArray(record.insight_ids)
       ? [...new Set(record.insight_ids.filter((id): id is number => Number.isSafeInteger(id) && knownIds.has(id as number)))]
       : [];
     if (!title || !summary || !importance || ids.length === 0) continue;
-    themes.push({ title, summary, importance, insight_ids: ids });
+    themes.push({ title, guiding_question: guidingQuestion, summary, importance, insight_ids: ids });
   }
   return themes.length > 0 ? themes : null;
 }
