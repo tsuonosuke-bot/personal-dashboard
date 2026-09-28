@@ -816,6 +816,40 @@
 :root[data-theme="dark"] .insight-add-question {
   color: #a7b1c3;
 }
+:root[data-theme="dark"] .speaking-log-legend {
+  color: #a7b1c3;
+}
+:root[data-theme="dark"] .speaking-swatch {
+  border-radius: 3px;
+  background: currentColor;
+}
+:root[data-theme="dark"] .speaking-swatch-smooth,
+:root[data-theme="dark"] .speaking-bar-smooth {
+  color: #82b1eb;
+}
+:root[data-theme="dark"] .speaking-swatch-almost,
+:root[data-theme="dark"] .speaking-bar-almost {
+  color: #5498e9;
+}
+:root[data-theme="dark"] .speaking-swatch-retry,
+:root[data-theme="dark"] .speaking-bar-retry {
+  color: #86b6ef;
+}
+:root[data-theme="dark"] .speaking-log-chart .recharts-bar-rectangle path {
+  stroke: #fff;
+}
+:root[data-theme="dark"] .speaking-rating-smooth {
+  background: #213147;
+  color: #82b1eb;
+}
+:root[data-theme="dark"] .speaking-rating-almost {
+  background: #141921;
+  color: #8cb1de;
+}
+:root[data-theme="dark"] .speaking-rating-retry {
+  background: #1b1e21;
+  color: #a7b1c3;
+}
 :root[data-theme="dark"] .theme-question-saved {
   border-radius: 10px;
   background: #1b191e;
