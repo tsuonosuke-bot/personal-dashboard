@@ -4,6 +4,7 @@ import {
   ALL_CATEGORIES, buildLearningLog, type LearningLogFilters, type LearningLogPeriod,
 } from "../lib/learningLog";
 import { Pagination } from "./Pagination";
+import { SpeakingLogPanel } from "./SpeakingLogPanel";
 import type { Knowledge, QuizLog, QuizVerdict } from "../types";
 
 interface Props {
@@ -30,6 +31,7 @@ const VERDICT_CLASS: Record<QuizVerdict, string> = {
 };
 
 export function LearningLogView({ knowledge, quizLog, loading, error, onExit }: Props) {
+  const [tab, setTab] = useState<"review" | "speaking">("review");
   const [filters, setFilters] = useState<LearningLogFilters>({
     period: "30",
     category: ALL_CATEGORIES,
@@ -63,6 +65,11 @@ export function LearningLogView({ knowledge, quizLog, loading, error, onExit }: 
         <h1>学習ログ</h1>
       </header>
       <main className="quiz-body learning-log">
+        <div className="organize-tabs card" role="group" aria-label="表示するログ">
+          <button type="button" aria-pressed={tab === "review"} onClick={() => setTab("review")}>復習</button>
+          <button type="button" aria-pressed={tab === "speaking"} onClick={() => setTab("speaking")}>英会話練習</button>
+        </div>
+        {tab === "speaking" ? <SpeakingLogPanel knowledge={knowledge} periodOptions={PERIOD_OPTIONS} /> : <>
         <div className="learning-log-filters card">
           <label>
             期間
@@ -125,6 +132,7 @@ export function LearningLogView({ knowledge, quizLog, loading, error, onExit }: 
             onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
           />
         )}
+        </>}
       </main>
     </div>
   );

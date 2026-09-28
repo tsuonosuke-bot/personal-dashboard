@@ -480,6 +480,19 @@ button.review-card { display: block; }
 .question-picker input, .question-picker select, .insight-add-question select { font: inherit; font-size: 13px; }
 .question-picker-actions { display: flex; align-items: center; gap: 8px; }
 .question-picker-actions .action-spacer { flex: 1; }
+.speaking-log-chart { display: grid; gap: 8px; }
+.speaking-log-chart-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.speaking-log-chart-head h2 { margin: 0; font-size: 14px; }
+.speaking-log-legend { display: flex; gap: 12px; margin: 0; padding: 0; list-style: none; color: #526079; font-size: 12px; }
+.speaking-log-legend li { display: flex; align-items: center; gap: 5px; }
+.speaking-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: currentColor; }
+.speaking-swatch-smooth, .speaking-bar-smooth { color: #1c5cab; }
+.speaking-swatch-almost, .speaking-bar-almost { color: #3987e5; }
+.speaking-swatch-retry, .speaking-bar-retry { color: #86b6ef; }
+.speaking-log-chart .recharts-bar-rectangle path { stroke: #fff; stroke-width: 1; }
+.speaking-rating-smooth { background: #dbe8fa; color: #1c5cab; }
+.speaking-rating-almost { background: #e6effb; color: #2d5f9e; }
+.speaking-rating-retry { background: #f1f5f9; color: #526079; }
 .theme-question-open { justify-self: start; margin-top: 4px; }
 .theme-question-saved { margin: 6px 0 0; padding: 8px 10px; border-radius: 10px; background: #f1eef6; color: #554479; font-size: 12px; }
 .theme-question-saved a { font-weight: 700; }
@@ -722,3 +735,9 @@ button.review-card { display: block; }
 :root[data-theme="dark"] .recharts-sector { stroke: #242129; }
 :root[data-theme="dark"] .recharts-pie-label-text { fill: #e6e1ec; }
 :root[data-theme="dark"] .recharts-tooltip-cursor { fill: rgba(255, 255, 255, .06); }
+/* 英会話練習の評価は、暗い面では明るいほど強調になるよう段階を反転した同じ青の濃淡を使う。
+   自動生成のダーク色より優先させるため、ページのクラスで詳細度を上げる。 */
+:root[data-theme="dark"] .learning-log .speaking-swatch-smooth, :root[data-theme="dark"] .learning-log .speaking-bar-smooth { color: #9ec5f4; }
+:root[data-theme="dark"] .learning-log .speaking-swatch-almost, :root[data-theme="dark"] .learning-log .speaking-bar-almost { color: #5598e7; }
+:root[data-theme="dark"] .learning-log .speaking-swatch-retry, :root[data-theme="dark"] .learning-log .speaking-bar-retry { color: #1c5cab; }
+:root[data-theme="dark"] .learning-log .speaking-log-chart .recharts-bar-rectangle path { stroke: #292929; }

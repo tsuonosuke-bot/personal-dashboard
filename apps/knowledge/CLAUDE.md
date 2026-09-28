@@ -79,6 +79,8 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - 他: `attempt_id`（冪等キー）、`session_id`, `knowledge_id`, `answer_text`,
   `repetitions`, `practiced_at`
 - 音声データは保存しない
+- 学習ログページの「英会話練習」タブで見返す。記録は少量なので全件を1回取得し、期間・練習の種類・評価で画面側で絞る。
+  日付は日本時間。日別の回数は評価別の積み上げ棒（1軸）で、評価は青1色の濃淡（ダークは段階を反転）で表す
 
 ### `knowledge_insights`
 
