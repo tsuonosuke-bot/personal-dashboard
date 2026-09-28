@@ -51,9 +51,11 @@ create table review_scheduler_verify.quiz_log (
   sync_event_id uuid
 );
 
--- The runner must replace the marker below with the migration body after
--- removing its one top-level BEGIN/COMMIT pair. This outer transaction must
--- remain the sole transaction so the test schema is always rolled back.
+-- The runner must replace the marker below with the bodies of
+-- 20260921100000_continuous_review_queue.sql and 20260928100000_review_pacing.sql,
+-- in that order, after removing each file's top-level BEGIN/COMMIT pair and
+-- pointing `public.` at this schema. This outer transaction must remain the sole
+-- transaction so the test schema is always rolled back.
 -- __MIGRATION__
 
 do $$
@@ -238,6 +240,111 @@ begin
   into v_r, v_n from review_scheduler_verify.pick_daily_review_queue(15);
   if v_r <> 10 or v_n <> 5 then
     raise exception 'batch quota was retry %, normal %', v_r, v_n;
+  end if;
+
+  -- Strong due recalls grow faster: q4 starts at 2 days and doubles, q5 starts
+  -- at 4 days and grows 2.8x. At 高 the due interval equals stability.
+  truncate review_scheduler_verify.quiz_log, review_scheduler_verify.knowledge cascade;
+  insert into review_scheduler_verify.knowledge(
+    id, title, category, mastery, priority, times_asked, next_review_at, stability_hours
+  ) values
+    ('00000000-0000-4000-8000-000000000050', 'q4 growth', 'test', '学習中', '高', 2, now() - interval '1 day', 30),
+    ('00000000-0000-4000-8000-000000000051', 'q5 growth', 'test', '学習中', '高', 2, now() - interval '1 day', 100),
+    ('00000000-0000-4000-8000-000000000052', 'q4 first', 'test', '未学習', '高', 0, now() - interval '1 day', 0),
+    ('00000000-0000-4000-8000-000000000053', 'q5 first', 'test', '未学習', '高', 0, now() - interval '1 day', 0);
+  perform review_scheduler_verify.record_answer('00000000-0000-4000-8000-000000000050', 4::smallint, '正解', null, '一問一答');
+  perform review_scheduler_verify.record_answer('00000000-0000-4000-8000-000000000051', 5::smallint, '正解', null, '一問一答');
+  perform review_scheduler_verify.record_answer('00000000-0000-4000-8000-000000000052', 4::smallint, '正解', null, '一問一答');
+  perform review_scheduler_verify.record_answer('00000000-0000-4000-8000-000000000053', 5::smallint, '正解', null, '一問一答');
+  if (select string_agg(stability_hours::numeric(10, 2)::text || '/' ||
+        round(extract(epoch from (next_review_at - scheduled_from_at)) / 3600, 2)::text, ',' order by id)
+      from review_scheduler_verify.knowledge) <> '60.00/60.00,280.00/280.00,48.00/48.00,96.00/96.00' then
+    raise exception 'growth schedule was %', (
+      select string_agg(stability_hours::text || '/' ||
+        (extract(epoch from (next_review_at - scheduled_from_at)) / 3600)::text, ',' order by id)
+      from review_scheduler_verify.knowledge);
+  end if;
+
+  -- Priority scales the due interval but never the stored stability. A later
+  -- priority-only edit reschedules from the same anchor; relearning steps keep
+  -- their fixed time, and an explicit date in the same edit wins.
+  truncate review_scheduler_verify.quiz_log, review_scheduler_verify.knowledge cascade;
+  insert into review_scheduler_verify.knowledge(
+    id, title, category, mastery, priority, times_asked, next_review_at, stability_hours
+  ) values
+    ('00000000-0000-4000-8000-000000000060', 'low priority', 'test', '学習中', '低', 2, now() - interval '1 day', 24),
+    ('00000000-0000-4000-8000-000000000061', 'relearning priority', 'test', '学習中', '中', 2, now() - interval '1 day', 240);
+  perform review_scheduler_verify.record_answer('00000000-0000-4000-8000-000000000060', 4::smallint, '正解', null, '一問一答');
+  select stability_hours, extract(epoch from (next_review_at - scheduled_from_at)) / 3600
+  into v_stability, v_minutes
+  from review_scheduler_verify.knowledge where id = '00000000-0000-4000-8000-000000000060';
+  if v_stability <> 48 or abs(v_minutes - 96) > 0.01 then
+    raise exception 'low priority schedule was stability %, due hours %', v_stability, v_minutes;
+  end if;
+  update review_scheduler_verify.knowledge set priority = '最高'
+  where id = '00000000-0000-4000-8000-000000000060';
+  select stability_hours, extract(epoch from (next_review_at - scheduled_from_at)) / 3600
+  into v_stability, v_minutes
+  from review_scheduler_verify.knowledge where id = '00000000-0000-4000-8000-000000000060';
+  if v_stability <> 48 or abs(v_minutes - 24) > 0.01
+    or (select next_review_on <> (next_review_at at time zone 'Asia/Tokyo')::date
+        from review_scheduler_verify.knowledge where id = '00000000-0000-4000-8000-000000000060') then
+    raise exception 'priority edit reschedule was stability %, due hours %', v_stability, v_minutes;
+  end if;
+  update review_scheduler_verify.knowledge
+  set priority = '最低', next_review_on = current_date + 40
+  where id = '00000000-0000-4000-8000-000000000060';
+  if (select next_review_on from review_scheduler_verify.knowledge
+      where id = '00000000-0000-4000-8000-000000000060') <> current_date + 40 then
+    raise exception 'explicit date lost to a priority edit';
+  end if;
+  perform review_scheduler_verify.record_answer('00000000-0000-4000-8000-000000000061', 2::smallint, '部分正解', null, '一問一答');
+  select next_review_at into v_due from review_scheduler_verify.knowledge
+  where id = '00000000-0000-4000-8000-000000000061';
+  update review_scheduler_verify.knowledge set priority = '最低'
+  where id = '00000000-0000-4000-8000-000000000061';
+  if (select next_review_at from review_scheduler_verify.knowledge
+      where id = '00000000-0000-4000-8000-000000000061') <> v_due then
+    raise exception 'priority edit moved a relearning step';
+  end if;
+
+  -- At most 10 never-asked cards enter the daily queue per JST day. Cards
+  -- already introduced today use up the allowance, and held-back cards are not
+  -- counted as remaining work.
+  truncate review_scheduler_verify.quiz_log, review_scheduler_verify.knowledge cascade;
+  for i in 1..15 loop
+    insert into review_scheduler_verify.knowledge(
+      title, category, mastery, priority, times_asked, next_review_at, created_at
+    ) values (
+      'new-' || lpad(i::text, 2, '0'), 'test', '未学習',
+      case when i = 15 then '最高' else '中' end, 0,
+      now() - interval '1 day', now() - make_interval(days => 30 - i)
+    );
+  end loop;
+  insert into review_scheduler_verify.knowledge(
+    title, category, mastery, times_asked, next_review_at, stability_hours
+  ) values ('old due', 'test', '学習中', 3, now() - interval '1 day', 24);
+  select count(*) filter (where pool = 'B'), count(*) filter (where pool = 'A')
+  into v_n, v_r from review_scheduler_verify.pick_daily_review_queue(30);
+  if v_n <> 10 or v_r <> 1 then
+    raise exception 'new-card cap picked new %, due %', v_n, v_r;
+  end if;
+  if not exists (
+    select 1 from review_scheduler_verify.pick_daily_review_queue(30) p where p.title = 'new-15'
+  ) or exists (
+    select 1 from review_scheduler_verify.pick_daily_review_queue(30) p where p.title = 'new-11'
+  ) then
+    raise exception 'new-card cap did not prefer priority, then oldest registration';
+  end if;
+  perform review_scheduler_verify.record_answer(k.id, 5::smallint, '正解', null, '一問一答')
+  from review_scheduler_verify.knowledge k where k.title in ('new-01', 'new-02', 'new-03');
+  if review_scheduler_verify.review_new_cards_remaining_today() <> 7 then
+    raise exception 'remaining new allowance was %', review_scheduler_verify.review_new_cards_remaining_today();
+  end if;
+  select remaining, new_held, new_limit into v_r, v_n, v_attempts
+  from review_scheduler_verify.get_daily_review_status(15);
+  if v_r <> 8 or v_n <> 5 or v_attempts <> 10 then
+    raise exception 'status with new-card cap was remaining %, held %, limit %', v_r, v_n, v_attempts;
   end if;
 
   -- The signed attempt id makes recording exactly-once even when the client

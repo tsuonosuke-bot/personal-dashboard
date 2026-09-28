@@ -188,6 +188,10 @@ export interface DailyReviewStatus {
   retry_waiting: number;
   next_retry_at: string | null;
   remaining_by_category: DailyReviewCategoryCount[];
+  /** 1日に日次キューへ入れる未出題カードの上限 */
+  new_limit: number;
+  /** 期限到来済みだが上限のため明日以降へ回した未出題カード */
+  new_held: number;
 }
 
 export interface RecoveryPreviewDay {

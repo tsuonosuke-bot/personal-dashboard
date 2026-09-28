@@ -238,6 +238,8 @@ export function parseDailyReviewStatus(value: unknown): DailyReviewStatus {
     retry_waiting: nonNegativeInteger(value, "retry_waiting", entity),
     next_retry_at: nullableStringValue(value, "next_retry_at", entity),
     remaining_by_category: categoryCountsValue(value, "remaining_by_category", entity),
+    new_limit: nonNegativeInteger(value, "new_limit", entity),
+    new_held: nonNegativeInteger(value, "new_held", entity),
   };
   const categoryTotal = result.remaining_by_category.reduce((sum, item) => sum + item.count, 0);
   if (

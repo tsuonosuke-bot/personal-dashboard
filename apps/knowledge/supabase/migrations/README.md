@@ -28,6 +28,14 @@ build that depends on them.
   groups does not change quiz history or the review schedule. It updates
   `dashboard_schema_versions` and reloads the PostgREST schema cache.
 
+- `20260928100000_review_pacing.sql` grows strong due recalls faster (q4
+  2 days / x2.0, q5 4 days / x2.8), scales the next interval by priority
+  (never the stored stability), reschedules on priority-only edits from the new
+  `scheduled_from_at` anchor, applies priority once to already-scheduled cards
+  (only in each priority's direction), and caps never-asked cards entering the
+  daily queue at 10 per JST day. `get_daily_review_status` gains `new_limit` and
+  `new_held`. Integration checks: `tests/reviewScheduler.integration.sql`.
+
 After applying a migration, verify its functions with `pg_get_functiondef` and
 verify the new column/trigger through `information_schema` before deploying the
 matching Cloudflare Pages build.

@@ -45,8 +45,11 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - `mastery` は `未学習` / `学習中` / `習得中` / `定着` の4種。この語彙を変えない
 - 他: `title`, `explanation`, `category`, `tags`, `accuracy`,
   `next_review_on`, `next_review_at`, `stability_hours`, `relearning_stage`, `relearning_quality`, `relearning_penalized`,
-  `last_reviewed_at`, `archived`, `created_at`, `content_version`, `priority`, `base_interval_days`
-- `priority` は `最高` / `高` / `中` / `低` / `最低`。同じ期限内の出題順だけに使い、間隔は変えない
+  `last_reviewed_at`, `scheduled_from_at`, `archived`, `created_at`, `content_version`, `priority`, `base_interval_days`
+- `priority` は `最高` / `高` / `中` / `低` / `最低`。同じ期限内の出題順と、q4・q5後の次回間隔
+  （`review_priority_factor`: 0.5 / 1 / 1.5 / 2 / 3倍）に使う。`stability_hours` には掛けない
+- `scheduled_from_at` は `record_answer` が次回時刻を計算した時刻。優先度だけの編集はトリガー
+  （`reschedule_knowledge_for_priority`）がここから次回時刻を再計算する。同じ編集で日付を指定した場合と再学習中は再計算しない
 - `next_review_at` が時刻を含む正本。`next_review_on` と日単位の列は互換表示用
 - `stability_hours` は保持型の定着間隔、`relearning_stage` は `recognition` / `recall`
 - 通常一覧は `archived = false`、アーカイブ一覧は `archived = true` が対象
@@ -149,9 +152,11 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `prune_dashboard_handoff_nonce()`: 期限切れから1日を過ぎたnonceを削除する。pg_cron `prune-dashboard-handoff-nonce` が毎日3:20（JST）に実行
 - `jst_today()`: 日本時間の今日。日付判定は必ずこれを経由する
 
-q別の基準間隔はq0=10分、q1=30分、q2=6時間、q3=12時間、q4=1日以上、q5=3日以上。
+q別の基準間隔はq0=10分、q1=30分、q2=6時間、q3=12時間、q4=2日以上、q5=4日以上。
 q0〜q3の定着保持率は40%・55%・70%・85%で、1再学習エピソードに1回だけ適用する。
-期限到来の自由記述q4/q5は1.4倍/1.8倍へ伸ばし、優先度は出題順だけに使う。
+期限到来の自由記述q4/q5は2倍/2.8倍へ伸ばし、次回間隔には優先度の倍率を掛ける。
+未出題カードが日次キューに入るのは1日 `review_new_cards_per_day()`（10件）まで。当日初回回答した件数が枠を使い、
+超えた分は `get_daily_review_status` の `remaining` に数えず `new_held` として返す。
 DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECTだけで重複や再復習待機を防ごうとせず、
 必ず `record_answers_batch_once` の行ロック下で判定する。
 

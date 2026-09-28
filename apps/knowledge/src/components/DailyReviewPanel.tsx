@@ -58,6 +58,7 @@ export function DailyReviewPanel({ status, loading, error, onStart, onCustomStar
             <div><span>今すぐ</span><strong>{status.remaining}</strong><small>1回最大 {status.limit}件</small></div>
             <div><span>再学習</span><strong>{status.retry_ready}</strong><small>{status.retry_waiting}件が時刻待ち</small></div>
             <div><span>期限超過</span><strong>{status.overdue_total}</strong><small>要消化</small></div>
+            <div><span>新規の保留</span><strong>{status.new_held}</strong><small>新規は1日{status.new_limit}件まで</small></div>
           </div>
           <div className="daily-progress" aria-label={`今日の復習作業 ${progress}%`}>
             <span style={{ width: `${progress}%` }} />
@@ -69,8 +70,10 @@ export function DailyReviewPanel({ status, loading, error, onStart, onCustomStar
               完了後も、復習対象がある限り次のバッチへ進めます。
             </p>
             <p>
-              基準間隔: q0=10分、q1=30分、q2=6時間、q3=12時間、q4=1日以上、q5=3日以上。
-              q4・q5は保持できた期間に応じて伸び、q0〜q3は段階別の時刻に戻ります。
+              基準間隔: q0=10分、q1=30分、q2=6時間、q3=12時間、q4=2日以上、q5=4日以上。
+              q4・q5は保持できた期間に応じて伸び（q4は2倍、q5は2.8倍）、q0〜q3は段階別の時刻に戻ります。
+              q4・q5の間隔には優先度の倍率（最高0.5・高1・中1.5・低2・最低3倍）がかかります。
+              未出題の新規は1日{status.new_limit}件までキューに入り、超えた分は「今すぐ」に数えず翌日以降に回します。
               15件中、通常の期限到来が5件以上あれば再学習は最大10件です。
               {status.retry_waiting > 0 && (
                 <> 現在{status.retry_waiting}件が待機中{nextRetry ? `（最短 ${nextRetry}頃）` : ""}です。</>

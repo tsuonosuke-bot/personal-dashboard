@@ -176,6 +176,8 @@ test("日次復習のカテゴリ別残数を検証する", () => {
       { category: "SAP", count: 4 },
       { category: "経済", count: 0 },
     ],
+    new_limit: 10,
+    new_held: 3,
   };
   assert.deepEqual(parseDailyReviewStatus(status), status);
   assert.throws(
