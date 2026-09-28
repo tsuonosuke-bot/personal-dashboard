@@ -7,15 +7,15 @@ interface Props {
   knowledge: Knowledge[];
   insights: KnowledgeInsight[];
   onOpenKnowledge: (item: Knowledge) => void;
-  onExit: () => void;
   loading?: boolean;
   error?: string | null;
 }
 
 const PAGE_SIZE = 20;
 
-export function TagGroupsView({
-  knowledge, insights, onOpenKnowledge, onExit, loading = false, error = null,
+/** 「タグ」タブ。カテゴリ内の小分類としてのタグからナレッジを探す。 */
+export function TagGroupsPanel({
+  knowledge, insights, onOpenKnowledge, loading = false, error = null,
 }: Props) {
   const [selection, setSelection] = useState<TagSelection>({ kind: "all" });
   const [category, setCategory] = useState("");
@@ -49,12 +49,7 @@ export function TagGroupsView({
   };
 
   return (
-    <div className="quiz-page">
-      <header className="quiz-header">
-        <button className="text-button" onClick={onExit}>← ダッシュボードへ戻る</button>
-        <h1>タグで探す</h1>
-      </header>
-      <main className="quiz-body tag-groups-view">
+      <div className="tag-groups-view">
         <div className="tag-groups-intro card">
           <p>タグからナレッジを探せます。復習の予定や記録は、この画面を見ても変わりません。</p>
           <label className="tag-groups-category">
@@ -139,7 +134,6 @@ export function TagGroupsView({
             </section>
           </div>
         )}
-      </main>
-    </div>
+      </div>
   );
 }
