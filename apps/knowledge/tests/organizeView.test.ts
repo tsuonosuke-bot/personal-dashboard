@@ -66,3 +66,20 @@ test("詳細・採点結果・整理ページで同じ問いの状態を共有�
   assert.match(quiz, /groupStore=\{insightGroupStore\} compact/);
   assert.match(detail, /groupStore=\{insightGroupStore\}/);
 });
+
+test("AIがまとめたテーマを、問い文の下書きと根拠の示唆ごと問いとして保存できる", async () => {
+  const [list, questions, groups, analyze] = await Promise.all([
+    read("components/InsightListPanel.tsx"),
+    read("components/InsightQuestions.tsx"),
+    read("hooks/useInsightGroups.ts"),
+    readFile(new URL("../functions/api/insights/analyze.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(analyze, /required: \["title", "guiding_question", "summary", "importance", "insight_ids"\]/);
+  assert.match(list, /<ThemeToQuestion[\s\S]*?guidingQuestion=\{theme\.guiding_question\}[\s\S]*?insightIds=\{related\.map\(\(item\) => item\.id\)\}/);
+  // 保存前にテーマ名と問い文を直せ、保存後は作った問いへ移動できる
+  assert.match(questions, /const group = await store\.create\(title, question\);\s+[\s\S]*?const failed = await store\.addMembers\(group\.id, insightIds\);/);
+  assert.match(questions, /<a href=\{questionHref\(saved\.group\.id\)\}>問いを開く<\/a>/);
+  assert.match(questions, /件は入れられませんでした。問いのページから追加してください/);
+  // 根拠の示唆は順に追加して、読み直しは最後の1回だけにする
+  assert.match(groups, /for \(const insightId of insightIds\) \{[\s\S]*?\}\s+await reload\(\);\s+return failed;/);
+});

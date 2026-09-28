@@ -110,3 +110,87 @@ export function QuestionPicker({
     </form>
   );
 }
+
+/**
+ * AIがまとめたテーマを、そのまま問いとして保存する。テーマ名と問い文の下書きは保存前に直せる。
+ * 根拠の示唆は、画面で確認できたものだけをまとめて問いに入れる。
+ */
+export function ThemeToQuestion({
+  store, title: draftTitle, guidingQuestion, insightIds,
+}: {
+  store: InsightGroupStore;
+  title: string;
+  guidingQuestion: string;
+  insightIds: readonly number[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(draftTitle.slice(0, 120));
+  const [question, setQuestion] = useState(guidingQuestion.slice(0, 300));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<{ group: InsightGroup; added: number; failed: number } | null>(null);
+  const sameTitle = store.groups.some((group) => group.title.trim() === title.trim());
+
+  const save = async (event: FormEvent) => {
+    event.preventDefault();
+    if (busy || !title.trim() || !question.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const group = await store.create(title, question);
+      // 問いを作った後の失敗は、作成済みの問いを示して後から追加してもらう。
+      const failed = await store.addMembers(group.id, insightIds);
+      setSaved({ group, added: insightIds.length - failed.length, failed: failed.length });
+      setOpen(false);
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (saved) {
+    return (
+      <p className="theme-question-saved" role="status">
+        問い「{saved.group.title}」として保存しました（示唆{saved.added}件）。
+        {saved.failed > 0 && <> {saved.failed}件は入れられませんでした。問いのページから追加してください。</>}
+        {" "}<a href={questionHref(saved.group.id)}>問いを開く</a>
+      </p>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button type="button" className="theme-question-open" onClick={() => setOpen(true)}
+        disabled={insightIds.length === 0 || store.loading || Boolean(store.error)}>
+        この問いとして保存
+      </button>
+    );
+  }
+
+  return (
+    <form className="question-picker" onSubmit={(event) => void save(event)}>
+      <label>
+        <span>テーマ名</span>
+        <input type="text" required maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} />
+      </label>
+      <label>
+        <span>思い出すための問い</span>
+        <input type="text" required maxLength={300} value={question} placeholder="例：失敗を改善につなげるには？"
+          onChange={(event) => setQuestion(event.target.value)} />
+      </label>
+      <small className="muted">
+        根拠の示唆{insightIds.length}件をこの問いに入れます。
+        {sameTitle && " 同じ名前の問いがすでにあります。別の問いとして作られます。"}
+      </small>
+      <div className="question-picker-actions">
+        <span className="action-spacer" />
+        <button type="button" onClick={() => { setOpen(false); setError(null); }} disabled={busy}>やめる</button>
+        <button className="primary-button" type="submit" disabled={busy || !title.trim() || !question.trim()}>
+          {busy ? "保存中…" : "問いとして保存"}
+        </button>
+      </div>
+      {error && <p className="quiz-edit-error" role="alert">{error}</p>}
+    </form>
+  );
+}

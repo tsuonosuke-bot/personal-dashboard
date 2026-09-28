@@ -816,6 +816,11 @@
 :root[data-theme="dark"] .insight-add-question {
   color: #a7b1c3;
 }
+:root[data-theme="dark"] .theme-question-saved {
+  border-radius: 10px;
+  background: #1b191e;
+  color: #b2a6cd;
+}
 :root[data-theme="dark"] .insight-organizer-intro p {
   color: #a7b1c3;
 }

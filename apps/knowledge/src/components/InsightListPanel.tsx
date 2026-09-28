@@ -4,7 +4,7 @@ import type { InsightStore } from "../hooks/useInsights";
 import { analyzeInsights, ApiError } from "../lib/api";
 import { dashboardRoutePath } from "../lib/dashboardRoute";
 import type { InsightAnalysis, Knowledge, KnowledgeInsight } from "../types";
-import { QuestionChips } from "./InsightQuestions";
+import { QuestionChips, ThemeToQuestion } from "./InsightQuestions";
 
 interface Props {
   knowledge: Knowledge[];
@@ -82,7 +82,7 @@ export function InsightListPanel({ knowledge, store, groupStore }: Props) {
               {analyzing ? "まとめ中…" : "AIで共通点をまとめる"}
             </button>
           </div>
-          <small className="muted">AIに送るのは新しい順に最大300件の示唆とナレッジ名だけです。結果は保存しません。</small>
+          <small className="muted">AIに送るのは新しい順に最大300件の示唆とナレッジ名だけです。まとめ自体は保存せず、「この問いとして保存」を押したテーマだけが問いになります。</small>
         </div>
 
         {analysisError && <div className="err compact" role="alert">{analysisError}</div>}
@@ -101,6 +101,12 @@ export function InsightListPanel({ knowledge, store, groupStore }: Props) {
                     </div>
                     <p>{theme.summary}</p>
                     <p className="insight-theme-importance"><b>重要そうな理由:</b> {theme.importance}</p>
+                    <ThemeToQuestion
+                      store={groupStore}
+                      title={theme.title}
+                      guidingQuestion={theme.guiding_question}
+                      insightIds={related.map((item) => item.id)}
+                    />
                     <details>
                       <summary>根拠の示唆を見る</summary>
                       <ul>

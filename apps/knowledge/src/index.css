@@ -480,6 +480,9 @@ button.review-card { display: block; }
 .question-picker input, .question-picker select, .insight-add-question select { font: inherit; font-size: 13px; }
 .question-picker-actions { display: flex; align-items: center; gap: 8px; }
 .question-picker-actions .action-spacer { flex: 1; }
+.theme-question-open { justify-self: start; margin-top: 4px; }
+.theme-question-saved { margin: 6px 0 0; padding: 8px 10px; border-radius: 10px; background: #f1eef6; color: #554479; font-size: 12px; }
+.theme-question-saved a { font-weight: 700; }
 @media (max-width: 720px) {
   .organize-guide dl { grid-template-columns: 1fr; }
 }

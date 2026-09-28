@@ -501,8 +501,12 @@ export function parseInsightAnalysis(value: unknown): InsightAnalysis {
     if (!isRecord(theme) || !Array.isArray(theme.insight_ids)) return fail(entity, "themes");
     const ids = theme.insight_ids;
     if (!ids.every((id) => Number.isSafeInteger(id))) return fail(entity, "insight_ids");
+    if (theme.guiding_question !== undefined && typeof theme.guiding_question !== "string") {
+      return fail(entity, "guiding_question");
+    }
     return {
       title: stringValue(theme, "title", entity),
+      guiding_question: typeof theme.guiding_question === "string" ? theme.guiding_question : "",
       summary: stringValue(theme, "summary", entity),
       importance: stringValue(theme, "importance", entity),
       insight_ids: ids as number[],
