@@ -8,6 +8,14 @@
 --   per JST day. Held-back new cards are not counted as remaining work.
 begin;
 
+-- Keep the pre-migration schedule so the one-time priority backfill below can
+-- be reverted. Drop this table once the new pacing is confirmed.
+create table if not exists public.knowledge_schedule_backup_20260928 as
+select id, next_review_at, next_review_on, interval_days
+from public.knowledge;
+alter table public.knowledge_schedule_backup_20260928 enable row level security;
+revoke all on table public.knowledge_schedule_backup_20260928 from public, anon, authenticated;
+
 alter table public.knowledge
   add column if not exists scheduled_from_at timestamptz;
 
