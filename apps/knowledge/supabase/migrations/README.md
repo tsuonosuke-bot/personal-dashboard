@@ -36,6 +36,11 @@ build that depends on them.
   daily queue at 10 per JST day. `get_daily_review_status` gains `new_limit` and
   `new_held`. Integration checks: `tests/reviewScheduler.integration.sql`.
 
+- `20260928110000_direct_quiz_count_new_cap.sql` makes the knowledge-quiz
+  skill's `direct_quiz_count('daily')` return `get_daily_review_status.remaining`,
+  so held-back new cards are not counted. `direct_quiz_*` functions were created
+  outside this repository; only this one is versioned here.
+
 After applying a migration, verify its functions with `pg_get_functiondef` and
 verify the new column/trigger through `information_schema` before deploying the
 matching Cloudflare Pages build.
