@@ -67,6 +67,8 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const retryReady = integer(row, "retry_ready");
   const retryWaiting = integer(row, "retry_waiting");
   const nextRetryAt = row.next_retry_at;
+  const newLimit = integer(row, "new_limit");
+  const newHeld = integer(row, "new_held");
   const remainingByCategory = remaining === null
     ? null
     : categoryCounts(row.remaining_by_category, remaining);
@@ -75,6 +77,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     || completedUnique === null
     || remaining === null || dueTotal === null || overdueTotal === null
     || retryReady === null || retryWaiting === null || remainingByCategory === null
+    || newLimit === null || newHeld === null
     || (nextRetryAt !== null && typeof nextRetryAt !== "string")
     || completed + remaining !== total
   ) return jsonResponse({ error: "日次復習キューの応答が正しくありません。" }, 502);
@@ -92,5 +95,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     retry_waiting: retryWaiting,
     next_retry_at: nextRetryAt,
     remaining_by_category: remainingByCategory,
+    new_limit: newLimit,
+    new_held: newHeld,
   });
 };

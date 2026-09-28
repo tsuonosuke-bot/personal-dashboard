@@ -106,7 +106,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .daily-review-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .daily-review-head h2 { margin: 3px 0 0; font-size: 18px; }
 .daily-review-actions { display: flex; align-items: center; gap: 8px; }
-.daily-review-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 16px; }
+.daily-review-metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 16px; }
 .daily-review-metrics > div { padding: 11px 12px; border-radius: 10px; background: #f7f6fa; }
 .daily-review-metrics span, .daily-review-metrics small { display: block; color: #7a879b; font-size: 10px; }
 .daily-review-metrics strong { display: block; margin: 4px 0 2px; font-size: 21px; }

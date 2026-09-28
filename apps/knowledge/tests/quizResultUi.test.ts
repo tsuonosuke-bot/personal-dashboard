@@ -85,7 +85,7 @@ test("優先度の説明は各問題に繰り返さず、結果画面に一度�
   const view = await readFile(new URL("../src/components/QuizView.tsx", import.meta.url), "utf8");
 
   assert.doesNotMatch(view, /PRIORITY_INTERVAL_HINTS/);
-  assert.equal(view.match(/復習間隔は変えません/g)?.length, 1);
+  assert.equal(view.match(/優先度の倍率で計算し直します/g)?.length, 1);
   const noteIndex = view.indexOf("quiz-results-note");
   const listIndex = view.indexOf('<ul className="quiz-result-list">');
   assert.ok(noteIndex > 0 && noteIndex < listIndex);

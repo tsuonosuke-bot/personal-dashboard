@@ -6,11 +6,11 @@ export const MASTERY_ORDER: Mastery[] = ["未学習", "学習中", "習得中", 
 export const PRIORITY_ORDER: KnowledgePriority[] = ["最高", "高", "中", "低", "最低"];
 
 export const PRIORITY_INTERVAL_HINTS: Record<KnowledgePriority, string> = {
-  最高: "同じ期限の問題の中で最優先",
-  高: "同じ期限の問題の中で優先",
-  中: "同じ期限の問題の中で標準",
-  低: "同じ期限の問題の中で後寄り",
-  最低: "同じ期限の問題の中で最後寄り",
+  最高: "復習間隔0.5倍、同じ期限の中で最優先に出題",
+  高: "復習間隔1倍、同じ期限の中で優先して出題",
+  中: "復習間隔1.5倍、同じ期限の中で標準の順に出題",
+  低: "復習間隔2倍、同じ期限の中で後寄りに出題",
+  最低: "復習間隔3倍、同じ期限の中で最後寄りに出題",
 };
 
 export const MASTERY_COLORS: Record<Mastery, string> = {

@@ -35,8 +35,8 @@ const QUALITY_INTERVAL_LABEL: Record<number, string> = {
   1: "30分後",
   2: "6時間後",
   3: "12時間後",
-  4: "1日以上",
-  5: "3日以上",
+  4: "2日以上",
+  5: "4日以上",
 };
 
 const FAILURE_PHASE_LABEL: Record<string, string> = {
@@ -429,7 +429,7 @@ export function QuizView({
             )}
             {job.results.length > 0 && (
               <p className="quiz-results-note">
-                習熟度・優先度の変更とアーカイブはこの画面で行えます。優先度は同じ期限内の出題順だけに使い、復習間隔は変えません。
+                習熟度・優先度の変更とアーカイブはこの画面で行えます。優先度を変えると、次回の復習時刻も優先度の倍率で計算し直します（再学習中を除く）。
               </p>
             )}
             <ul className="quiz-result-list">
