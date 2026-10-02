@@ -47,6 +47,76 @@ export interface QuizLog {
   format: string;
   note: string | null;
   created_at: string;
+  /** 以下は問題キュー経由の回答だけが持つ。以前の記録と都度採点の記録ではnull。 */
+  question: string | null;
+  user_answer: string | null;
+  correct_answer: string | null;
+  explanation: string | null;
+  answered_at: string | null;
+  /** nullかつreview_queue_idがある記録が「未確認の採点結果」。 */
+  confirmed_at: string | null;
+  review_queue_id: number | null;
+}
+
+/** 復習キューの件数と、直近の生成・採点バッチの結果。 */
+export interface ReviewQueueStatus {
+  ready_total: number;
+  ready_due: number;
+  waiting_grading: number;
+  grading_errors: number;
+  unconfirmed_results: number;
+  queue_limit: number;
+  queue_full: boolean;
+  last_generate: { at: string | null; status: string | null; added: number | null; note: string | null } | null;
+  last_grade: { at: string | null; status: string | null } | null;
+}
+
+/** キューから出題された1問。正解の選択肢は含まない。 */
+export interface ReviewQuestion {
+  id: number;
+  knowledge_id: string;
+  format: QuizFormat;
+  question: string;
+  choices: string[] | null;
+  category: string;
+}
+
+/** 回答の受付結果。四択と無回答はその場で記録された結果を持つ。 */
+export interface ReviewAnswerResult {
+  id: number;
+  status: string;
+  result: {
+    quiz_log_id: number | null;
+    quality: number;
+    verdict: QuizVerdict;
+    correct_answer: string;
+    explanation: string;
+  } | null;
+}
+
+export type PendingReviewStatus = "answered" | "grading" | "error";
+
+/** 採点待ち・採点中・採点エラーの回答。 */
+export interface PendingReviewAnswer {
+  id: number;
+  knowledge_id: string;
+  format: string;
+  question: string;
+  answer_text: string;
+  answered_at: string;
+  status: PendingReviewStatus;
+  last_error: string | null;
+}
+
+/** 生成・採点バッチの実行結果。busyは同じ種類のバッチが実行中だったことを表す。 */
+export interface ReviewBatchSummary {
+  kind: "generate" | "grade";
+  status: "succeeded" | "skipped" | "failed" | "busy";
+  processed: number;
+  succeeded: number;
+  failed: number;
+  note: string | null;
+  followUp?: ReviewBatchSummary;
 }
 
 /** 習熟度の変更履歴。is_baselineは記録開始時点の状態。 */

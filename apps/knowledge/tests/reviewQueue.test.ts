@@ -4,6 +4,7 @@ import test from "node:test";
 import { onRequest as generateRoute } from "../functions/api/review-batch/generate.ts";
 import { onRequest as gradeRoute } from "../functions/api/review-batch/grade.ts";
 import { onRequest as answerRoute } from "../functions/api/review-queue/answer.ts";
+import { onRequest as pendingRoute } from "../functions/api/review-queue/pending.ts";
 import { onRequest as serveRoute } from "../functions/api/review-queue/serve.ts";
 import { onRequest as statusRoute } from "../functions/api/review-queue/status.ts";
 import { instantGrade } from "../functions/_shared/answerGrading.ts";
@@ -435,4 +436,32 @@ test("定期実行の呼び出し関数は合言葉をVaultから読み、ファ
   assert.match(sql, /'X-Review-Batch-Token', v_token/);
   assert.match(sql, /timeout_milliseconds := 300000/);
   assert.doesNotMatch(sql, /cron\.schedule/);
+});
+
+test("採点待ちの一覧は採点待ち・採点中・採点エラーだけを返し、正解は返さない", async () => {
+  await withServices({
+    rpc: () => { throw new Error("no rpc"); },
+    rest: (url) => {
+      assert.equal(url.pathname, "/rest/v1/review_queue");
+      assert.equal(url.searchParams.get("status"), "in.(answered,grading,error)");
+      assert.doesNotMatch(url.searchParams.get("select") ?? "", /correct_choice/);
+      return [{ id: 1, knowledge_id: K1, format: "一問一答", question: "Q", answer_text: "A", answered_at: "2026-10-02T00:00:00Z", status: "error", last_error: "AI failure", grade_attempts: 3 }];
+    },
+  }, async () => {
+    const body = await (await pendingRoute({ request: new Request("https://dashboard.example/api/review-queue/pending"), env })).json() as {
+      items: { status: string }[];
+    };
+    assert.equal(body.items[0].status, "error");
+  });
+});
+
+test("定期実行は生成を30分ごと、採点を15分ごとに登録する", async () => {
+  const sql = await readFile(new URL("../supabase/migrations/20261002120000_review_batch_schedule.sql", import.meta.url), "utf8");
+  assert.match(sql, /cron\.schedule\('review-generate-questions', '\*\/30 \* \* \* \*', \$job\$select public\.trigger_review_batch\('generate'\)\$job\$\)/);
+  assert.match(sql, /cron\.schedule\('review-grade-answers', '\*\/15 \* \* \* \*', \$job\$select public\.trigger_review_batch\('grade'\)\$job\$\)/);
+});
+
+test("学習ログ用に採点記録の問題・回答・講評・確認状態を返す", async () => {
+  const source = await readFile(new URL("../functions/api/quiz-log.ts", import.meta.url), "utf8");
+  assert.match(source, /question,user_answer,correct_answer,explanation,answered_at,confirmed_at,review_queue_id/);
 });

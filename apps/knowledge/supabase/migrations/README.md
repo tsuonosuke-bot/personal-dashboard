@@ -50,6 +50,9 @@ build that depends on them.
 - `20261002110000_review_batch_trigger.sql` enables `pg_net` and adds
   `trigger_review_batch(kind)`, which calls the app's batch endpoints with the
   Vault secret `review_batch_token`. Cron schedules are added separately.
+- `20261002120000_review_batch_schedule.sql` schedules question generation
+  every 30 minutes and grading every 15 minutes through pg_cron. Without the
+  Vault secret the jobs only log a warning.
 
 After applying a migration, verify its functions with `pg_get_functiondef` and
 verify the new column/trigger through `information_schema` before deploying the

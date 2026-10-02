@@ -599,6 +599,39 @@ button.review-card { display: block; }
 .learning-log-category { margin-left: auto; }
 .learning-log-title { overflow-wrap: anywhere; font-size: 14px; }
 .learning-log-note { margin: 0; color: #526079; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.review-batch-notice { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: #f4f1fa; color: #554479; font-size: 13px; }
+.review-batch-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.review-queue-summary { margin-top: 12px; text-align: left; }
+.review-queue-summary ul { display: grid; gap: 4px; margin: 0; padding-left: 18px; color: #526079; font-size: 12px; }
+.review-queue-summary .text-button { margin-left: 8px; font-size: 12px; }
+.review-queue-full { margin: 0 0 8px; padding: 10px 12px; border-radius: 10px; background: #fff7ed; color: #9a3412; font-size: 12px; line-height: 1.6; }
+.review-done h2 { margin: 0 0 12px; font-size: 18px; }
+.review-done-counts { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; padding: 0; list-style: none; }
+.review-done-counts li { flex: 1 1 120px; padding: 10px 12px; border-radius: 10px; background: #f7f6fa; }
+.review-done-counts strong { display: block; font-size: 20px; }
+.review-done-counts span { color: #7a879b; font-size: 11px; }
+.review-answer-hint { margin: 8px 0 0; font-size: 11px; }
+.pending-answers { display: grid; gap: 8px; }
+.pending-answers-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pending-answers-head h2 { margin: 0; font-size: 15px; }
+.pending-answers-head h2 span { color: #7a879b; font-size: 12px; font-weight: 400; }
+.pending-answers > .muted { margin: 0; font-size: 12px; }
+.pending-answers-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.pending-answers-list li { display: grid; gap: 4px; padding: 10px 12px; border-radius: 10px; background: #f7f6fa; }
+.pending-answer-question, .pending-answer-text { margin: 0; color: #526079; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.pending-answer-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: #b91c1c; font-size: 12px; }
+.pending-answered { background: #eef2ff; color: #4338ca; }
+.pending-grading { background: #f4f1fa; color: #554479; }
+.pending-error { background: #fef2f2; color: #b91c1c; }
+.review-unconfirmed-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 10px; background: #f4f1fa; color: #554479; font-size: 12px; }
+.review-result-details { display: grid; gap: 8px; }
+.review-result-details summary { cursor: pointer; color: #66558c; font-size: 12px; font-weight: 700; }
+.review-unconfirmed { margin-left: 8px; background: #66558c; color: #fff; }
+.review-result-body { display: grid; gap: 8px; margin: 8px 0 0; }
+.review-result-body dt { color: #7a879b; font-size: 11px; font-weight: 700; }
+.review-result-body dd { margin: 2px 0 0; color: #334155; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.review-result-actions { display: grid; gap: 10px; margin-top: 4px; }
+.review-priority-note { margin: 6px 0 0; font-size: 11px; }
 
 @media (max-width: 560px) {
   .daily-quiz-start { align-items: stretch; flex-direction: column; }

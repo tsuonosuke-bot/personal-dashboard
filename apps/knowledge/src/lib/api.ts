@@ -1,6 +1,7 @@
 import type {
-  DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizFormatRequest, QuizGradeResponse, QuizLog,
-  QuizStart, RecoveryPreview, SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
+  DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizLog,
+  PendingReviewAnswer, RecoveryPreview, ReviewAnswerResult, ReviewBatchSummary, ReviewQuestion, ReviewQueueStatus,
+  SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
   SpeakingPracticeWrite,
 } from "../types";
 import {
@@ -12,10 +13,13 @@ import {
   parseKnowledge,
   parseMasteryHistoryEvent,
   parsePageEnvelope,
-  parseQuizGradeResponse,
+  parsePendingReviewAnswers,
   parseQuizLog,
-  parseQuizStartResponse,
   parseRecoveryPreview,
+  parseReviewAnswerResult,
+  parseReviewBatchSummary,
+  parseReviewQuestions,
+  parseReviewQueueStatus,
   parseSpeakingPracticeLog,
   parseSpeakingPracticeStart,
 } from "./apiValidation.ts";
@@ -358,33 +362,48 @@ export function updateKnowledge(
   });
 }
 
-async function postQuiz(path: string, body: unknown): Promise<unknown> {
+async function postReviewQueue(path: string, body: unknown): Promise<unknown> {
   return requestJson(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Dashboard-Action": "quiz-session",
+      "X-Dashboard-Action": "review-queue",
     },
     body: JSON.stringify(body),
   });
 }
 
-export async function startQuiz(
-  categories: string[],
-  limit: number,
-  format: QuizFormatRequest,
-  mode: "daily" | "custom" = "custom",
-  excludeIds: string[] = [],
-): Promise<QuizStart> {
-  const data = await postQuiz("/api/quiz/start", { categories, limit, format, mode, excludeIds });
-  return parseQuizStartResponse(data);
+export async function getReviewQueueStatus(): Promise<ReviewQueueStatus> {
+  return parseReviewQueueStatus(await requestJson("/api/review-queue/status", { method: "GET" }));
 }
 
-export async function gradeQuiz(
-  answers: { token: string; answer: string }[],
-): Promise<QuizGradeResponse> {
-  const data = await postQuiz("/api/quiz/grade", answers);
-  return parseQuizGradeResponse(data);
+/** 期限が来た出題待ちの問題を、今の優先度順に受け取る。カテゴリ指定が空なら全カテゴリ。 */
+export async function serveReviewQuestions(limit: number, categories: string[] = []): Promise<ReviewQuestion[]> {
+  return parseReviewQuestions(await postReviewQueue("/api/review-queue/serve", { limit, categories }));
+}
+
+export async function submitReviewAnswer(id: number, answer: string): Promise<ReviewAnswerResult> {
+  return parseReviewAnswerResult(await postReviewQueue("/api/review-queue/answer", { id, answer }));
+}
+
+export async function getPendingReviewAnswers(): Promise<PendingReviewAnswer[]> {
+  return parsePendingReviewAnswers(await requestJson("/api/review-queue/pending", { method: "GET" }));
+}
+
+export async function retryReviewAnswer(id: number): Promise<void> {
+  await postReviewQueue("/api/review-queue/retry", { id });
+}
+
+export async function confirmReviewResults(quizLogIds: number[]): Promise<number> {
+  const data = await postReviewQueue("/api/review-queue/confirm", { quiz_log_ids: quizLogIds });
+  return typeof data === "object" && data !== null && typeof (data as { confirmed?: unknown }).confirmed === "number"
+    ? (data as { confirmed: number }).confirmed
+    : 0;
+}
+
+/** 生成・採点バッチを画面から手動で動かす。 */
+export async function runReviewBatch(kind: "generate" | "grade"): Promise<ReviewBatchSummary> {
+  return parseReviewBatchSummary(await postReviewQueue(`/api/review-batch/${kind}`, {}));
 }
 
 export async function getDailyReviewStatus(limit = 15): Promise<DailyReviewStatus> {

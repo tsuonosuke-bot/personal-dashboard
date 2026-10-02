@@ -80,9 +80,9 @@ test("送信元・ヘッダー・入力を検証してからDBへ接続する", 
   });
 });
 
-test("採点結果の各問題からInboxへ登録できる", async () => {
-  const view = await readFile(new URL("../src/components/QuizView.tsx", import.meta.url), "utf8");
-  assert.match(view, /<DeepDiveInbox knowledgeId=\{result\.id\} title=\{result\.title\} \/>/);
-  const api = await readFile(new URL("../src/lib/api.ts", import.meta.url), "utf8");
-  assert.match(api, /"X-Dashboard-Action": "inbox-deep-dive"/);
+test("学習ログの採点結果からInboxへ登録できる", async () => {
+  const parts = await readFile(new URL("../src/components/ReviewLogParts.tsx", import.meta.url), "utf8");
+  assert.match(parts, /<DeepDiveInbox knowledgeId=\{item\.id\} title=\{item\.title\} \/>/);
+  const inbox = await readFile(new URL("../src/components/DeepDiveInbox.tsx", import.meta.url), "utf8");
+  assert.match(inbox, /addDeepDiveToInbox\(knowledgeId, note\)/);
 });

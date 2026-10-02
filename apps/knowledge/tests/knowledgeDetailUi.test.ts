@@ -12,14 +12,16 @@ test("knowledge detail shows priority and its review interval", async () => {
   assert.match(source, /PRIORITY_INTERVAL_HINTS\[knowledge\.priority\]/);
 });
 
-test("quiz source detail opens the knowledge editor and syncs the saved result", async () => {
-  const source = await readFile(
-    new URL("../src/components/QuizView.tsx", import.meta.url),
-    "utf8",
-  );
-
-  assert.match(source, /onEdit=\{\(\) => openEdit\(detail\)\}/);
-  assert.match(source, /<KnowledgeFormModal/);
-  assert.match(source, /const updated = await onKnowledgeUpdate\(/);
-  assert.match(source, /quiz\.syncKnowledgeResult\(updated\)/);
+test("学習ログの採点結果から、習熟度・優先度の変更、アーカイブ、詳細表示ができる", async () => {
+  const [parts, view] = await Promise.all([
+    readFile(new URL("../src/components/ReviewLogParts.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/components/LearningLogView.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(parts, /onKnowledgeUpdate\(target\.id, target\.content_version, changes\)/);
+  assert.match(parts, /window\.confirm\(`「\$\{item\.title\}」をアーカイブしますか？/);
+  assert.match(parts, /save\(\{ archived: false \}, "復元しました。"\)/);
+  assert.match(parts, /aria-label=\{`\$\{item\.title\}の習熟度`\}/);
+  assert.match(parts, /aria-label=\{`\$\{item\.title\}の優先度`\}/);
+  assert.match(view, /<KnowledgeDetailModal/);
+  assert.match(view, /onOpenDetail=\{\(item\) => setDetailId\(item\.id\)\}/);
 });
