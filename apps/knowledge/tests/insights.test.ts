@@ -159,7 +159,14 @@ test("AIのまとめは示唆とナレッジ名だけを送り、結果を返す
 });
 
 test("示唆は出題・採点のAPIやDB関数から参照しない", async () => {
-  const quizFiles = ["../functions/api/quiz/start.ts", "../functions/api/quiz/grade.ts"];
+  const quizFiles = [
+    "../functions/api/quiz/start.ts",
+    "../functions/api/quiz/grade.ts",
+    "../functions/_shared/questionGeneration.ts",
+    "../functions/_shared/answerGrading.ts",
+    "../functions/_shared/reviewBatch.ts",
+    "../functions/api/review-queue/answer.ts",
+  ];
   for (const file of quizFiles) {
     const source = await readFile(new URL(file, import.meta.url), "utf8");
     assert.doesNotMatch(source, /insight/i, file);

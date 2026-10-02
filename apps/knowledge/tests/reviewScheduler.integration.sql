@@ -52,8 +52,8 @@ create table review_scheduler_verify.quiz_log (
 );
 
 -- The runner must replace the marker below with the bodies of
--- 20260921100000_continuous_review_queue.sql and 20260928100000_review_pacing.sql,
--- in that order, after removing each file's top-level BEGIN/COMMIT pair and
+-- 20260921100000_continuous_review_queue.sql, 20260928100000_review_pacing.sql and
+-- 20261002100000_review_queue.sql, in that order, after removing each file's top-level BEGIN/COMMIT pair and
 -- pointing `public.` at this schema. This outer transaction must remain the sole
 -- transaction so the test schema is always rolled back.
 -- __MIGRATION__
@@ -366,6 +366,212 @@ begin
   where id = '00000000-0000-4000-8000-000000000040';
   if not v_first or v_second or v_attempts <> 2 then
     raise exception 'idempotency failed: first %, second %, attempts %', v_first, v_second, v_attempts;
+  end if;
+end
+$$;
+
+-- Review queue: generation candidates, enqueue limits, serving order, answers,
+-- grading claims and exactly-once recording.
+do $$
+declare
+  v_n integer;
+  v_m integer;
+  v_item bigint;
+  v_item2 bigint;
+  v_choice bigint;
+  v_status text;
+  v_answered timestamptz;
+  v_log record;
+  v_run bigint;
+  v_run2 bigint;
+  v_card uuid;
+  v_ok boolean;
+begin
+  truncate review_scheduler_verify.review_queue, review_scheduler_verify.quiz_log,
+    review_scheduler_verify.knowledge, review_scheduler_verify.review_batch_runs cascade;
+
+  insert into review_scheduler_verify.knowledge(
+    id, title, category, mastery, priority, times_asked, next_review_at, stability_hours, archived
+  ) values
+    ('00000000-0000-4000-8000-000000000101', 'due old', 'test', '学習中', '中', 3, now() - interval '1 day', 48, false),
+    ('00000000-0000-4000-8000-000000000102', 'due soon', 'test', '学習中', '中', 3, now() + interval '20 minutes', 48, false),
+    ('00000000-0000-4000-8000-000000000103', 'due later', 'test', '学習中', '中', 3, now() + interval '2 hours', 48, false),
+    ('00000000-0000-4000-8000-000000000104', 'archived', 'test', '学習中', '中', 3, now() - interval '1 day', 48, true);
+  update review_scheduler_verify.knowledge
+  set relearning_stage = 'recognition', relearning_quality = 0, relearning_penalized = true
+  where id = '00000000-0000-4000-8000-000000000101';
+  for i in 1..12 loop
+    insert into review_scheduler_verify.knowledge(title, category, mastery, priority, times_asked, next_review_at, created_at)
+    values ('new-' || lpad(i::text, 2, '0'), 'test', '未学習', '中', 0, now() - interval '1 day', now() - make_interval(days => 30 - i));
+  end loop;
+
+  -- Due now and due within 30 minutes are picked; later and archived are not.
+  -- Never-asked cards stay within the daily allowance of 10. Relearning comes first.
+  select count(*), count(*) filter (where pool = 'B') into v_n, v_m
+  from review_scheduler_verify.pick_review_generation_candidates(30, false);
+  if v_n <> 12 or v_m <> 10 then
+    raise exception 'generation candidates were % (new %)', v_n, v_m;
+  end if;
+  if (select title from review_scheduler_verify.pick_review_generation_candidates(30, false) limit 1) <> 'due old' then
+    raise exception 'relearning card was not first in generation order';
+  end if;
+  if (select count(*) from review_scheduler_verify.pick_review_generation_candidates(30, true)) <> 1 then
+    raise exception 'relearning-only generation picked other cards';
+  end if;
+
+  -- Enqueue skips a stale content version and duplicates of an active card.
+  select review_scheduler_verify.enqueue_review_questions(jsonb_build_array(
+    jsonb_build_object('knowledge_id', '00000000-0000-4000-8000-000000000101', 'content_version', 1,
+      'format', '四択', 'question', 'Q1', 'choices', jsonb_build_array('a', 'b', 'c', 'd'),
+      'correct_choice', 'b', 'prepared_explanation', 'bが正解'),
+    jsonb_build_object('knowledge_id', '00000000-0000-4000-8000-000000000101', 'content_version', 1,
+      'format', '一問一答', 'question', 'duplicate'),
+    jsonb_build_object('knowledge_id', '00000000-0000-4000-8000-000000000102', 'content_version', 1,
+      'format', '一問一答', 'question', 'Q2'),
+    jsonb_build_object('knowledge_id', '00000000-0000-4000-8000-000000000103', 'content_version', 99,
+      'format', '一問一答', 'question', 'stale'),
+    jsonb_build_object('knowledge_id', (select id from review_scheduler_verify.knowledge where title = 'new-01'),
+      'content_version', 1, 'format', '一問一答', 'question', 'Q new')
+  )) into v_n;
+  if v_n <> 3 then raise exception 'enqueue added % questions', v_n; end if;
+
+  -- A never-asked card waiting in the queue uses up the daily allowance.
+  if (select count(*) filter (where pool = 'B') from review_scheduler_verify.pick_review_generation_candidates(30, false)) <> 9 then
+    raise exception 'queued new card did not use the daily allowance';
+  end if;
+
+  -- Only due questions are served, relearning first. The look-ahead question waits.
+  select count(*) into v_n from review_scheduler_verify.serve_review_queue(15, null);
+  if v_n <> 2 then raise exception 'served % questions', v_n; end if;
+  select id into v_choice from review_scheduler_verify.serve_review_queue(15, null) limit 1;
+  if (select knowledge_id from review_scheduler_verify.review_queue where id = v_choice)
+    <> '00000000-0000-4000-8000-000000000101' then
+    raise exception 'relearning question was not served first';
+  end if;
+  if (select count(*) from review_scheduler_verify.serve_review_queue(15, array['other'])) <> 0 then
+    raise exception 'category filter was ignored';
+  end if;
+
+  -- Editing a card discards its ready question when serving.
+  update review_scheduler_verify.knowledge set content_version = 2
+  where title = 'new-01';
+  perform * from review_scheduler_verify.serve_review_queue(15, null);
+  if (select status from review_scheduler_verify.review_queue q join review_scheduler_verify.knowledge k on k.id = q.knowledge_id
+      where k.title = 'new-01') <> 'discarded' then
+    raise exception 'edited card question was not discarded';
+  end if;
+
+  -- Answers: a wrong choice text is rejected, the same answer twice is a no-op,
+  -- and a different second answer is rejected.
+  v_ok := false;
+  begin
+    perform * from review_scheduler_verify.submit_review_answer(v_choice, 'z');
+  exception when invalid_parameter_value then v_ok := true;
+  end;
+  if not v_ok then raise exception 'invalid choice was accepted'; end if;
+  if not (select accepted from review_scheduler_verify.submit_review_answer(v_choice, 'b')) then
+    raise exception 'first answer was not accepted';
+  end if;
+  if (select accepted from review_scheduler_verify.submit_review_answer(v_choice, 'b')) then
+    raise exception 'repeated answer was accepted twice';
+  end if;
+  v_ok := false;
+  begin
+    perform * from review_scheduler_verify.submit_review_answer(v_choice, 'c');
+  exception when raise_exception then v_ok := true;
+  end;
+  if not v_ok then raise exception 'a second different answer was accepted'; end if;
+
+  -- Grading claims move answers to grading; failures go back until the third
+  -- attempt, then become errors that can be retried by hand.
+  select id into v_item2 from review_scheduler_verify.review_queue q
+  where q.knowledge_id = '00000000-0000-4000-8000-000000000102';
+  update review_scheduler_verify.knowledge set next_review_at = now() - interval '1 minute'
+  where id = '00000000-0000-4000-8000-000000000102';
+  perform * from review_scheduler_verify.submit_review_answer(v_item2, '自由記述の回答');
+  for i in 1..3 loop
+    select count(*) into v_n from review_scheduler_verify.claim_review_answers(30);
+    if v_n <> 2 and i = 1 then raise exception 'claimed % answers', v_n; end if;
+    select review_scheduler_verify.release_review_answer(v_item2, 'AI failure') into v_status;
+    perform review_scheduler_verify.release_review_answer(v_choice, 'AI failure');
+  end loop;
+  if v_status <> 'error' then raise exception 'third failure left status %', v_status; end if;
+  if (select count(*) from review_scheduler_verify.claim_review_answers(30)) <> 0 then
+    raise exception 'error answers were claimed again';
+  end if;
+  if review_scheduler_verify.retry_review_answer(v_item2) <> 'answered' then
+    raise exception 'manual retry did not reopen the answer';
+  end if;
+
+  -- Recording uses the answer time, stores the history fields and is exactly-once.
+  update review_scheduler_verify.review_queue set answered_at = now() - interval '10 seconds'
+  where id = v_item2 returning answered_at into v_answered;
+  select * into v_log from review_scheduler_verify.record_review_grade(
+    v_item2, 4::smallint, '正解', 'note', '模範解答', '講評');
+  if not v_log.recorded or v_log.status <> 'graded' then raise exception 'grade was not recorded'; end if;
+  if not exists (
+    select 1 from review_scheduler_verify.quiz_log l
+    where l.id = v_log.quiz_log_id and l.review_queue_id = v_item2 and l.question = 'Q2'
+      and l.user_answer = '自由記述の回答' and l.correct_answer = '模範解答' and l.explanation = '講評'
+      and l.answered_at = v_answered and l.created_at = v_answered and l.confirmed_at is null
+  ) then
+    raise exception 'quiz_log history fields were not stored';
+  end if;
+  if (select scheduled_from_at from review_scheduler_verify.knowledge where id = '00000000-0000-4000-8000-000000000102')
+    <> v_answered then
+    raise exception 'schedule was not anchored to the answer time';
+  end if;
+  if (select recorded from review_scheduler_verify.record_review_grade(
+      v_item2, 4::smallint, '正解', 'note', '模範解答', '講評')) then
+    raise exception 'grade was recorded twice';
+  end if;
+  if (select count(*) from review_scheduler_verify.quiz_log where review_queue_id = v_item2) <> 1 then
+    raise exception 'duplicate quiz_log rows';
+  end if;
+
+  -- An answer older than a review through another path is discarded, not recorded.
+  update review_scheduler_verify.knowledge set last_reviewed_at = clock_timestamp()
+  where id = '00000000-0000-4000-8000-000000000101';
+  select status into v_status from review_scheduler_verify.record_review_grade(
+    v_choice, 4::smallint, '正解', 'n', 'b', 'e');
+  if v_status <> 'discarded' then raise exception 'out-of-order answer was %', v_status; end if;
+
+  -- Results are counted as unconfirmed until confirmed.
+  if (select unconfirmed_results from review_scheduler_verify.get_review_queue_status()) <> 1 then
+    raise exception 'unconfirmed results were not counted';
+  end if;
+  perform review_scheduler_verify.confirm_review_results(array[v_log.quiz_log_id]);
+  if (select unconfirmed_results from review_scheduler_verify.get_review_queue_status()) <> 0 then
+    raise exception 'confirmed result was still counted';
+  end if;
+
+  -- The queue never grows past its limit.
+  truncate review_scheduler_verify.review_queue cascade;
+  insert into review_scheduler_verify.knowledge(id, title, category, mastery, times_asked, next_review_at)
+  select gen_random_uuid(), 'bulk-' || g, 'bulk', '学習中', 1, now() from generate_series(1, 201) g;
+  insert into review_scheduler_verify.review_queue(knowledge_id, content_version, format, question)
+  select k.id, 1, '一問一答', 'q' from review_scheduler_verify.knowledge k where k.category = 'bulk'
+  order by k.title limit 200;
+  select id into v_card from review_scheduler_verify.knowledge k where k.category = 'bulk'
+    and not exists (select 1 from review_scheduler_verify.review_queue q where q.knowledge_id = k.id);
+  if review_scheduler_verify.enqueue_review_questions(jsonb_build_array(jsonb_build_object(
+      'knowledge_id', v_card, 'content_version', 1, 'format', '一問一答', 'question', 'over'))) <> 0 then
+    raise exception 'enqueue exceeded the queue limit';
+  end if;
+  if not (select queue_full from review_scheduler_verify.get_review_queue_status()) then
+    raise exception 'full queue was not reported';
+  end if;
+
+  -- Only one batch of each kind runs at a time.
+  v_run := review_scheduler_verify.begin_review_batch('generate', 'schedule');
+  v_run2 := review_scheduler_verify.begin_review_batch('generate', 'manual');
+  if v_run is null or v_run2 is not null then raise exception 'batch lock failed: % %', v_run, v_run2; end if;
+  if review_scheduler_verify.begin_review_batch('grade', 'manual') is null then
+    raise exception 'grading was blocked by generation';
+  end if;
+  perform review_scheduler_verify.finish_review_batch(v_run, 'succeeded', 3, 3, 0, null);
+  if review_scheduler_verify.begin_review_batch('generate', 'schedule') is null then
+    raise exception 'finished batch still blocked the next one';
   end if;
 end
 $$;

@@ -41,6 +41,16 @@ build that depends on them.
   so held-back new cards are not counted. `direct_quiz_*` functions were created
   outside this repository; only this one is versioned here.
 
+- `20261002100000_review_queue.sql` adds the review question/answer queue
+  (`review_queue`), batch run records (`review_batch_runs`), history columns on
+  `quiz_log`, and the functions for generation candidates, enqueueing (200-item
+  limit), serving, answering, grading claims, exactly-once recording from the
+  answer time, and status. `record_answer` gains `p_answered_at`.
+  Integration checks: `tests/reviewScheduler.integration.sql`.
+- `20261002110000_review_batch_trigger.sql` enables `pg_net` and adds
+  `trigger_review_batch(kind)`, which calls the app's batch endpoints with the
+  Vault secret `review_batch_token`. Cron schedules are added separately.
+
 After applying a migration, verify its functions with `pg_get_functiondef` and
 verify the new column/trigger through `information_schema` before deploying the
 matching Cloudflare Pages build.

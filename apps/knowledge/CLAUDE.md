@@ -30,6 +30,8 @@ npm test           # ロジック、API、認証、入力・応答検証
 - `SUPABASE_SECRET_KEY`（必須、CloudflareではSecretとして保存）
 - `ANTHROPIC_API_KEY`（必須、復習クイズの出題・採点に使用。CloudflareではSecretとして保存）
 - `QUIZ_SIGNING_SECRET`（必須、32文字以上。出題内容の署名用でSSO共有secretと分ける）
+- `REVIEW_BATCH_TOKEN`（任意、32文字以上。pg_cronから生成・採点バッチを呼ぶ合言葉。SupabaseのVault `review_batch_token` と同じ値。
+  未設定なら定期実行は届かず、画面からの手動実行だけになる）
 
 Secret keyはRLSを迂回するサーバー専用キー。`VITE_` 接頭辞を付けたり、ブラウザ、
 ソース、ログへ出したりしてはいけない。実値がない環境でも型チェックとビルドは可能。
@@ -54,6 +56,20 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - `stability_hours` は保持型の定着間隔、`relearning_stage` は `recognition` / `recall`
 - 通常一覧は `archived = false`、アーカイブ一覧は `archived = true` が対象
 
+### `review_queue`（問題キュー＝回答キュー）
+
+- 1行が1問。`ready`（出題待ち）→ `answered`（採点待ち）→ `grading` → `graded`。採点の失敗が
+  `review_grading_max_attempts()`（3回）に達したら `error`。カードの編集・アーカイブ・別経路の回答で古くなった問題は `discarded`
+- 進行中（ready / answered / grading / error）の問題は1カードにつき1件まで（部分一意インデックス）
+- 四択は `choices`・`correct_choice`・出題時に作った講評 `prepared_explanation` を持つ。正解はブラウザへ返さない
+- 生成は `pick_review_generation_candidates`（期限到来または30分以内、新規は1日10件の枠をキュー内の新規分も含めて数える）
+  → AI → `enqueue_review_questions`（`ready` が `review_queue_limit()`＝200件に達したら追加しない）
+- 出題は `serve_review_queue`。期限が来た `ready` だけを、日次復習キューと同じ優先度順で返し、古い問題は先に破棄する
+- 回答は `submit_review_answer`。採点は `claim_review_answers` → AI → `record_review_grade`。失敗は `release_review_answer`
+- `record_review_grade` は回答時刻を `record_answer(..., p_answered_at)` に渡し、予定の起点・`quiz_log.created_at`・`asked_on` を
+  回答時刻にする。別経路でより新しく回答済みのカードへの古い回答は記録せず `discarded` にする
+- `review_batch_runs` はバッチの実行記録。`begin_review_batch` が同じ種類の同時実行を防ぐ（15分で打ち切り扱い）
+
 ### `quiz_log`
 
 - `verdict` は `正解` / `不正解` / `部分正解` の3種
@@ -63,6 +79,8 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
   `四択` を許可するCHECK制約の変更は `supabase/allow-choice-quiz-format.sql`
 - 他: `knowledge_id`, `asked_on`, `quality`, `note`, `attempt_id`（署名済み出題nonce）、
   `was_early`、`schedule_updated`
+- キュー経由の回答は `question`・`user_answer`・`correct_answer`・`explanation`・`answered_at`・`review_queue_id` も持つ。
+  `confirmed_at` が空の行が「未確認の採点結果」。既存の行と都度採点の行はこれらが空
 
 ### `knowledge_mastery_history`
 
@@ -138,6 +156,18 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `POST /api/quiz/grade`: 署名済み出題トークンと`knowledge`を照合してClaude APIで採点し、
   `record_answers_batch_once` RPCで出題nonceの重複を原子的に判定・一括記録。結果画面で習熟度・
   優先度の変更とアーカイブを安全に行えるよう、記録後の`mastery`・`priority`・`content_version`・`next_review_at`・定着／再学習状態も返す
+
+- `GET /api/review-queue/status`: 出題待ち・採点待ち・採点エラー・未確認の件数、上限到達、直近のバッチ結果
+- `POST /api/review-queue/serve`: 期限が来た出題待ちの問題を優先度順に返す（`limit`、`categories`）。正解は返さない
+- `POST /api/review-queue/answer`: 回答を受け付ける。四択と無回答はAIを呼ばずにその場で記録して結果を返し、それ以外は採点待ち
+- `POST /api/review-queue/retry`: 採点エラーの回答を採点待ちへ戻す
+- `POST /api/review-queue/confirm`: 採点結果（`quiz_log_ids`）を確認済みにする
+- `POST /api/review-batch/generate` / `grade`: 生成・採点バッチ。pg_cronからは `X-Review-Batch-Token`、画面からは
+  同一オリジンと `X-Dashboard-Action: review-queue` で受け付ける。ミドルウェアがBasic認証を省くのは、合言葉が一致した
+  この2つのPOSTだけ。生成はキューが上限なら、採点は採点待ちがなければAIを呼ばない。採点で再学習に入った回答があれば、
+  再学習分だけを続けて生成する（`after_grade`）
+- 出題・採点のプロンプト、形式の決め方、検証、q値の補正は `_shared/questionGeneration.ts`・`_shared/answerGrading.ts` に
+  集約し、都度出題（`api/quiz/*`）とバッチの両方が使う。片方だけ直さない
 
 クイズAPIはブラウザにも `knowledge` の列を素で返さない。`start` は
 `{ id, question, format, choices, token }` だけ、`grade` は採点後なので `title` と模範解答を返す。
