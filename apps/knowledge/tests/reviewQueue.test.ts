@@ -1,0 +1,438 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import { onRequest as generateRoute } from "../functions/api/review-batch/generate.ts";
+import { onRequest as gradeRoute } from "../functions/api/review-batch/grade.ts";
+import { onRequest as answerRoute } from "../functions/api/review-queue/answer.ts";
+import { onRequest as serveRoute } from "../functions/api/review-queue/serve.ts";
+import { onRequest as statusRoute } from "../functions/api/review-queue/status.ts";
+import { instantGrade } from "../functions/_shared/answerGrading.ts";
+import { hasReviewBatchToken } from "../functions/_shared/reviewQueue.ts";
+
+const TOKEN = "t".repeat(40);
+const env = {
+  SUPABASE_URL: "https://project.supabase.co",
+  SUPABASE_SECRET_KEY: "server-secret",
+  ANTHROPIC_API_KEY: "anthropic-key",
+  REVIEW_BATCH_TOKEN: TOKEN,
+};
+const K1 = "11111111-1111-4111-8111-111111111111";
+const K2 = "22222222-2222-4222-8222-222222222222";
+
+type Rpc = { name: string; body: Record<string, unknown> };
+
+/** Supabase RPC・REST・Anthropic への通信を記録し、用意した応答を返す。 */
+async function withServices(
+  handlers: {
+    rpc: (name: string, body: Record<string, unknown>) => unknown;
+    rest?: (url: URL) => unknown;
+    ai?: (body: Record<string, unknown>) => unknown;
+  },
+  run: (calls: { rpc: Rpc[]; ai: Record<string, unknown>[] }) => Promise<void>,
+): Promise<void> {
+  const calls = { rpc: [] as Rpc[], ai: [] as Record<string, unknown>[] };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
+    if (url.hostname === "api.anthropic.com") {
+      calls.ai.push(body);
+      if (!handlers.ai) throw new Error("AI must not be called");
+      return Response.json(handlers.ai(body));
+    }
+    const rpc = url.pathname.match(/^\/rest\/v1\/rpc\/(.+)$/);
+    if (rpc) {
+      calls.rpc.push({ name: rpc[1], body });
+      return Response.json(handlers.rpc(rpc[1], body));
+    }
+    if (handlers.rest) return Response.json(handlers.rest(url));
+    throw new Error(`unexpected ${url}`);
+  };
+  try {
+    await run(calls);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+function browserRequest(path: string, body: unknown, method = "POST"): Request {
+  return new Request(`https://dashboard.example${path}`, {
+    method,
+    headers: {
+      Origin: "https://dashboard.example",
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": "review-queue",
+    },
+    body: method === "GET" ? undefined : JSON.stringify(body),
+  });
+}
+
+function cronRequest(path: string): Request {
+  return new Request(`https://dashboard.example${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Review-Batch-Token": TOKEN },
+    body: "{}",
+  });
+}
+
+function status(overrides: Record<string, unknown> = {}) {
+  return [{
+    ready_total: 10, ready_due: 3, waiting_grading: 0, grading_errors: 0, unconfirmed_results: 0,
+    queue_limit: 200, queue_full: false, last_generate_at: null, last_generate_status: null,
+    last_generate_added: null, last_generate_note: null, last_grade_at: null, last_grade_status: null,
+    ...overrides,
+  }];
+}
+
+function candidate(id: string, title: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id, title, explanation: `${title}の説明`, category: "ビジネス", tags: [], mastery: "学習中",
+    times_asked: 2, pool: "A", stability_hours: 48, relearning_stage: null, content_version: 3, ...overrides,
+  };
+}
+
+test("定期実行の合言葉は、生成・採点バッチへのPOSTで32文字以上が一致したときだけ通す", () => {
+  assert.equal(hasReviewBatchToken(cronRequest("/api/review-batch/generate"), env), true);
+  assert.equal(hasReviewBatchToken(cronRequest("/api/review-batch/grade"), env), true);
+  assert.equal(hasReviewBatchToken(cronRequest("/api/knowledge"), env), false);
+  assert.equal(hasReviewBatchToken(cronRequest("/api/review-batch/generate"), { REVIEW_BATCH_TOKEN: "short" }), false);
+  assert.equal(hasReviewBatchToken(new Request("https://dashboard.example/api/review-batch/grade", {
+    method: "GET", headers: { "X-Review-Batch-Token": TOKEN },
+  }), env), false);
+  assert.equal(hasReviewBatchToken(new Request("https://dashboard.example/api/review-batch/grade", {
+    method: "POST", headers: { "X-Review-Batch-Token": "x".repeat(40) },
+  }), env), false);
+});
+
+test("合言葉のない画面以外からのバッチ実行は受け付けない", async () => {
+  await withServices({ rpc: () => { throw new Error("must not reach DB"); } }, async () => {
+    const response = await generateRoute({
+      request: new Request("https://dashboard.example/api/review-batch/generate", { method: "POST", body: "{}" }),
+      env,
+    });
+    assert.equal(response.status, 403);
+  });
+});
+
+test("キューが上限なら、どんな条件でもAIを呼ばずに生成を見送る", async () => {
+  await withServices({
+    rpc: (name) => {
+      if (name === "begin_review_batch") return 7;
+      if (name === "get_review_queue_status") return status({ ready_total: 200, queue_full: true });
+      if (name === "finish_review_batch") return null;
+      throw new Error(`unexpected rpc ${name}`);
+    },
+  }, async (calls) => {
+    const response = await generateRoute({ request: cronRequest("/api/review-batch/generate"), env });
+    const body = await response.json() as { status: string; note: string };
+    assert.equal(body.status, "skipped");
+    assert.match(body.note, /上限（200件）/);
+    assert.equal(calls.ai.length, 0);
+    assert.deepEqual(calls.rpc.find((call) => call.name === "begin_review_batch")?.body, {
+      p_kind: "generate", p_trigger: "schedule",
+    });
+  });
+});
+
+test("生成対象がなければAIを呼ばない。実行中のバッチがあれば何もしない", async () => {
+  await withServices({
+    rpc: (name) => {
+      if (name === "begin_review_batch") return 8;
+      if (name === "get_review_queue_status") return status();
+      if (name === "pick_review_generation_candidates") return [];
+      if (name === "finish_review_batch") return null;
+      throw new Error(`unexpected rpc ${name}`);
+    },
+  }, async (calls) => {
+    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as { status: string };
+    assert.equal(body.status, "skipped");
+    assert.equal(calls.ai.length, 0);
+  });
+  await withServices({ rpc: (name) => (name === "begin_review_batch" ? null : []) }, async (calls) => {
+    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as { status: string };
+    assert.equal(body.status, "busy");
+    assert.deepEqual(calls.rpc.map((call) => call.name), ["begin_review_batch"]);
+  });
+});
+
+test("生成できた問題だけをキューに入れ、条件を満たさない問題は次のバッチへ回す", async () => {
+  let enqueued: Record<string, unknown>[] = [];
+  let finished: Record<string, unknown> = {};
+  await withServices({
+    rpc: (name, body) => {
+      if (name === "begin_review_batch") return 9;
+      if (name === "get_review_queue_status") return status({ ready_total: 190 });
+      if (name === "pick_review_generation_candidates") {
+        // 上限までの残り（10件）より多くは求めない。
+        assert.equal(body.p_limit, 10);
+        return [
+          candidate(K1, "選択と集中", { mastery: "未学習", times_asked: 0, pool: "B" }),
+          candidate(K2, "サイロ化"),
+        ];
+      }
+      if (name === "get_recent_quiz_notes") return [];
+      if (name === "enqueue_review_questions") {
+        enqueued = body.p_items as Record<string, unknown>[];
+        return enqueued.length;
+      }
+      if (name === "finish_review_batch") {
+        finished = body;
+        return null;
+      }
+      throw new Error(`unexpected rpc ${name}`);
+    },
+    ai: () => ({
+      stop_reason: "tool_use",
+      content: [{
+        type: "tool_use",
+        name: "submit_questions",
+        input: {
+          questions: [
+            {
+              id: K1, question: "自分のテーマ以外を捨てる経営方針は？", format: "四択",
+              choices: ["選択と集中", "多角化", "垂直統合", "水平展開"], correct_choice: "選択と集中",
+              explanation: "資源を強みに集める考え方なので選択と集中です。",
+            },
+            // 正解の語句をそのまま問題文に書いた問題は採用しない。
+            { id: K2, question: "サイロ化とは何か？", format: "一問一答" },
+          ],
+        },
+      }],
+    }),
+  }, async (calls) => {
+    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as {
+      status: string; succeeded: number; failed: number;
+    };
+    assert.equal(calls.ai.length, 1);
+    assert.equal(body.status, "succeeded");
+    assert.equal(body.succeeded, 1);
+    assert.equal(body.failed, 1);
+    assert.equal(enqueued.length, 1);
+    assert.equal(enqueued[0].knowledge_id, K1);
+    assert.equal(enqueued[0].content_version, 3);
+    assert.equal(enqueued[0].format, "四択");
+    assert.equal(enqueued[0].correct_choice, "選択と集中");
+    assert.deepEqual([...(enqueued[0].choices as string[])].sort(), ["垂直統合", "多角化", "水平展開", "選択と集中"].sort());
+    assert.equal(enqueued[0].prepared_explanation, "資源を強みに集める考え方なので選択と集中です。");
+    assert.match(String(finished.p_note), /次のバッチで作り直します/);
+  });
+});
+
+test("四択はAIを呼ばずに採点し、自由記述はAIで採点して回答時刻の予定で記録する", async () => {
+  const recorded: Record<string, unknown>[] = [];
+  const begins: Record<string, unknown>[] = [];
+  await withServices({
+    rpc: (name, body) => {
+      if (name === "begin_review_batch") {
+        begins.push(body);
+        // 採点後の再学習分の生成は、実行中扱いで見送らせる。
+        return body.p_kind === "grade" ? 11 : null;
+      }
+      if (name === "claim_review_answers") {
+        return [
+          {
+            id: 101, knowledge_id: K1, format: "四択", question: "Q1", choices: ["a", "b", "c", "d"],
+            correct_choice: "b", prepared_explanation: "bが正解です。", answer_text: "c",
+            answered_at: "2026-10-02T00:00:00Z", grade_attempts: 1,
+          },
+          {
+            id: 102, knowledge_id: K2, format: "一問一答", question: "部署ごとに分断された状態を何という？",
+            choices: null, correct_choice: null, prepared_explanation: null, answer_text: "たこつぼ化",
+            answered_at: "2026-10-02T00:01:00Z", grade_attempts: 1,
+          },
+        ];
+      }
+      if (name === "record_review_grade") {
+        recorded.push(body);
+        return [{ item_id: body.p_item_id, quiz_log_id: 500, recorded: true, status: "graded", next_review_at: "2026-10-03T00:00:00Z" }];
+      }
+      if (name === "finish_review_batch") return null;
+      throw new Error(`unexpected rpc ${name}`);
+    },
+    rest: () => [
+      { id: K1, title: "b", explanation: null, category: "ビジネス", tags: [], archived: false },
+      { id: K2, title: "サイロ化", explanation: "組織が分断される", category: "ビジネス", tags: [], archived: false },
+    ],
+    ai: (body) => {
+      const items = JSON.parse(String((body.messages as { content: string }[])[0].content)) as { id: string }[];
+      // AIへ渡すのは自由記述の1件だけ。
+      assert.deepEqual(items.map((item) => item.id), ["102"]);
+      return {
+        stop_reason: "tool_use",
+        content: [{
+          type: "tool_use",
+          name: "submit_grades",
+          input: {
+            grades: [{
+              id: "102", answer_quotes: ["たこつぼ化"], quality: 4,
+              correct_answer: "サイロ化", explanation: "ほぼ同じ意味の言い換えです。", note: "たこつぼ化と答えた。",
+            }],
+          },
+        }],
+      };
+    },
+  }, async (calls) => {
+    const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as {
+      status: string; succeeded: number; followUp?: { status: string };
+    };
+    assert.equal(calls.ai.length, 1);
+    assert.equal(body.status, "succeeded");
+    assert.equal(body.succeeded, 2);
+    const choice = recorded.find((call) => call.p_item_id === 101)!;
+    assert.equal(choice.p_quality, 1);
+    assert.equal(choice.p_verdict, "不正解");
+    assert.equal(choice.p_correct_answer, "b");
+    assert.equal(choice.p_explanation, "bが正解です。");
+    const free = recorded.find((call) => call.p_item_id === 102)!;
+    assert.equal(free.p_quality, 4);
+    assert.equal(free.p_explanation, "ほぼ同じ意味の言い換えです。");
+    // 誤答があったので、再学習分の生成を続けて試みる。
+    assert.deepEqual(begins.map((call) => call.p_trigger), ["schedule", "after_grade"]);
+    assert.equal(body.followUp?.status, "busy");
+  });
+});
+
+test("採点できなかった回答は次のバッチへ戻す", async () => {
+  const released: Record<string, unknown>[] = [];
+  await withServices({
+    rpc: (name, body) => {
+      if (name === "begin_review_batch") return 12;
+      if (name === "claim_review_answers") {
+        return [{
+          id: 201, knowledge_id: K2, format: "記述説明", question: "なぜ起きる？", choices: null,
+          correct_choice: null, prepared_explanation: null, answer_text: "部署ごとに予算が別だから",
+          answered_at: "2026-10-02T00:00:00Z", grade_attempts: 1,
+        }];
+      }
+      if (name === "release_review_answer") {
+        released.push(body);
+        return "answered";
+      }
+      if (name === "finish_review_batch") return null;
+      throw new Error(`unexpected rpc ${name}`);
+    },
+    rest: () => [{ id: K2, title: "サイロ化", explanation: null, category: "ビジネス", tags: [], archived: false }],
+    ai: () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "submit_grades", input: { grades: [] } }] }),
+  }, async () => {
+    const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as {
+      status: string; failed: number;
+    };
+    assert.equal(body.status, "failed");
+    assert.equal(body.failed, 1);
+    assert.equal(released.length, 1);
+    assert.equal(released[0].p_item_id, 201);
+  });
+});
+
+test("四択の回答はその場で記録して結果を返し、自由記述は採点待ちにする", async () => {
+  await withServices({
+    rpc: (name, body) => {
+      if (name === "submit_review_answer") {
+        return [{
+          id: body.p_item_id, knowledge_id: K1, format: "四択", question: "Q", choices: ["a", "b", "c", "d"],
+          correct_choice: "b", prepared_explanation: "bが正解です。", answer_text: "b",
+          answered_at: "2026-10-02T00:00:00Z", status: "answered", accepted: true,
+        }];
+      }
+      if (name === "record_review_grade") {
+        assert.equal(body.p_quality, 4);
+        return [{ item_id: body.p_item_id, quiz_log_id: 900, recorded: true, status: "graded", next_review_at: "2026-10-03T00:00:00Z" }];
+      }
+      throw new Error(`unexpected rpc ${name}`);
+    },
+    rest: () => [{ id: K1, title: "b", explanation: null, category: "ビジネス", tags: [], archived: false }],
+  }, async (calls) => {
+    const response = await answerRoute({ request: browserRequest("/api/review-queue/answer", { id: 5, answer: "b" }), env });
+    const body = await response.json() as { status: string; result: { quality: number; explanation: string } };
+    assert.equal(body.status, "graded");
+    assert.equal(body.result.quality, 4);
+    assert.equal(body.result.explanation, "bが正解です。");
+    assert.equal(calls.ai.length, 0);
+  });
+
+  await withServices({
+    rpc: (name, body) => {
+      if (name === "submit_review_answer") {
+        return [{
+          id: body.p_item_id, knowledge_id: K2, format: "一問一答", question: "Q", choices: null,
+          correct_choice: null, prepared_explanation: null, answer_text: "たこつぼ化",
+          answered_at: "2026-10-02T00:00:00Z", status: "answered", accepted: true,
+        }];
+      }
+      throw new Error(`unexpected rpc ${name}`);
+    },
+    rest: () => [{ id: K2, title: "サイロ化", explanation: null, category: "ビジネス", tags: [], archived: false }],
+  }, async (calls) => {
+    const body = await (await answerRoute({ request: browserRequest("/api/review-queue/answer", { id: 6, answer: "たこつぼ化" }), env })).json() as { status: string };
+    assert.equal(body.status, "answered");
+    assert.equal(calls.rpc.some((call) => call.name === "record_review_grade"), false);
+  });
+});
+
+test("回答を受け付けられない問題は409、送信元が違えば403", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ message: "already answered" }, { status: 400 });
+  try {
+    const conflict = await answerRoute({ request: browserRequest("/api/review-queue/answer", { id: 7, answer: "x" }), env });
+    assert.equal(conflict.status, 409);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  const forbidden = await answerRoute({
+    request: new Request("https://dashboard.example/api/review-queue/answer", {
+      method: "POST", headers: { Origin: "https://evil.example", "Content-Type": "application/json", "X-Dashboard-Action": "review-queue" },
+      body: JSON.stringify({ id: 7, answer: "x" }),
+    }),
+    env,
+  });
+  assert.equal(forbidden.status, 403);
+});
+
+test("出題は正解の選択肢を返さず、カテゴリ指定がなければ全カテゴリから出す", async () => {
+  await withServices({
+    rpc: (name, body) => {
+      assert.equal(name, "serve_review_queue");
+      assert.deepEqual(body, { p_limit: 15, p_categories: null });
+      return [{ id: 1, knowledge_id: K1, format: "四択", question: "Q", choices: ["a", "b", "c", "d"], category: "ビジネス", pool: "A" }];
+    },
+  }, async () => {
+    const body = await (await serveRoute({ request: browserRequest("/api/review-queue/serve", {}), env })).json() as {
+      items: Record<string, unknown>[];
+    };
+    assert.equal(body.items.length, 1);
+    assert.equal("correct_choice" in body.items[0], false);
+    assert.deepEqual(body.items[0].choices, ["a", "b", "c", "d"]);
+  });
+});
+
+test("キューの状態に上限到達と直近の生成結果を含める", async () => {
+  await withServices({
+    rpc: () => status({
+      ready_total: 200, queue_full: true, last_generate_at: "2026-10-02T00:00:00Z",
+      last_generate_status: "skipped", last_generate_added: 0, last_generate_note: "上限",
+    }),
+  }, async () => {
+    const body = await (await statusRoute({ request: new Request("https://dashboard.example/api/review-queue/status"), env })).json() as {
+      queue_full: boolean; last_generate: { status: string };
+    };
+    assert.equal(body.queue_full, true);
+    assert.equal(body.last_generate.status, "skipped");
+  });
+});
+
+test("即時採点は四択と無回答だけを確定し、それ以外はAIの採点へ回す", () => {
+  const fact = { title: "サイロ化", explanation: "組織が分断される" };
+  assert.equal(instantGrade({ fact, format: "四択", answer: "b", correctChoice: "b", preparedExplanation: null })?.quality, 4);
+  assert.equal(instantGrade({ fact, format: "四択", answer: "a", correctChoice: "b", preparedExplanation: null })?.quality, 1);
+  assert.equal(instantGrade({ fact, format: "一問一答", answer: "", correctChoice: null, preparedExplanation: null })?.quality, 0);
+  assert.equal(instantGrade({ fact, format: "記述説明", answer: "わからない", correctChoice: null, preparedExplanation: null })?.quality, 0);
+  assert.equal(instantGrade({ fact, format: "一問一答", answer: "たこつぼ化", correctChoice: null, preparedExplanation: null }), null);
+});
+
+test("定期実行の呼び出し関数は合言葉をVaultから読み、ファイルに書かない", async () => {
+  const sql = await readFile(new URL("../supabase/migrations/20261002110000_review_batch_trigger.sql", import.meta.url), "utf8");
+  assert.match(sql, /vault\.decrypted_secrets/);
+  assert.match(sql, /'X-Review-Batch-Token', v_token/);
+  assert.match(sql, /timeout_milliseconds := 300000/);
+  assert.doesNotMatch(sql, /cron\.schedule/);
+});

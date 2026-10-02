@@ -1,4 +1,5 @@
 import { validateAccess, type AccessEnv } from "./_shared/accessAuth.ts";
+import { hasReviewBatchToken, type ReviewBatchEnv } from "./_shared/reviewQueue.ts";
 import { acceptHandoff, attachSession, hasValidSession, type SessionEnv } from "./_shared/sessionAuth.ts";
 
 /**
@@ -13,7 +14,7 @@ import { acceptHandoff, attachSession, hasValidSession, type SessionEnv } from "
  * 非ASCII文字だと正しく比較できない。
  */
 
-interface Env extends AccessEnv, SessionEnv {
+interface Env extends AccessEnv, SessionEnv, ReviewBatchEnv {
   DASHBOARD_PASSWORD?: string;
   DASHBOARD_USER?: string;
   HUB_SERVICE_TOKEN?: string;
@@ -81,6 +82,10 @@ export const onRequest = async (context: MiddlewareContext): Promise<Response> =
   const handoff = await acceptHandoff(request, env);
   if (handoff) return withPrivacyHeaders(handoff);
   if (await hasValidSession(request, env)) {
+    return withPrivacyHeaders(await next());
+  }
+  // 定期実行（pg_cron）からの生成・採点バッチだけは、専用の合言葉で受け付ける。
+  if (hasReviewBatchToken(request, env)) {
     return withPrivacyHeaders(await next());
   }
   const requestUrl = new URL(request.url);
