@@ -149,6 +149,9 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
   共通するテーマを返す。根拠IDは渡した示唆に限り、結果は保存しない
 - `GET/POST /api/insight-groups`、`PATCH/DELETE /api/insight-groups/:id`: 手動で問いグループを取得・作成・編集・削除する。編集・削除は `updated_at` で競合を検出する
 - `GET/POST/DELETE /api/insight-group-members`: 示唆ID単位の所属を取得・追加・解除する。示唆本文には触れない
+- `POST /api/quiz/start` / `POST /api/quiz/grade`: 以前の都度出題・都度採点のAPI。画面からは使わない
+  （復習画面は問題キューへ移行済み）。knowledge-quizスキルの扱いが決まるまで残している。
+  以下はその仕様。
 - `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す。
   `categories`（登録済みカテゴリ名の配列。空配列は全カテゴリ）、`limit`、`format` で絞り込む。
   `excludeIds`（バックグラウンドで採点中のナレッジID、最大60件）は選定関数へ渡さず、その件数だけ多めに
@@ -240,8 +243,9 @@ DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECT
   この照合を外すと、of と誤答したのに「for を即答できている」と講評して正解になる事故と、
   書いていない「前提作業」を書いたことにして減点する事故が戻る
 - 無回答（空文字）はAIの判定に関わらずq0・不正解で記録する。空欄のまま提出した項目を進めない
-- 採点はバックグラウンドで進める（`useQuiz` の採点ジョブ）。待つ間に次の出題へ進めるが、採点中の項目は
-  `excludeIds` で除外して二重に出題しない。採点失敗時は同じ回答のまま再採点でき、重複記録は出題nonceで防ぐ
+- 復習画面（`ReviewView` / `useReviewSession`）はAIを呼ばない。期限が来た出題待ちの問題を受け取り、1問ごとに
+  回答を送る（途中で閉じても答えた分は残る）。スキップした問題は送らず、出題待ちのまま次回また出る。
+  採点結果の画面は無く、結果・講評は学習ログで見る。終了画面と学習ログから採点・生成バッチを手動で動かせる
 - 0件時は `knowledge` の件数を数えて「対象なし」と「本日出題済み」を切り分ける
 Secret keyはservice_roleのためRLSを迂回する。ブラウザのanon keyでは
 `record_answer` / `record_answers_batch` は書き込めない設計を変えない。
@@ -260,8 +264,10 @@ src/
     useKnowledgeData.ts     APIからの取得とリロード
     useFilteredKnowledge.ts 検索・カテゴリ・習熟度での絞り込み
     useModalDialog.ts       モーダルのフォーカス管理
-    useQuiz.ts              復習クイズの出題・回答・採点フロー管理
-  components/               表示、編集、詳細、アーカイブ復元、復習クイズ画面（QuizView）、
+    useReviewSession.ts     キューから出題された問題への回答の流れ
+    useReviewQueueStatus.ts 出題待ち・採点待ち・未確認の件数
+  components/               表示、編集、詳細、アーカイブ復元、復習画面（ReviewView）、学習ログ（LearningLogView。
+                            採点待ちと採点結果への操作は ReviewLogParts）、
                             英会話練習画面（SpeakingPracticeView）、整理ページ（OrganizeView）と
                             その各タブ（InsightGroupsPanel / InsightListPanel / TagGroupsPanel）
 functions/
@@ -291,15 +297,17 @@ public/
 - rechartsの親要素には高さが必要（`.chart-box` は `height: 240px`）。
 - フィルタ変更時と更新時はページ番号を1へ戻す。
 - モーダルはフォーカスを内部に保ち、閉じたら呼び出し元へ戻す。
-- QuizViewの出題カテゴリは登録済みカテゴリから組み立てる。固定の選択肢を持たない。
+- 復習画面の出題カテゴリは登録済みカテゴリから組み立てる。固定の選択肢を持たない。
 - ダークモードは `public/theme.js`（Hubと共通、`dashboard-theme` をlocalStorageに保存）が
   `<html data-theme>` を自動/ライト/ダークで決める。CSSはライトだけを書き、変更後は `npm run theme` で
   `src/index.dark.css` を再生成する（手で編集しない。古いとテストが落ちる）。rechartsの色は
   `index.css` 末尾の `:root[data-theme="dark"]` ルールで上書きする。
 - `KnowledgeDetailModal` は `onEdit` / `onArchive` を省くと読み取り専用になる。
-  クイズの採点結果から出典を開くときは `onEdit` だけを渡し、アーカイブ操作は出さない。
-  採点結果のアーカイブは各問題の編集パネルで確認ダイアログつきで行い、同じ画面で元に戻せる。
-  分類は採点結果では変更させない（編集画面で行う）。
+  学習ログの採点結果から出典を開くときは読み取り専用で開く。
+- 採点画面にあった操作（習熟度・優先度の変更、確認ダイアログつきのアーカイブと元に戻す、示唆、あとで深掘り、
+  詳細表示）は学習ログの各採点結果（`ReviewResultActions`）にある。分類は変更させない（編集画面で行う）。
+- 学習ログで「問題と講評を見る」を開いた採点結果は確認済みになる（`confirm_review_results`）。
+  一覧からは消さず、その場では「未確認」の印だけを外す
 
 ## デプロイと閲覧制限
 

@@ -4,7 +4,7 @@ import {
   parseDailyReviewStatus, parseKnowledge, parsePageEnvelope, parseQuizGradeResponse, parseQuizLog,
   parseQuizStartResponse, parseSpeakingPracticeStart,
 } from "../src/lib/apiValidation.ts";
-import { ApiError, getKnowledge, startQuiz } from "../src/lib/api.ts";
+import { ApiError, getKnowledge, runReviewBatch } from "../src/lib/api.ts";
 
 function validKnowledge() {
   return {
@@ -63,8 +63,19 @@ test("クイズ判定の許可値を検証する", () => {
     note: null,
     created_at: "2026-09-09T00:00:00Z",
   };
-  assert.deepEqual(parseQuizLog(row), row);
+  const history = {
+    question: null, user_answer: null, correct_answer: null, explanation: null,
+    answered_at: null, confirmed_at: null, review_queue_id: null,
+  };
+  // 履歴の列が無い古い応答も、空の履歴として受け入れる。
+  assert.deepEqual(parseQuizLog(row), { ...row, ...history });
+  const queued = {
+    ...row, question: "Q", user_answer: "A", correct_answer: "C", explanation: "E",
+    answered_at: "2026-09-09T00:00:00Z", confirmed_at: null, review_queue_id: 12,
+  };
+  assert.deepEqual(parseQuizLog(queued), queued);
   assert.throws(() => parseQuizLog({ ...row, verdict: "unknown" }), /verdict/);
+  assert.throws(() => parseQuizLog({ ...queued, review_queue_id: "12" }), /review_queue_id/);
 });
 
 test("出題の形式と選択肢の食い違いを受理しない", () => {
@@ -248,7 +259,7 @@ test("固定上限で切らず、全ページのナレッジを取得する", as
   }
 });
 
-test("問題生成APIの診断情報を画面用エラーとして保持する", async () => {
+test("APIの診断情報を画面用エラーとして保持する", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => Response.json({
     error: "問題生成に失敗しました。",
@@ -260,7 +271,7 @@ test("問題生成APIの診断情報を画面用エラーとして保持する",
   }, { status: 502 });
   try {
     await assert.rejects(
-      startQuiz([], 5, "四択"),
+      runReviewBatch("generate"),
       (error: unknown) => {
         assert.equal(error instanceof ApiError, true);
         if (!(error instanceof ApiError)) return false;

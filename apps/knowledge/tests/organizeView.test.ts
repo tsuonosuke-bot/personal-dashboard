@@ -54,16 +54,18 @@ test("示唆には入っている問いを表示し、整理ページのその�
   assert.match(questions, /\{ kind: "organize", tab: "questions", questionId: groupId \}/);
 });
 
-test("詳細・採点結果・整理ページで同じ問いの状態を共有する", async () => {
-  const [app, quiz, detail] = await Promise.all([
+test("詳細・学習ログ・整理ページで同じ問いの状態を共有する", async () => {
+  const [app, log, parts, detail] = await Promise.all([
     read("App.tsx"),
-    read("components/QuizView.tsx"),
+    read("components/LearningLogView.tsx"),
+    read("components/ReviewLogParts.tsx"),
     read("components/KnowledgeDetailModal.tsx"),
   ]);
   assert.match(app, /const insightGroupStore = useInsightGroups\(\);/);
-  assert.equal(app.match(/insightGroupStore=\{insightGroupStore\}/g)?.length, 3);
+  assert.match(app, /<LearningLogView[\s\S]*?insightGroupStore=\{insightGroupStore\}/);
   assert.match(app, /groupStore=\{insightGroupStore\}/);
-  assert.match(quiz, /groupStore=\{insightGroupStore\} compact/);
+  assert.match(log, /insightGroupStore=\{insightGroupStore\}/);
+  assert.match(parts, /groupStore=\{insightGroupStore\} compact/);
   assert.match(detail, /groupStore=\{insightGroupStore\}/);
 });
 

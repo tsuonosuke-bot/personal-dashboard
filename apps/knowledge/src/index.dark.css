@@ -993,6 +993,70 @@
 :root[data-theme="dark"] .learning-log-note {
   color: #a7b1c3;
 }
+:root[data-theme="dark"] .review-batch-notice {
+  border-radius: 10px;
+  background: #1e1b22;
+  color: #b2a6cd;
+}
+:root[data-theme="dark"] .review-queue-summary ul {
+  color: #a7b1c3;
+}
+:root[data-theme="dark"] .review-queue-full {
+  border-radius: 10px;
+  background: #262019;
+  color: #f1a48a;
+}
+:root[data-theme="dark"] .review-done-counts li {
+  border-radius: 10px;
+  background: #201f23;
+}
+:root[data-theme="dark"] .review-done-counts span {
+  color: #949eae;
+}
+:root[data-theme="dark"] .pending-answers-head h2 span {
+  color: #949eae;
+}
+:root[data-theme="dark"] .pending-answers-list li {
+  border-radius: 10px;
+  background: #201f23;
+}
+:root[data-theme="dark"] .pending-answer-question,
+:root[data-theme="dark"] .pending-answer-text {
+  color: #a7b1c3;
+}
+:root[data-theme="dark"] .pending-answer-error {
+  color: #eb7a7a;
+}
+:root[data-theme="dark"] .pending-answered {
+  background: #191c26;
+  color: #7b73da;
+}
+:root[data-theme="dark"] .pending-grading {
+  background: #1e1b22;
+  color: #b2a6cd;
+}
+:root[data-theme="dark"] .pending-error {
+  background: #261c1c;
+  color: #eb7a7a;
+}
+:root[data-theme="dark"] .review-unconfirmed-bar {
+  border-radius: 10px;
+  background: #1e1b22;
+  color: #b2a6cd;
+}
+:root[data-theme="dark"] .review-result-details summary {
+  color: #a89cc3;
+}
+:root[data-theme="dark"] .review-unconfirmed {
+  background: #66558c;
+  color: #fff;
+}
+:root[data-theme="dark"] .review-result-body dt {
+  color: #949eae;
+}
+:root[data-theme="dark"] .review-result-body dd {
+  color: #bac5d6;
+}
 :root[data-theme="dark"] .speaking-entry {
   border-color: #445a54;
   background: linear-gradient(135deg, #1f2322 0%, #292929 68%);

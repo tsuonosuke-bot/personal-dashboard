@@ -11,7 +11,7 @@ interface FunctionContext {
 }
 
 const params = new URLSearchParams({
-  select: "id,knowledge_id,asked_on,quality,verdict,format,note,created_at",
+  select: "id,knowledge_id,asked_on,quality,verdict,format,note,created_at,question,user_answer,correct_answer,explanation,answered_at,confirmed_at,review_queue_id",
   order: "asked_on.desc,created_at.desc,id.desc",
 });
 

@@ -16,6 +16,7 @@ import { useDailyReview } from "./hooks/useDailyReview";
 import { useKnowledgeData } from "./hooks/useKnowledgeData";
 import { useInsights } from "./hooks/useInsights";
 import { useInsightGroups } from "./hooks/useInsightGroups";
+import { useReviewQueueStatus } from "./hooks/useReviewQueueStatus";
 import { dashboardRoutePath, parseDashboardRoute, type OrganizeTab } from "./lib/dashboardRoute";
 import type {
   Filters, Knowledge, KnowledgeDraft, ReviewFilter, SortKey, SortState,
@@ -23,8 +24,8 @@ import type {
 
 const DashboardCharts = lazy(() => import("./components/DashboardCharts")
   .then((module) => ({ default: module.DashboardCharts })));
-const QuizView = lazy(() => import("./components/QuizView")
-  .then((module) => ({ default: module.QuizView })));
+const ReviewView = lazy(() => import("./components/ReviewView")
+  .then((module) => ({ default: module.ReviewView })));
 const LearningLogView = lazy(() => import("./components/LearningLogView")
   .then((module) => ({ default: module.LearningLogView })));
 const OrganizeView = lazy(() => import("./components/OrganizeView")
@@ -48,6 +49,8 @@ export default function App() {
     reload, createKnowledge, updateKnowledge,
   } = useKnowledgeData();
   const dailyReview = useDailyReview();
+  const reviewQueue = useReviewQueueStatus();
+  const [logUnconfirmedOnly, setLogUnconfirmedOnly] = useState(false);
   const insightStore = useInsights();
   const insightGroupStore = useInsightGroups();
   const [filters, setFilters] = useState<Filters>({
@@ -191,6 +194,7 @@ export default function App() {
     setShowLog(false);
     setOrganize(null);
     setShowQuiz(open);
+    void reviewQueue.refresh();
   };
 
   const setSpeakingOpen = (open: boolean) => {
@@ -202,8 +206,10 @@ export default function App() {
     setShowSpeaking(open);
   };
 
-  const setLogOpen = (open: boolean) => {
+  const setLogOpen = (open: boolean, unconfirmedOnly = false) => {
     replaceRoute(open ? { kind: "log" } : { kind: "dashboard" });
+    setLogUnconfirmedOnly(open && unconfirmedOnly);
+    if (!open) void reviewQueue.refresh();
     setSelected(null);
     setShowQuiz(false);
     setShowSpeaking(false);
@@ -241,7 +247,7 @@ export default function App() {
   };
 
   const reloadAfterReview = async () => {
-    await Promise.all([reload(), dailyReview.refresh()]);
+    await Promise.all([reload(), dailyReview.refresh(), reviewQueue.refresh()]);
   };
 
   const openNew = () => {
@@ -305,16 +311,13 @@ export default function App() {
   if (showQuiz) {
     return (
       <Suspense fallback={<div className="msg">読み込み中...</div>}>
-        <QuizView
-          knowledge={knowledge}
-          quizLog={quizLog}
+        <ReviewView
+          knowledge={registrationKnowledge}
+          queueStatus={reviewQueue.status}
           onExit={() => setQuizOpen(false)}
           autoStartDaily={quizMode === "daily"}
-          dailyStatus={dailyReview.status}
           onRecorded={reloadAfterReview}
-          onKnowledgeUpdate={updateKnowledge}
-          insightStore={insightStore}
-          insightGroupStore={insightGroupStore}
+          onOpenResults={() => setLogOpen(true, true)}
         />
       </Suspense>
     );
@@ -374,6 +377,11 @@ export default function App() {
           loading={loading}
           error={error}
           onExit={() => setLogOpen(false)}
+          initialUnconfirmedOnly={logUnconfirmedOnly}
+          onKnowledgeUpdate={updateKnowledge}
+          onReload={reloadAfterReview}
+          insightStore={insightStore}
+          insightGroupStore={insightGroupStore}
         />
       </Suspense>
     );
@@ -475,6 +483,8 @@ export default function App() {
             error={dailyReview.error}
             onStart={() => setQuizOpen(true, "daily")}
             onCustomStart={() => setQuizOpen(true, "custom")}
+            queueStatus={reviewQueue.status}
+            onOpenResults={() => setLogOpen(true, true)}
           />
           <SpeakingPracticePanel
             knowledge={knowledge}

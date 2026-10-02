@@ -1,5 +1,6 @@
-import type { DailyReviewStatus } from "../types";
+import type { DailyReviewStatus, ReviewQueueStatus } from "../types";
 import { ReviewCategoryCounts } from "./ReviewCategoryCounts";
+import { ReviewQueueSummary } from "./ReviewQueueSummary";
 
 interface Props {
   status: DailyReviewStatus | null;
@@ -7,6 +8,9 @@ interface Props {
   error: string | null;
   onStart: () => void;
   onCustomStart: () => void;
+  /** 問題キューの件数。出題ボタンは期限が来た出題待ちの問題数で決める。 */
+  queueStatus: ReviewQueueStatus | null;
+  onOpenResults: () => void;
 }
 
 function retryTime(value: string | null): string | null {
@@ -20,15 +24,19 @@ function retryTime(value: string | null): string | null {
   });
 }
 
-export function DailyReviewPanel({ status, loading, error, onStart, onCustomStart }: Props) {
+export function DailyReviewPanel({
+  status, loading, error, onStart, onCustomStart, queueStatus, onOpenResults,
+}: Props) {
   const progress = status && status.total > 0 ? Math.round((status.completed / status.total) * 100) : 0;
-  const nextBatch = status ? Math.min(status.limit, status.remaining) : 0;
+  const nextBatch = status && queueStatus ? Math.min(status.limit, queueStatus.ready_due) : 0;
   const nextRetry = retryTime(status?.next_retry_at ?? null);
   const buttonLabel = nextBatch > 0
     ? `次の${nextBatch}件を開始`
-    : status?.retry_waiting
-      ? "再復習待ち"
-      : "今すぐの復習は完了";
+    : status && status.remaining > 0
+      ? "問題を準備中"
+      : status?.retry_waiting
+        ? "再復習待ち"
+        : "今すぐの復習は完了";
 
   return (
     <section className="daily-review card" aria-labelledby="daily-review-heading">
@@ -41,7 +49,7 @@ export function DailyReviewPanel({ status, loading, error, onStart, onCustomStar
           <button onClick={onCustomStart}>カテゴリ・問題数を選ぶ</button>
           <button
             className="primary-button"
-            disabled={loading || !status || status.remaining === 0}
+            disabled={loading || nextBatch === 0}
             onClick={onStart}
           >
             {buttonLabel}
@@ -63,11 +71,14 @@ export function DailyReviewPanel({ status, loading, error, onStart, onCustomStar
           <div className="daily-progress" aria-label={`今日の復習作業 ${progress}%`}>
             <span style={{ width: `${progress}%` }} />
           </div>
+          <ReviewQueueSummary status={queueStatus} onOpenResults={onOpenResults} />
           <ReviewCategoryCounts items={status.remaining_by_category} total={status.remaining} />
           <div className="daily-review-note">
             <p>
               {status.limit}件は1日の上限ではなく、1回の出題数です。
               完了後も、復習対象がある限り次のバッチへ進めます。
+              問題は30分ごとに、期限が来たナレッジの分をまとめて作ります。回答は15分ごとに自動で採点され、
+              結果と講評は学習ログで確認できます。
             </p>
             <p>
               基準間隔: q0=10分、q1=30分、q2=6時間、q3=12時間、q4=2日以上、q5=4日以上。

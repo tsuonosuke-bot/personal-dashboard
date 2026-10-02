@@ -1,7 +1,8 @@
 import type {
   DailyReviewCategoryCount, DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgePriority, Mastery, MasteryHistoryEvent, QuizEmptyReason, QuizFormat,
   QuizGenerationFailure, QuizGradeFailure, QuizGradeFailurePhase, QuizGradeResponse, QuizGradeResult, QuizLog, QuizQuestion,
-  QuizStart, QuizVerdict, RecoveryPreview,
+  QuizStart, QuizVerdict, PendingReviewAnswer, RecoveryPreview, ReviewAnswerResult, ReviewBatchSummary,
+  ReviewQuestion, ReviewQueueStatus,
   RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
   SpeakingPracticeStart, SpeakingPracticeType,
 } from "../types";
@@ -372,6 +373,148 @@ export function parseQuizLog(value: unknown): QuizLog {
     format: stringValue(value, "format", entity),
     note: nullableStringValue(value, "note", entity),
     created_at: stringValue(value, "created_at", entity),
+    question: optionalString(value, "question", entity),
+    user_answer: optionalString(value, "user_answer", entity),
+    correct_answer: optionalString(value, "correct_answer", entity),
+    explanation: optionalString(value, "explanation", entity),
+    answered_at: optionalString(value, "answered_at", entity),
+    confirmed_at: optionalString(value, "confirmed_at", entity),
+    review_queue_id: optionalInteger(value, "review_queue_id", entity),
+  };
+}
+
+/** 新しい列は古い応答に無いことがあるため、欠けていればnullとして扱う。 */
+function optionalString(record: Record<string, unknown>, field: string, entity: string): string | null {
+  const value = record[field];
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string") return fail(entity, field);
+  return value;
+}
+
+function optionalInteger(record: Record<string, unknown>, field: string, entity: string): number | null {
+  const value = record[field];
+  if (value === undefined || value === null) return null;
+  if (!Number.isSafeInteger(value)) return fail(entity, field);
+  return value as number;
+}
+
+function countValue(record: Record<string, unknown>, field: string, entity: string): number {
+  const value = record[field];
+  if (!Number.isSafeInteger(value) || (value as number) < 0) return fail(entity, field);
+  return value as number;
+}
+
+export function parseReviewQueueStatus(value: unknown): ReviewQueueStatus {
+  const entity = "復習キュー";
+  if (!isRecord(value)) return fail(entity);
+  const generate = value.last_generate;
+  const grade = value.last_grade;
+  if (generate !== null && !isRecord(generate)) return fail(entity, "last_generate");
+  if (grade !== null && !isRecord(grade)) return fail(entity, "last_grade");
+  return {
+    ready_total: countValue(value, "ready_total", entity),
+    ready_due: countValue(value, "ready_due", entity),
+    waiting_grading: countValue(value, "waiting_grading", entity),
+    grading_errors: countValue(value, "grading_errors", entity),
+    unconfirmed_results: countValue(value, "unconfirmed_results", entity),
+    queue_limit: countValue(value, "queue_limit", entity),
+    queue_full: value.queue_full === true,
+    last_generate: generate ? {
+      at: optionalString(generate, "at", entity),
+      status: optionalString(generate, "status", entity),
+      added: optionalInteger(generate, "added", entity),
+      note: optionalString(generate, "note", entity),
+    } : null,
+    last_grade: grade ? {
+      at: optionalString(grade, "at", entity),
+      status: optionalString(grade, "status", entity),
+    } : null,
+  };
+}
+
+export function parseReviewQuestions(value: unknown): ReviewQuestion[] {
+  const entity = "出題";
+  if (!isRecord(value) || !Array.isArray(value.items)) return fail(entity);
+  return value.items.map((item) => {
+    if (!isRecord(item)) return fail(entity);
+    const format = stringValue(item, "format", entity);
+    if (!QUIZ_FORMAT_VALUES.has(format as QuizFormat)) return fail(entity, "format");
+    const choices = item.choices;
+    if (choices !== null && (!Array.isArray(choices) || !choices.every((choice) => typeof choice === "string"))) {
+      return fail(entity, "choices");
+    }
+    if ((format === "四択") !== Array.isArray(choices)) return fail(entity, "choices");
+    return {
+      id: countValue(item, "id", entity),
+      knowledge_id: stringValue(item, "knowledge_id", entity),
+      format: format as QuizFormat,
+      question: stringValue(item, "question", entity),
+      choices: choices as string[] | null,
+      category: stringValue(item, "category", entity),
+    };
+  });
+}
+
+export function parseReviewAnswerResult(value: unknown): ReviewAnswerResult {
+  const entity = "回答の受付結果";
+  if (!isRecord(value)) return fail(entity);
+  const result = value.result;
+  if (result !== undefined && result !== null && !isRecord(result)) return fail(entity, "result");
+  let parsedResult: ReviewAnswerResult["result"] = null;
+  if (result) {
+    const verdict = stringValue(result, "verdict", entity);
+    if (!VERDICT_VALUES.has(verdict as QuizVerdict)) return fail(entity, "verdict");
+    parsedResult = {
+      quiz_log_id: optionalInteger(result, "quiz_log_id", entity),
+      quality: countValue(result, "quality", entity),
+      verdict: verdict as QuizVerdict,
+      correct_answer: stringValue(result, "correct_answer", entity),
+      explanation: stringValue(result, "explanation", entity),
+    };
+  }
+  return {
+    id: countValue(value, "id", entity),
+    status: stringValue(value, "status", entity),
+    result: parsedResult,
+  };
+}
+
+export function parsePendingReviewAnswers(value: unknown): PendingReviewAnswer[] {
+  const entity = "採点待ちの回答";
+  if (!isRecord(value) || !Array.isArray(value.items)) return fail(entity);
+  return value.items.map((item) => {
+    if (!isRecord(item)) return fail(entity);
+    const status = stringValue(item, "status", entity);
+    if (status !== "answered" && status !== "grading" && status !== "error") return fail(entity, "status");
+    return {
+      id: countValue(item, "id", entity),
+      knowledge_id: stringValue(item, "knowledge_id", entity),
+      format: stringValue(item, "format", entity),
+      question: stringValue(item, "question", entity),
+      answer_text: stringValue(item, "answer_text", entity),
+      answered_at: stringValue(item, "answered_at", entity),
+      status,
+      last_error: optionalString(item, "last_error", entity),
+    };
+  });
+}
+
+const BATCH_STATUS_VALUES = new Set(["succeeded", "skipped", "failed", "busy"]);
+
+export function parseReviewBatchSummary(value: unknown): ReviewBatchSummary {
+  const entity = "バッチの実行結果";
+  if (!isRecord(value)) return fail(entity);
+  const kind = stringValue(value, "kind", entity);
+  const status = stringValue(value, "status", entity);
+  if ((kind !== "generate" && kind !== "grade") || !BATCH_STATUS_VALUES.has(status)) return fail(entity, "status");
+  return {
+    kind,
+    status: status as ReviewBatchSummary["status"],
+    processed: countValue(value, "processed", entity),
+    succeeded: countValue(value, "succeeded", entity),
+    failed: countValue(value, "failed", entity),
+    note: optionalString(value, "note", entity),
+    followUp: isRecord(value.followUp) ? parseReviewBatchSummary(value.followUp) : undefined,
   };
 }
 

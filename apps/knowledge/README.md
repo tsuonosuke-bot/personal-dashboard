@@ -80,6 +80,9 @@ SSO引き継ぎ後に日次キューへ遷移する。
   `idea_inbox`（未整理）へ1件登録する。採点・復習予定は変更しない
 - `GET /api/export` — ナレッジ、復習履歴、英会話練習履歴を読み取り専用JSONとして書き出す
 - `GET /api/status` — 認証方式、DB接続先、適用migration、最終成功時刻だけを返す
+- `GET /api/review-queue/status`・`pending`、`POST /api/review-queue/serve`・`answer`・`retry`・`confirm`、
+  `POST /api/review-batch/generate`・`grade` — 問題キューによる復習（詳細は CLAUDE.md）。復習画面はこれだけを使う
+- 以下の `api/quiz/*` は以前の都度出題・都度採点のAPIで、画面からは使っていない
 - `POST /api/quiz/start` — 復習クイズを出題（`{ categories, limit, excludeIds? }`。`excludeIds` はバックグラウンドで
   採点中のナレッジIDで、二重出題を避けるため除外する。`categories` は登録済み
   カテゴリ名の配列で、空配列なら全カテゴリ）。DBの `pick_quiz` で候補を選び、カテゴリ・タグ・前回のつまずきメモを添えてClaude APIで問題文を
