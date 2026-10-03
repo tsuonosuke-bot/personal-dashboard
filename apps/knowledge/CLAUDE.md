@@ -29,7 +29,6 @@ npm test           # ロジック、API、認証、入力・応答検証
 - `SUPABASE_URL`（必須）
 - `SUPABASE_SECRET_KEY`（必須、CloudflareではSecretとして保存）
 - `ANTHROPIC_API_KEY`（必須、復習クイズの出題・採点に使用。CloudflareではSecretとして保存）
-- `QUIZ_SIGNING_SECRET`（必須、32文字以上。出題内容の署名用でSSO共有secretと分ける）
 - `REVIEW_BATCH_TOKEN`（任意、32文字以上。pg_cronから生成・採点バッチを呼ぶ合言葉。SupabaseのVault `review_batch_token` と同じ値。
   未設定なら定期実行は届かず、画面からの手動実行だけになる）
 
@@ -81,7 +80,7 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - `format` は `一問一答` / `四択` / `記述説明` / `産出` / `ソクラテス式`。
   ダッシュボードから出題するのは `ソクラテス式` を除く4種（対話の往復が要るため）。
   `四択` を許可するCHECK制約の変更は `supabase/allow-choice-quiz-format.sql`
-- 他: `knowledge_id`, `asked_on`, `quality`, `note`, `attempt_id`（署名済み出題nonce）、
+- 他: `knowledge_id`, `asked_on`, `quality`, `note`, `attempt_id`（旧スキル契約v1の出題nonce）、
   `was_early`、`schedule_updated`
 - キュー経由の回答は `question`・`user_answer`・`correct_answer`・`explanation`・`answered_at`・`review_queue_id` も持つ。
   `confirmed_at` が空の行が「未確認の採点結果」。既存の行と都度採点の行はこれらが空
@@ -153,17 +152,6 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
   共通するテーマを返す。根拠IDは渡した示唆に限り、結果は保存しない
 - `GET/POST /api/insight-groups`、`PATCH/DELETE /api/insight-groups/:id`: 手動で問いグループを取得・作成・編集・削除する。編集・削除は `updated_at` で競合を検出する
 - `GET/POST/DELETE /api/insight-group-members`: 示唆ID単位の所属を取得・追加・解除する。示唆本文には触れない
-- `POST /api/quiz/start` / `POST /api/quiz/grade`: 以前の都度出題・都度採点のAPI。画面からは使わない
-  （復習画面は問題キューへ移行済み）。knowledge-quizスキルの扱いが決まるまで残している。
-  以下はその仕様。
-- `POST /api/quiz/start`: `pick_quiz` RPCで出題候補を取得し、Claude APIで問題文を生成して返す。
-  `categories`（登録済みカテゴリ名の配列。空配列は全カテゴリ）、`limit`、`format` で絞り込む。
-  `excludeIds`（バックグラウンドで採点中のナレッジID、最大60件）は選定関数へ渡さず、その件数だけ多めに
-  選んでからサーバー側で除く。全件が採点中なら `reason: "in_grading"` の空応答を返す
-- `POST /api/quiz/grade`: 署名済み出題トークンと`knowledge`を照合してClaude APIで採点し、
-  `record_answers_batch_once` RPCで出題nonceの重複を原子的に判定・一括記録。結果画面で習熟度・
-  優先度の変更とアーカイブを安全に行えるよう、記録後の`mastery`・`priority`・`content_version`・`next_review_at`・定着／再学習状態も返す
-
 - `GET /api/review-queue/status`: 出題待ち・採点待ち・採点エラー・未確認の件数、上限到達、直近のバッチ結果
 - `POST /api/review-queue/serve`: 期限が来た出題待ちの問題を優先度順に返す（`limit`、`categories`）。正解は返さない
 - `POST /api/review-queue/answer`: 回答を受け付け、想定解を返す。四択と無回答はAIを呼ばずにその場で記録して結果も返し、
@@ -176,13 +164,10 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
   この2つのPOSTだけ。生成はキューが上限なら、採点は採点待ちがなければAIを呼ばない。採点で再学習に入った回答があれば、
   再学習分だけを続けて生成する（`after_grade`）
 - 出題・採点のプロンプト、形式の決め方、検証、q値の補正は `_shared/questionGeneration.ts`・`_shared/answerGrading.ts` に
-  集約し、都度出題（`api/quiz/*`）とバッチの両方が使う。片方だけ直さない
+  集約し、生成・採点バッチと回答時の即時採点が使う
 
-クイズAPIはブラウザにも `knowledge` の列を素で返さない。`start` は
-`{ id, question, format, choices, token }` だけ、`grade` は採点後なので `title` と模範解答を返す。
-`choices` は四択のときだけ入り、どれが正解かは返さない。正解選択肢は平文でトークンへ入れず、
-回答照合用HMACだけを保持する。`token` はID・問題文・形式・選択肢をHMAC署名し、採点要求から
-同じ値を自己申告させない。
+復習キューAPIはブラウザへ正解・想定解を出題時に返さない。`serve` は `{ id, knowledge_id, format, question, choices, category }`
+だけを返し、想定解は回答を受け付けた後の `answer` 応答でだけ返す。四択の正解はDBに保存してサーバー側で照合する。
 
 一覧APIの `limit` は1〜1,000、`offset` は0以上に限定し、応答は
 `{ items, total, limit, offset }` とする。ブラウザ側は全ページを取得し、固定件数で
@@ -230,19 +215,14 @@ DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECT
   「応答形式が正しくない」ではなく打ち切りとして返す。原因を取り違えさせないこと。`refusal` も理由つきで返す
 - 出題時はカテゴリ・タグ・`times_asked` に加えて、直近2回分の `note`（前回どこでつまずいたか）を
   渡す。noteは次回出題に効かせるために書かせている
-- 出題順は同じカテゴリが連続しないよう入れ替える。並べ替えるのは順番だけで、`pick_quiz` が
-  選んだ問題の差し替えはしない
-- 出題形式は `おまかせ` / `一問一答` / `四択` / `記述説明` / `産出` から選ぶ。`おまかせ` は未学習・
+- 出題形式は生成時に `おまかせ` で決める。`おまかせ` は未学習・
   低定着・再認を四択、次を一問一答にする。習得中・定着は、単一事実なら一問一答、理由・比較・
   手順なら記述説明、適用可能なら産出をAIが許可候補から選ぶ。語学カテゴリは産出を使う。
   値はスキル側と揃える。揃えないと `quiz_log` の履歴が形式で分断される
-- 四択の選択肢はAIに4件作らせ、サーバー側で並べ替えてから返す。件数・重複・空文字が崩れた項目は、
-  その項目だけをもう一度まとめて生成し直す（1回だけ）。それでも崩れていたら黙って自由記述に
-  落とさず502にする。正解選択肢のHMACを署名トークンへ保持し、採点時はサーバー側の一致判定を
-  Claudeのq値より優先する。正解でも当て勘が混じるぶんq値の上限は4
-- 採点要求は `{ token, answer }` のみ。ID・形式・問題文・選択肢は署名済みトークンから復元し、
-  ブラウザによるq値上限回避や問題文差し替えを許さない
-- 採点は署名済みの出題時問題文を使い、「この問いに答えられたか」で採点する。
+- 四択の選択肢はAIに4件作らせ、キューへ入れる時点で並べ替える。件数・重複・空文字が崩れた項目は
+  キューに入れず、次の生成バッチで作り直す。四択は出題時に保存した正解との一致でその場で記録し、
+  AIのq値より優先する。正解でも当て勘が混じるぶんq値の上限は4、誤答は1
+- 採点はキューに保存した出題時の問題文を使い、「この問いに答えられたか」で採点する。
   問題文を渡さないと、空所補充に単語で答えただけで「説明が足りない」と減点される
 - 語学の空所補充では、単数・複数、時制、活用などの語形差を機械的に別語や0点扱いしない。
   完成文が問いの意味を満たして自然なら正解とし、登録済みの参考解答より一般的な表現も許容する
@@ -250,7 +230,7 @@ DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECT
 - 採点では `answer_quotes` にユーザーの回答から1〜3件そのまま引用させ、サーバー側で `user_answer`
   と照合する（NFKC・小文字化・空白除去のうえ部分一致）。q値が5未満なら減点の根拠になる箇所を
   引用に含めさせ、講評でユーザーの回答に言及するときもこの引用を使わせる。一致しない項目は採点を
-  捨て、該当項目をまとめて再採点する。それでも残った項目は1問ずつ再採点し、一致しなければ記録せず502。
+  捨て、該当項目をまとめて再採点する。それでも残った項目は1問ずつ再採点し、一致しなければ記録せず次のバッチへ回す。
   この照合を外すと、of と誤答したのに「for を即答できている」と講評して正解になる事故と、
   書いていない「前提作業」を書いたことにして減点する事故が戻る
 - 無回答（空文字）はAIの判定に関わらずq0・不正解で記録する。空欄のまま提出した項目を進めない
@@ -259,7 +239,10 @@ DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECT
   回答した直後に答え合わせを出す（四択・無回答は確定した結果と講評、それ以外は想定解）。AIの採点と講評は学習ログで見る。
   スキップした問題は出題待ちのまま残るので、その回では手元で除き、次回また出す。「おかしな問題を報告」で取り下げられる。
   終了画面と学習ログから採点・生成バッチを手動で動かせる
-- 0件時は `knowledge` の件数を数えて「対象なし」と「本日出題済み」を切り分ける
+- チャットの knowledge-quiz スキル（`skills/knowledge-quiz/`、契約 quiz-engine-v2）も同じキューから出題する。
+  採点はチャットのClaudeが行い、`direct_quiz_queue_record` が問題・回答・模範解答・講評を `quiz_log` に残して確認済みにする。
+  回答はbase64で包んだSQLで渡す。四択と空欄の補正はDB関数側でもかける。スキルを変えたら claude.ai のスキル設定へ
+  アップロードし直す（このリポジトリが正本）
 Secret keyはservice_roleのためRLSを迂回する。ブラウザのanon keyでは
 `record_answer` / `record_answers_batch` は書き込めない設計を変えない。
 
@@ -287,14 +270,11 @@ functions/
   _middleware.ts            全リクエストのBasic認証とセキュリティヘッダー
   _shared/supabaseRest.ts   Supabase REST API / RPC呼び出し
   _shared/knowledgeValidation.ts 書き込み要求と入力の検証
-  _shared/quizValidation.ts クイズAPIの要求検証
+  _shared/quizValidation.ts 問題と回答の上限、出題形式の定数
   _shared/anthropicClient.ts Claude APIを構造化出力（JSONスキーマ）で叩く共通クライアント
-  _shared/quizSession.ts    クイズ出題トークンの署名・検証
   api/knowledge.ts          ナレッジ一覧・新規登録API
   api/knowledge/[id].ts     ナレッジ編集・アーカイブ・復元API
   api/quiz-log.ts           クイズ履歴読み取りAPI
-  api/quiz/start.ts         復習クイズの出題API
-  api/quiz/grade.ts         復習クイズの採点・記録API
   api/speaking-practice.ts  復習とは独立した英会話練習履歴API
   api/inbox.ts              採点結果から深掘りしたい点をidea_inboxへ登録するAPI
   api/insights.ts           示唆（付箋）の一覧・追加API。insights/[id].ts で編集・削除、insights/analyze.ts でAIまとめ

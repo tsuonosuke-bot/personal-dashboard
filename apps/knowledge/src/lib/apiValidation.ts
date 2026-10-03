@@ -1,7 +1,6 @@
 import type {
-  DailyReviewCategoryCount, DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgePriority, Mastery, MasteryHistoryEvent, QuizEmptyReason, QuizFormat,
-  QuizGenerationFailure, QuizGradeFailure, QuizGradeFailurePhase, QuizGradeResponse, QuizGradeResult, QuizLog, QuizQuestion,
-  QuizStart, QuizVerdict, PendingReviewAnswer, RecoveryPreview, ReviewAnswerResult, ReviewBatchSummary,
+  DailyReviewCategoryCount, DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgePriority, Mastery, MasteryHistoryEvent, QuizFormat,
+  QuizLog, QuizVerdict, PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary,
   ReviewQuestion, ReviewQueueStatus,
   RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
   SpeakingPracticeStart, SpeakingPracticeType,
@@ -19,9 +18,6 @@ const PRIORITY_VALUES = new Set<KnowledgePriority>(["最高", "高", "中", "低
 const VERDICT_VALUES = new Set<QuizVerdict>(["正解", "不正解", "部分正解"]);
 const QUIZ_FORMAT_VALUES = new Set<QuizFormat>(["一問一答", "四択", "記述説明", "産出"]);
 const RELEARNING_STAGE_VALUES = new Set<RelearningStage>(["recognition", "recall"]);
-const GRADE_FAILURE_PHASE_VALUES = new Set<QuizGradeFailurePhase>([
-  "verification", "grading", "recording", "confirmation",
-]);
 const SPEAKING_PRACTICE_TYPE_VALUES = new Set<SpeakingPracticeType>([
   "instant_composition", "read_aloud",
 ]);
@@ -138,67 +134,6 @@ export function parseKnowledge(value: unknown): Knowledge {
   };
 }
 
-export function parseQuizQuestion(value: unknown): QuizQuestion {
-  const entity = "出題";
-  if (!isRecord(value)) return fail(entity);
-  const format = stringValue(value, "format", entity);
-  const token = stringValue(value, "token", entity);
-  if (!QUIZ_FORMAT_VALUES.has(format as QuizFormat)) return fail(entity, "format");
-  if (token.length < 20 || token.length > 16_000) return fail(entity, "token");
-  const choices = value.choices === null || value.choices === undefined
-    ? null
-    : stringArrayValue(value, "choices", entity);
-  // 四択は選択肢がないと回答できないため、形式と選択肢の食い違いを通さない。
-  if (
-    (format === "四択") !== (choices !== null)
-    || (choices !== null && (choices.length !== 4 || new Set(choices).size !== choices.length || choices.some((choice) => !choice)))
-  ) {
-    return fail(entity, "choices");
-  }
-  return {
-    id: stringValue(value, "id", entity),
-    question: stringValue(value, "question", entity),
-    format: format as QuizFormat,
-    choices,
-    token,
-  };
-}
-
-export function parseQuizStartResponse(value: unknown): QuizStart {
-  const entity = "出題応答";
-  if (!isRecord(value) || !Array.isArray(value.items)) return fail(entity);
-  const { reason } = value;
-  if (reason !== undefined && reason !== "no_knowledge" && reason !== "done_today" && reason !== "in_grading") {
-    return fail(entity, "reason");
-  }
-  const items = value.items.map(parseQuizQuestion);
-  const rawFailures = value.generation_failures ?? [];
-  if (!Array.isArray(rawFailures) || rawFailures.length > 30) return fail(entity, "generation_failures");
-  const generationFailures: QuizGenerationFailure[] = rawFailures.map((entry) => {
-    if (!isRecord(entry)) return fail(entity, "generation_failures");
-    const position = numberValue(entry, "position", entity);
-    const category = stringValue(entry, "category", entity);
-    const failureReason = stringValue(entry, "reason", entity);
-    if (!Number.isSafeInteger(position) || position < 1 || position > 30) return fail(entity, "position");
-    if (category.length > 100 || failureReason.length > 2_000) return fail(entity, "generation_failures");
-    return { position, category, reason: failureReason };
-  });
-  const requestedCount = value.requested_count === undefined
-    ? items.length + generationFailures.length
-    : numberValue(value, "requested_count", entity);
-  if (
-    !Number.isSafeInteger(requestedCount) || requestedCount < items.length
-    || requestedCount > 30 || requestedCount !== items.length + generationFailures.length
-  ) return fail(entity, "requested_count");
-  return {
-    items,
-    reason: (reason as QuizEmptyReason | undefined) ?? null,
-    early: value.early === true,
-    requestedCount,
-    generationFailures,
-  };
-}
-
 function nonNegativeInteger(record: Record<string, unknown>, field: string, entity: string): number {
   const value = numberValue(record, field, entity);
   if (!Number.isSafeInteger(value) || value < 0) return fail(entity, field);
@@ -251,112 +186,6 @@ export function parseDailyReviewStatus(value: unknown): DailyReviewStatus {
     return fail(entity);
   }
   return result;
-}
-
-export function parseRecoveryPreview(value: unknown): RecoveryPreview {
-  const entity = "回復プレビュー";
-  if (!isRecord(value) || !Array.isArray(value.days) || !Array.isArray(value.sample)) return fail(entity);
-  const total = nonNegativeInteger(value, "total", entity);
-  const dailyLimit = nonNegativeInteger(value, "daily_limit", entity);
-  const from = nullableStringValue(value, "from", entity);
-  const through = nullableStringValue(value, "through", entity);
-  const token = stringValue(value, "token", entity);
-  if (dailyLimit < 1 || dailyLimit > 30 || (total > 0 && token.length < 20) || (total === 0 && token !== "")) {
-    return fail(entity);
-  }
-  const days = value.days.map((item) => {
-    if (!isRecord(item)) return fail(entity, "days");
-    return { date: stringValue(item, "date", entity), count: nonNegativeInteger(item, "count", entity) };
-  });
-  const sample = value.sample.map((item) => {
-    if (!isRecord(item)) return fail(entity, "sample");
-    const priority = stringValue(item, "priority", entity);
-    if (!PRIORITY_VALUES.has(priority as KnowledgePriority)) return fail(entity, "priority");
-    return {
-      id: stringValue(item, "id", entity),
-      title: stringValue(item, "title", entity),
-      priority: priority as KnowledgePriority,
-      accuracy: nullableNumberValue(item, "accuracy", entity),
-      overdue_days: nonNegativeInteger(item, "overdue_days", entity),
-      current_next_review_on: stringValue(item, "current_next_review_on", entity),
-      scheduled_on: stringValue(item, "scheduled_on", entity),
-    };
-  });
-  return { total, daily_limit: dailyLimit, from, through, days, sample, token };
-}
-
-export function parseQuizGradeResult(value: unknown): QuizGradeResult {
-  const entity = "採点結果";
-  if (!isRecord(value)) return fail(entity);
-  const verdict = stringValue(value, "verdict", entity);
-  if (!VERDICT_VALUES.has(verdict as QuizVerdict)) return fail(entity, "verdict");
-  const mastery = stringValue(value, "mastery", entity);
-  if (!MASTERY_VALUES.has(mastery as Mastery)) return fail(entity, "mastery");
-  const priority = stringValue(value, "priority", entity);
-  if (!PRIORITY_VALUES.has(priority as KnowledgePriority)) return fail(entity, "priority");
-  const contentVersion = numberValue(value, "content_version", entity);
-  if (!Number.isSafeInteger(contentVersion) || contentVersion < 1) {
-    return fail(entity, "content_version");
-  }
-  if (typeof value.recorded !== "boolean") return fail(entity, "recorded");
-  if (typeof value.schedule_updated !== "boolean") return fail(entity, "schedule_updated");
-  const relearningStage = nullableStringValue(value, "relearning_stage", entity);
-  if (relearningStage !== null && !RELEARNING_STAGE_VALUES.has(relearningStage as RelearningStage)) {
-    return fail(entity, "relearning_stage");
-  }
-  return {
-    id: stringValue(value, "id", entity),
-    title: stringValue(value, "title", entity),
-    category: stringValue(value, "category", entity),
-    mastery: mastery as Mastery,
-    priority: priority as KnowledgePriority,
-    content_version: contentVersion,
-    verdict: verdict as QuizVerdict,
-    quality: (() => {
-      const quality = numberValue(value, "quality", entity);
-      if (!Number.isInteger(quality) || quality < 0 || quality > 5) return fail(entity, "quality");
-      return quality;
-    })(),
-    correct_answer: stringValue(value, "correct_answer", entity),
-    explanation: stringValue(value, "explanation", entity),
-    next_review_on: nullableStringValue(value, "next_review_on", entity),
-    next_review_at: stringValue(value, "next_review_at", entity),
-    stability_hours: numberValue(value, "stability_hours", entity),
-    relearning_stage: relearningStage as RelearningStage | null,
-    schedule_updated: value.schedule_updated,
-    recorded: value.recorded,
-  };
-}
-
-function parseQuizGradeFailure(value: unknown): QuizGradeFailure {
-  const entity = "採点エラー";
-  if (!isRecord(value)) return fail(entity);
-  const index = numberValue(value, "index", entity);
-  if (!Number.isSafeInteger(index) || index < 0) return fail(entity, "index");
-  const id = nullableStringValue(value, "id", entity);
-  const phase = stringValue(value, "phase", entity);
-  if (!GRADE_FAILURE_PHASE_VALUES.has(phase as QuizGradeFailurePhase)) return fail(entity, "phase");
-  if (value.recorded !== null && typeof value.recorded !== "boolean") return fail(entity, "recorded");
-  return {
-    index,
-    id,
-    phase: phase as QuizGradeFailurePhase,
-    error: stringValue(value, "error", entity),
-    recorded: value.recorded as boolean | null,
-  };
-}
-
-export function parseQuizGradeResponse(value: unknown): QuizGradeResponse {
-  const entity = "採点応答";
-  if (!isRecord(value) || !Array.isArray(value.results) || !Array.isArray(value.failures)) {
-    return fail(entity);
-  }
-  const results = value.results.map(parseQuizGradeResult);
-  const failures = value.failures.map(parseQuizGradeFailure);
-  if (new Set(failures.map((failure) => failure.index)).size !== failures.length) {
-    return fail(entity, "failures");
-  }
-  return { results, failures };
 }
 
 export function parseQuizLog(value: unknown): QuizLog {
