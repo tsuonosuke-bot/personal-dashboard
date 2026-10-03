@@ -51,9 +51,28 @@ create table review_scheduler_verify.quiz_log (
   sync_event_id uuid
 );
 
+-- Defined by an earlier migration in production; the queue functions read it.
+create function review_scheduler_verify.get_recent_quiz_notes(p_knowledge_ids uuid[], p_per_item integer default 2)
+returns table(knowledge_id uuid, quality smallint, verdict text, note text, asked_on date)
+language sql
+stable
+as $$
+  with ranked as (
+    select q.knowledge_id, q.quality, q.verdict, q.note, q.asked_on,
+      row_number() over (partition by q.knowledge_id order by q.asked_on desc, q.id desc) as position
+    from review_scheduler_verify.quiz_log q
+    where q.knowledge_id = any(p_knowledge_ids) and q.note is not null and btrim(q.note) <> ''
+  )
+  select r.knowledge_id, r.quality, r.verdict, r.note, r.asked_on
+  from ranked r
+  where r.position <= greatest(1, least(coalesce(p_per_item, 2), 10))
+  order by r.knowledge_id, r.asked_on desc;
+$$;
+
 -- The runner must replace the marker below with the bodies of
 -- 20260921100000_continuous_review_queue.sql, 20260928100000_review_pacing.sql,
--- 20261002100000_review_queue.sql and 20261003100000_review_expected_answer.sql, in that order, after removing each file's top-level BEGIN/COMMIT pair and
+-- 20261002100000_review_queue.sql, 20261003100000_review_expected_answer.sql and
+-- 20261004100000_skill_review_queue.sql, in that order, after removing each file's top-level BEGIN/COMMIT pair and
 -- pointing `public.` at this schema. This outer transaction must remain the sole
 -- transaction so the test schema is always rolled back.
 -- __MIGRATION__
@@ -624,6 +643,90 @@ begin
     where id = '00000000-0000-4000-8000-000000000302'
   ) then
     raise exception 'reported card did not become a generation candidate';
+  end if;
+end
+$$;
+
+-- The chat skill picks the same queue with its grading material and records
+-- answers all or nothing, with the app's deterministic corrections.
+do $$
+declare
+  v_pick jsonb;
+  v_result jsonb;
+  v_choice bigint;
+  v_free bigint;
+  v_ok boolean;
+begin
+  truncate review_scheduler_verify.review_queue, review_scheduler_verify.quiz_log,
+    review_scheduler_verify.knowledge cascade;
+  insert into review_scheduler_verify.knowledge(id, title, category, mastery, times_asked, next_review_at, stability_hours)
+  values ('00000000-0000-4000-8000-000000000401', 'choice', 'skill', '学習中', 2, now() - interval '1 day', 48),
+         ('00000000-0000-4000-8000-000000000402', 'free', 'skill', '学習中', 2, now() - interval '1 day', 48);
+  perform review_scheduler_verify.enqueue_review_questions(jsonb_build_array(
+    jsonb_build_object('knowledge_id', '00000000-0000-4000-8000-000000000401', 'content_version', 1,
+      'format', '四択', 'question', 'Q1', 'choices', jsonb_build_array('a', 'b', 'c', 'd'),
+      'correct_choice', 'b', 'expected_answer', 'b'),
+    jsonb_build_object('knowledge_id', '00000000-0000-4000-8000-000000000402', 'content_version', 1,
+      'format', '一問一答', 'question', 'Q2', 'expected_answer', '想定解')
+  ));
+
+  v_pick := review_scheduler_verify.direct_quiz_queue_pick(15, null);
+  if jsonb_array_length(v_pick) <> 2 or v_pick->0->>'title' is null or v_pick->0 ? 'expected_answer' is false then
+    raise exception 'skill pick lacked grading material: %', v_pick;
+  end if;
+  select (e->>'item_id')::bigint into v_choice from jsonb_array_elements(v_pick) e where e->>'format' = '四択';
+  select (e->>'item_id')::bigint into v_free from jsonb_array_elements(v_pick) e where e->>'format' = '一問一答';
+
+  -- A wrong choice graded q5 by mistake is capped at q1; a free answer keeps its grade.
+  v_result := review_scheduler_verify.direct_quiz_queue_record(jsonb_build_array(
+    jsonb_build_object('item_id', v_choice, 'answer', 'c', 'quality', 5, 'note', 'n1', 'correct_answer', '', 'explanation', 'e1'),
+    jsonb_build_object('item_id', v_free, 'answer', '自分の答え', 'quality', 4, 'note', 'n2', 'correct_answer', '模範', 'explanation', '講評')
+  ));
+  if (select count(*) from jsonb_array_elements(v_result) e where (e->>'recorded')::boolean) <> 2 then
+    raise exception 'skill answers were not recorded: %', v_result;
+  end if;
+  if not exists (
+    select 1 from review_scheduler_verify.quiz_log l
+    where l.review_queue_id = v_choice and l.quality = 1 and l.verdict = '不正解' and l.correct_answer = 'b'
+      and l.user_answer = 'c' and l.confirmed_at is not null
+  ) then
+    raise exception 'multiple-choice correction or history was not applied';
+  end if;
+  if not exists (
+    select 1 from review_scheduler_verify.quiz_log l
+    where l.review_queue_id = v_free and l.quality = 4 and l.verdict = '正解' and l.correct_answer = '模範'
+      and l.explanation = '講評' and l.question = 'Q2'
+  ) then
+    raise exception 'free answer history was not stored';
+  end if;
+
+  -- Re-sending the same batch records nothing twice.
+  v_result := review_scheduler_verify.direct_quiz_queue_record(jsonb_build_array(
+    jsonb_build_object('item_id', v_free, 'answer', '自分の答え', 'quality', 4, 'note', 'n2', 'correct_answer', '模範', 'explanation', '講評')
+  ));
+  if (v_result->0->>'recorded')::boolean or (select count(*) from review_scheduler_verify.quiz_log) <> 2 then
+    raise exception 'skill answers were recorded twice';
+  end if;
+
+  -- A quality out of range is rejected before anything is written.
+  v_ok := false;
+  begin
+    perform review_scheduler_verify.direct_quiz_queue_record(jsonb_build_array(
+      jsonb_build_object('item_id', v_free, 'answer', 'x', 'quality', 7, 'note', 'n')
+    ));
+  exception when invalid_parameter_value then v_ok := true;
+  end;
+  if not v_ok then raise exception 'invalid quality was accepted'; end if;
+
+  -- A question reported in the chat is withdrawn only while it is still ready.
+  perform review_scheduler_verify.enqueue_review_questions(jsonb_build_array(
+    jsonb_build_object('knowledge_id', '00000000-0000-4000-8000-000000000401', 'content_version', 1,
+      'format', '一問一答', 'question', 'leaky', 'expected_answer', 'x')
+  ));
+  if review_scheduler_verify.direct_quiz_queue_discard(array(
+    select id from review_scheduler_verify.review_queue
+  )) <> 1 then
+    raise exception 'only the ready question should have been withdrawn';
   end if;
 end
 $$;

@@ -124,18 +124,6 @@ button:disabled { opacity: 0.4; cursor: default; }
 .review-category-breakdown > .muted { margin: 0; font-size: 12px; }
 .daily-review-note { display: grid; gap: 4px; margin-top: 13px; }
 .daily-review-note p { margin: 0; color: #7a879b; font-size: 12px; }
-.recovery-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 13px; }
-.recovery-actions p { margin: 0; color: #7a879b; font-size: 12px; }
-.recovery-preview { margin-top: 16px; padding: 16px; border: 1px solid #ded7eb; border-radius: 10px; background: #fbfaff; }
-.recovery-preview h3 { margin-bottom: 5px; font-size: 15px; }
-.recovery-preview > p { margin-bottom: 10px; color: #6b6474; font-size: 12px; }
-.recovery-days { display: flex; flex-wrap: wrap; gap: 6px; max-height: 110px; overflow: auto; }
-.recovery-days span { padding: 4px 8px; border-radius: 999px; background: #eeeaf7; color: #554479; font-size: 11px; }
-.recovery-sample { display: grid; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
-.recovery-sample li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-top: 6px; border-top: 1px solid #ece8f2; font-size: 11px; }
-.recovery-sample strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.recovery-sample span { flex: none; color: #7a879b; }
-.recovery-preview-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 
 .review-panel { margin: 18px 0; }
 .section-heading { display: flex; justify-content: space-between; align-items: end; margin-bottom: 10px; }
@@ -227,10 +215,9 @@ button.review-card { display: block; }
   .weak-list { grid-template-columns: 1fr; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .detail-list { grid-template-columns: 1fr; }
-  .daily-review-head, .recovery-actions { align-items: stretch; flex-direction: column; }
+  .daily-review-head { align-items: stretch; flex-direction: column; }
   .daily-review-actions { align-items: stretch; flex-direction: column; }
   .daily-review-metrics { grid-template-columns: repeat(2, 1fr); }
-  .recovery-sample li { align-items: flex-start; flex-direction: column; gap: 3px; }
   .pager { justify-content: center; }
   .pager-summary { width: 100%; margin: 0; text-align: center; }
   .chart-heading { align-items: stretch; flex-direction: column; }

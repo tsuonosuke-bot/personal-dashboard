@@ -1,6 +1,6 @@
 import type {
   DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizLog,
-  PendingReviewAnswer, RecoveryPreview, ReviewAnswerResult, ReviewBatchSummary, ReviewQuestion, ReviewQueueStatus,
+  PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary, ReviewQuestion, ReviewQueueStatus,
   SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
   SpeakingPracticeWrite,
 } from "../types";
@@ -15,7 +15,6 @@ import {
   parsePageEnvelope,
   parsePendingReviewAnswers,
   parseQuizLog,
-  parseRecoveryPreview,
   parseReviewAnswerResult,
   parseReviewBatchSummary,
   parseReviewQuestions,
@@ -416,25 +415,3 @@ export async function getDailyReviewStatus(limit = 15): Promise<DailyReviewStatu
   return parseDailyReviewStatus(data);
 }
 
-async function postRecovery(body: unknown): Promise<unknown> {
-  return requestJson("/api/review/recovery", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Dashboard-Action": "review-recovery",
-    },
-    body: JSON.stringify(body),
-  });
-}
-
-export async function previewReviewRecovery(dailyLimit: number): Promise<RecoveryPreview> {
-  return parseRecoveryPreview(await postRecovery({ action: "preview", daily_limit: dailyLimit }));
-}
-
-export async function applyReviewRecovery(token: string): Promise<number> {
-  const data = await postRecovery({ action: "apply", token });
-  if (typeof data !== "object" || data === null || !Number.isSafeInteger((data as { updated?: unknown }).updated)) {
-    throw new Error("回復処理の応答が正しくありません。");
-  }
-  return (data as { updated: number }).updated;
-}

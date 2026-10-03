@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  parseDailyReviewStatus, parseKnowledge, parsePageEnvelope, parseQuizGradeResponse, parseQuizLog,
-  parseQuizStartResponse, parseSpeakingPracticeStart,
+  parseDailyReviewStatus, parseKnowledge, parsePageEnvelope, parseQuizLog, parseSpeakingPracticeStart,
 } from "../src/lib/apiValidation.ts";
 import { ApiError, getKnowledge, runReviewBatch } from "../src/lib/api.ts";
 
@@ -76,97 +75,6 @@ test("クイズ判定の許可値を検証する", () => {
   assert.deepEqual(parseQuizLog(queued), queued);
   assert.throws(() => parseQuizLog({ ...row, verdict: "unknown" }), /verdict/);
   assert.throws(() => parseQuizLog({ ...queued, review_queue_id: "12" }), /review_queue_id/);
-});
-
-test("出題の形式と選択肢の食い違いを受理しない", () => {
-  const token = "signed-token".repeat(3);
-  const free = { id: "a", question: "問題", format: "記述説明", choices: null, token };
-  const partial = parseQuizStartResponse({
-    items: [free],
-    requested_count: 2,
-    generation_failures: [{ position: 2, category: "英語", reason: "問題文に正解が含まれています。" }],
-  });
-  assert.deepEqual(partial.items, [free]);
-  assert.equal(partial.requestedCount, 2);
-  assert.deepEqual(partial.generationFailures, [
-    { position: 2, category: "英語", reason: "問題文に正解が含まれています。" },
-  ]);
-
-  const choice = {
-    id: "a", question: "問題", format: "四択", choices: ["ア", "イ", "ウ", "エ"], token,
-  };
-  assert.deepEqual(parseQuizStartResponse({ items: [choice] }).items, [choice]);
-
-  assert.throws(() => parseQuizStartResponse({ items: [{ ...free, format: "ソクラテス式" }] }), /format/);
-  // 四択なのに選択肢がない／四択でないのに選択肢がある、のどちらも通さない。
-  assert.throws(() => parseQuizStartResponse({ items: [{ ...choice, choices: null }] }), /choices/);
-  assert.throws(() => parseQuizStartResponse({ items: [{ ...free, choices: ["ア"] }] }), /choices/);
-  assert.throws(() => parseQuizStartResponse({ items: [{ ...choice, choices: ["ア", "ア", "ウ", "エ"] }] }), /choices/);
-  assert.throws(() => parseQuizStartResponse({ items: [{ ...free, token: "" }] }), /token/);
-  assert.throws(() => parseQuizStartResponse({
-    items: [free], requested_count: 3,
-    generation_failures: [{ position: 2, category: "英語", reason: "失敗" }],
-  }), /requested_count/);
-  assert.throws(() => parseQuizStartResponse({
-    items: [free], requested_count: 2,
-    generation_failures: [{ position: 0, category: "英語", reason: "失敗" }],
-  }), /position/);
-});
-
-test("採点結果の習熟度・優先度と更新バージョンを検証する", () => {
-  const result = {
-    id: "123e4567-e89b-42d3-a456-426614174000",
-    title: "テスト",
-    category: "技術",
-    mastery: "習得中",
-    priority: "高",
-    content_version: 3,
-    verdict: "正解",
-    quality: 5,
-    correct_answer: "模範解答",
-    explanation: "解説",
-    next_review_on: "2026-09-21",
-    next_review_at: "2026-09-21T03:00:00Z",
-    stability_hours: 72,
-    relearning_stage: null,
-    schedule_updated: true,
-    recorded: true,
-  };
-  assert.deepEqual(parseQuizGradeResponse({ results: [result], failures: [] }), {
-    results: [result], failures: [],
-  });
-  assert.throws(
-    () => parseQuizGradeResponse({ results: [{ ...result, priority: "最優先" }], failures: [] }),
-    /priority/,
-  );
-  assert.throws(
-    () => parseQuizGradeResponse({ results: [{ ...result, mastery: "完璧" }], failures: [] }),
-    /mastery/,
-  );
-  assert.throws(
-    () => parseQuizGradeResponse({ results: [{ ...result, content_version: 0 }], failures: [] }),
-    /content_version/,
-  );
-  assert.throws(
-    () => parseQuizGradeResponse({ results: [{ ...result, category: null }], failures: [] }),
-    /category/,
-  );
-  assert.deepEqual(parseQuizGradeResponse({
-    results: [],
-    failures: [{
-      index: 1, id: result.id, phase: "grading", error: "採点できませんでした。", recorded: false,
-    }],
-  }).failures[0].phase, "grading");
-  assert.throws(
-    () => parseQuizGradeResponse({
-      results: [],
-      failures: [
-        { index: 0, id: null, phase: "grading", error: "a", recorded: false },
-        { index: 0, id: null, phase: "grading", error: "b", recorded: false },
-      ],
-    }),
-    /failures/,
-  );
 });
 
 test("日次復習のカテゴリ別残数を検証する", () => {

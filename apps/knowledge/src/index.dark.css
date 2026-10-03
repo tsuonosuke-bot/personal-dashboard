@@ -254,28 +254,6 @@
 :root[data-theme="dark"] .daily-review-note p {
   color: #949eae;
 }
-:root[data-theme="dark"] .recovery-actions p {
-  color: #949eae;
-}
-:root[data-theme="dark"] .recovery-preview {
-  border: 1px solid #4e455d;
-  border-radius: 10px;
-  background: #27262b;
-}
-:root[data-theme="dark"] .recovery-preview > p {
-  color: #b1acb7;
-}
-:root[data-theme="dark"] .recovery-days span {
-  border-radius: 999px;
-  background: #19161e;
-  color: #b2a6cd;
-}
-:root[data-theme="dark"] .recovery-sample li {
-  border-top: 1px solid #534b5f;
-}
-:root[data-theme="dark"] .recovery-sample span {
-  color: #949eae;
-}
 :root[data-theme="dark"] .section-heading p {
   color: #8a97ac;
 }

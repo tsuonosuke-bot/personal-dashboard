@@ -207,40 +207,6 @@ export interface KnowledgeDraft {
 /** DB の quiz_log.format 制約のうち、ダッシュボードから出題できる形式。 */
 export type QuizFormat = "一問一答" | "四択" | "記述説明" | "産出";
 
-/** 出題時だけ指定できる、項目ごとに習熟度から形式を決めさせる指定。 */
-export type QuizFormatRequest = QuizFormat | "おまかせ";
-
-export interface QuizQuestion {
-  id: string;
-  question: string;
-  format: QuizFormat;
-  /** 四択のときだけ入る選択肢。他の形式ではnull。 */
-  choices: string[] | null;
-  /** 問題文と形式をサーバーへ改ざんされず返すための署名済みトークン。 */
-  token: string;
-}
-
-export type QuizEmptyReason = "no_knowledge" | "done_today" | "in_grading";
-
-export interface QuizGenerationFailure {
-  /** DBが選んだ元の出題順（1始まり）。 */
-  position: number;
-  category: string;
-  /** 利用者へ表示できる、検証済みの失敗理由。 */
-  reason: string;
-}
-
-export interface QuizStart {
-  items: QuizQuestion[];
-  /** 出題対象が0件だった理由。1件以上あるときはnull。 */
-  reason: QuizEmptyReason | null;
-  /** 全問が復習期限前の前倒し出題であることを示す。 */
-  early: boolean;
-  /** AIへ最初に依頼した問題数。 */
-  requestedCount: number;
-  /** 出題条件を満たさず、追加生成せずに除外した問題。 */
-  generationFailures: QuizGenerationFailure[];
-}
 
 export interface DailyReviewCategoryCount {
   category: string;
@@ -266,70 +232,6 @@ export interface DailyReviewStatus {
   new_held: number;
 }
 
-export interface RecoveryPreviewDay {
-  date: string;
-  count: number;
-}
-
-export interface RecoveryPreviewItem {
-  id: string;
-  title: string;
-  priority: KnowledgePriority;
-  accuracy: number | null;
-  overdue_days: number;
-  current_next_review_on: string;
-  scheduled_on: string;
-}
-
-export interface RecoveryPreview {
-  total: number;
-  daily_limit: number;
-  from: string | null;
-  through: string | null;
-  days: RecoveryPreviewDay[];
-  sample: RecoveryPreviewItem[];
-  token: string;
-}
-
-export interface QuizGradeResult {
-  id: string;
-  title: string;
-  /** 解説画面で出典ナレッジを識別する分類。 */
-  category: string;
-  /** 採点記録後の最新値。結果画面から安全に習熟度・分類・優先度を更新するために使う。 */
-  mastery: Mastery;
-  priority: KnowledgePriority;
-  /** 採点記録後の競合検出用バージョン。 */
-  content_version: number;
-  verdict: QuizVerdict;
-  quality: number;
-  correct_answer: string;
-  explanation: string;
-  next_review_on: string | null;
-  next_review_at: string;
-  stability_hours: number;
-  relearning_stage: RelearningStage | null;
-  /** 期限前の正解などで、予定を意図的に据え置いた場合はfalse。 */
-  schedule_updated: boolean;
-  recorded: boolean;
-}
-
-export type QuizGradeFailurePhase = "verification" | "grading" | "recording" | "confirmation";
-
-export interface QuizGradeFailure {
-  /** 元の提出配列における問題番号。署名を検証できない場合も画面上の問題へ対応付けられる。 */
-  index: number;
-  id: string | null;
-  phase: QuizGradeFailurePhase;
-  error: string;
-  /** nullはDB保存の成否を確認できなかったことを示す。 */
-  recorded: boolean | null;
-}
-
-export interface QuizGradeResponse {
-  results: QuizGradeResult[];
-  failures: QuizGradeFailure[];
-}
 
 /** ナレッジごとに残す「自分にとってどう役立つか」の付箋。出題・採点には使わない。 */
 export interface KnowledgeInsight {
