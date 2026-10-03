@@ -56,6 +56,14 @@ build that depends on them.
 - `20261003100000_review_expected_answer.sql` stores the expected answer with
   each queued question (returned only after answering) and adds
   `discard_review_question` for questions the learner reports as broken.
+- `20261004120000_review_generation_holds.sql` records cards whose generated
+  question still failed the checks after one regeneration
+  (`review_generation_holds`, `hold_review_generation_failures`). Generation
+  candidates skip them for 2 hours, then 6 hours, then 24 hours per consecutive
+  failure; a new `content_version` releases them at once and a queued question
+  clears the record. `get_review_queue_status` is recreated with
+  `generation_held`, and `list_review_generation_holds` lists them.
+  Integration checks: `tests/reviewScheduler.integration.sql`.
 
 After applying a migration, verify its functions with `pg_get_functiondef` and
 verify the new column/trigger through `information_schema` before deploying the

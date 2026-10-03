@@ -53,7 +53,8 @@ create table review_scheduler_verify.quiz_log (
 
 -- The runner must replace the marker below with the bodies of
 -- 20260921100000_continuous_review_queue.sql, 20260928100000_review_pacing.sql,
--- 20261002100000_review_queue.sql and 20261003100000_review_expected_answer.sql, in that order, after removing each file's top-level BEGIN/COMMIT pair and
+-- 20261002100000_review_queue.sql, 20261003100000_review_expected_answer.sql and
+-- 20261004120000_review_generation_holds.sql, in that order, after removing each file's top-level BEGIN/COMMIT pair and
 -- pointing `public.` at this schema. This outer transaction must remain the sole
 -- transaction so the test schema is always rolled back.
 -- __MIGRATION__
@@ -624,6 +625,114 @@ begin
     where id = '00000000-0000-4000-8000-000000000302'
   ) then
     raise exception 'reported card did not become a generation candidate';
+  end if;
+end
+$$;
+
+-- A card whose question failed even after regeneration is held: 2 hours, then
+-- 6 hours, then 24 hours. Editing the card or queueing a question releases it.
+do $$
+declare
+  v_card constant uuid := '00000000-0000-4000-8000-000000000401';
+  v_other constant uuid := '00000000-0000-4000-8000-000000000402';
+  v_hold record;
+  v_wait interval;
+begin
+  truncate review_scheduler_verify.review_queue, review_scheduler_verify.quiz_log,
+    review_scheduler_verify.knowledge, review_scheduler_verify.review_generation_holds cascade;
+  insert into review_scheduler_verify.knowledge(id, title, category, mastery, times_asked, next_review_at, stability_hours)
+  values (v_card, 'held', 'test', '学習中', 2, now() - interval '1 day', 48),
+         (v_other, 'other', 'test', '学習中', 2, now() - interval '1 day', 48);
+
+  if review_scheduler_verify.hold_review_generation_failures(jsonb_build_array(
+    jsonb_build_object('knowledge_id', v_card, 'content_version', 1, 'reason', ' leaked ', 'question', ' held? '),
+    -- Picked before an edit: the edited card is not held.
+    jsonb_build_object('knowledge_id', v_other, 'content_version', 0, 'reason', 'stale', 'question', null)
+  )) <> 1 then
+    raise exception 'hold did not record exactly the current-version card';
+  end if;
+  select * into v_hold from review_scheduler_verify.review_generation_holds where knowledge_id = v_card;
+  v_wait := v_hold.retry_after - v_hold.last_failed_at;
+  if v_hold.failure_count <> 1 or v_wait <> interval '2 hours' or v_hold.last_reason <> 'leaked' or v_hold.last_question <> 'held?' then
+    raise exception 'first hold was wrong: count %, wait %, reason %, question %',
+      v_hold.failure_count, v_wait, v_hold.last_reason, v_hold.last_question;
+  end if;
+  if exists (select 1 from review_scheduler_verify.pick_review_generation_candidates(30, false) where id = v_card) then
+    raise exception 'held card was still a generation candidate';
+  end if;
+  if not exists (select 1 from review_scheduler_verify.pick_review_generation_candidates(30, false) where id = v_other) then
+    raise exception 'unheld card was not a generation candidate';
+  end if;
+  if (select generation_held from review_scheduler_verify.get_review_queue_status()) <> 1 then
+    raise exception 'status did not count the held card';
+  end if;
+  if (select count(*) from review_scheduler_verify.list_review_generation_holds()) <> 1 then
+    raise exception 'held card was not listed';
+  end if;
+
+  -- Consecutive failures on the same version wait longer.
+  perform review_scheduler_verify.hold_review_generation_failures(jsonb_build_array(
+    jsonb_build_object('knowledge_id', v_card, 'content_version', 1, 'reason', 'again')));
+  select * into v_hold from review_scheduler_verify.review_generation_holds where knowledge_id = v_card;
+  if v_hold.failure_count <> 2 or v_hold.retry_after - v_hold.last_failed_at <> interval '6 hours' or v_hold.last_question is not null then
+    raise exception 'second hold was wrong: count %, wait %', v_hold.failure_count, v_hold.retry_after - v_hold.last_failed_at;
+  end if;
+  perform review_scheduler_verify.hold_review_generation_failures(jsonb_build_array(
+    jsonb_build_object('knowledge_id', v_card, 'content_version', 1, 'reason', 'again')));
+  perform review_scheduler_verify.hold_review_generation_failures(jsonb_build_array(
+    jsonb_build_object('knowledge_id', v_card, 'content_version', 1, 'reason', 'again')));
+  select * into v_hold from review_scheduler_verify.review_generation_holds where knowledge_id = v_card;
+  if v_hold.failure_count <> 4 or v_hold.retry_after - v_hold.last_failed_at <> interval '24 hours' then
+    raise exception 'later holds did not wait 24 hours: count %, wait %', v_hold.failure_count, v_hold.retry_after - v_hold.last_failed_at;
+  end if;
+
+  -- Once the wait is over, the card is a candidate again.
+  update review_scheduler_verify.review_generation_holds set retry_after = now() - interval '1 minute' where knowledge_id = v_card;
+  if not exists (select 1 from review_scheduler_verify.pick_review_generation_candidates(30, false) where id = v_card) then
+    raise exception 'card was still held after its wait';
+  end if;
+
+  -- Editing the card (a new version) releases it at once, and a failure on the
+  -- new version starts counting from 1 again.
+  update review_scheduler_verify.review_generation_holds set retry_after = now() + interval '1 day' where knowledge_id = v_card;
+  update review_scheduler_verify.knowledge set content_version = 2 where id = v_card;
+  if not exists (select 1 from review_scheduler_verify.pick_review_generation_candidates(30, false) where id = v_card) then
+    raise exception 'edited card was still held';
+  end if;
+  if (select generation_held from review_scheduler_verify.get_review_queue_status()) <> 0
+    or exists (select 1 from review_scheduler_verify.list_review_generation_holds()) then
+    raise exception 'hold of an edited card was still reported';
+  end if;
+  perform review_scheduler_verify.hold_review_generation_failures(jsonb_build_array(
+    jsonb_build_object('knowledge_id', v_card, 'content_version', 2, 'reason', 'new version')));
+  select * into v_hold from review_scheduler_verify.review_generation_holds where knowledge_id = v_card;
+  if v_hold.failure_count <> 1 or v_hold.content_version <> 2 or v_hold.retry_after - v_hold.last_failed_at <> interval '2 hours' then
+    raise exception 'failure on a new version did not restart the count: count %', v_hold.failure_count;
+  end if;
+
+  -- Archived cards are not reported.
+  update review_scheduler_verify.knowledge set archived = true where id = v_card;
+  if exists (select 1 from review_scheduler_verify.list_review_generation_holds()) then
+    raise exception 'archived held card was listed';
+  end if;
+  update review_scheduler_verify.knowledge set archived = false where id = v_card;
+
+  -- A queued question clears the hold.
+  if review_scheduler_verify.enqueue_review_questions(jsonb_build_array(
+    jsonb_build_object('knowledge_id', v_card, 'content_version', 2, 'format', '一問一答', 'question', 'Q')
+  )) <> 1 then
+    raise exception 'question for the held card was not enqueued';
+  end if;
+  if exists (select 1 from review_scheduler_verify.review_generation_holds where knowledge_id = v_card) then
+    raise exception 'queued question did not clear the hold';
+  end if;
+
+  -- Deleting the card deletes its hold.
+  perform review_scheduler_verify.hold_review_generation_failures(jsonb_build_array(
+    jsonb_build_object('knowledge_id', v_other, 'content_version', 1, 'reason', 'leaked')));
+  delete from review_scheduler_verify.knowledge where id = v_other;
+  if exists (select 1 from review_scheduler_verify.review_generation_holds) then
+    raise exception 'hold of a deleted card remained';
   end if;
 end
 $$;

@@ -72,7 +72,21 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - 回答は `submit_review_answer`。採点は `claim_review_answers` → AI → `record_review_grade`。失敗は `release_review_answer`
 - `record_review_grade` は回答時刻を `record_answer(..., p_answered_at)` に渡し、予定の起点・`quiz_log.created_at`・`asked_on` を
   回答時刻にする。別経路でより新しく回答済みのカードへの古い回答は記録せず `discarded` にする
-- `review_batch_runs` はバッチの実行記録。`begin_review_batch` が同じ種類の同時実行を防ぐ（15分で打ち切り扱い）
+- `review_batch_runs` はバッチの実行記録。`begin_review_batch` が同じ種類の同時実行を防ぐ（15分で打ち切り扱い）。
+  生成はAIの呼び出しかDBで失敗したときだけ `failed`。AIが応答して一部（全部でも）のカードが条件を満たさなかっただけなら
+  `succeeded` で、件数を `failed`、理由の例を `note` に残す
+
+### `review_generation_holds`（問題を作れなかったカード）
+
+- 生成した問題が条件（`generationIssue`）を満たさなければ、その項目だけを前回の問題文と理由（`previous_attempt`）を添えて
+  その場で1回だけ作り直す。それでも満たさないカードを `hold_review_generation_failures` が1行に記録する
+- 列: `knowledge_id`（PK、ナレッジ削除で連動削除）, `content_version`, `failure_count`（同じ版での連続回数）, `last_reason`,
+  `last_question`（最後に不採用になった問題文）, `last_failed_at`, `retry_after`
+- `retry_after` までは `pick_review_generation_candidates` の候補にしない。待ち時間は `review_generation_backoff`:
+  1回目2時間、2回目6時間、3回目以降24時間。手動の生成でも飛ばさない
+- カードを編集して `content_version` が変われば待たずに候補へ戻り、次の失敗は1回目から数える。
+  `enqueue_review_questions` が問題を入れたら記録を消す
+- `list_review_generation_holds` と `get_review_queue_status.generation_held` は、アーカイブ済みと失敗後に編集されたカードを数えない
 
 ### `quiz_log`
 
@@ -164,7 +178,9 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
   `record_answers_batch_once` RPCで出題nonceの重複を原子的に判定・一括記録。結果画面で習熟度・
   優先度の変更とアーカイブを安全に行えるよう、記録後の`mastery`・`priority`・`content_version`・`next_review_at`・定着／再学習状態も返す
 
-- `GET /api/review-queue/status`: 出題待ち・採点待ち・採点エラー・未確認の件数、上限到達、直近のバッチ結果
+- `GET /api/review-queue/status`: 出題待ち・採点待ち・採点エラー・未確認・生成を保留中（`generation_held`）の件数、
+  上限到達、直近のバッチ結果
+- `GET /api/review-queue/generation-holds`: 問題を作れず保留中のカード（タイトル・理由・最後の問題文・次の挑戦時刻）
 - `POST /api/review-queue/serve`: 期限が来た出題待ちの問題を優先度順に返す（`limit`、`categories`）。正解は返さない
 - `POST /api/review-queue/answer`: 回答を受け付け、想定解を返す。四択と無回答はAIを呼ばずにその場で記録して結果も返し、
   それ以外は採点待ち
@@ -319,6 +335,8 @@ public/
   学習ログの採点結果から出典を開くときは読み取り専用で開く。
 - 採点画面にあった操作（習熟度・優先度の変更、確認ダイアログつきのアーカイブと元に戻す、示唆、あとで深掘り、
   詳細表示）は学習ログの各採点結果（`ReviewResultActions`）にある。分類は変更させない（編集画面で行う）。
+- 学習ログの「問題を作れなかったカード」（`GenerationHoldsPanel`）は、出典を直してもらうための欄なので、
+  「ナレッジを開く」は編集できる詳細（Appの `selected`）で開く。採点結果の出典（読み取り専用）とは分ける
 - 学習ログで「問題と講評を見る」を開いた採点結果は確認済みになる（`confirm_review_results`）。
   一覧からは消さず、その場では「未確認」の印だけを外す
 

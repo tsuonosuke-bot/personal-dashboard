@@ -311,6 +311,24 @@ choices・correct_choice・explanation は選んだformatが四択の項目に�
 
 与えられたid一つにつき、questionsに必ず1件、同じidで出力する。`;
 
+/** 作り直しのときだけ足す指示。通常の生成のプロンプトは変えない。 */
+const RETRY_PROMPT = `
+
+## 作り直し
+
+今回の項目には previous_attempt がある。これは前回あなたが作り、サーバーの検査で不採用になった
+問題文（question、ない場合はnull）と、その理由（problem）である。同じ理由で落ちないよう、問い方を変えて作り直す。
+
+- titleや想定解の語句が問題文に入っていたなら、その語句を一切使わずに、定義・使う場面・具体例・対比などから問う。
+- 出題形式が違っていたなら、required_format または allowed_formats の形式で作り直す。
+- 語数の指定が合わなかったなら、語数・文字数を問題文に書かない。`;
+
+/** 作り直すときに添える、前回の問題文と不採用の理由。 */
+export interface PreviousAttempt {
+  question: string | null;
+  problem: string;
+}
+
 interface QuestionToolInput {
   id: string;
   question: string;
@@ -372,9 +390,11 @@ function buildUserText(
   allowedById: Map<string, QuizFormat[]>,
   tagsById: Map<string, string[]>,
   notesById: Map<string, RecentNote[]>,
+  previousById?: Map<string, PreviousAttempt>,
 ): string {
   return JSON.stringify(items.map((item) => {
     const allowed = allowedById.get(item.id) ?? [];
+    const previous = previousById?.get(item.id);
     return {
       id: item.id,
       title: item.title,
@@ -386,6 +406,7 @@ function buildUserText(
       required_format: allowed.length === 1 ? allowed[0] : null,
       allowed_formats: allowed,
       past_notes: notesById.get(item.id) ?? [],
+      ...(previous ? { previous_attempt: previous } : {}),
     };
   }));
 }
@@ -417,29 +438,36 @@ function extractQuestionArray(
   return { ok: false, shape: describeToolInputShape(input) };
 }
 
-/** AIを呼んで問題文と（四択なら）選択肢を取り出す。選択肢の妥当性チェックは呼び出し側で行う。 */
+/**
+ * AIを呼んで問題文と（四択なら）選択肢を取り出す。選択肢の妥当性チェックは呼び出し側で行う。
+ * previousById を渡すと、前回の問題文と不採用の理由を添えて作り直させる。
+ */
 export async function generateQuestions(
   env: AnthropicEnv,
   items: PickedItem[],
   allowedById: Map<string, QuizFormat[]>,
   tagsById: Map<string, string[]>,
   notesById: Map<string, RecentNote[]>,
+  previousById?: Map<string, PreviousAttempt>,
 ): Promise<
   | {
     ok: true;
     byId: Map<string, GeneratedQuestion>;
     issueById: Map<string, string>;
+    /** 不採用になった項目も含め、AIが返した問題文。作り直しや保留の記録に使う。 */
+    questionTextById: Map<string, string>;
   }
   | { ok: false; failure: GenerationFailure }
 > {
   let questions: unknown[] | null = null;
   let lastShape = "";
+  const retrying = previousById !== undefined && previousById.size > 0;
   // 大きな入れ子配列ではツール入力が崩れることがあるため、形が不正なら1回だけ生成し直す。
   for (let attempt = 0; attempt < 2 && questions === null; attempt += 1) {
     const generated = await callAnthropicTool(env, {
       model: QUIZ_MODEL,
-      system: SYSTEM_PROMPT,
-      userText: buildUserText(items, allowedById, tagsById, notesById),
+      system: retrying ? SYSTEM_PROMPT + RETRY_PROMPT : SYSTEM_PROMPT,
+      userText: buildUserText(items, allowedById, tagsById, notesById, previousById),
       maxTokens: QUIZ_MAX_TOKENS,
       tool: QUESTION_TOOL,
     });
@@ -475,6 +503,7 @@ export async function generateQuestions(
 
   const byId = new Map<string, GeneratedQuestion>();
   const issueById = new Map<string, string>();
+  const questionTextById = new Map<string, string>();
   for (const entry of questions as QuestionToolInput[]) {
     if (typeof entry !== "object" || entry === null) continue;
     const { id, question, format, choices, correct_choice, explanation, expected_answer } = entry;
@@ -485,6 +514,7 @@ export async function generateQuestions(
       issueById.set(id, "問題文が文字列で返されませんでした。");
       continue;
     }
+    if (question.trim()) questionTextById.set(id, question.trim());
     // 候補が1つならモデルの申告値に依存せず、サーバーが決めた形式を正本にする。
     // 複数候補のときだけ、モデルに知識の構造に合う形式を選ばせる。
     const reportedFormat = typeof format === "string" ? format : null;
@@ -541,7 +571,7 @@ export async function generateQuestions(
       issueById.set(item.id, "AIの応答にこの項目の問題が含まれていませんでした。");
     }
   }
-  return { ok: true, byId, issueById };
+  return { ok: true, byId, issueById, questionTextById };
 }
 
 export function generationIssue(

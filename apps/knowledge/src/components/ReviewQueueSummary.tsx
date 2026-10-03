@@ -7,12 +7,14 @@ function formatTime(value: string | null): string | null {
   return date.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-/** 出題待ち・採点待ち・未確認・上限到達・直近の生成を短く示す。 */
+/** 出題待ち・採点待ち・未確認・生成の保留・上限到達・直近の生成を短く示す。 */
 export function ReviewQueueSummary({
-  status, onOpenResults,
+  status, onOpenResults, onOpenLog,
 }: {
   status: ReviewQueueStatus | null;
   onOpenResults: () => void;
+  /** 学習ログを絞り込まずに開く。問題を作れなかったカードの一覧へ案内する。 */
+  onOpenLog?: () => void;
 }) {
   if (!status) return null;
   const lastGenerated = formatTime(status.last_generate?.at ?? null);
@@ -31,6 +33,12 @@ export function ReviewQueueSummary({
           未確認の採点結果 {status.unconfirmed_results}件
           {status.unconfirmed_results > 0 && <button className="text-button" onClick={onOpenResults}>学習ログで見る</button>}
         </li>
+        {status.generation_held > 0 && (
+          <li>
+            問題を作れず保留中 {status.generation_held}件
+            {onOpenLog && <button className="text-button" onClick={onOpenLog}>学習ログで見る</button>}
+          </li>
+        )}
         {lastGenerated && (
           <li className="muted">
             最後の問題生成: {lastGenerated}
