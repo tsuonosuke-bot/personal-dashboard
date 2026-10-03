@@ -143,8 +143,8 @@ test("AIのまとめは示唆とナレッジ名だけを送り、結果を返す
     if (url.hostname === "api.anthropic.com") {
       prompt = JSON.parse(String(init?.body)).messages[0].content;
       return Response.json({
-        stop_reason: "tool_use",
-        content: [{ type: "tool_use", name: "submit_insight_themes", input: { themes: [{ title: "角を立てずに頼む", summary: "s", importance: "i", insight_ids: [1, 2] }] } }],
+        stop_reason: "end_turn",
+        content: [{ type: "text", text: JSON.stringify({ themes: [{ title: "角を立てずに頼む", summary: "s", importance: "i", insight_ids: [1, 2] }] }) }],
       });
     }
     throw new Error(`unexpected ${url}`);

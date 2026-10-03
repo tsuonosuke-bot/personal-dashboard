@@ -219,10 +219,15 @@ DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECT
 
 チャットの `knowledge-quiz` スキルと同じ体験になるよう揃えている。ここを削ると露骨に質が落ちる。
 
-- 出題・採点とも `claude-sonnet-5`。問題文と講評が成果物そのものなので軽量モデルに落とさない
-- `max_tokens` は16,000。Sonnet 5は思考トークンも `max_tokens` に含まれるため、15問だと8,192では足りない。
-  `stop_reason` が `max_tokens` の応答はツール入力のJSONが捨てられて空で返るため、
-  「応答形式が正しくない」ではなく打ち切りとして返す。原因を取り違えさせないこと
+- 出題・採点とも `claude-sonnet-5-5`（`anthropicClient.ts` の `QUIZ_MODEL`）。問題文と講評が成果物そのものなので
+  軽量モデルに落とさない
+- JSONは構造化出力（`output_config.format` の `json_schema`）で受け取る。Sonnet 5.5は強制ツール呼び出し
+  （`tool_choice` の `tool` / `any`）を400で拒否するため使わない。構造化出力が受け付けない制約（数値の範囲、
+  文字数、`maxItems`、2以上の `minItems`）は `toStructuredOutputSchema` が外すので、件数や範囲は受け取った後に
+  必ず検証する（四択の選択肢数、q値の範囲、引用の件数など）
+- `max_tokens` は16,000。Sonnet 5.5は思考トークンも `max_tokens` に含まれるため、30問だと8,192では足りない。
+  `stop_reason` が `max_tokens` の応答は途中までのJSONしか返らないため、
+  「応答形式が正しくない」ではなく打ち切りとして返す。原因を取り違えさせないこと。`refusal` も理由つきで返す
 - 出題時はカテゴリ・タグ・`times_asked` に加えて、直近2回分の `note`（前回どこでつまずいたか）を
   渡す。noteは次回出題に効かせるために書かせている
 - 出題順は同じカテゴリが連続しないよう入れ替える。並べ替えるのは順番だけで、`pick_quiz` が
@@ -283,7 +288,7 @@ functions/
   _shared/supabaseRest.ts   Supabase REST API / RPC呼び出し
   _shared/knowledgeValidation.ts 書き込み要求と入力の検証
   _shared/quizValidation.ts クイズAPIの要求検証
-  _shared/anthropicClient.ts Claude APIをツール強制呼び出しで叩く共通クライアント
+  _shared/anthropicClient.ts Claude APIを構造化出力（JSONスキーマ）で叩く共通クライアント
   _shared/quizSession.ts    クイズ出題トークンの署名・検証
   api/knowledge.ts          ナレッジ一覧・新規登録API
   api/knowledge/[id].ts     ナレッジ編集・アーカイブ・復元API

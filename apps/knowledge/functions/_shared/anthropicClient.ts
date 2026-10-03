@@ -3,9 +3,9 @@ export interface AnthropicEnv {
 }
 
 /** 出題も採点も問題文と講評の質が成果物そのものなので、軽量モデルには落とさない。 */
-export const QUIZ_MODEL = "claude-sonnet-5";
+export const QUIZ_MODEL = "claude-sonnet-5-5";
 
-/** Sonnet 5は思考トークンもmax_tokensに含まれる。15問分を切らせないための余裕。 */
+/** Sonnet 5.5は思考トークンもmax_tokensに含まれる。30問分を切らせないための余裕。 */
 export const QUIZ_MAX_TOKENS = 16_000;
 
 export type AnthropicToolCallResult =
@@ -58,10 +58,39 @@ function providerFailure(status: number): { error: string; action: string } {
   };
 }
 
+/** 構造化出力が受け付けない制約。出力側の件数・範囲は呼び出し側がDB記録前に検証している。 */
+const UNSUPPORTED_SCHEMA_KEYS = new Set([
+  "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minLength", "maxLength", "maxItems",
+]);
+
 /**
- * Claude APIを1回呼び出し、強制ツール呼び出しでJSONを取得する。
- * 自由記述の応答を正規表現でパースするより確実なため、出題・採点とも
- * tool_choiceで単一ツールの呼び出しを強制する。
+ * JSONスキーマを構造化出力で使える形にする。オブジェクトには additionalProperties: false を付け、
+ * 数値・文字数の範囲、maxItems、2以上のminItemsを外す（外した制約は受け取った後に検証する）。
+ */
+export function toStructuredOutputSchema(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(toStructuredOutputSchema);
+  if (typeof schema !== "object" || schema === null) return schema;
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema as Record<string, unknown>)) {
+    if (UNSUPPORTED_SCHEMA_KEYS.has(key)) continue;
+    if (key === "minItems" && typeof value === "number" && value > 1) continue;
+    if (key === "properties" && typeof value === "object" && value !== null) {
+      result.properties = Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(([name, child]) => [name, toStructuredOutputSchema(child)]),
+      );
+      continue;
+    }
+    result[key] = key === "items" || key === "anyOf" || key === "allOf" ? toStructuredOutputSchema(value) : value;
+  }
+  if (result.type === "object") result.additionalProperties = false;
+  return result;
+}
+
+/**
+ * Claude APIを1回呼び出し、構造化出力（output_config.format）でスキーマどおりのJSONを受け取る。
+ * 自由記述の応答を正規表現でパースするより確実なため、出題・採点ともこの形にする。
+ * Sonnet 5.5は強制ツール呼び出し（tool_choiceのtool/any）を受け付けないため、ツールは使わない。
+ * tool.input_schema をそのまま出力スキーマとして使い、戻り値の input は旧来のツール入力と同じ形になる。
  */
 export async function callAnthropicTool(
   env: AnthropicEnv,
@@ -97,12 +126,9 @@ export async function callAnthropicTool(
         max_tokens: options.maxTokens,
         system: options.system,
         messages: [{ role: "user", content: options.userText }],
-        tools: [{
-          name: options.tool.name,
-          description: options.tool.description,
-          input_schema: options.tool.input_schema,
-        }],
-        tool_choice: { type: "tool", name: options.tool.name },
+        output_config: {
+          format: { type: "json_schema", schema: toStructuredOutputSchema(options.tool.input_schema) },
+        },
       }),
     });
   } catch (error) {
@@ -155,25 +181,43 @@ export async function callAnthropicTool(
     };
   }
 
+  if (stopReason === "refusal") {
+    const category = (body as { stop_details?: { category?: unknown } })?.stop_details?.category;
+    console.error("Anthropic API refused the request", `category=${typeof category === "string" ? category : "unknown"}`);
+    return {
+      ok: false,
+      status: 502,
+      error: "AIが安全上の理由で応答を控えました（stop_reason: refusal）。",
+      action: "対象の内容を確認して、もう一度実行してください。",
+    };
+  }
+
   const content = (body as { content?: unknown })?.content;
   if (!Array.isArray(content)) {
     return { ok: false, status: 502, error: "AIの応答形式が正しくありません。" };
   }
-  const toolUse = content.find(
-    (block): block is { type: "tool_use"; input: unknown } =>
+  // 思考ブロックの後に、スキーマどおりのJSONがtextブロックで返る。
+  const text = content
+    .filter((block): block is { type: "text"; text: string } =>
       typeof block === "object" && block !== null
-      && (block as { type?: unknown }).type === "tool_use"
-      && (block as { name?: unknown }).name === options.tool.name,
-  );
-  if (!toolUse) {
+      && (block as { type?: unknown }).type === "text"
+      && typeof (block as { text?: unknown }).text === "string")
+    .map((block) => block.text)
+    .join("");
+  if (!text.trim()) {
     // stop_reasonは原因の切り分け（安全側の停止か、単なる生成失敗か）に効くので画面まで返す。
     const reported = typeof stopReason === "string" ? stopReason : "不明";
-    console.error("Anthropic API returned no tool_use block", `stop_reason=${reported}`);
+    console.error("Anthropic API returned no JSON text", `stop_reason=${reported}`);
     return {
       ok: false,
       status: 502,
-      error: `AIがツール呼び出しを返しませんでした（stop_reason: ${reported}）。`,
+      error: `AIがJSONの応答を返しませんでした（stop_reason: ${reported}）。`,
     };
   }
-  return { ok: true, input: toolUse.input };
+  try {
+    return { ok: true, input: JSON.parse(text) as unknown };
+  } catch {
+    console.error("Anthropic API returned text that is not JSON", `length=${text.length}`);
+    return { ok: false, status: 502, error: "AIの応答をJSONとして読み取れませんでした。" };
+  }
 }
