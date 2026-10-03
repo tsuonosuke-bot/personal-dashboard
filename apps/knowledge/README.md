@@ -45,7 +45,6 @@ SSO引き継ぎ後に日次キューへ遷移する。
 | `POLICY_AUD` | Access時 | Access Application Audience tag |
 | `HUB_SERVICE_TOKEN` | Hub連携時 | Hubから一覧・日次キュー・JSON書き出し・接続状態のGETだけを許可する共有secret |
 | `SSO_SHARED_SECRET` | Hub連携時 | Hubからの署名付き認証引き継ぎを検証する共有secret |
-| `QUIZ_SIGNING_SECRET` | クイズ時 | 出題内容を採点まで改ざん不能に保つ32文字以上の署名secret |
 | `SESSION_TTL_DAYS` | 任意 | 引き継いだセッションの日数。既定30 |
 | `SUPABASE_URL` | 必須 | SupabaseプロジェクトURL |
 | `SUPABASE_SECRET_KEY` | 必須 | サーバー専用の `sb_secret_...` キー |
@@ -82,17 +81,6 @@ SSO引き継ぎ後に日次キューへ遷移する。
 - `GET /api/status` — 認証方式、DB接続先、適用migration、最終成功時刻だけを返す
 - `GET /api/review-queue/status`・`pending`、`POST /api/review-queue/serve`・`answer`・`retry`・`confirm`、
   `POST /api/review-batch/generate`・`grade` — 問題キューによる復習（詳細は CLAUDE.md）。復習画面はこれだけを使う
-- 以下の `api/quiz/*` は以前の都度出題・都度採点のAPIで、画面からは使っていない
-- `POST /api/quiz/start` — 復習クイズを出題（`{ categories, limit, excludeIds? }`。`excludeIds` はバックグラウンドで
-  採点中のナレッジIDで、二重出題を避けるため除外する。`categories` は登録済み
-  カテゴリ名の配列で、空配列なら全カテゴリ）。DBの `pick_quiz` で候補を選び、カテゴリ・タグ・前回のつまずきメモを添えてClaude APIで問題文を
-  生成する。応答は `{ id, question, format, choices, token }` の配列で、正解（タイトル・説明）は
-  返さない。四択の正解は平文で含めず、回答照合用のHMACだけを`token`へ保存する。`token` は
-  ID・問題文・形式・選択肢をサーバー署名した2時間有効の値
-- `POST /api/quiz/grade` — 回答 `[{ token, answer }]` を採点。クライアント申告のID・問題文・形式は
-  信用せず、署名済みトークンとDBから正解を復元する。四択の正誤は出題時のHMACとサーバー側で
-  照合し、Claudeのq値より優先する。採点後は `record_answers_batch_once` RPCが行ロック下で
-  署名済み出題nonceの重複を判定し、未記録分だけを原子的に状態更新・履歴登録する
 
 出題・採点・示唆のまとめ・英会話の例文は `claude-sonnet-5-5` を使う。問題文と講評の質が成果物そのものなので、
 コスト目的で軽量モデルへ落とさない。
@@ -151,12 +139,9 @@ functions/
   _middleware.ts            Basic / Access認証とセキュリティヘッダー
   _shared/supabaseRest.ts   Supabase REST APIのサーバー専用クライアント
   _shared/knowledgeValidation.ts 書き込み防御と入力検証
-  _shared/quizSession.ts      出題内容の署名と採点時の検証
   api/knowledge.ts          ナレッジ一覧・新規登録API
   api/knowledge/[id].ts     ナレッジ編集・アーカイブ・復元API
   api/quiz-log.ts           クイズ履歴読み取りAPI
-  api/quiz/start.ts         復習クイズの出題API
-  api/quiz/grade.ts         復習クイズの採点・記録API
 public/
   manifest.webmanifest      PWAマニフェスト（ホーム画面から起動可能にする）
   sw.js                     最小限のService Worker
@@ -182,8 +167,8 @@ GitHub 連携でビルド・公開する。
 
 Cloudflare Pages の **Settings → Variables and Secrets** で、Production と Preview の
 両方へ必要な環境変数を登録する。少なくとも `DASHBOARD_PASSWORD`、
-`SUPABASE_SECRET_KEY`、`ANTHROPIC_API_KEY`、`QUIZ_SIGNING_SECRET` は必ずSecretとして保存し、
-設定後に再デプロイする。`QUIZ_SIGNING_SECRET` は `SSO_SHARED_SECRET` と別のランダム値にする。
+`SUPABASE_SECRET_KEY`、`ANTHROPIC_API_KEY`、`REVIEW_BATCH_TOKEN` は必ずSecretとして保存し、
+設定後に再デプロイする。`REVIEW_BATCH_TOKEN` は SupabaseのVault `review_batch_token` と同じ値にする。
 
 ブラウザからSupabaseへ直接接続しないため、`VITE_SUPABASE_URL` と
 `VITE_SUPABASE_ANON_KEY` は設定しない。

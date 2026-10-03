@@ -13,8 +13,7 @@ import {
 } from "./quizValidation.ts";
 
 /**
- * 復習問題の生成。画面からの都度出題（api/quiz/start）と、30分ごとの生成バッチ
- * （api/review-batch/generate）が同じプロンプト・形式決定・検証を使う。
+ * 復習問題の生成。30分ごとの生成バッチ（api/review-batch/generate）が使うプロンプト・形式決定・検証。
  */
 
 /** 四択の講評としてDBへ保存する上限。 */
