@@ -35,7 +35,8 @@ function startRequest(body: unknown) {
 
 function anthropicResponse(items: unknown[]) {
   return Response.json({
-    content: [{ type: "tool_use", name: "submit_speaking_prompts", input: { items } }],
+    stop_reason: "end_turn",
+    content: [{ type: "text", text: JSON.stringify({ items }) }],
   });
 }
 

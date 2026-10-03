@@ -386,6 +386,11 @@ export async function submitReviewAnswer(id: number, answer: string): Promise<Re
   return parseReviewAnswerResult(await postReviewQueue("/api/review-queue/answer", { id, answer }));
 }
 
+/** おかしな問題を報告して捨てる。記録はせず、次の生成で作り直される。 */
+export async function discardReviewQuestion(id: number): Promise<void> {
+  await postReviewQueue("/api/review-queue/discard", { id });
+}
+
 export async function getPendingReviewAnswers(): Promise<PendingReviewAnswer[]> {
   return parsePendingReviewAnswers(await requestJson("/api/review-queue/pending", { method: "GET" }));
 }

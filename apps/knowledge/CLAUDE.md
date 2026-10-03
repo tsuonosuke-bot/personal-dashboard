@@ -62,6 +62,10 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
   `review_grading_max_attempts()`（3回）に達したら `error`。カードの編集・アーカイブ・別経路の回答で古くなった問題は `discarded`
 - 進行中（ready / answered / grading / error）の問題は1カードにつき1件まで（部分一意インデックス）
 - 四択は `choices`・`correct_choice`・出題時に作った講評 `prepared_explanation` を持つ。正解はブラウザへ返さない
+- 全形式で出題時に作った想定解 `expected_answer` を持つ。生成時に問題文への漏れを照合し（60文字以下の想定解だけ。
+  四択は正解の選択肢）、回答を受け付けた後にだけ返して答え合わせに使う。出題（serve）では返さない
+- おかしな問題は `discard_review_question` で取り下げる（`discarded_reason = 'reported'`）。記録も予定の変更もせず、
+  次の生成バッチで作り直す
 - 生成は `pick_review_generation_candidates`（期限到来または30分以内、新規は1日10件の枠をキュー内の新規分も含めて数える）
   → AI → `enqueue_review_questions`（`ready` が `review_queue_limit()`＝200件に達したら追加しない）
 - 出題は `serve_review_queue`。期限が来た `ready` だけを、日次復習キューと同じ優先度順で返し、古い問題は先に破棄する
@@ -162,8 +166,10 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 
 - `GET /api/review-queue/status`: 出題待ち・採点待ち・採点エラー・未確認の件数、上限到達、直近のバッチ結果
 - `POST /api/review-queue/serve`: 期限が来た出題待ちの問題を優先度順に返す（`limit`、`categories`）。正解は返さない
-- `POST /api/review-queue/answer`: 回答を受け付ける。四択と無回答はAIを呼ばずにその場で記録して結果を返し、それ以外は採点待ち
+- `POST /api/review-queue/answer`: 回答を受け付け、想定解を返す。四択と無回答はAIを呼ばずにその場で記録して結果も返し、
+  それ以外は採点待ち
 - `POST /api/review-queue/retry`: 採点エラーの回答を採点待ちへ戻す
+- `POST /api/review-queue/discard`: 出題待ちのおかしな問題を取り下げる
 - `POST /api/review-queue/confirm`: 採点結果（`quiz_log_ids`）を確認済みにする
 - `POST /api/review-batch/generate` / `grade`: 生成・採点バッチ。pg_cronからは `X-Review-Batch-Token`、画面からは
   同一オリジンと `X-Dashboard-Action: review-queue` で受け付ける。ミドルウェアがBasic認証を省くのは、合言葉が一致した
@@ -213,10 +219,15 @@ DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECT
 
 チャットの `knowledge-quiz` スキルと同じ体験になるよう揃えている。ここを削ると露骨に質が落ちる。
 
-- 出題・採点とも `claude-sonnet-5`。問題文と講評が成果物そのものなので軽量モデルに落とさない
-- `max_tokens` は16,000。Sonnet 5は思考トークンも `max_tokens` に含まれるため、15問だと8,192では足りない。
-  `stop_reason` が `max_tokens` の応答はツール入力のJSONが捨てられて空で返るため、
-  「応答形式が正しくない」ではなく打ち切りとして返す。原因を取り違えさせないこと
+- 出題・採点とも `claude-sonnet-5-5`（`anthropicClient.ts` の `QUIZ_MODEL`）。問題文と講評が成果物そのものなので
+  軽量モデルに落とさない
+- JSONは構造化出力（`output_config.format` の `json_schema`）で受け取る。Sonnet 5.5は強制ツール呼び出し
+  （`tool_choice` の `tool` / `any`）を400で拒否するため使わない。構造化出力が受け付けない制約（数値の範囲、
+  文字数、`maxItems`、2以上の `minItems`）は `toStructuredOutputSchema` が外すので、件数や範囲は受け取った後に
+  必ず検証する（四択の選択肢数、q値の範囲、引用の件数など）
+- `max_tokens` は16,000。Sonnet 5.5は思考トークンも `max_tokens` に含まれるため、30問だと8,192では足りない。
+  `stop_reason` が `max_tokens` の応答は途中までのJSONしか返らないため、
+  「応答形式が正しくない」ではなく打ち切りとして返す。原因を取り違えさせないこと。`refusal` も理由つきで返す
 - 出題時はカテゴリ・タグ・`times_asked` に加えて、直近2回分の `note`（前回どこでつまずいたか）を
   渡す。noteは次回出題に効かせるために書かせている
 - 出題順は同じカテゴリが連続しないよう入れ替える。並べ替えるのは順番だけで、`pick_quiz` が
@@ -243,9 +254,11 @@ DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECT
   この照合を外すと、of と誤答したのに「for を即答できている」と講評して正解になる事故と、
   書いていない「前提作業」を書いたことにして減点する事故が戻る
 - 無回答（空文字）はAIの判定に関わらずq0・不正解で記録する。空欄のまま提出した項目を進めない
-- 復習画面（`ReviewView` / `useReviewSession`）はAIを呼ばない。期限が来た出題待ちの問題を受け取り、1問ごとに
-  回答を送る（途中で閉じても答えた分は残る）。スキップした問題は送らず、出題待ちのまま次回また出る。
-  採点結果の画面は無く、結果・講評は学習ログで見る。終了画面と学習ログから採点・生成バッチを手動で動かせる
+- 復習画面（`ReviewView` / `useReviewSession`）はAIを呼ばない。問題数やカテゴリは選ばせず、キューの上から
+  30問ずつ受け取って解き続け、使い切ったら次を受け取る。いつでも「終了する」で終えられ、答えた分は残る。
+  回答した直後に答え合わせを出す（四択・無回答は確定した結果と講評、それ以外は想定解）。AIの採点と講評は学習ログで見る。
+  スキップした問題は出題待ちのまま残るので、その回では手元で除き、次回また出す。「おかしな問題を報告」で取り下げられる。
+  終了画面と学習ログから採点・生成バッチを手動で動かせる
 - 0件時は `knowledge` の件数を数えて「対象なし」と「本日出題済み」を切り分ける
 Secret keyはservice_roleのためRLSを迂回する。ブラウザのanon keyでは
 `record_answer` / `record_answers_batch` は書き込めない設計を変えない。
@@ -275,7 +288,7 @@ functions/
   _shared/supabaseRest.ts   Supabase REST API / RPC呼び出し
   _shared/knowledgeValidation.ts 書き込み要求と入力の検証
   _shared/quizValidation.ts クイズAPIの要求検証
-  _shared/anthropicClient.ts Claude APIをツール強制呼び出しで叩く共通クライアント
+  _shared/anthropicClient.ts Claude APIを構造化出力（JSONスキーマ）で叩く共通クライアント
   _shared/quizSession.ts    クイズ出題トークンの署名・検証
   api/knowledge.ts          ナレッジ一覧・新規登録API
   api/knowledge/[id].ts     ナレッジ編集・アーカイブ・復元API

@@ -166,6 +166,7 @@ export async function runGenerationBatch(
         choices: question.choices ? shuffle(question.choices) : null,
         correct_choice: question.correctChoice,
         prepared_explanation: question.explanation,
+        expected_answer: question.expectedAnswer,
       });
     }
     const added = items.length > 0

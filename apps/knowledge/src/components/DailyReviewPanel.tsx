@@ -7,7 +7,6 @@ interface Props {
   loading: boolean;
   error: string | null;
   onStart: () => void;
-  onCustomStart: () => void;
   /** 問題キューの件数。出題ボタンは期限が来た出題待ちの問題数で決める。 */
   queueStatus: ReviewQueueStatus | null;
   onOpenResults: () => void;
@@ -25,13 +24,13 @@ function retryTime(value: string | null): string | null {
 }
 
 export function DailyReviewPanel({
-  status, loading, error, onStart, onCustomStart, queueStatus, onOpenResults,
+  status, loading, error, onStart, queueStatus, onOpenResults,
 }: Props) {
   const progress = status && status.total > 0 ? Math.round((status.completed / status.total) * 100) : 0;
-  const nextBatch = status && queueStatus ? Math.min(status.limit, queueStatus.ready_due) : 0;
+  const readyDue = queueStatus?.ready_due ?? 0;
   const nextRetry = retryTime(status?.next_retry_at ?? null);
-  const buttonLabel = nextBatch > 0
-    ? `次の${nextBatch}件を開始`
+  const buttonLabel = readyDue > 0
+    ? `復習を始める（${readyDue}問）`
     : status && status.remaining > 0
       ? "問題を準備中"
       : status?.retry_waiting
@@ -46,10 +45,9 @@ export function DailyReviewPanel({
           <h2 id="daily-review-heading">今日の復習キュー</h2>
         </div>
         <div className="daily-review-actions">
-          <button onClick={onCustomStart}>カテゴリ・問題数を選ぶ</button>
           <button
             className="primary-button"
-            disabled={loading || nextBatch === 0}
+            disabled={loading || readyDue === 0}
             onClick={onStart}
           >
             {buttonLabel}
@@ -63,7 +61,7 @@ export function DailyReviewPanel({
         <>
           <div className="daily-review-metrics">
             <div><span>今日の回答</span><strong>{status.completed}</strong><small>{status.completed_unique}問を復習</small></div>
-            <div><span>今すぐ</span><strong>{status.remaining}</strong><small>1回最大 {status.limit}件</small></div>
+            <div><span>今すぐ</span><strong>{status.remaining}</strong><small>期限が来たナレッジ</small></div>
             <div><span>再学習</span><strong>{status.retry_ready}</strong><small>{status.retry_waiting}件が時刻待ち</small></div>
             <div><span>期限超過</span><strong>{status.overdue_total}</strong><small>要消化</small></div>
             <div><span>新規の保留</span><strong>{status.new_held}</strong><small>新規は1日{status.new_limit}件まで</small></div>
@@ -75,9 +73,8 @@ export function DailyReviewPanel({
           <ReviewCategoryCounts items={status.remaining_by_category} total={status.remaining} />
           <div className="daily-review-note">
             <p>
-              {status.limit}件は1日の上限ではなく、1回の出題数です。
-              完了後も、復習対象がある限り次のバッチへ進めます。
-              問題は30分ごとに、期限が来たナレッジの分をまとめて作ります。回答は15分ごとに自動で採点され、
+              復習はキューの上から順に、問題がある限り解き続けられます。答えた分はその都度記録されるので、
+              途中で終えても大丈夫です。問題は30分ごとに、期限が来たナレッジの分をまとめて作ります。回答は15分ごとに自動で採点され、
               結果と講評は学習ログで確認できます。
             </p>
             <p>

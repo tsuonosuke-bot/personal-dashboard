@@ -4,6 +4,8 @@ import test from "node:test";
 import { onRequest as generateRoute } from "../functions/api/review-batch/generate.ts";
 import { onRequest as gradeRoute } from "../functions/api/review-batch/grade.ts";
 import { onRequest as answerRoute } from "../functions/api/review-queue/answer.ts";
+import { onRequest as discardRoute } from "../functions/api/review-queue/discard.ts";
+import { generationIssue } from "../functions/_shared/questionGeneration.ts";
 import { onRequest as pendingRoute } from "../functions/api/review-queue/pending.ts";
 import { onRequest as serveRoute } from "../functions/api/review-queue/serve.ts";
 import { onRequest as statusRoute } from "../functions/api/review-queue/status.ts";
@@ -21,6 +23,11 @@ const K1 = "11111111-1111-4111-8111-111111111111";
 const K2 = "22222222-2222-4222-8222-222222222222";
 
 type Rpc = { name: string; body: Record<string, unknown> };
+
+/** 構造化出力の応答。思考ブロックの後に、スキーマどおりのJSONがtextブロックで返る。 */
+function aiJson(value: unknown) {
+  return { stop_reason: "end_turn", content: [{ type: "thinking", thinking: "" }, { type: "text", text: JSON.stringify(value) }] };
+}
 
 /** Supabase RPC・REST・Anthropic への通信を記録し、用意した応答を返す。 */
 async function withServices(
@@ -182,12 +189,7 @@ test("生成できた問題だけをキューに入れ、条件を満たさな�
       }
       throw new Error(`unexpected rpc ${name}`);
     },
-    ai: () => ({
-      stop_reason: "tool_use",
-      content: [{
-        type: "tool_use",
-        name: "submit_questions",
-        input: {
+    ai: () => aiJson({
           questions: [
             {
               id: K1, question: "自分のテーマ以外を捨てる経営方針は？", format: "四択",
@@ -197,8 +199,6 @@ test("生成できた問題だけをキューに入れ、条件を満たさな�
             // 正解の語句をそのまま問題文に書いた問題は採用しない。
             { id: K2, question: "サイロ化とは何か？", format: "一問一答" },
           ],
-        },
-      }],
     }),
   }, async (calls) => {
     const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as {
@@ -258,19 +258,12 @@ test("四択はAIを呼ばずに採点し、自由記述はAIで採点して回�
       const items = JSON.parse(String((body.messages as { content: string }[])[0].content)) as { id: string }[];
       // AIへ渡すのは自由記述の1件だけ。
       assert.deepEqual(items.map((item) => item.id), ["102"]);
-      return {
-        stop_reason: "tool_use",
-        content: [{
-          type: "tool_use",
-          name: "submit_grades",
-          input: {
-            grades: [{
-              id: "102", answer_quotes: ["たこつぼ化"], quality: 4,
-              correct_answer: "サイロ化", explanation: "ほぼ同じ意味の言い換えです。", note: "たこつぼ化と答えた。",
-            }],
-          },
+      return aiJson({
+        grades: [{
+          id: "102", answer_quotes: ["たこつぼ化"], quality: 4,
+          correct_answer: "サイロ化", explanation: "ほぼ同じ意味の言い換えです。", note: "たこつぼ化と答えた。",
         }],
-      };
+      });
     },
   }, async (calls) => {
     const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as {
@@ -313,7 +306,7 @@ test("採点できなかった回答は次のバッチへ戻す", async () => {
       throw new Error(`unexpected rpc ${name}`);
     },
     rest: () => [{ id: K2, title: "サイロ化", explanation: null, category: "ビジネス", tags: [], archived: false }],
-    ai: () => ({ stop_reason: "tool_use", content: [{ type: "tool_use", name: "submit_grades", input: { grades: [] } }] }),
+    ai: () => aiJson({ grades: [] }),
   }, async () => {
     const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as {
       status: string; failed: number;
@@ -464,4 +457,109 @@ test("定期実行は生成を30分ごと、採点を15分ごとに登録する"
 test("学習ログ用に採点記録の問題・回答・講評・確認状態を返す", async () => {
   const source = await readFile(new URL("../functions/api/quiz-log.ts", import.meta.url), "utf8");
   assert.match(source, /question,user_answer,correct_answer,explanation,answered_at,confirmed_at,review_queue_id/);
+});
+
+test("想定解が問題文に出ている問題は、タイトルが文章でも採用しない", () => {
+  const item = {
+    id: K1, title: "すべからくは「当然、しなければならない」と言う意味であり、全てという意味ではない",
+    explanation: null, category: "単語", mastery: "学習中", times_asked: 2, pool: "A",
+    stability_hours: 48, relearning_stage: null,
+  };
+  const question = (text: string, expectedAnswer: string | null) => ({
+    question: text, format: "一問一答" as const, choices: null, correctChoice: null, explanation: null, expectedAnswer,
+  });
+  assert.match(
+    generationIssue(item, question("「すべからく」は「当然、しなければならない」という意味だが、正しい意味は？", "当然、しなければならない"), undefined) ?? "",
+    /想定解/,
+  );
+  assert.equal(generationIssue(item, question("「すべからく」という言葉の正しい意味は？", "当然、しなければならない"), undefined), null);
+  // 長い模範解答（記述説明など）は照合しない
+  assert.equal(generationIssue(item, question("なぜ誤用されやすいか説明してください。", "「す".repeat(40)), undefined), null);
+});
+
+test("回答の応答に想定解を含め、出題の応答には含めない", async () => {
+  await withServices({
+    rpc: (name, body) => {
+      if (name === "submit_review_answer") {
+        return [{
+          id: body.p_item_id, knowledge_id: K2, format: "一問一答", question: "Q", choices: null,
+          correct_choice: null, prepared_explanation: null, expected_answer: "サイロ化", answer_text: "たこつぼ化",
+          answered_at: "2026-10-02T00:00:00Z", status: "answered", accepted: true,
+        }];
+      }
+      throw new Error(`unexpected rpc ${name}`);
+    },
+    rest: () => [{ id: K2, title: "サイロ化", explanation: null, category: "ビジネス", tags: [], archived: false }],
+  }, async () => {
+    const body = await (await answerRoute({ request: browserRequest("/api/review-queue/answer", { id: 6, answer: "たこつぼ化" }), env })).json() as {
+      status: string; expected_answer: string;
+    };
+    assert.equal(body.status, "answered");
+    assert.equal(body.expected_answer, "サイロ化");
+  });
+  const serve = await readFile(new URL("../functions/api/review-queue/serve.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(serve, /expected_answer|correct_choice:/);
+});
+
+test("報告された問題は出題待ちのときだけ取り下げる", async () => {
+  await withServices({ rpc: (name, body) => {
+    assert.equal(name, "discard_review_question");
+    return body.p_item_id === 1 ? "discarded" : null;
+  } }, async () => {
+    assert.equal((await discardRoute({ request: browserRequest("/api/review-queue/discard", { id: 1 }), env })).status, 200);
+    assert.equal((await discardRoute({ request: browserRequest("/api/review-queue/discard", { id: 2 }), env })).status, 409);
+    assert.equal((await discardRoute({ request: browserRequest("/api/review-queue/discard", { id: "x" }), env })).status, 400);
+  });
+});
+
+test("AIへは強制ツール呼び出しではなく構造化出力でスキーマを渡し、受け付けない制約を外す", async () => {
+  let request: Record<string, unknown> = {};
+  await withServices({
+    rpc: (name) => {
+      if (name === "begin_review_batch") return 21;
+      if (name === "get_review_queue_status") return status();
+      if (name === "pick_review_generation_candidates") return [candidate(K1, "選択と集中")];
+      if (name === "get_recent_quiz_notes") return [];
+      if (name === "enqueue_review_questions") return 0;
+      if (name === "finish_review_batch") return null;
+      throw new Error(`unexpected rpc ${name}`);
+    },
+    ai: (body) => {
+      request = body;
+      return aiJson({ questions: [] });
+    },
+  }, async () => {
+    await generateRoute({ request: cronRequest("/api/review-batch/generate"), env });
+  });
+  assert.equal(request.model, "claude-sonnet-5-5");
+  assert.equal("tool_choice" in request, false);
+  assert.equal("tools" in request, false);
+  const format = (request.output_config as { format: { type: string; schema: Record<string, unknown> } }).format;
+  assert.equal(format.type, "json_schema");
+  const text = JSON.stringify(format.schema);
+  assert.doesNotMatch(text, /"maxItems"|"minimum"|"maximum"/);
+  assert.match(text, /"additionalProperties":false/);
+  const item = ((format.schema.properties as Record<string, { items: Record<string, unknown> }>).questions).items;
+  assert.equal(item.additionalProperties, false);
+  assert.deepEqual(item.required, ["id", "question", "format", "expected_answer"]);
+});
+
+test("AIの拒否と、JSONでない応答は理由つきで失敗にする", async () => {
+  const { callAnthropicTool } = await import("../functions/_shared/anthropicClient.ts");
+  const tool = { name: "t", description: "d", input_schema: { type: "object", properties: {} } };
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => Response.json({ stop_reason: "refusal", stop_details: { category: "cyber" }, content: [] });
+    const refused = await callAnthropicTool(env, { model: "m", system: "s", userText: "u", tool, maxTokens: 10 });
+    assert.equal(refused.ok, false);
+    if (!refused.ok) assert.match(refused.error, /refusal/);
+    globalThis.fetch = async () => Response.json({ stop_reason: "end_turn", content: [{ type: "text", text: "not json" }] });
+    const broken = await callAnthropicTool(env, { model: "m", system: "s", userText: "u", tool, maxTokens: 10 });
+    assert.equal(broken.ok, false);
+    globalThis.fetch = async () => Response.json(aiJson({ ok: 1 }));
+    const parsed = await callAnthropicTool(env, { model: "m", system: "s", userText: "u", tool, maxTokens: 10 });
+    assert.deepEqual(parsed, { ok: true, input: { ok: 1 } });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

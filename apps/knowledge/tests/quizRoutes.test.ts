@@ -28,8 +28,12 @@ function quizPost(path: string, body: unknown) {
   });
 }
 
-function anthropicToolResponse(name: string, input: unknown) {
-  return Response.json({ content: [{ type: "tool_use", name, input }] });
+/** 構造化出力の応答。思考ブロックの後に、スキーマどおりのJSONがtextブロックで返る。 */
+function anthropicToolResponse(_name: string, input: unknown) {
+  return Response.json({
+    stop_reason: "end_turn",
+    content: [{ type: "thinking", thinking: "" }, { type: "text", text: JSON.stringify(input) }],
+  });
 }
 
 function pickedRow(id: string, category: string, overrides: Record<string, unknown> = {}) {
@@ -101,7 +105,7 @@ test("quiz/start はpick_quizの候補にAI生成の問題文だけを付けて�
     assert.equal(body.items.every((item) => typeof (item as { token?: unknown }).token === "string"), true);
     assert.equal(JSON.stringify(body).includes("秘密のタイトル"), false);
     assert.equal(body.early, false);
-    assert.equal(seenModel, "claude-sonnet-5");
+    assert.equal(seenModel, "claude-sonnet-5-5");
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -704,10 +708,10 @@ test("quiz/start は上限トークン数での打ち切りを「questions配列
     if (url.includes("/rest/v1/knowledge")) return Response.json([{ id: ID_1, tags: [] }]);
     if (url.includes("/rest/v1/rpc/get_recent_quiz_notes")) return Response.json([]);
     if (url.includes("api.anthropic.com")) {
-      // 打ち切られた応答は未完成のJSONが捨てられ、inputが空のtool_useだけが残る。
+      // 打ち切られた応答は、途中までのJSONしか返らない。
       return Response.json({
         stop_reason: "max_tokens",
-        content: [{ type: "tool_use", name: "submit_questions", input: {} }],
+        content: [{ type: "text", text: "{\"questions\": [" }],
       });
     }
     throw new Error(`unexpected fetch: ${url}`);
@@ -1655,7 +1659,7 @@ test("quiz/grade は上限トークン数での打ち切りを対処方法つき
       aiCalls += 1;
       return Response.json({
         stop_reason: "max_tokens",
-        content: [{ type: "tool_use", name: "submit_grades", input: {} }],
+        content: [{ type: "text", text: "{\"grades\": [" }],
       });
     }
     throw new Error(`unexpected fetch: ${url}`);

@@ -475,6 +475,7 @@ export function parseReviewAnswerResult(value: unknown): ReviewAnswerResult {
   return {
     id: countValue(value, "id", entity),
     status: stringValue(value, "status", entity),
+    expected_answer: optionalString(value, "expected_answer", entity),
     result: parsedResult,
   };
 }

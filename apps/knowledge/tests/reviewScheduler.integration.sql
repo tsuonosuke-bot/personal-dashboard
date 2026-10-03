@@ -52,8 +52,8 @@ create table review_scheduler_verify.quiz_log (
 );
 
 -- The runner must replace the marker below with the bodies of
--- 20260921100000_continuous_review_queue.sql, 20260928100000_review_pacing.sql and
--- 20261002100000_review_queue.sql, in that order, after removing each file's top-level BEGIN/COMMIT pair and
+-- 20260921100000_continuous_review_queue.sql, 20260928100000_review_pacing.sql,
+-- 20261002100000_review_queue.sql and 20261003100000_review_expected_answer.sql, in that order, after removing each file's top-level BEGIN/COMMIT pair and
 -- pointing `public.` at this schema. This outer transaction must remain the sole
 -- transaction so the test schema is always rolled back.
 -- __MIGRATION__
@@ -572,6 +572,58 @@ begin
   perform review_scheduler_verify.finish_review_batch(v_run, 'succeeded', 3, 3, 0, null);
   if review_scheduler_verify.begin_review_batch('generate', 'schedule') is null then
     raise exception 'finished batch still blocked the next one';
+  end if;
+end
+$$;
+
+-- The expected answer is stored with the question, never served, and returned
+-- only after an answer is accepted. A reported question is discarded unrecorded.
+do $$
+declare
+  v_item bigint;
+  v_row record;
+  v_card uuid;
+begin
+  truncate review_scheduler_verify.review_queue, review_scheduler_verify.quiz_log,
+    review_scheduler_verify.knowledge cascade;
+  insert into review_scheduler_verify.knowledge(id, title, category, mastery, times_asked, next_review_at, stability_hours)
+  values ('00000000-0000-4000-8000-000000000301', 'expected', 'test', '学習中', 2, now() - interval '1 day', 48),
+         ('00000000-0000-4000-8000-000000000302', 'reported', 'test', '学習中', 2, now() - interval '1 day', 48);
+  if review_scheduler_verify.enqueue_review_questions(jsonb_build_array(
+    jsonb_build_object('knowledge_id', '00000000-0000-4000-8000-000000000301', 'content_version', 1,
+      'format', '一問一答', 'question', 'Q', 'expected_answer', '  想定解  '),
+    jsonb_build_object('knowledge_id', '00000000-0000-4000-8000-000000000302', 'content_version', 1,
+      'format', '一問一答', 'question', 'leaky', 'expected_answer', 'x')
+  )) <> 2 then
+    raise exception 'expected-answer questions were not enqueued';
+  end if;
+  select id into v_item from review_scheduler_verify.review_queue
+  where knowledge_id = '00000000-0000-4000-8000-000000000301';
+  if (select expected_answer from review_scheduler_verify.review_queue where id = v_item) <> '想定解' then
+    raise exception 'expected answer was not trimmed and stored';
+  end if;
+  select * into v_row from review_scheduler_verify.submit_review_answer(v_item, 'my answer');
+  if v_row.expected_answer <> '想定解' or not v_row.accepted then
+    raise exception 'expected answer was not returned after answering';
+  end if;
+
+  select id into v_item from review_scheduler_verify.review_queue
+  where knowledge_id = '00000000-0000-4000-8000-000000000302';
+  if review_scheduler_verify.discard_review_question(v_item) <> 'discarded' then
+    raise exception 'reported question was not discarded';
+  end if;
+  if review_scheduler_verify.discard_review_question(v_item) is not null then
+    raise exception 'a discarded question was discarded twice';
+  end if;
+  if exists (select 1 from review_scheduler_verify.quiz_log where knowledge_id = '00000000-0000-4000-8000-000000000302') then
+    raise exception 'reported question was recorded';
+  end if;
+  -- The card is free for a new question in a later batch.
+  if not exists (
+    select 1 from review_scheduler_verify.pick_review_generation_candidates(30, false)
+    where id = '00000000-0000-4000-8000-000000000302'
+  ) then
+    raise exception 'reported card did not become a generation candidate';
   end if;
 end
 $$;

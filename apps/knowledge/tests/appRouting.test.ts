@@ -10,7 +10,7 @@ test("quiz view can be opened from and closed back to the URL", async () => {
   assert.match(source, /onExit=\{\(\) => setQuizOpen\(false\)\}/);
   assert.match(source, /onRecorded=\{reloadAfterReview\}/);
   assert.match(source, /onStart=\{\(\) => setQuizOpen\(true, "daily"\)\}/);
-  assert.match(source, /onCustomStart=\{\(\) => setQuizOpen\(true, "custom"\)\}/);
+  assert.doesNotMatch(source, /onCustomStart/);
 });
 
 test("knowledge details follow direct URLs, history, and safe fallbacks", async () => {

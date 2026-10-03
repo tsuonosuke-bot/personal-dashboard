@@ -611,6 +611,13 @@ button.review-card { display: block; }
 .review-done-counts strong { display: block; font-size: 20px; }
 .review-done-counts span { color: #7a879b; font-size: 11px; }
 .review-answer-hint { margin: 8px 0 0; font-size: 11px; }
+.review-session-bar { display: flex; align-items: center; justify-content: space-between; margin: 0 0 10px; color: #7a879b; font-size: 12px; }
+.review-session-bar .text-button { font-size: 12px; font-weight: 700; }
+.review-start-note { margin: 10px 0 0; font-size: 12px; }
+.review-feedback .review-result-body { margin-top: 12px; }
+.review-feedback .quiz-progress .badge { margin-left: 8px; }
+.review-report { color: #7a879b; font-size: 12px; }
+.quiz-question-actions .action-spacer { flex: 1; }
 .pending-answers { display: grid; gap: 8px; }
 .pending-answers-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .pending-answers-head h2 { margin: 0; font-size: 15px; }
