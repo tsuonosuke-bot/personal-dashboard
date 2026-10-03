@@ -268,7 +268,7 @@ src/
                             その各タブ（InsightGroupsPanel / InsightListPanel / TagGroupsPanel）
 functions/
   _middleware.ts            全リクエストのBasic認証とセキュリティヘッダー
-  _shared/supabaseRest.ts   Supabase REST API / RPC呼び出し
+  _shared/supabaseRest.ts   Supabase REST API / RPC呼び出し。同時リクエストでキーが一時的に拒否された401（PGRST303）だけ1回やり直す
   _shared/knowledgeValidation.ts 書き込み要求と入力の検証
   _shared/quizValidation.ts 問題と回答の上限、出題形式の定数
   _shared/anthropicClient.ts Claude APIを構造化出力（JSONスキーマ）で叩く共通クライアント

@@ -1,4 +1,4 @@
-import { jsonResponse, methodNotAllowed, type SupabaseEnv } from "../_shared/supabaseRest.ts";
+import { fetchSupabase, jsonResponse, methodNotAllowed, type SupabaseEnv } from "../_shared/supabaseRest.ts";
 
 interface StatusEnv extends SupabaseEnv { AUTH_MODE?: string }
 type FunctionContext = { request: Request; env: StatusEnv };
@@ -14,7 +14,7 @@ export const onRequest = async ({ request, env }: FunctionContext): Promise<Resp
     endpoint.searchParams.set("select", "migration");
     endpoint.searchParams.set("app_id", "eq.knowledge-dashboard");
     endpoint.searchParams.set("limit", "1");
-    const response = await fetch(endpoint, { headers: { Accept: "application/json", apikey: key } });
+    const response = await fetchSupabase(endpoint, { headers: { Accept: "application/json", apikey: key } });
     if (!response.ok || !response.headers.get("Content-Type")?.toLowerCase().includes("json")) {
       return jsonResponse({ error: "DBの接続状態を確認できませんでした。" }, 502);
     }
