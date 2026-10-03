@@ -8,7 +8,7 @@ import {
 } from "../lib/learningLog";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import { Pagination } from "./Pagination";
-import { PendingAnswersPanel, ReviewResultActions, type KnowledgeUpdate } from "./ReviewLogParts";
+import { GenerationHoldsPanel, PendingAnswersPanel, ReviewResultActions, type KnowledgeUpdate } from "./ReviewLogParts";
 import { SpeakingLogPanel } from "./SpeakingLogPanel";
 import type { Knowledge, QuizLog, QuizVerdict } from "../types";
 
@@ -25,6 +25,8 @@ interface Props {
   onReload: () => void | Promise<void>;
   insightStore: InsightStore;
   insightGroupStore: InsightGroupStore;
+  /** 問題を作れなかったカードを、編集できる詳細で開く。 */
+  onOpenKnowledge: (id: string) => void;
 }
 
 const CONFIRM_CHUNK = 200;
@@ -50,7 +52,7 @@ const VERDICT_CLASS: Record<QuizVerdict, string> = {
 
 export function LearningLogView({
   knowledge, quizLog, loading, error, onExit, initialUnconfirmedOnly = false, onKnowledgeUpdate, onReload,
-  insightStore, insightGroupStore,
+  insightStore, insightGroupStore, onOpenKnowledge,
 }: Props) {
   const [tab, setTab] = useState<"review" | "speaking">("review");
   const [unconfirmedOnly, setUnconfirmedOnly] = useState(initialUnconfirmedOnly);
@@ -116,6 +118,7 @@ export function LearningLogView({
         </div>
         {tab === "speaking" ? <SpeakingLogPanel knowledge={knowledge} periodOptions={PERIOD_OPTIONS} /> : <>
         <PendingAnswersPanel titleById={titleById} onGraded={onReload} />
+        <GenerationHoldsPanel onOpenKnowledge={onOpenKnowledge} />
         <div className="learning-log-filters card">
           <label>
             期間

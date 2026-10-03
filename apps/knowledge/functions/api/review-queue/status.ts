@@ -8,7 +8,7 @@ interface FunctionContext {
 
 const COUNT_KEYS = ["ready_total", "ready_due", "waiting_grading", "grading_errors", "unconfirmed_results", "queue_limit"] as const;
 
-/** 出題できる問題・採点待ち・未確認の採点結果の件数と、直近のバッチ実行状況。 */
+/** 出題できる問題・採点待ち・未確認の採点結果・生成を保留中のカードの件数と、直近のバッチ実行状況。 */
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
   if (context.request.method !== "GET") return methodNotAllowed("GET");
   let row: Record<string, unknown> | null;
@@ -39,5 +39,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       }
       : null,
     last_grade: row.last_grade_at ? { at: text(row.last_grade_at), status: text(row.last_grade_status) } : null,
+    // 移行前のDB関数には無い列なので、無ければ0として返す。
+    generation_held: count(row.generation_held) ?? 0,
   });
 };

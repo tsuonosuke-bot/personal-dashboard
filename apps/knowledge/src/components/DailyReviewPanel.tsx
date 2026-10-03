@@ -10,6 +10,7 @@ interface Props {
   /** 問題キューの件数。出題ボタンは期限が来た出題待ちの問題数で決める。 */
   queueStatus: ReviewQueueStatus | null;
   onOpenResults: () => void;
+  onOpenLog: () => void;
 }
 
 function retryTime(value: string | null): string | null {
@@ -24,7 +25,7 @@ function retryTime(value: string | null): string | null {
 }
 
 export function DailyReviewPanel({
-  status, loading, error, onStart, queueStatus, onOpenResults,
+  status, loading, error, onStart, queueStatus, onOpenResults, onOpenLog,
 }: Props) {
   const progress = status && status.total > 0 ? Math.round((status.completed / status.total) * 100) : 0;
   const readyDue = queueStatus?.ready_due ?? 0;
@@ -69,7 +70,7 @@ export function DailyReviewPanel({
           <div className="daily-progress" aria-label={`今日の復習作業 ${progress}%`}>
             <span style={{ width: `${progress}%` }} />
           </div>
-          <ReviewQueueSummary status={queueStatus} onOpenResults={onOpenResults} />
+          <ReviewQueueSummary status={queueStatus} onOpenResults={onOpenResults} onOpenLog={onOpenLog} />
           <ReviewCategoryCounts items={status.remaining_by_category} total={status.remaining} />
           <div className="daily-review-note">
             <p>

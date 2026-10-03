@@ -11,6 +11,7 @@ interface Props {
   /** 回答・採点・生成のあとで、ダッシュボードの件数や履歴を読み直す。 */
   onRecorded: () => void | Promise<void>;
   onOpenResults: () => void;
+  onOpenLog: () => void;
   autoStartDaily?: boolean;
 }
 
@@ -47,7 +48,7 @@ function batchMessage(summary: ReviewBatchSummary): string {
  * キューの上から順に解き続ける復習画面。問題の生成と採点はバッチで行うため、ここではAIを呼ばない。
  * 回答した直後に想定解で答え合わせし、AIの採点と講評は学習ログで確認する。いつ終えてもよい。
  */
-export function ReviewView({ knowledge, queueStatus, onExit, onRecorded, onOpenResults, autoStartDaily = false }: Props) {
+export function ReviewView({ knowledge, queueStatus, onExit, onRecorded, onOpenResults, onOpenLog, autoStartDaily = false }: Props) {
   const session = useReviewSession(onRecorded);
   const [answer, setAnswer] = useState("");
   const [batchBusy, setBatchBusy] = useState<"generate" | "grade" | null>(null);
@@ -139,7 +140,7 @@ export function ReviewView({ knowledge, queueStatus, onExit, onRecorded, onOpenR
             <p className="muted review-start-note">
               キューの上から順に出題します。答えた分はその都度記録されるので、いつ終えても大丈夫です。
             </p>
-            <ReviewQueueSummary status={queueStatus} onOpenResults={onOpenResults} />
+            <ReviewQueueSummary status={queueStatus} onOpenResults={onOpenResults} onOpenLog={onOpenLog} />
             <div className="review-batch-actions">{generateButton}</div>
           </div>
         )}

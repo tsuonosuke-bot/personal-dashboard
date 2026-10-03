@@ -1,6 +1,6 @@
 import type {
   DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizLog,
-  PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary, ReviewQuestion, ReviewQueueStatus,
+  PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary, ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
   SpeakingPracticeWrite,
 } from "../types";
@@ -17,6 +17,7 @@ import {
   parseQuizLog,
   parseReviewAnswerResult,
   parseReviewBatchSummary,
+  parseReviewGenerationHolds,
   parseReviewQuestions,
   parseReviewQueueStatus,
   parseSpeakingPracticeLog,
@@ -392,6 +393,11 @@ export async function discardReviewQuestion(id: number): Promise<void> {
 
 export async function getPendingReviewAnswers(): Promise<PendingReviewAnswer[]> {
   return parsePendingReviewAnswers(await requestJson("/api/review-queue/pending", { method: "GET" }));
+}
+
+/** 問題を作り直しても条件を満たさず、生成を保留しているカード。 */
+export async function getReviewGenerationHolds(): Promise<ReviewGenerationHold[]> {
+  return parseReviewGenerationHolds(await requestJson("/api/review-queue/generation-holds", { method: "GET" }));
 }
 
 export async function retryReviewAnswer(id: number): Promise<void> {
