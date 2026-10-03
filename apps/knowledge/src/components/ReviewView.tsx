@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { runReviewBatch } from "../lib/api";
-import { useReviewSession } from "../hooks/useReviewSession";
+import { useReviewSession, type ReviewFeedback } from "../hooks/useReviewSession";
 import type { Knowledge, ReviewBatchSummary, ReviewQuestion, ReviewQueueStatus } from "../types";
 import { ReviewQueueSummary } from "./ReviewQueueSummary";
 
@@ -14,8 +14,6 @@ interface Props {
   autoStartDaily?: boolean;
 }
 
-const DAILY_BATCH = 15;
-const LIMIT_OPTIONS = [5, 10, 15, 20, 30] as const;
 const MAX_ANSWER_CHARS = 2_000;
 
 /** 形式ごとに、どこまで書けばよいかを入力欄のプレースホルダで伝える。 */
@@ -26,6 +24,11 @@ const ANSWER_PLACEHOLDER: Record<string, string> = {
   産出: "覚えた知識を実際に使って書く",
 };
 
+const VERDICT_CLASS: Record<string, string> = {
+  正解: "quiz-verdict-ok",
+  部分正解: "quiz-verdict-partial",
+  不正解: "quiz-verdict-ng",
+};
 
 function batchMessage(summary: ReviewBatchSummary): string {
   if (summary.status === "busy") return summary.kind === "grade" ? "別の採点が実行中です。少し待ってから確認してください。" : "別の問題生成が実行中です。少し待ってから確認してください。";
@@ -41,13 +44,11 @@ function batchMessage(summary: ReviewBatchSummary): string {
 }
 
 /**
- * キューから出題する復習画面。問題の生成と採点はバッチで行うため、ここではAIを呼ばずに
- * 出題と回答の送信だけを行う。採点結果は学習ログで確認する。
+ * キューの上から順に解き続ける復習画面。問題の生成と採点はバッチで行うため、ここではAIを呼ばない。
+ * 回答した直後に想定解で答え合わせし、AIの採点と講評は学習ログで確認する。いつ終えてもよい。
  */
 export function ReviewView({ knowledge, queueStatus, onExit, onRecorded, onOpenResults, autoStartDaily = false }: Props) {
   const session = useReviewSession(onRecorded);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [limit, setLimit] = useState<number>(DAILY_BATCH);
   const [answer, setAnswer] = useState("");
   const [batchBusy, setBatchBusy] = useState<"generate" | "grade" | null>(null);
   const [batchNotice, setBatchNotice] = useState<string | null>(null);
@@ -55,15 +56,13 @@ export function ReviewView({ knowledge, queueStatus, onExit, onRecorded, onOpenR
   const [gradedHere, setGradedHere] = useState(false);
   const autoStarted = useRef(false);
 
-  const categories = useMemo(() => [...new Set(knowledge.map((item) => item.category))].sort(), [knowledge]);
   const titleById = useMemo(() => new Map(knowledge.map((item) => [item.id, item.title])), [knowledge]);
   const readyDue = queueStatus?.ready_due ?? 0;
-  const nextDaily = Math.min(DAILY_BATCH, readyDue);
 
   useEffect(() => {
     if (!autoStartDaily || autoStarted.current || session.stage !== "setup") return;
     autoStarted.current = true;
-    void session.start(DAILY_BATCH);
+    void session.start();
   }, [autoStartDaily, session]);
 
   useEffect(() => { setAnswer(""); }, [session.current?.id]);
@@ -83,23 +82,24 @@ export function ReviewView({ knowledge, queueStatus, onExit, onRecorded, onOpenR
     }
   };
 
-  const toggleCategory = (category: string) => {
-    setSelectedCategories((prev) => prev.includes(category)
-      ? prev.filter((value) => value !== category)
-      : [...prev, category]);
-  };
-
   const backToSetup = () => {
     setBatchNotice(null);
     setGradedHere(false);
     session.reset();
   };
 
-  const answered = session.outcomes.filter((outcome) => outcome.status !== "skipped");
+  const report = () => {
+    if (!window.confirm("この問題を取り下げますか？\n記録はせず、次の問題生成で作り直します。")) return;
+    void session.discardCurrent();
+  };
+
+  const answered = session.outcomes.filter((outcome) => outcome.status === "graded" || outcome.status === "answered");
   const graded = session.outcomes.filter((outcome) => outcome.status === "graded");
   const waiting = session.outcomes.filter((outcome) => outcome.status === "answered");
   const skipped = session.outcomes.filter((outcome) => outcome.status === "skipped");
+  const discarded = session.outcomes.filter((outcome) => outcome.status === "discarded");
   const waitingCount = gradedHere && queueStatus ? queueStatus.waiting_grading : waiting.length;
+  const inSession = session.stage === "question" || session.stage === "feedback" || session.stage === "loading";
 
   const generateButton = (
     <button onClick={() => void runBatch("generate")} disabled={batchBusy !== null || queueStatus?.queue_full === true}>
@@ -118,6 +118,13 @@ export function ReviewView({ knowledge, queueStatus, onExit, onRecorded, onOpenR
         {session.error && <div className="err compact" role="alert">{session.error}</div>}
         {batchNotice && <div className="review-batch-notice" role="status">{batchNotice}</div>}
 
+        {inSession && (
+          <div className="review-session-bar">
+            <span>{answered.length}問回答</span>
+            <button className="text-button" onClick={session.stop} disabled={session.busy}>終了する</button>
+          </div>
+        )}
+
         {session.stage === "setup" && (
           <div className="quiz-setup card">
             <div className="daily-quiz-start">
@@ -125,84 +132,47 @@ export function ReviewView({ knowledge, queueStatus, onExit, onRecorded, onOpenR
                 <strong>今日の復習</strong>
                 <span>{queueStatus ? `出題できる問題 ${readyDue}問` : "出題できる問題を確認中…"}</span>
               </div>
-              <button className="primary-button" disabled={nextDaily === 0} onClick={() => void session.start(DAILY_BATCH)}>
-                {nextDaily > 0 ? `次の${nextDaily}問を開始` : "今すぐ出題できる問題はありません"}
+              <button className="primary-button" disabled={readyDue === 0} onClick={() => void session.start()}>
+                {readyDue > 0 ? "復習を始める" : "今すぐ出題できる問題はありません"}
               </button>
             </div>
+            <p className="muted review-start-note">
+              キューの上から順に出題します。答えた分はその都度記録されるので、いつ終えても大丈夫です。
+            </p>
             <ReviewQueueSummary status={queueStatus} onOpenResults={onOpenResults} />
             <div className="review-batch-actions">{generateButton}</div>
-
-            <div className="quiz-divider"><span>カテゴリを選んで出題</span></div>
-            <p>出題できる問題の中から、選んだカテゴリだけを出します。出題形式は、知識の状態に合わせて自動で決まります。</p>
-            <div className="quiz-category-select" role="group" aria-label="出題カテゴリ">
-              <button
-                aria-pressed={selectedCategories.length === 0}
-                className={selectedCategories.length === 0 ? "active" : ""}
-                onClick={() => setSelectedCategories([])}
-              >
-                すべて
-              </button>
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  aria-pressed={selectedCategories.includes(category)}
-                  className={selectedCategories.includes(category) ? "active" : ""}
-                  onClick={() => toggleCategory(category)}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
-            <label className="quiz-limit-select">
-              問題数
-              <select value={limit} onChange={(event) => setLimit(Number(event.target.value))}>
-                {LIMIT_OPTIONS.map((value) => <option key={value} value={value}>{value}問</option>)}
-              </select>
-            </label>
-            <button className="primary-button quiz-start-button" onClick={() => void session.start(limit, selectedCategories)}>
-              出題する
-            </button>
           </div>
         )}
 
         {session.stage === "loading" && <div className="msg">問題を準備中...</div>}
 
-        {session.stage === "empty" && (
-          <div className="quiz-setup card">
-            <p>今すぐ出題できる問題はありません。</p>
-            <p className="muted">
-              {queueStatus && queueStatus.ready_total > 0
-                ? `期限前の問題が${queueStatus.ready_total}問あります。期限が来ると出題されます。`
-                : "問題は30分ごとに自動で作られます。すぐに解きたいときは、今すぐ作ることもできます。"}
-            </p>
-            <div className="review-batch-actions">
-              {generateButton}
-              <button className="primary-button" onClick={backToSetup}>戻る</button>
-            </div>
-          </div>
-        )}
-
         {session.stage === "question" && session.current && (
           <ReviewQuestionCard
             key={session.current.id}
-            index={session.index}
-            total={session.questions.length}
+            number={answered.length + skipped.length + discarded.length + 1}
             question={session.current}
             answer={answer}
-            submitting={session.submitting}
+            busy={session.busy}
             onAnswer={setAnswer}
             onSubmit={() => void session.answerCurrent(answer)}
             onSkip={session.skipCurrent}
+            onReport={report}
           />
+        )}
+
+        {session.stage === "feedback" && session.feedback && (
+          <ReviewFeedbackCard feedback={session.feedback} onNext={() => void session.next()} />
         )}
 
         {session.stage === "done" && (
           <div className="quiz-setup card review-done">
-            <h2>{answered.length}問に回答しました</h2>
+            <h2>{session.exhausted ? "今すぐ解ける問題はすべて解きました" : `${answered.length}問に回答しました`}</h2>
             <ul className="review-done-counts">
+              <li><strong>{answered.length}</strong><span>回答</span></li>
               <li><strong>{graded.length}</strong><span>その場で記録（四択・無回答）</span></li>
               <li><strong>{waitingCount}</strong><span>{gradedHere ? "採点待ち（全体）" : "採点待ち"}</span></li>
               {skipped.length > 0 && <li><strong>{skipped.length}</strong><span>スキップ（次回また出ます）</span></li>}
+              {discarded.length > 0 && <li><strong>{discarded.length}</strong><span>取り下げ（作り直します）</span></li>}
             </ul>
             {graded.length > 0 && (
               <p className="muted">
@@ -214,7 +184,7 @@ export function ReviewView({ knowledge, queueStatus, onExit, onRecorded, onOpenR
               </p>
             )}
             <p className="muted">
-              採点待ちの回答は15分ごとに自動で採点されます。結果と講評は学習ログで確認できます。
+              採点待ちの回答は15分ごとに自動で採点されます。AIの採点と講評は学習ログで確認できます。
             </p>
             <div className="review-batch-actions">
               {waitingCount > 0 && (
@@ -233,22 +203,21 @@ export function ReviewView({ knowledge, queueStatus, onExit, onRecorded, onOpenR
 }
 
 function ReviewQuestionCard({
-  index, total, question, answer, submitting, onAnswer, onSubmit, onSkip,
+  number, question, answer, busy, onAnswer, onSubmit, onSkip, onReport,
 }: {
-  index: number;
-  total: number;
+  number: number;
   question: ReviewQuestion;
   answer: string;
-  submitting: boolean;
+  busy: boolean;
   onAnswer: (text: string) => void;
   onSubmit: () => void;
   onSkip: () => void;
+  onReport: () => void;
 }) {
-  const isLast = index === total - 1;
   return (
     <div className="quiz-question card">
       <p className="quiz-progress">
-        {index + 1} / {total}
+        {number}問目
         <span className="quiz-question-format">{question.format}</span>
       </p>
       <p className="quiz-question-text">{question.question}</p>
@@ -261,7 +230,7 @@ function ReviewQuestionCard({
                 name={`choice-${question.id}`}
                 value={choice}
                 checked={answer === choice}
-                disabled={submitting}
+                disabled={busy}
                 onChange={() => onAnswer(choice)}
               />
               <span>{choice}</span>
@@ -273,7 +242,7 @@ function ReviewQuestionCard({
           className="quiz-answer-input"
           rows={question.format === "一問一答" ? 3 : 6}
           value={answer}
-          disabled={submitting}
+          disabled={busy}
           maxLength={MAX_ANSWER_CHARS}
           placeholder={ANSWER_PLACEHOLDER[question.format]}
           autoFocus
@@ -281,13 +250,46 @@ function ReviewQuestionCard({
         />
       )}
       <p className="muted review-answer-hint">
-        空欄のまま送ると「思い出せなかった」として記録します。答えずに飛ばすと、この問題は次の復習でまた出ます。
+        空欄のまま送ると「思い出せなかった」として記録します。スキップした問題は次の復習でまた出ます。
       </p>
       <div className="quiz-question-actions">
-        <button onClick={onSkip} disabled={submitting}>スキップ</button>
-        <button className="primary-button" onClick={onSubmit} disabled={submitting}>
-          {submitting ? "送信中…" : isLast ? "回答して終える" : "回答して次へ →"}
+        <button className="text-button review-report" onClick={onReport} disabled={busy}>おかしな問題を報告</button>
+        <span className="action-spacer" />
+        <button onClick={onSkip} disabled={busy}>スキップ</button>
+        <button className="primary-button" onClick={onSubmit} disabled={busy}>
+          {busy ? "送信中…" : "回答する"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** 回答した直後の答え合わせ。四択と無回答は確定した結果、それ以外は想定解を示す。 */
+function ReviewFeedbackCard({ feedback, onNext }: { feedback: ReviewFeedback; onNext: () => void }) {
+  const { question, answer, accepted } = feedback;
+  const result = accepted.result;
+  const modelAnswer = result?.correct_answer ?? accepted.expected_answer;
+  return (
+    <div className="quiz-question card review-feedback">
+      <p className="quiz-progress">
+        答え合わせ
+        <span className="quiz-question-format">{question.format}</span>
+        {result && <span className={`badge ${VERDICT_CLASS[result.verdict] ?? ""}`}>{result.verdict}</span>}
+      </p>
+      <p className="quiz-question-text">{question.question}</p>
+      <dl className="review-result-body">
+        <div><dt>あなたの回答</dt><dd>{answer || "（空欄）"}</dd></div>
+        {modelAnswer && <div><dt>{result ? "正解" : "模範解答"}</dt><dd>{modelAnswer}</dd></div>}
+        {result?.explanation && <div><dt>講評</dt><dd>{result.explanation}</dd></div>}
+      </dl>
+      <p className="muted review-answer-hint">
+        {result
+          ? "この結果は記録済みです。"
+          : "AIによる採点と講評は、15分以内に学習ログへ届きます。"}
+      </p>
+      <div className="quiz-question-actions">
+        <span className="action-spacer" />
+        <button className="primary-button" onClick={onNext} autoFocus>次の問題へ →</button>
       </div>
     </div>
   );

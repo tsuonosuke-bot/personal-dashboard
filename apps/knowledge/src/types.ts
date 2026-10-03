@@ -85,6 +85,8 @@ export interface ReviewQuestion {
 export interface ReviewAnswerResult {
   id: number;
   status: string;
+  /** 問題を作ったときの想定解。回答直後の答え合わせに使う。古い問題ではnull。 */
+  expected_answer: string | null;
   result: {
     quiz_log_id: number | null;
     quality: number;

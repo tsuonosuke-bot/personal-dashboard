@@ -1013,6 +1013,12 @@
 :root[data-theme="dark"] .review-done-counts span {
   color: #949eae;
 }
+:root[data-theme="dark"] .review-session-bar {
+  color: #949eae;
+}
+:root[data-theme="dark"] .review-report {
+  color: #949eae;
+}
 :root[data-theme="dark"] .pending-answers-head h2 span {
   color: #949eae;
 }

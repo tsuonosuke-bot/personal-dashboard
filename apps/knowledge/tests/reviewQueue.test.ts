@@ -4,6 +4,8 @@ import test from "node:test";
 import { onRequest as generateRoute } from "../functions/api/review-batch/generate.ts";
 import { onRequest as gradeRoute } from "../functions/api/review-batch/grade.ts";
 import { onRequest as answerRoute } from "../functions/api/review-queue/answer.ts";
+import { onRequest as discardRoute } from "../functions/api/review-queue/discard.ts";
+import { generationIssue } from "../functions/_shared/questionGeneration.ts";
 import { onRequest as pendingRoute } from "../functions/api/review-queue/pending.ts";
 import { onRequest as serveRoute } from "../functions/api/review-queue/serve.ts";
 import { onRequest as statusRoute } from "../functions/api/review-queue/status.ts";
@@ -464,4 +466,57 @@ test("定期実行は生成を30分ごと、採点を15分ごとに登録する"
 test("学習ログ用に採点記録の問題・回答・講評・確認状態を返す", async () => {
   const source = await readFile(new URL("../functions/api/quiz-log.ts", import.meta.url), "utf8");
   assert.match(source, /question,user_answer,correct_answer,explanation,answered_at,confirmed_at,review_queue_id/);
+});
+
+test("想定解が問題文に出ている問題は、タイトルが文章でも採用しない", () => {
+  const item = {
+    id: K1, title: "すべからくは「当然、しなければならない」と言う意味であり、全てという意味ではない",
+    explanation: null, category: "単語", mastery: "学習中", times_asked: 2, pool: "A",
+    stability_hours: 48, relearning_stage: null,
+  };
+  const question = (text: string, expectedAnswer: string | null) => ({
+    question: text, format: "一問一答" as const, choices: null, correctChoice: null, explanation: null, expectedAnswer,
+  });
+  assert.match(
+    generationIssue(item, question("「すべからく」は「当然、しなければならない」という意味だが、正しい意味は？", "当然、しなければならない"), undefined) ?? "",
+    /想定解/,
+  );
+  assert.equal(generationIssue(item, question("「すべからく」という言葉の正しい意味は？", "当然、しなければならない"), undefined), null);
+  // 長い模範解答（記述説明など）は照合しない
+  assert.equal(generationIssue(item, question("なぜ誤用されやすいか説明してください。", "「す".repeat(40)), undefined), null);
+});
+
+test("回答の応答に想定解を含め、出題の応答には含めない", async () => {
+  await withServices({
+    rpc: (name, body) => {
+      if (name === "submit_review_answer") {
+        return [{
+          id: body.p_item_id, knowledge_id: K2, format: "一問一答", question: "Q", choices: null,
+          correct_choice: null, prepared_explanation: null, expected_answer: "サイロ化", answer_text: "たこつぼ化",
+          answered_at: "2026-10-02T00:00:00Z", status: "answered", accepted: true,
+        }];
+      }
+      throw new Error(`unexpected rpc ${name}`);
+    },
+    rest: () => [{ id: K2, title: "サイロ化", explanation: null, category: "ビジネス", tags: [], archived: false }],
+  }, async () => {
+    const body = await (await answerRoute({ request: browserRequest("/api/review-queue/answer", { id: 6, answer: "たこつぼ化" }), env })).json() as {
+      status: string; expected_answer: string;
+    };
+    assert.equal(body.status, "answered");
+    assert.equal(body.expected_answer, "サイロ化");
+  });
+  const serve = await readFile(new URL("../functions/api/review-queue/serve.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(serve, /expected_answer|correct_choice:/);
+});
+
+test("報告された問題は出題待ちのときだけ取り下げる", async () => {
+  await withServices({ rpc: (name, body) => {
+    assert.equal(name, "discard_review_question");
+    return body.p_item_id === 1 ? "discarded" : null;
+  } }, async () => {
+    assert.equal((await discardRoute({ request: browserRequest("/api/review-queue/discard", { id: 1 }), env })).status, 200);
+    assert.equal((await discardRoute({ request: browserRequest("/api/review-queue/discard", { id: 2 }), env })).status, 409);
+    assert.equal((await discardRoute({ request: browserRequest("/api/review-queue/discard", { id: "x" }), env })).status, 400);
+  });
 });

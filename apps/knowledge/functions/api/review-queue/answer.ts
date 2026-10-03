@@ -44,7 +44,9 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     || typeof row.format !== "string" || !(QUIZ_FORMATS as readonly string[]).includes(row.format)) {
     return jsonResponse({ error: "回答の受付結果を確認できませんでした。" }, 502);
   }
-  if (row.status !== "answered") return jsonResponse({ id, status: row.status });
+  // 想定解は回答を受け付けた後にだけ返す。AIの採点を待たずに答え合わせできるようにするため。
+  const expectedAnswer = typeof row.expected_answer === "string" ? row.expected_answer : null;
+  if (row.status !== "answered") return jsonResponse({ id, status: row.status, expected_answer: expectedAnswer });
 
   // AIを呼ばずに確定できる回答だけ、その場で記録する。失敗しても採点バッチが拾う。
   const knowledge = await requestSupabaseRows(context.env, {
@@ -63,7 +65,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     correctChoice: typeof row.correct_choice === "string" ? row.correct_choice : null,
     preparedExplanation: typeof row.prepared_explanation === "string" ? row.prepared_explanation : null,
   }) : null;
-  if (!grade) return jsonResponse({ id, status: "answered" });
+  if (!grade) return jsonResponse({ id, status: "answered", expected_answer: expectedAnswer });
 
   try {
     const recorded = firstRow(await callRpc(context.env, "record_review_grade", {
@@ -74,10 +76,13 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       p_correct_answer: grade.correctAnswer,
       p_explanation: grade.explanation,
     }));
-    if (recorded?.status !== "graded") return jsonResponse({ id, status: recorded?.status ?? "answered" });
+    if (recorded?.status !== "graded") {
+      return jsonResponse({ id, status: recorded?.status ?? "answered", expected_answer: expectedAnswer });
+    }
     return jsonResponse({
       id,
       status: "graded",
+      expected_answer: expectedAnswer,
       result: {
         quiz_log_id: recorded.quiz_log_id,
         quality: grade.quality,
@@ -88,6 +93,6 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       },
     });
   } catch {
-    return jsonResponse({ id, status: "answered" });
+    return jsonResponse({ id, status: "answered", expected_answer: expectedAnswer });
   }
 };

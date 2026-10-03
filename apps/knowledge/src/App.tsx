@@ -482,7 +482,6 @@ export default function App() {
             loading={dailyReview.loading}
             error={dailyReview.error}
             onStart={() => setQuizOpen(true, "daily")}
-            onCustomStart={() => setQuizOpen(true, "custom")}
             queueStatus={reviewQueue.status}
             onOpenResults={() => setLogOpen(true, true)}
           />

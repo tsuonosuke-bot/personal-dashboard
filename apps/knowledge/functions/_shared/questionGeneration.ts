@@ -19,6 +19,8 @@ import {
 
 /** 四択の講評としてDBへ保存する上限。 */
 const MAX_PREPARED_EXPLANATION_CHARS = 2_000;
+/** この長さまでの想定解だけを、問題文への漏れとして照合する。 */
+const MAX_LEAK_CHECK_ANSWER_CHARS = 60;
 
 export interface GenerationFailure {
   stage: string;
@@ -79,6 +81,8 @@ export interface GeneratedQuestion {
   correctChoice: string | null;
   /** 四択のときだけ入る、回答直後に見せる講評。AIが返さなければnull。 */
   explanation: string | null;
+  /** この問題文に対する想定解。漏れの検査と、回答直後の表示に使う。AIが返さなければnull。 */
+  expectedAnswer: string | null;
 }
 
 
@@ -289,6 +293,13 @@ choices・correct_choice・explanation は選んだformatが四択の項目に�
   良い例:「『四半期報告書』の意味で使う名詞を入れてください: Your ＿＿＿s look good.」
 - 四択の choices には当然ながら正解が入る。禁止しているのは question に答えを書くことだけ。
 
+## 想定解
+
+各問に expected_answer として、その問題文への想定解を書く。一問一答なら答えの語句そのもの（1語〜1文）、
+四択なら correct_choice と同じ文面、記述説明・産出なら要点を押さえた模範解答を1〜3文で書く。
+回答した直後に学習者へそのまま見せるので、問題文で問うたことへの答えとして完結させる。
+サーバーは expected_answer が問題文に含まれていないかを機械的に照合し、含まれていればその問題を採用しない。
+
 ## 出力前の自己チェック
 
 各問を自分で読み返し、次の3点を確認する。どれかに当てはまったら作り直すこと。
@@ -307,6 +318,7 @@ interface QuestionToolInput {
   choices?: unknown;
   correct_choice?: unknown;
   explanation?: unknown;
+  expected_answer?: unknown;
 }
 
 const QUESTION_TOOL = {
@@ -342,8 +354,12 @@ const QUESTION_TOOL = {
               type: "string",
               description: "四択のときだけ付ける、正解の根拠を1〜3文で書いた講評",
             },
+            expected_answer: {
+              type: "string",
+              description: "この問題文への想定解。問題文には含めない",
+            },
           },
-          required: ["id", "question", "format"],
+          required: ["id", "question", "format", "expected_answer"],
         },
       },
     },
@@ -461,7 +477,7 @@ export async function generateQuestions(
   const issueById = new Map<string, string>();
   for (const entry of questions as QuestionToolInput[]) {
     if (typeof entry !== "object" || entry === null) continue;
-    const { id, question, format, choices, correct_choice, explanation } = entry;
+    const { id, question, format, choices, correct_choice, explanation, expected_answer } = entry;
     if (typeof id !== "string") continue;
     const allowed = allowedById.get(id) ?? [];
     if (allowed.length === 0) continue;
@@ -512,6 +528,11 @@ export async function generateQuestions(
       explanation: selectedFormat === "四択" && typeof explanation === "string" && explanation.trim()
         ? explanation.trim().slice(0, MAX_PREPARED_EXPLANATION_CHARS)
         : null,
+      expectedAnswer: selectedFormat === "四択"
+        ? normalizedChoices?.correctChoice ?? null
+        : typeof expected_answer === "string" && expected_answer.trim()
+          ? expected_answer.trim().slice(0, MAX_PREPARED_EXPLANATION_CHARS)
+          : null,
     });
     issueById.delete(id);
   }
@@ -531,6 +552,12 @@ export function generationIssue(
   if (!generated) return parserIssue ?? "AIの応答にこの項目の問題が含まれていませんでした。";
   if (questionRevealsTitle(item.title, generated.question)) {
     return "問題文に正解であるtitleの語句がそのまま含まれています。答えを伏せてください。";
+  }
+  // タイトルが文章のときは上の照合では見つからないため、想定解の語句でも漏れを確かめる。
+  // 記述説明・産出の模範解答は長い文になり、問題文と一致することはまずないので短い解答だけを照合する。
+  if (generated.expectedAnswer && generated.expectedAnswer.length <= MAX_LEAK_CHECK_ANSWER_CHARS
+    && questionRevealsTitle(generated.expectedAnswer, generated.question)) {
+    return "問題文に想定解の語句がそのまま含まれています。答えを伏せてください。";
   }
   if (!hasConsistentWordCount(item, generated.question)) {
     const requested = requestedWordCount(generated.question);
