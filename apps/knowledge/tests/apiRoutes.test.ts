@@ -137,3 +137,28 @@ test("knowledge item APIは更新競合を409で返す", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("knowledge item APIは1件の最新版を返し、無ければ404にする", async () => {
+  const originalFetch = globalThis.fetch;
+  const id = "123e4567-e89b-42d3-a456-426614174000";
+  let seenUrl = "";
+  let rows: unknown[] = [{ id, content_version: 7 }];
+  globalThis.fetch = async (input) => {
+    seenUrl = String(input);
+    return Response.json(rows);
+  };
+  try {
+    const request = () => new Request(`https://dashboard.example/api/knowledge/${id}`);
+    const found = await knowledgeItemRoute({ request: request(), env, params: { id } });
+    assert.equal(found.status, 200);
+    assert.deepEqual(await found.json(), { id, content_version: 7 });
+    assert.match(seenUrl, new RegExp(`id=eq(?:\\.|%2E)${id}`));
+    assert.match(decodeURIComponent(seenUrl), /content_version/);
+
+    rows = [];
+    const missing = await knowledgeItemRoute({ request: request(), env, params: { id } });
+    assert.equal(missing.status, 404);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
