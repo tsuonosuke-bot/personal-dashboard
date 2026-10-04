@@ -1,7 +1,9 @@
 # knowledge-dashboard
 
-Supabase のナレッジDBを自分専用で閲覧するダッシュボード
+Supabase のナレッジDBを自分専用で管理するダッシュボード
 （Vite + React + TypeScript + Cloudflare Pages Functions）。
+ナレッジの追加・編集・アーカイブ、問題キューによる復習、学習ログ、問い・示唆・タグの整理、
+復習とは独立した英会話練習を扱う。
 
 ブラウザはSupabaseへ直接接続しない。全リクエストをHTTP Basic認証またはCloudflare Accessで保護し、
 認証後の `/api/*` だけがCloudflare Pages FunctionsからSupabaseを読み書きする。
@@ -10,10 +12,14 @@ Supabase のナレッジDBを自分専用で閲覧するダッシュボード
 Browser --Basic認証 / Cloudflare Access--> Cloudflare Pages Functions --Secret key--> Supabase REST API
 ```
 
+設計上の決まりごと（DBスキーマ、出題・採点の品質、画面の約束）は [`CLAUDE.md`](CLAUDE.md) が正本。
+このREADMEは使い方と全体像だけを書く。
+
 ## セットアップ
 
+モノレポのルートで `npm install` を1回実行してから、このディレクトリで作業する。
+
 ```bash
-npm install
 cp .dev.vars.example .dev.vars
 # .dev.vars の必須項目を記入
 npm run dev:pages
@@ -23,16 +29,29 @@ npm run dev:pages
 `http://localhost:8788` で起動する。単体の `npm run dev` はUI開発用で、
 Viteだけを起動するため `/api/*` は利用できない。
 
-`/?view=quiz` で任意条件の復習クイズ設定を、`/?view=quiz&mode=daily` で
-当日の復習キューを直接開始できる。日次キューの15件は1日の上限ではなく1回の
-出題数で、復習対象が残っている限り次のバッチを続けられる。Personal Hubの「今日の復習」は、
-SSO引き継ぎ後に日次キューへ遷移する。
-
-`/?view=speaking` は復習とは別の英会話練習。英語ナレッジを元にAIが平易な日本語の
-瞬間英作文と短いビジネス英文を作り、3回音読と自己評価を専用履歴へ記録する。
-音声データは保存せず、習熟度や次回復習日も変更しない。
-
 `.dev.vars` はGit管理外。実際のキーやパスワードをコミットしないこと。
+
+## 画面
+
+| URL | 内容 |
+| --- | --- |
+| `/` | 今日の復習キュー、統計・グラフ、ナレッジ一覧 |
+| `/?view=quiz` | 復習。問題キューの上から30問ずつ受け取って解き続け、いつでも終えられる。回答直後に答え合わせを出す |
+| `/?view=quiz&mode=daily` | 上と同じ画面を、開始ボタンを押さずに始める。Personal Hubの「今日の復習」はSSO引き継ぎ後にここを開く |
+| `/?view=log` | 学習ログ。採点待ちの回答、問題を作れなかったカード、AIの採点と講評、英会話練習の履歴 |
+| `/?view=organize` | 問い・示唆・タグの整理（`tab=questions`・`insights`・`tags`） |
+| `/?view=speaking` | 英会話練習。英語ナレッジからAIが瞬間英作文と短いビジネス英文を作り、3回音読と自己評価を専用履歴へ記録する。音声は保存せず、習熟度や次回復習日も変えない |
+| `/?knowledge=<id>` | ナレッジの詳細 |
+
+## 復習の流れ
+
+1. 生成バッチ（pg_cronで30分ごと）が、期限が来た（または30分以内に来る）カードの問題をClaude APIで作り、
+   問題キュー（`review_queue`）へ入れる。条件を満たさない問題はその場で1回だけ作り直し、それでもだめなカードは
+   2時間・6時間・24時間と時間を置いて再挑戦する（学習ログの「問題を作れなかったカード」に出る）
+2. 復習画面はAIを呼ばずにキューから出題する。四択と無回答はその場で記録し、それ以外は採点待ちにする
+3. 採点バッチ（15分ごと）がAIで採点し、DB関数が次回の復習時刻を決める。結果と講評は学習ログで見る
+
+チャットの knowledge-quiz スキル（`skills/knowledge-quiz/`）も同じキューから出題し、採点結果を同じ履歴へ残す。
 
 ## 実行時の環境変数
 
@@ -43,12 +62,13 @@ SSO引き継ぎ後に日次キューへ遷移する。
 | `AUTH_MODE` | 任意 | `basic`（既定）または `access` |
 | `TEAM_DOMAIN` | Access時 | `https://<team>.cloudflareaccess.com` |
 | `POLICY_AUD` | Access時 | Access Application Audience tag |
-| `HUB_SERVICE_TOKEN` | Hub連携時 | Hubから一覧・日次キュー・JSON書き出し・接続状態のGETだけを許可する共有secret |
+| `HUB_SERVICE_TOKEN` | Hub連携時 | Hubから一覧・日次の復習状況・JSON書き出し・接続状態のGETだけを許可する共有secret |
 | `SSO_SHARED_SECRET` | Hub連携時 | Hubからの署名付き認証引き継ぎを検証する共有secret |
 | `SESSION_TTL_DAYS` | 任意 | 引き継いだセッションの日数。既定30 |
 | `SUPABASE_URL` | 必須 | SupabaseプロジェクトURL |
 | `SUPABASE_SECRET_KEY` | 必須 | サーバー専用の `sb_secret_...` キー |
-| `ANTHROPIC_API_KEY` | 必須 | 復習クイズの出題・採点で使うサーバー専用キー |
+| `ANTHROPIC_API_KEY` | 必須 | 出題・採点・示唆のまとめ・英会話の例文で使うサーバー専用キー |
+| `REVIEW_BATCH_TOKEN` | 定期実行時 | pg_cronから生成・採点バッチを呼ぶ32文字以上の合言葉。SupabaseのVault `review_batch_token` と同じ値。未設定なら画面からの手動実行だけになる |
 
 `SUPABASE_SECRET_KEY` はRLSを迂回できる強い権限を持つ。Cloudflareでは
 暗号化されたSecretとして登録し、ブラウザ用の `VITE_` 変数、ソースコード、
@@ -61,29 +81,26 @@ SSO引き継ぎ後に日次キューへ遷移する。
 - `npm run build` — 型チェック + 本番ビルド
 - `npm run preview` — ビルド結果のプレビュー（Functionsなし）
 - `npm run typecheck` — 型チェックのみ
-- `npm test` — API入力検証・書き込み防御の自動テスト
+- `npm test` — ロジック、API、認証、入力・応答検証の自動テスト（Node 23以降）
+- `npm run theme` / `npm run theme:check` — ダークテーマのCSSを生成・検査する
 
 ## API
 
-取得列、並び順、ページ上限と編集可能項目はサーバー側で固定している。
+取得列、並び順、ページ上限と編集可能項目はサーバー側で固定している。詳細は CLAUDE.md の「DBアクセス」。
 
-- `GET /api/knowledge` — ナレッジ一覧。`status=active|archived|all`（既定 `active`）
-- `POST /api/knowledge` — ナレッジを新規登録
-- `PATCH /api/knowledge/:id` — 許可項目の編集、アーカイブまたは復元。本文は
-  `{ expected_version, changes }` とし、読み込み後に別画面で更新されていれば409を返す
-- `GET /api/quiz-log` — クイズ履歴を新しい順に取得
-- `GET/POST /api/insights`、`PATCH/DELETE /api/insights/:id` — ナレッジごとの示唆（付箋）の一覧・追加・編集・削除。
-  出題・採点には使わない
-- `POST /api/insights/analyze` — 示唆をAIでテーマごとにまとめ、複数のナレッジに共通する示唆を返す（保存しない）
-- `POST /api/inbox` — 採点結果の「あとで深掘りする」から、深掘りしたい点を出典ナレッジ名つきで
-  `idea_inbox`（未整理）へ1件登録する。採点・復習予定は変更しない
-- `GET /api/export` — ナレッジ、復習履歴、英会話練習履歴を読み取り専用JSONとして書き出す
-- `GET /api/status` — 認証方式、DB接続先、適用migration、最終成功時刻だけを返す
-- `GET /api/review-queue/status`・`pending`、`POST /api/review-queue/serve`・`answer`・`retry`・`confirm`、
-  `POST /api/review-batch/generate`・`grade` — 問題キューによる復習（詳細は CLAUDE.md）。復習画面はこれだけを使う
+- ナレッジ: `GET /api/knowledge`（`status=active|archived|all`）、`POST /api/knowledge`、
+  `PATCH /api/knowledge/:id`（本文は `{ expected_version, changes }`。別画面で更新済みなら409）
+- 履歴: `GET /api/quiz-log`、`GET /api/mastery-history`
+- 復習: `GET /api/review-queue/status`・`pending`・`generation-holds`、
+  `POST /api/review-queue/serve`・`answer`・`retry`・`discard`・`confirm`、`POST /api/review-batch/generate`・`grade`
+- 日次の復習状況: `GET /api/review/queue` — 今日の回答数・残り・期限超過・新規の保留を返す（トップの「今日の復習キュー」とHubが使う）
+- 示唆と問い: `GET/POST /api/insights`、`PATCH/DELETE /api/insights/:id`、`POST /api/insights/analyze`、
+  `GET/POST /api/insight-groups`、`PATCH/DELETE /api/insight-groups/:id`、`GET/POST/DELETE /api/insight-group-members`
+- 英会話練習: `GET/POST /api/speaking-practice`、`POST /api/speaking-practice/start`
+- その他: `POST /api/inbox`（採点結果の「あとで深掘り」を `idea_inbox` へ登録）、
+  `GET /api/export`（読み取り専用JSON）、`GET /api/status`（接続状態）
 
-出題・採点・示唆のまとめ・英会話の例文は `claude-sonnet-5-5` を使う。問題文と講評の質が成果物そのものなので、
-コスト目的で軽量モデルへ落とさない。
+AIは `claude-sonnet-5-5` を使う。問題文と講評の質が成果物そのものなので、コスト目的で軽量モデルへ落とさない。
 
 一覧APIは `limit`（1〜1,000、既定500）と `offset`（0以上、既定0）を受け付け、
 `{ items, total, limit, offset }` を返す。画面は必要なページをすべて取得するため、
@@ -103,8 +120,8 @@ DB接続設定がない場合は503、Supabase通信失敗は502を返す。HTML
 間隔の倍率は最高0.5・高1・中1.5・低2・最低3倍。定着間隔（`stability_hours`）そのものには掛けないため、
 優先度を後から変えると、その時点の予定を計算した時刻（`scheduled_from_at`）から次回時刻を再計算する。
 再学習中の段階別時刻には掛けない。
-再学習内では失敗度、優先度、弱さ、期限の順に選ぶ。15件中、通常の期限到来問題が
-5件以上あれば再学習は最大10件とし、古い問題が再学習だけで押し出されるのを防ぐ。
+再学習内では失敗度、優先度、弱さ、期限の順に出す。1回に受け取る問題（画面は30問）のうち、
+通常の期限到来問題が5件以上あれば少なくとも5件は通常の問題にし、古い問題が再学習だけで押し出されるのを防ぐ。
 
 q別の基準間隔は q0=10分、q1=30分、q2=6時間、q3=12時間、q4=2日以上、q5=4日以上。
 q0〜q3は再学習へ入り、過去の定着間隔をそれぞれ40%・55%・70%・85%残す。この減衰と
@@ -116,52 +133,26 @@ q0〜q3は再学習へ入り、過去の定着間隔をそれぞれ40%・55%・7
 定着後も期限が来れば周期的に出題する。期限前のq4・q5は履歴には残すが、予定・定着間隔・
 昇格実績を動かさない。
 
-未出題の新規カードが日次キューに入るのは1日10件まで（`review_new_cards_per_day()`）。
-日本時間の当日に初回回答したカードは、日次キュー・カテゴリ指定のどちらから出題したかに関わらず枠を使う。
+未出題の新規カードの問題を作るのは1日10件まで（`review_new_cards_per_day()`）。
+日本時間の当日に初回回答したカードと、キューで出題を待っている新規カードが枠を使う。
 優先度が高い順、次に登録が古い順に選び、超えた分は「今すぐ」の残数に数えず翌日以降に回す。
 
 ## 構成
 
-```text
-src/
-  App.tsx                   画面全体の組み立てとフィルタ/ページ状態
-  constants.ts             習熟度・優先度の色と並び順、配色、ページサイズ
-  types.ts                 knowledge / quiz_log の型
-  lib/api.ts               同一オリジンAPIクライアント、全ページ取得
-  lib/apiValidation.ts     API応答の実行時検証
-  lib/knowledge.ts         絞り込み・並び替え・復習分析
-  hooks/
-    useKnowledgeData.ts     APIからの取得とリロード
-    useFilteredKnowledge.ts 検索・カテゴリ・習熟度・優先度による絞り込み
-    useModalDialog.ts       モーダルのフォーカス管理
-  components/              統計、グラフ、編集、アーカイブ復元、一覧
-functions/
-  _middleware.ts            Basic / Access認証とセキュリティヘッダー
-  _shared/supabaseRest.ts   Supabase REST APIのサーバー専用クライアント
-  _shared/knowledgeValidation.ts 書き込み防御と入力検証
-  api/knowledge.ts          ナレッジ一覧・新規登録API
-  api/knowledge/[id].ts     ナレッジ編集・アーカイブ・復元API
-  api/quiz-log.ts           クイズ履歴読み取りAPI
-public/
-  manifest.webmanifest      PWAマニフェスト（ホーム画面から起動可能にする）
-  sw.js                     最小限のService Worker
-supabase/
-  disable-anon-access.sql   移行完了後にanon権限を外すSQL
-  migrations/               本番DB関数の基準版と順序付き変更SQL
-```
+ディレクトリごとの役割は CLAUDE.md の「構成」を参照。主な置き場所は次のとおり。
 
-グラフは [recharts](https://recharts.org/)。復習クイズの出題・採点にはClaude APIを使う。
+- `src/` — 画面（React）。データ取得とフィルタ計算は `hooks/`、表示は `components/`
+- `functions/` — Cloudflare Pages Functions（認証ミドルウェア、API、出題・採点・バッチの共通処理は `_shared/`）
+- `skills/knowledge-quiz/` — チャット用の knowledge-quiz スキル（claude.ai のスキル設定へアップロードする正本）
+- `supabase/migrations/` — 本番DBの関数・表の変更SQL（一覧は `supabase/migrations/README.md`）
+- `supabase/archive/` — 削除したDB関数・表の最後の定義（参照用。そのまま適用しない）
+- `tests/` — 自動テストと、DB関数の統合テスト（`reviewScheduler.integration.sql`）
 
 ## デプロイ（Cloudflare Pages）
 
-GitHub 連携でビルド・公開する。
-
-| 項目 | 値 |
-| --- | --- |
-| Framework preset | **None** |
-| Build command | `npm run build` |
-| Build output directory | `dist` |
-| Node バージョン | `.node-version`（22） |
+モノレポ `personal-dashboard` の `apps/knowledge` をGitHub連携でビルド・公開する。
+mainへのpushで本番が更新される。ビルド設定（Root directory、Build command、Build watch paths）は
+ルートの [`README.md`](../../README.md) を参照。
 
 公開URL: https://knowledge-50b.pages.dev
 
@@ -186,32 +177,14 @@ Personal Hub、家計簿、ナレッジを同じAccess applicationで保護す�
 Basic認証を継続する場合も、3サイトへ同じ `SSO_SHARED_SECRET` を設定すれば、Hubからの署名付き引き継ぎで対象ホストに固定したHttpOnlyセッションを作成できる。`HUB_SERVICE_TOKEN` は `GET /api/knowledge`、`GET /api/review/queue`、`GET /api/export`、`GET /api/status` のみに使え、POST/PATCHや他のAPIは認証を迂回できない。
 引き継ぎトークンのnonceはSupabaseで1回だけ消費されるため、同じURLの再利用は403になる。
 
+生成・採点バッチへのPOSTだけは、Basic認証の代わりに `X-Review-Batch-Token`（`REVIEW_BATCH_TOKEN` と一致するもの）で受け付ける。
+
 ### DBマイグレーション
 
 `supabase/migrations/` のSQLをファイル名順に適用してから、そのDB機能に依存するアプリを公開する。
-`20260920080000_version_quiz_functions.sql` は従来本番だけに存在したクイズ関数の基準版、
-`20260920090000_review_fixes.sql` は編集競合、同日二重記録、項目別の直近メモ、SSOリプレイを
-修正する。`20260920100000_knowledge_priority.sql` は優先度列、標準間隔列、優先度による日付再計算と
-出題順を追加する。`20260920120000_daily_review_queue.sql` はJST日付ごとの固定上限キューと、
-優先度・期限超過日数・正答率による決定的な選定、回復配分のプレビュー／明示適用を追加する。
-回復プレビューは読み取り専用で、画面上の確認操作までは既存の復習期限を変更しない。
-`20260921100000_continuous_review_queue.sql` は固定日次上限を連続バッチへ置き換え、
-時刻単位の期限、保持型の定着間隔、再認→想起、段階昇格、通常問題を5件残す配分、
-署名済み出題トークン単位の重複記録防止を追加する。
-`20260921120000_daily_review_category_counts.sql` は、今すぐ復習できる残数を全アクティブカテゴリ別に集計し、
-日次キューの全体残数と同じスナップショットで返す。
-`20260922140000_connection_status.sql` は共通の接続状態画面で表示する最終適用migrationを登録する。
+各ファイルの内容と注意点は [`supabase/migrations/README.md`](supabase/migrations/README.md) にまとめている。
+表を削除するなどデータが消えるマイグレーションは、内容を確認したうえで所有者が自分で適用する。
 適用後は新しい列・トリガー・関数定義と実行権限を確認する。
 
-## 既存のブラウザ直接接続からの移行
-
-現在公開中のバージョンを停止させないため、次の順番を守る。
-
-1. Supabaseでダッシュボード専用Secret keyを発行する。
-2. Cloudflare Previewへ必須3つの環境変数を設定してPreviewデプロイを確認する。
-3. Productionへ同じ構成を設定し、このバージョンをデプロイする。
-4. Basic認証後に実データが表示されることを確認する。
-5. 最後に `supabase/disable-anon-access.sql` をSupabase SQL Editorで実行する。
-6. 公開サイトを再確認し、旧anon/publishable keyで直接SELECTできないことを確認する。
-
-SQLを先に実行すると、移行前の公開サイトがデータを取得できなくなる。
+ブラウザ直接接続（anon key）からの移行は完了している。`supabase/disable-anon-access.sql` を適用済みで、
+anonロールからは `knowledge` や `quiz_log` を読めない（2026-10-04に確認）。

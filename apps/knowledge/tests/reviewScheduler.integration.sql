@@ -243,7 +243,7 @@ begin
     raise exception 'early success was marked schedule_updated';
   end if;
 
-  -- A 15-card batch reserves five slots for normal due cards when available.
+  -- A served batch of 15 reserves five slots for normal due cards when available.
   truncate review_scheduler_verify.quiz_log, review_scheduler_verify.knowledge cascade;
   for i in 1..12 loop
     insert into review_scheduler_verify.knowledge(
@@ -256,8 +256,13 @@ begin
       title, category, mastery, times_asked, next_review_at, stability_hours
     ) values ('normal-' || i, 'test', '学習中', 2, now() - interval '1 day', 24);
   end loop;
+  perform review_scheduler_verify.enqueue_review_questions((
+    select jsonb_agg(jsonb_build_object(
+      'knowledge_id', k.id, 'content_version', k.content_version, 'format', '一問一答', 'question', 'Q ' || k.title))
+    from review_scheduler_verify.knowledge k
+  ));
   select count(*) filter (where pool = 'R'), count(*) filter (where pool <> 'R')
-  into v_r, v_n from review_scheduler_verify.pick_daily_review_queue(15);
+  into v_r, v_n from review_scheduler_verify.serve_review_queue(15, null);
   if v_r <> 10 or v_n <> 5 then
     raise exception 'batch quota was retry %, normal %', v_r, v_n;
   end if;
@@ -328,9 +333,9 @@ begin
     raise exception 'priority edit moved a relearning step';
   end if;
 
-  -- At most 10 never-asked cards enter the daily queue per JST day. Cards
-  -- already introduced today use up the allowance, and held-back cards are not
-  -- counted as remaining work.
+  -- At most 10 never-asked cards get questions per JST day. Cards already
+  -- introduced today use up the allowance, and held-back cards are not counted
+  -- as remaining work.
   truncate review_scheduler_verify.quiz_log, review_scheduler_verify.knowledge cascade;
   for i in 1..15 loop
     insert into review_scheduler_verify.knowledge(
@@ -345,14 +350,14 @@ begin
     title, category, mastery, times_asked, next_review_at, stability_hours
   ) values ('old due', 'test', '学習中', 3, now() - interval '1 day', 24);
   select count(*) filter (where pool = 'B'), count(*) filter (where pool = 'A')
-  into v_n, v_r from review_scheduler_verify.pick_daily_review_queue(30);
+  into v_n, v_r from review_scheduler_verify.pick_review_generation_candidates(30, false);
   if v_n <> 10 or v_r <> 1 then
     raise exception 'new-card cap picked new %, due %', v_n, v_r;
   end if;
   if not exists (
-    select 1 from review_scheduler_verify.pick_daily_review_queue(30) p where p.title = 'new-15'
+    select 1 from review_scheduler_verify.pick_review_generation_candidates(30, false) p where p.title = 'new-15'
   ) or exists (
-    select 1 from review_scheduler_verify.pick_daily_review_queue(30) p where p.title = 'new-11'
+    select 1 from review_scheduler_verify.pick_review_generation_candidates(30, false) p where p.title = 'new-11'
   ) then
     raise exception 'new-card cap did not prefer priority, then oldest registration';
   end if;

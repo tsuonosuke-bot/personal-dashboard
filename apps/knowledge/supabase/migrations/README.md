@@ -81,6 +81,14 @@ build that depends on them.
 - `20261004140000_drop_schedule_backup.sql` drops
   `knowledge_schedule_backup_20260928` (issue #62). It deletes data
   permanently, so the owner runs it.
+- `20261004150000_drop_daily_review_queue.sql` drops the fixed per-day review
+  queue from `20260920120000` (`daily_review_queues`, `daily_review_queue_items`,
+  `pick_daily_review_queue`, `ensure_daily_review_queue`; issue #56). Nothing has
+  written the tables since 2026-09-20, and only the quiz-engine-v1 functions
+  used them, so it refuses to run until `20261004130000` has been applied.
+  `get_daily_review_status` and `daily_review_new_card_ids` stay for the Hub and
+  the dashboard. It deletes data permanently, so the owner runs it. The dropped
+  definitions are kept in `supabase/archive/daily_review_queue.sql`.
 
 After applying a migration, verify its functions with `pg_get_functiondef` and
 verify the new column/trigger through `information_schema` before deploying the
