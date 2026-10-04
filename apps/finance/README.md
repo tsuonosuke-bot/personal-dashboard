@@ -114,6 +114,7 @@ Personal Hubと他のダッシュボードを同じAccess applicationに登録�
 `AUTH_MODE=basic` では、Personal Hubと同じ `SSO_SHARED_SECRET` を設定すると署名付き引き継ぎを受け付け、対象ホストに固定したHttpOnlyセッションを作成します。`HUB_SERVICE_TOKEN` は `GET /api/expenses`、`GET /api/export`、`GET /api/status` のみに使え、他のAPIやメソッドはBasic認証を要求します。
 
 FunctionsだけがSupabase Secret keyを保持し、ブラウザへは必要な列だけを返します。
+同じキーの同時リクエストでSupabaseが一時的に返す401（`PGRST303`）だけは、実行前に拒否されているため1回だけやり直します。
 受信データも画面側で型・必須値・ページ情報を検証します。
 
 ## 技術スタック
