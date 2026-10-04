@@ -100,6 +100,16 @@ GitHub Issueの作成もダッシュボードの外（LLMとの会話やGitHub�
 5. この操作はGitHubへ書き込まない。Issueの実在確認もしない（サーバーにGitHubの認証情報を持たせない）。
 6. 二重送信・競合時の扱いはKnowledgeと同じ。
 
+### 登録待ちをまとめて片付ける（pending-routes スキル）
+
+`skills/pending-routes/SKILL.md` は、GitHub・Knowledgeの登録待ち（`want_routes` の `status='planned'`）を会話でまとめて処理するスキル。
+
+1. 既存のGitHub Issue（本文の `idea_inbox #<id>` / `want_routes #<id>` の印、またはタイトル）とナレッジDBを照合し、本当に未登録の項目を中心に示す。
+2. 項目ごとに「登録する（Issue作成・ナレッジ登録）」「登録済みにする」「不要（`cancelled`）」「保留」を提案し、承認を得てから実行する。
+3. 登録済みにするときの書き込みは画面の「登録済みにする」と同じ（`status='created'`、`target_id`、`target_url`）。`planned` 以外の行は上書きしない。
+4. `idea_inbox`（`status`・`result`）と `wants` は変更しない。
+5. 書き込みの内容を変えるときは、`functions/_shared/wantRouteCompletion.ts` とスキルを同時に更新する（`tests/pendingRoutesSkill.test.ts` が食い違いを検出する）。
+
 ### Knowledge候補を後でまとめて処理する
 
 1. 「調査」を確定しても`public.knowledge`へは書き込まない。`want_routes`の`destination='knowledge'`かつ`status='planned'`が候補キューになる。
