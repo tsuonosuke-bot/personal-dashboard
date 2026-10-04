@@ -317,6 +317,7 @@ export default function App() {
           onExit={() => setQuizOpen(false)}
           autoStartDaily={quizMode === "daily"}
           onRecorded={reloadAfterReview}
+          onKnowledgeUpdate={updateKnowledge}
           onOpenResults={() => setLogOpen(true, true)}
           onOpenLog={() => setLogOpen(true)}
         />

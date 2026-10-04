@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { PRIORITY_ORDER } from "../constants";
 import { runReviewBatch } from "../lib/api";
 import { useReviewSession, type ReviewFeedback } from "../hooks/useReviewSession";
-import type { Knowledge, ReviewBatchSummary, ReviewQuestion, ReviewQueueStatus } from "../types";
+import type { Knowledge, KnowledgePriority, ReviewBatchSummary, ReviewQuestion, ReviewQueueStatus } from "../types";
+import type { KnowledgeUpdate } from "./ReviewLogParts";
 import { ReviewQueueSummary } from "./ReviewQueueSummary";
 
 interface Props {
@@ -10,6 +12,8 @@ interface Props {
   onExit: () => void;
   /** 回答・採点・生成のあとで、ダッシュボードの件数や履歴を読み直す。 */
   onRecorded: () => void | Promise<void>;
+  /** 答え合わせの画面から、そのカードの優先度変更とアーカイブを行う。 */
+  onKnowledgeUpdate: KnowledgeUpdate;
   onOpenResults: () => void;
   onOpenLog: () => void;
   autoStartDaily?: boolean;
@@ -48,7 +52,9 @@ function batchMessage(summary: ReviewBatchSummary): string {
  * キューの上から順に解き続ける復習画面。問題の生成と採点はバッチで行うため、ここではAIを呼ばない。
  * 回答した直後に想定解で答え合わせし、AIの採点と講評は学習ログで確認する。いつ終えてもよい。
  */
-export function ReviewView({ knowledge, queueStatus, onExit, onRecorded, onOpenResults, onOpenLog, autoStartDaily = false }: Props) {
+export function ReviewView({
+  knowledge, queueStatus, onExit, onRecorded, onKnowledgeUpdate, onOpenResults, onOpenLog, autoStartDaily = false,
+}: Props) {
   const session = useReviewSession(onRecorded);
   const [answer, setAnswer] = useState("");
   const [batchBusy, setBatchBusy] = useState<"generate" | "grade" | null>(null);
@@ -58,6 +64,7 @@ export function ReviewView({ knowledge, queueStatus, onExit, onRecorded, onOpenR
   const autoStarted = useRef(false);
 
   const titleById = useMemo(() => new Map(knowledge.map((item) => [item.id, item.title])), [knowledge]);
+  const knowledgeById = useMemo(() => new Map(knowledge.map((item) => [item.id, item])), [knowledge]);
   const readyDue = queueStatus?.ready_due ?? 0;
 
   useEffect(() => {
@@ -162,7 +169,13 @@ export function ReviewView({ knowledge, queueStatus, onExit, onRecorded, onOpenR
         )}
 
         {session.stage === "feedback" && session.feedback && (
-          <ReviewFeedbackCard feedback={session.feedback} onNext={() => void session.next()} />
+          <ReviewFeedbackCard
+            key={session.feedback.question.id}
+            feedback={session.feedback}
+            item={knowledgeById.get(session.feedback.question.knowledge_id)}
+            onKnowledgeUpdate={onKnowledgeUpdate}
+            onNext={() => void session.next()}
+          />
         )}
 
         {session.stage === "done" && (
@@ -266,7 +279,12 @@ function ReviewQuestionCard({
 }
 
 /** 回答した直後の答え合わせ。四択と無回答は確定した結果、それ以外は想定解を示す。 */
-function ReviewFeedbackCard({ feedback, onNext }: { feedback: ReviewFeedback; onNext: () => void }) {
+function ReviewFeedbackCard({ feedback, item, onKnowledgeUpdate, onNext }: {
+  feedback: ReviewFeedback;
+  item: Knowledge | undefined;
+  onKnowledgeUpdate: KnowledgeUpdate;
+  onNext: () => void;
+}) {
   const { question, answer, accepted } = feedback;
   const result = accepted.result;
   const modelAnswer = result?.correct_answer ?? accepted.expected_answer;
@@ -292,6 +310,75 @@ function ReviewFeedbackCard({ feedback, onNext }: { feedback: ReviewFeedback; on
         <span className="action-spacer" />
         <button className="primary-button" onClick={onNext} autoFocus>次の問題へ →</button>
       </div>
+      {item && <FeedbackKnowledgeActions item={item} recorded={result != null} onKnowledgeUpdate={onKnowledgeUpdate} />}
+    </div>
+  );
+}
+
+/**
+ * 答え合わせしたカードの優先度変更とアーカイブ。ナレッジ一覧へ移らずに済ませ、そのまま次の問題へ進める。
+ * アーカイブは元に戻せる。採点前の回答は、アーカイブされたままだと採点バッチが記録せずに破棄する。
+ */
+function FeedbackKnowledgeActions({ item, recorded, onKnowledgeUpdate }: {
+  item: Knowledge;
+  recorded: boolean;
+  onKnowledgeUpdate: KnowledgeUpdate;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const save = async (changes: { priority: KnowledgePriority } | { archived: boolean }, done: string) => {
+    if (saving) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      await onKnowledgeUpdate(item.id, item.content_version, changes);
+      setMessage(done);
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : "保存に失敗しました。");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const archive = () => {
+    const warning = recorded ? "" : "\n採点前にアーカイブしたままだと、この回答は記録されません。";
+    if (!window.confirm(`「${item.title}」をアーカイブしますか？\n今後の復習に出題されなくなります。${warning}`)) return;
+    void save({ archived: true }, "アーカイブしました。");
+  };
+
+  if (item.archived) {
+    return (
+      <div className="quiz-knowledge-panel review-feedback-actions">
+        <div className="quiz-edit-fields">
+          <span className="muted">このナレッジはアーカイブ済みです。今後の復習には出題されません。</span>
+          <button onClick={() => void save({ archived: false }, "復元しました。")} disabled={saving}>元に戻す</button>
+          {saving && <span className="quiz-edit-feedback">保存中…</span>}
+          {!saving && message && <span className="quiz-edit-feedback">{message}</span>}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="quiz-knowledge-panel review-feedback-actions">
+      <div className="quiz-edit-fields">
+        <label className="quiz-edit-control">
+          <span>優先度</span>
+          <select
+            aria-label={`${item.title}の優先度`}
+            value={item.priority}
+            disabled={saving}
+            onChange={(event) => void save({ priority: event.target.value as KnowledgePriority }, "保存しました。")}
+          >
+            {PRIORITY_ORDER.map((value) => <option key={value} value={value}>{value}</option>)}
+          </select>
+        </label>
+        <button className="danger-button" onClick={archive} disabled={saving}>アーカイブ</button>
+        {saving && <span className="quiz-edit-feedback">保存中…</span>}
+        {!saving && message && <span className="quiz-edit-feedback">{message}</span>}
+      </div>
+      <p className="muted review-priority-note">優先度を変えると、次回の復習時刻も優先度の倍率で計算し直します（再学習中を除く）。</p>
     </div>
   );
 }
