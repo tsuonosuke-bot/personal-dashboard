@@ -318,6 +318,7 @@ export default function App() {
           autoStartDaily={quizMode === "daily"}
           onRecorded={reloadAfterReview}
           onOpenResults={() => setLogOpen(true, true)}
+          onOpenLog={() => setLogOpen(true)}
         />
       </Suspense>
     );
@@ -382,7 +383,24 @@ export default function App() {
           onReload={reloadAfterReview}
           insightStore={insightStore}
           insightGroupStore={insightGroupStore}
+          onOpenKnowledge={(id) => {
+            const item = knowledge.find((entry) => entry.id === id);
+            if (item) openKnowledge(item);
+          }}
         />
+        {/* 問題を作れなかったカードを直せるよう、採点結果の出典（読み取り専用）とは別に編集できる詳細で開く。 */}
+        {selected && (
+          <KnowledgeDetailModal
+            knowledge={selected}
+            quizLog={quizLog}
+            mutating={mutating}
+            onClose={closeKnowledge}
+            onEdit={() => { setLogOpen(false); openEdit(selected); }}
+            onArchive={() => void archiveKnowledge(selected)}
+            insightStore={insightStore}
+            insightGroupStore={insightGroupStore}
+          />
+        )}
       </Suspense>
     );
   }
@@ -484,6 +502,7 @@ export default function App() {
             onStart={() => setQuizOpen(true, "daily")}
             queueStatus={reviewQueue.status}
             onOpenResults={() => setLogOpen(true, true)}
+            onOpenLog={() => setLogOpen(true)}
           />
           <SpeakingPracticePanel
             knowledge={knowledge}

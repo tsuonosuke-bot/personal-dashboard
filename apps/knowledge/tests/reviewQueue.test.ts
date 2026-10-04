@@ -5,6 +5,7 @@ import { onRequest as generateRoute } from "../functions/api/review-batch/genera
 import { onRequest as gradeRoute } from "../functions/api/review-batch/grade.ts";
 import { onRequest as answerRoute } from "../functions/api/review-queue/answer.ts";
 import { onRequest as discardRoute } from "../functions/api/review-queue/discard.ts";
+import { onRequest as holdsRoute } from "../functions/api/review-queue/generation-holds.ts";
 import { generationIssue } from "../functions/_shared/questionGeneration.ts";
 import { onRequest as pendingRoute } from "../functions/api/review-queue/pending.ts";
 import { onRequest as serveRoute } from "../functions/api/review-queue/serve.ts";
@@ -163,59 +164,211 @@ test("生成対象がなければAIを呼ばない。実行中のバッチがあ
   });
 });
 
-test("生成できた問題だけをキューに入れ、条件を満たさない問題は次のバッチへ回す", async () => {
-  let enqueued: Record<string, unknown>[] = [];
-  let finished: Record<string, unknown> = {};
+interface GenerationRecord {
+  enqueued: Record<string, unknown>[];
+  held: Record<string, unknown>[] | null;
+  finished: Record<string, unknown>;
+}
+
+function generationRecord(): GenerationRecord {
+  return { enqueued: [], held: null, finished: {} };
+}
+
+/** 生成バッチのRPCを、指定した候補・キュー状態で応答する。呼び出し内容は record に残す。 */
+function generationRpc(
+  candidates: Record<string, unknown>[],
+  record: GenerationRecord,
+  options: { holdFails?: boolean; queueStatus?: Record<string, unknown> } = {},
+) {
+  return (name: string, body: Record<string, unknown>) => {
+    if (name === "begin_review_batch") return 9;
+    if (name === "get_review_queue_status") return status({ ready_total: 190, ...options.queueStatus });
+    if (name === "pick_review_generation_candidates") {
+      // 上限までの残り（10件）より多くは求めない。
+      assert.equal(body.p_limit, 10);
+      return candidates;
+    }
+    if (name === "get_recent_quiz_notes") return [];
+    if (name === "enqueue_review_questions") {
+      record.enqueued.push(...(body.p_items as Record<string, unknown>[]));
+      return (body.p_items as unknown[]).length;
+    }
+    if (name === "hold_review_generation_failures") {
+      if (options.holdFails) throw new Error("hold failed");
+      record.held = body.p_items as Record<string, unknown>[];
+      return record.held.length;
+    }
+    if (name === "finish_review_batch") {
+      record.finished = body;
+      return null;
+    }
+    throw new Error(`unexpected rpc ${name}`);
+  };
+}
+
+const CHOICE_QUESTION = {
+  id: K1, question: "自分のテーマ以外を捨てる経営方針は？", format: "四択",
+  choices: ["選択と集中", "多角化", "垂直統合", "水平展開"], correct_choice: "選択と集中",
+  explanation: "資源を強みに集める考え方なので選択と集中です。",
+};
+// 正解の語句をそのまま問題文に書いた問題は採用しない。
+const LEAKING_QUESTION = { id: K2, question: "サイロ化とは何か？", format: "一問一答", expected_answer: "部門ごとに情報が閉じること" };
+const FIXED_QUESTION = {
+  id: K2, question: "部門ごとに情報や仕組みが閉じて連携できなくなる状態を何という？", format: "一問一答", expected_answer: "部門の分断",
+};
+const LEAK_REASON = "問題文に正解であるtitleの語句がそのまま含まれています。答えを伏せてください。";
+
+/** AIへ送った項目ごとの入力（ユーザーメッセージのJSON）。 */
+function aiItems(body: Record<string, unknown>): Record<string, unknown>[] {
+  const [message] = body.messages as { content: string }[];
+  return JSON.parse(message.content) as Record<string, unknown>[];
+}
+
+const twoCandidates = () => [
+  candidate(K1, "選択と集中", { mastery: "未学習", times_asked: 0, pool: "B" }),
+  candidate(K2, "サイロ化"),
+];
+
+test("条件を満たさない問題はその場で1回だけ作り直し、それでもだめなカードは保留する", async () => {
+  const record = generationRecord();
   await withServices({
-    rpc: (name, body) => {
-      if (name === "begin_review_batch") return 9;
-      if (name === "get_review_queue_status") return status({ ready_total: 190 });
-      if (name === "pick_review_generation_candidates") {
-        // 上限までの残り（10件）より多くは求めない。
-        assert.equal(body.p_limit, 10);
-        return [
-          candidate(K1, "選択と集中", { mastery: "未学習", times_asked: 0, pool: "B" }),
-          candidate(K2, "サイロ化"),
-        ];
-      }
-      if (name === "get_recent_quiz_notes") return [];
-      if (name === "enqueue_review_questions") {
-        enqueued = body.p_items as Record<string, unknown>[];
-        return enqueued.length;
-      }
-      if (name === "finish_review_batch") {
-        finished = body;
-        return null;
-      }
-      throw new Error(`unexpected rpc ${name}`);
-    },
-    ai: () => aiJson({
-          questions: [
-            {
-              id: K1, question: "自分のテーマ以外を捨てる経営方針は？", format: "四択",
-              choices: ["選択と集中", "多角化", "垂直統合", "水平展開"], correct_choice: "選択と集中",
-              explanation: "資源を強みに集める考え方なので選択と集中です。",
-            },
-            // 正解の語句をそのまま問題文に書いた問題は採用しない。
-            { id: K2, question: "サイロ化とは何か？", format: "一問一答" },
-          ],
-    }),
+    rpc: generationRpc(twoCandidates(), record),
+    ai: (body) => aiJson({ questions: aiItems(body).length === 2 ? [CHOICE_QUESTION, LEAKING_QUESTION] : [LEAKING_QUESTION] }),
   }, async (calls) => {
     const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as {
-      status: string; succeeded: number; failed: number;
+      status: string; succeeded: number; failed: number; note: string;
     };
-    assert.equal(calls.ai.length, 1);
+    assert.equal(calls.ai.length, 2);
+    // 通常の生成のプロンプトには作り直しの指示も前回の問題文も入れない。
+    assert.equal(aiItems(calls.ai[0]).some((item) => "previous_attempt" in item), false);
+    assert.doesNotMatch(String(calls.ai[0].system), /## 作り直し/);
+    // 作り直しは不採用の項目だけを、前回の問題文と理由を添えて送る。
+    const retried = aiItems(calls.ai[1]);
+    assert.deepEqual(retried.map((item) => item.id), [K2]);
+    assert.deepEqual(retried[0].previous_attempt, { question: "サイロ化とは何か？", problem: LEAK_REASON });
+    assert.match(String(calls.ai[1].system), /## 作り直し/);
+
+    // AIは応答したので、一部のカードが条件を満たさなくてもバッチは成功扱い。
     assert.equal(body.status, "succeeded");
     assert.equal(body.succeeded, 1);
     assert.equal(body.failed, 1);
-    assert.equal(enqueued.length, 1);
-    assert.equal(enqueued[0].knowledge_id, K1);
-    assert.equal(enqueued[0].content_version, 3);
-    assert.equal(enqueued[0].format, "四択");
-    assert.equal(enqueued[0].correct_choice, "選択と集中");
-    assert.deepEqual([...(enqueued[0].choices as string[])].sort(), ["垂直統合", "多角化", "水平展開", "選択と集中"].sort());
-    assert.equal(enqueued[0].prepared_explanation, "資源を強みに集める考え方なので選択と集中です。");
-    assert.match(String(finished.p_note), /次のバッチで作り直します/);
+    assert.match(body.note, /1件は作り直しても条件を満たさなかったため、時間を置いて再挑戦します/);
+    assert.equal(record.finished.p_status, "succeeded");
+
+    assert.equal(record.enqueued.length, 1);
+    assert.equal(record.enqueued[0].knowledge_id, K1);
+    assert.equal(record.enqueued[0].content_version, 3);
+    assert.equal(record.enqueued[0].format, "四択");
+    assert.equal(record.enqueued[0].correct_choice, "選択と集中");
+    assert.deepEqual([...(record.enqueued[0].choices as string[])].sort(), ["垂直統合", "多角化", "水平展開", "選択と集中"].sort());
+    assert.equal(record.enqueued[0].prepared_explanation, "資源を強みに集める考え方なので選択と集中です。");
+
+    // 保留には、カードの版・理由・最後にAIが作った問題文を残す。
+    assert.deepEqual(record.held, [{ knowledge_id: K2, content_version: 3, reason: LEAK_REASON, question: "サイロ化とは何か？" }]);
+  });
+});
+
+test("作り直しで条件を満たした問題はキューに入れ、保留しない", async () => {
+  const record = generationRecord();
+  await withServices({
+    rpc: generationRpc(twoCandidates(), record),
+    ai: (body) => aiJson({ questions: aiItems(body).length === 2 ? [CHOICE_QUESTION, LEAKING_QUESTION] : [FIXED_QUESTION] }),
+  }, async (calls) => {
+    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as {
+      status: string; succeeded: number; failed: number; note: string;
+    };
+    assert.equal(calls.ai.length, 2);
+    assert.equal(body.status, "succeeded");
+    assert.equal(body.succeeded, 2);
+    assert.equal(body.failed, 0);
+    assert.match(body.note, /1件は作り直して採用しました/);
+    // キューへは作り直した分もまとめて1回で入れる。
+    assert.equal(calls.rpc.filter((call) => call.name === "enqueue_review_questions").length, 1);
+    assert.deepEqual(record.enqueued.map((item) => item.knowledge_id), [K1, K2]);
+    assert.equal(record.enqueued[1].question, FIXED_QUESTION.question);
+    assert.equal(calls.rpc.some((call) => call.name === "hold_review_generation_failures"), false);
+  });
+});
+
+test("すべて条件を満たした生成では作り直さない", async () => {
+  const record = generationRecord();
+  await withServices({
+    rpc: generationRpc([candidate(K1, "選択と集中", { mastery: "未学習", times_asked: 0, pool: "B" })], record),
+    ai: () => aiJson({ questions: [CHOICE_QUESTION] }),
+  }, async (calls) => {
+    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as {
+      status: string; note: string | null;
+    };
+    assert.equal(calls.ai.length, 1);
+    assert.equal(body.status, "succeeded");
+    assert.equal(body.note, null);
+    assert.equal(calls.rpc.some((call) => call.name === "hold_review_generation_failures"), false);
+  });
+});
+
+test("作り直しのAI呼び出しに失敗しても、作れた問題は入れて残りを保留する", async () => {
+  const record = generationRecord();
+  await withServices({
+    rpc: generationRpc(twoCandidates(), record),
+    ai: (body) => aiItems(body).length === 2
+      ? aiJson({ questions: [CHOICE_QUESTION, LEAKING_QUESTION] })
+      : { stop_reason: "refusal", stop_details: { category: "other" }, content: [] },
+  }, async () => {
+    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as {
+      status: string; succeeded: number; failed: number; note: string;
+    };
+    assert.equal(body.status, "succeeded");
+    assert.equal(body.succeeded, 1);
+    assert.equal(body.failed, 1);
+    assert.match(body.note, /作り直しのAI呼び出しに失敗しました/);
+    // 最初の生成で不採用になった問題文と理由を残す。
+    assert.deepEqual(record.held, [{ knowledge_id: K2, content_version: 3, reason: LEAK_REASON, question: "サイロ化とは何か？" }]);
+  });
+});
+
+test("保留の記録に失敗しても、作れた問題は入れてバッチを終える", async () => {
+  const record = generationRecord();
+  await withServices({
+    rpc: generationRpc(twoCandidates(), record, { holdFails: true }),
+    ai: (body) => aiJson({ questions: aiItems(body).length === 2 ? [CHOICE_QUESTION, LEAKING_QUESTION] : [LEAKING_QUESTION] }),
+  }, async () => {
+    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as {
+      status: string; succeeded: number; note: string;
+    };
+    assert.equal(body.status, "succeeded");
+    assert.equal(body.succeeded, 1);
+    assert.match(body.note, /保留の記録にも失敗したため、次のバッチでまた作り直します/);
+    assert.equal(record.finished.p_status, "succeeded");
+  });
+});
+
+test("最初の生成でAIを呼べなければ、作り直さずにバッチを失敗にする", async () => {
+  const record = generationRecord();
+  await withServices({
+    rpc: generationRpc([candidate(K2, "サイロ化")], record),
+    ai: () => ({ stop_reason: "refusal", stop_details: { category: "other" }, content: [] }),
+  }, async (calls) => {
+    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as {
+      status: string; failed: number;
+    };
+    assert.equal(calls.ai.length, 1);
+    assert.equal(body.status, "failed");
+    assert.equal(body.failed, 1);
+    assert.equal(record.enqueued.length, 0);
+    assert.equal(record.held, null);
+  });
+});
+
+test("保留中のカードしか残っていなければ、その件数をメモに残して見送る", async () => {
+  await withServices({
+    rpc: generationRpc([], generationRecord(), { queueStatus: { generation_held: 2 } }),
+  }, async (calls) => {
+    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as {
+      status: string; note: string;
+    };
+    assert.equal(calls.ai.length, 0);
+    assert.equal(body.status, "skipped");
+    assert.match(body.note, /問題を作れず保留中のカードが2件あります/);
   });
 });
 
@@ -412,6 +565,53 @@ test("キューの状態に上限到達と直近の生成結果を含める", as
     assert.equal(body.queue_full, true);
     assert.equal(body.last_generate.status, "skipped");
   });
+});
+
+test("キューの状態に生成を保留中のカード数を含め、移行前のDBでは0にする", async () => {
+  for (const [row, expected] of [[status({ generation_held: 3 }), 3], [status(), 0]] as const) {
+    await withServices({ rpc: () => row }, async () => {
+      const body = await (await statusRoute({ request: new Request("https://dashboard.example/api/review-queue/status"), env })).json() as {
+        generation_held: number;
+      };
+      assert.equal(body.generation_held, expected);
+    });
+  }
+});
+
+test("問題を作れなかったカードの一覧を返し、DBに失敗したら502にする", async () => {
+  const hold = {
+    knowledge_id: K2, title: "サイロ化", category: "ビジネス", failure_count: 2, last_reason: LEAK_REASON,
+    last_question: "サイロ化とは何か？", last_failed_at: "2026-10-04T00:00:00Z", retry_after: "2026-10-04T06:00:00Z",
+  };
+  await withServices({
+    rpc: (name) => {
+      assert.equal(name, "list_review_generation_holds");
+      return [hold];
+    },
+  }, async () => {
+    const response = await holdsRoute({ request: new Request("https://dashboard.example/api/review-queue/generation-holds"), env });
+    assert.deepEqual(await response.json(), { items: [hold] });
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => Response.json({ message: "missing" }, { status: 404 });
+  try {
+    const response = await holdsRoute({ request: new Request("https://dashboard.example/api/review-queue/generation-holds"), env });
+    assert.equal(response.status, 502);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  const post = await holdsRoute({ request: new Request("https://dashboard.example/api/review-queue/generation-holds", { method: "POST" }), env });
+  assert.equal(post.status, 405);
+});
+
+test("保留は2時間・6時間・24時間と延び、候補選びは待ち時間中の同じ版のカードを除き、キューに入れば消える", async () => {
+  const sql = await readFile(new URL("../supabase/migrations/20261004120000_review_generation_holds.sql", import.meta.url), "utf8");
+  assert.match(sql, /when coalesce\(p_failure_count, 1\) <= 1 then interval '2 hours'\s+when p_failure_count = 2 then interval '6 hours'\s+else interval '24 hours'/);
+  assert.match(sql, /h\.knowledge_id = k\.id and h\.content_version = k\.content_version and h\.retry_after > now\(\)/);
+  assert.match(sql, /if v_rows > 0 then\s+delete from public\.review_generation_holds h where h\.knowledge_id = item\.knowledge_id;/);
+  // 失敗の後に編集されたカードは記録しない（新しい版はすぐに作り直す）。
+  assert.match(sql, /join public\.knowledge k on k\.id = i\.knowledge_id and k\.content_version = i\.content_version/);
+  assert.match(sql, /references public\.knowledge\(id\) on delete cascade/);
 });
 
 test("即時採点は四択と無回答だけを確定し、それ以外はAIの採点へ回す", () => {

@@ -1,7 +1,7 @@
 import type {
   DailyReviewCategoryCount, DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgePriority, Mastery, MasteryHistoryEvent, QuizFormat,
   QuizLog, QuizVerdict, PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary,
-  ReviewQuestion, ReviewQueueStatus,
+  ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
   SpeakingPracticeStart, SpeakingPracticeType,
 } from "../types";
@@ -258,7 +258,26 @@ export function parseReviewQueueStatus(value: unknown): ReviewQueueStatus {
       at: optionalString(grade, "at", entity),
       status: optionalString(grade, "status", entity),
     } : null,
+    generation_held: countValue(value, "generation_held", entity),
   };
+}
+
+export function parseReviewGenerationHolds(value: unknown): ReviewGenerationHold[] {
+  const entity = "問題を作れなかったカード";
+  if (!isRecord(value) || !Array.isArray(value.items)) return fail(entity);
+  return value.items.map((item) => {
+    if (!isRecord(item)) return fail(entity);
+    return {
+      knowledge_id: stringValue(item, "knowledge_id", entity),
+      title: stringValue(item, "title", entity),
+      category: stringValue(item, "category", entity),
+      failure_count: countValue(item, "failure_count", entity),
+      last_reason: stringValue(item, "last_reason", entity),
+      last_question: optionalString(item, "last_question", entity),
+      last_failed_at: stringValue(item, "last_failed_at", entity),
+      retry_after: stringValue(item, "retry_after", entity),
+    };
+  });
 }
 
 export function parseReviewQuestions(value: unknown): ReviewQuestion[] {

@@ -69,6 +69,23 @@ export interface ReviewQueueStatus {
   queue_full: boolean;
   last_generate: { at: string | null; status: string | null; added: number | null; note: string | null } | null;
   last_grade: { at: string | null; status: string | null } | null;
+  /** 問題を作り直しても条件を満たさず、生成を保留しているカードの数。 */
+  generation_held: number;
+}
+
+/** 問題を作り直しても条件を満たさず、生成を保留しているカード。 */
+export interface ReviewGenerationHold {
+  knowledge_id: string;
+  title: string;
+  category: string;
+  /** 連続で作れなかった回数。1回の失敗は、その場の作り直しを含めた2回の生成。 */
+  failure_count: number;
+  last_reason: string;
+  /** 最後に不採用になった問題文。AIが問題文を返さなかったときはnull。 */
+  last_question: string | null;
+  last_failed_at: string;
+  /** この時刻を過ぎると、次の生成バッチでまた作り直す。 */
+  retry_after: string;
 }
 
 /** キューから出題された1問。正解の選択肢は含まない。 */

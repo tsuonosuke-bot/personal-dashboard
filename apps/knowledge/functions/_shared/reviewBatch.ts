@@ -94,7 +94,8 @@ async function finishRun(env: BatchEnv, runId: number, summary: BatchSummary): P
 
 /**
  * 出題の生成バッチ。キューが上限なら、どんな条件でもAIを呼ばない。
- * 生成に失敗した問題はキューに入れず、次のバッチでまた対象になる。
+ * 条件を満たさなかった問題はその場で1回だけ作り直し、それでも満たさないカードは
+ * hold_review_generation_failures で時間を置くまで生成の対象から外す。
  */
 export async function runGenerationBatch(
   env: BatchEnv,
@@ -128,7 +129,14 @@ export async function runGenerationBatch(
     const candidates = picked.filter(isGenerationCandidate);
     if (candidates.length !== picked.length) throw new Error("生成対象に必須項目の不足があります。");
     if (candidates.length === 0) {
-      return finishRun(env, runId, { ...base, status: "skipped", note: "新しく生成する問題はありませんでした。" });
+      const held = Number(status.generation_held);
+      return finishRun(env, runId, {
+        ...base,
+        status: "skipped",
+        note: Number.isSafeInteger(held) && held > 0
+          ? `新しく生成する問題はありませんでした（問題を作れず保留中のカードが${held}件あります）。`
+          : "新しく生成する問題はありませんでした。",
+      });
     }
 
     const ids = candidates.map((item) => item.id);
@@ -137,7 +145,8 @@ export async function runGenerationBatch(
     const allowedById = new Map(candidates.map((item) => [item.id, allowedFormats(item, AUTO_FORMAT)]));
     const tagsById = new Map(candidates.map((item) => [item.id, item.tags]));
 
-    const generated = await generateQuestions(env, candidates, allowedById, tagsById, groupRecentNotes(notes));
+    const notesById = groupRecentNotes(notes);
+    const generated = await generateQuestions(env, candidates, allowedById, tagsById, notesById);
     if (!generated.ok) {
       return finishRun(env, runId, {
         ...base,
@@ -148,44 +157,113 @@ export async function runGenerationBatch(
       });
     }
 
-    const items = [];
-    const issues: string[] = [];
-    for (const item of candidates) {
-      const question = generated.byId.get(item.id);
-      const issue = generationIssue(item, question, generated.issueById.get(item.id));
-      if (issue || !question) {
-        issues.push(issue ?? "問題を確認できませんでした。");
-        continue;
+    const first = collectQuestions(candidates, generated);
+    const items = first.items;
+    let rejected = first.rejected;
+    let regenerated = 0;
+    let retryFailure: string | null = null;
+    // 条件を満たさなかった項目だけ、前回の問題文と理由を添えてその場で1回だけ作り直す。
+    if (rejected.size > 0) {
+      const retryItems = candidates.filter((item) => rejected.has(item.id));
+      const previousById = new Map([...rejected].map(([id, value]) => [id, { question: value.question, problem: value.reason }]));
+      const retried = await generateQuestions(env, retryItems, allowedById, tagsById, notesById, previousById);
+      if (retried.ok) {
+        const second = collectQuestions(retryItems, retried);
+        items.push(...second.items);
+        regenerated = second.items.length;
+        rejected = second.rejected;
+      } else {
+        retryFailure = `${retried.failure.stage}: ${retried.failure.reason}`;
       }
-      items.push({
-        knowledge_id: item.id,
-        content_version: item.content_version,
-        format: question.format,
-        question: question.question,
-        // 正解の位置が偏らないよう、保存する時点で並べ替える。
-        choices: question.choices ? shuffle(question.choices) : null,
-        correct_choice: question.correctChoice,
-        prepared_explanation: question.explanation,
-        expected_answer: question.expectedAnswer,
-      });
     }
+
     const added = items.length > 0
       ? Number(await callRpc(env, "enqueue_review_questions", { p_items: items }))
       : 0;
-    const failed = candidates.length - items.length;
+    // 作り直しても条件を満たさなかったカードは、時間を置くまで生成の対象から外す。
+    let holdFailure: string | null = null;
+    if (rejected.size > 0) {
+      try {
+        await callRpc(env, "hold_review_generation_failures", {
+          p_items: candidates.flatMap((item) => {
+            const failure = rejected.get(item.id);
+            return failure
+              ? [{ knowledge_id: item.id, content_version: item.content_version, reason: failure.reason, question: failure.question }]
+              : [];
+          }),
+        });
+      } catch (error) {
+        holdFailure = errorMessage(error);
+        console.error("Failed to hold review generation failures", holdFailure);
+      }
+    }
+
+    const failed = rejected.size;
+    const firstIssue = rejected.values().next().value?.reason;
+    const messages = [
+      regenerated > 0 ? `${regenerated}件は作り直して採用しました。` : null,
+      retryFailure ? `作り直しのAI呼び出しに失敗しました（${retryFailure}）。` : null,
+      failed > 0
+        ? holdFailure
+          ? `${failed}件は作り直しても条件を満たさず、保留の記録にも失敗したため、次のバッチでまた作り直します（例: ${firstIssue}）。`
+          : `${failed}件は作り直しても条件を満たさなかったため、時間を置いて再挑戦します（例: ${firstIssue}）。`
+        : null,
+    ].filter((note): note is string => note !== null);
+    // AIは応答したので、一部（全部でも）のカードが条件を満たさなかっただけならバッチは成功扱いにする。
     return finishRun(env, runId, {
       ...base,
-      status: added > 0 || failed === 0 ? "succeeded" : "failed",
+      status: "succeeded",
       processed: candidates.length,
       succeeded: Number.isFinite(added) ? added : 0,
       failed,
-      note: failed > 0
-        ? `${failed}件は生成条件を満たさなかったため、次のバッチで作り直します（例: ${issues[0]}）。`
-        : null,
+      note: messages.length > 0 ? messages.join("") : null,
     });
   } catch (error) {
     return finishRun(env, runId, { ...base, status: "failed", note: errorMessage(error) });
   }
+}
+
+interface QueueItem {
+  knowledge_id: string;
+  content_version: number;
+  format: QuizFormat;
+  question: string;
+  choices: string[] | null;
+  correct_choice: string | null;
+  prepared_explanation: string | null;
+  expected_answer: string | null;
+}
+
+/** 生成結果を、キューに入れる問題と、条件を満たさなかった項目（理由とAIの問題文）に分ける。 */
+function collectQuestions(
+  candidates: GenerationCandidate[],
+  generated: Extract<Awaited<ReturnType<typeof generateQuestions>>, { ok: true }>,
+): { items: QueueItem[]; rejected: Map<string, { reason: string; question: string | null }> } {
+  const items: QueueItem[] = [];
+  const rejected = new Map<string, { reason: string; question: string | null }>();
+  for (const item of candidates) {
+    const question = generated.byId.get(item.id);
+    const issue = generationIssue(item, question, generated.issueById.get(item.id));
+    if (issue || !question) {
+      rejected.set(item.id, {
+        reason: issue ?? "問題を確認できませんでした。",
+        question: question?.question ?? generated.questionTextById.get(item.id) ?? null,
+      });
+      continue;
+    }
+    items.push({
+      knowledge_id: item.id,
+      content_version: item.content_version,
+      format: question.format,
+      question: question.question,
+      // 正解の位置が偏らないよう、保存する時点で並べ替える。
+      choices: question.choices ? shuffle(question.choices) : null,
+      correct_choice: question.correctChoice,
+      prepared_explanation: question.explanation,
+      expected_answer: question.expectedAnswer,
+    });
+  }
+  return { items, rejected };
 }
 
 /**

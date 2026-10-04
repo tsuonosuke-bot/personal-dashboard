@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { MASTERY_ORDER, PRIORITY_ORDER } from "../constants";
 import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
-import { getPendingReviewAnswers, retryReviewAnswer, runReviewBatch } from "../lib/api";
-import type { Knowledge, KnowledgeDraft, KnowledgePriority, Mastery, PendingReviewAnswer } from "../types";
+import { getPendingReviewAnswers, getReviewGenerationHolds, retryReviewAnswer, runReviewBatch } from "../lib/api";
+import type { Knowledge, KnowledgeDraft, KnowledgePriority, Mastery, PendingReviewAnswer, ReviewGenerationHold } from "../types";
 import { DeepDiveInbox } from "./DeepDiveInbox";
 import { InsightNotes } from "./InsightNotes";
 
@@ -118,6 +118,67 @@ export function PendingAnswersPanel({
                   <button onClick={() => void retry(item.id)} disabled={busy}>再採点する</button>
                 </div>
               )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/**
+ * 問題を作り直しても条件を満たさず、生成を保留しているカード。理由とAIが作った問題文を見て、
+ * ナレッジを直せるようにする。編集すると待ち時間に関係なく次の生成バッチで作り直される。
+ */
+export function GenerationHoldsPanel({ onOpenKnowledge }: { onOpenKnowledge: (id: string) => void }) {
+  const [items, setItems] = useState<ReviewGenerationHold[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getReviewGenerationHolds()
+      .then((holds) => { if (active) { setItems(holds); setError(null); } })
+      .catch((caught: unknown) => {
+        if (active) setError(caught instanceof Error ? caught.message : "問題を作れなかったカードを取得できませんでした。");
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  if (loading || (!error && items.length === 0)) return null;
+  const now = Date.now();
+
+  return (
+    <section className="pending-answers card" aria-label="問題を作れなかったカード">
+      <div className="pending-answers-head">
+        <h2>問題を作れなかったカード <span>{items.length}件</span></h2>
+      </div>
+      <p className="muted">
+        作り直しても条件を満たす問題にならなかったカードです。時間を置いて自動で作り直します（2時間後、6時間後、以降は24時間ごと）。
+        タイトルや説明を直すと、次の生成でまた作り直します。
+      </p>
+      {error && <div className="err compact" role="alert">{error}</div>}
+      {items.length > 0 && (
+        <ul className="pending-answers-list">
+          {items.map((item) => (
+            <li key={item.knowledge_id}>
+              <div className="learning-log-head">
+                <time dateTime={item.last_failed_at}>{formatDateTime(item.last_failed_at)}</time>
+                <span className="badge pending-error">{item.failure_count}回作れず</span>
+                <span className="quiz-result-format">{item.category}</span>
+              </div>
+              <strong className="learning-log-title">{item.title}</strong>
+              {item.last_question && <p className="pending-answer-question"><b>AIが作った問題文:</b> {item.last_question}</p>}
+              <div className="pending-answer-error">
+                <span>{item.last_reason}</span>
+                <button onClick={() => onOpenKnowledge(item.knowledge_id)}>ナレッジを開く</button>
+              </div>
+              <p className="muted">
+                {new Date(item.retry_after).getTime() > now
+                  ? `${formatDateTime(item.retry_after)}以降の生成で作り直します。`
+                  : "次の生成で作り直します。"}
+              </p>
             </li>
           ))}
         </ul>
