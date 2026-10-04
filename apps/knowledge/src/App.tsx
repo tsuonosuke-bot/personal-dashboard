@@ -313,11 +313,14 @@ export default function App() {
       <Suspense fallback={<div className="msg">読み込み中...</div>}>
         <ReviewView
           knowledge={registrationKnowledge}
+          quizLog={quizLog}
           queueStatus={reviewQueue.status}
           onExit={() => setQuizOpen(false)}
           autoStartDaily={quizMode === "daily"}
           onRecorded={reloadAfterReview}
           onKnowledgeUpdate={updateKnowledge}
+          insightStore={insightStore}
+          insightGroupStore={insightGroupStore}
           onOpenResults={() => setLogOpen(true, true)}
           onOpenLog={() => setLogOpen(true)}
         />
