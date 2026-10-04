@@ -1,4 +1,4 @@
-import { fetchSupabasePage, jsonResponse, methodNotAllowed, readPagination, type SupabaseEnv } from '../_shared/supabaseRest.ts'
+import { fetchSupabase, fetchSupabasePage, jsonResponse, methodNotAllowed, readPagination, type SupabaseEnv } from '../_shared/supabaseRest.ts'
 import { readRecurringCreate, readRecurringEdit, readRecurringUpdate, validateRecurringRequest } from '../_shared/recurringValidation.ts'
 
 type FunctionContext = { request: Request; env: SupabaseEnv }
@@ -9,7 +9,7 @@ async function supabaseRequest(env: SupabaseEnv, path: string, method: 'POST' | 
   const endpoint = new URL(path, env.SUPABASE_URL)
   if (query) endpoint.search = query.toString()
   try {
-    const response = await fetch(endpoint, { method, headers: { Accept: 'application/json', 'Content-Type': 'application/json', Prefer: 'return=representation', apikey: env.SUPABASE_SECRET_KEY }, body: JSON.stringify(body) })
+    const response = await fetchSupabase(endpoint, { method, headers: { Accept: 'application/json', 'Content-Type': 'application/json', Prefer: 'return=representation', apikey: env.SUPABASE_SECRET_KEY }, body: JSON.stringify(body) })
     if (!response.ok) return jsonResponse({ error: '定期登録をDBへ保存できませんでした。' }, 502)
     const value: unknown = await response.json()
     return jsonResponse(value)

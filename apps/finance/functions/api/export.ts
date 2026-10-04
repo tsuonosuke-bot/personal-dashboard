@@ -1,4 +1,4 @@
-import { jsonResponse, methodNotAllowed, type SupabaseEnv } from '../_shared/supabaseRest.ts'
+import { fetchSupabase, jsonResponse, methodNotAllowed, type SupabaseEnv } from '../_shared/supabaseRest.ts'
 
 type FunctionContext = { request: Request; env: SupabaseEnv }
 const PAGE_SIZE = 1_000
@@ -14,7 +14,7 @@ async function allRows(env: SupabaseEnv, table: string, select: string, order: s
     endpoint.searchParams.set('order', order)
     endpoint.searchParams.set('limit', String(PAGE_SIZE))
     endpoint.searchParams.set('offset', String(offset))
-    const response = await fetch(endpoint, { headers: { Accept: 'application/json', apikey: key } })
+    const response = await fetchSupabase(endpoint, { headers: { Accept: 'application/json', apikey: key } })
     if (!response.ok || !response.headers.get('Content-Type')?.toLowerCase().includes('json')) throw new Error(`${table} export failed`)
     const page: unknown = await response.json()
     if (!Array.isArray(page) || page.some((item) => typeof item !== 'object' || item === null || Array.isArray(item))) throw new Error(`${table} export returned invalid data`)
