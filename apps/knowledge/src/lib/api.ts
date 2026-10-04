@@ -173,6 +173,10 @@ export function getKnowledge(): Promise<Knowledge[]> {
   return getAllPages("/api/knowledge?status=all", parseKnowledge);
 }
 
+export async function getKnowledgeItem(id: string): Promise<Knowledge> {
+  return parseKnowledge(await requestJson(`/api/knowledge/${encodeURIComponent(id)}`, { method: "GET" }));
+}
+
 export function getQuizLog(): Promise<QuizLog[]> {
   return getAllPages("/api/quiz-log", parseQuizLog);
 }
@@ -351,7 +355,7 @@ export function createKnowledge(input: KnowledgeDraft): Promise<Knowledge> {
   return writeKnowledge("/api/knowledge", "POST", input);
 }
 
-export function updateKnowledge(
+function patchKnowledge(
   id: string,
   expectedVersion: number,
   input: Partial<KnowledgeDraft> | { archived: boolean },
@@ -360,6 +364,30 @@ export function updateKnowledge(
     expected_version: expectedVersion,
     changes: input,
   });
+}
+
+/**
+ * 優先度とアーカイブ状態だけの変更は、他の項目を書き換えない「この値にする」操作。
+ * 復習の記録や採点バッチでcontent_versionが進んでいても、最新版に対してそのまま適用してよい。
+ */
+function isVersionIndependentChange(input: Partial<KnowledgeDraft> | { archived: boolean }): boolean {
+  const keys = Object.keys(input);
+  return keys.length > 0 && keys.every((key) => key === "priority" || key === "archived");
+}
+
+export async function updateKnowledge(
+  id: string,
+  expectedVersion: number,
+  input: Partial<KnowledgeDraft> | { archived: boolean },
+): Promise<Knowledge> {
+  try {
+    return await patchKnowledge(id, expectedVersion, input);
+  } catch (caught) {
+    if (!(caught instanceof ApiError && caught.status === 409) || !isVersionIndependentChange(input)) throw caught;
+    // 回答の記録で版が進んだだけなら、最新版を取り直して一度だけ送り直す。内容の編集は上書きしない。
+    const latest = await getKnowledgeItem(id);
+    return patchKnowledge(id, latest.content_version, input);
+  }
 }
 
 async function postReviewQueue(path: string, body: unknown): Promise<unknown> {
