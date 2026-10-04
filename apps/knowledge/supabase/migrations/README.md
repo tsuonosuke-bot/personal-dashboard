@@ -89,6 +89,11 @@ build that depends on them.
   `get_daily_review_status` and `daily_review_new_card_ids` stay for the
   dashboard's daily review panel. It deletes data permanently, so the owner runs it. The dropped
   definitions are kept in `supabase/archive/daily_review_queue.sql`.
+- `20261005100000_review_batch_health.sql` adds `get_review_batch_health()`
+  (issue #61): per batch kind the last successful run, consecutive whole-batch
+  failures and the last 24 hours of failed / partially failed runs, plus the
+  state of the pg_cron jobs from `cron.job_run_details`. Read-only, service_role
+  only. `GET /api/status` returns it as `reviewBatches` (null until applied).
 
 After applying a migration, verify its functions with `pg_get_functiondef` and
 verify the new column/trigger through `information_schema` before deploying the

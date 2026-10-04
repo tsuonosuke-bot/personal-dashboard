@@ -1,3 +1,4 @@
+import { loadBatchHealth } from "../_shared/reviewBatchHealth.ts";
 import { fetchSupabase, jsonResponse, methodNotAllowed, type SupabaseEnv } from "../_shared/supabaseRest.ts";
 
 interface StatusEnv extends SupabaseEnv { AUTH_MODE?: string }
@@ -22,11 +23,14 @@ export const onRequest = async ({ request, env }: FunctionContext): Promise<Resp
     if (!Array.isArray(rows) || typeof rows[0]?.migration !== "string") {
       return jsonResponse({ error: "DB migrationを確認できませんでした。" }, 502);
     }
+    // 生成・採点バッチの状態。取得できなくても接続状態の確認は失敗させない。
+    const reviewBatches = await loadBatchHealth(env);
     return jsonResponse({
       authMethod: env.AUTH_MODE?.trim().toLowerCase() === "access" ? "Cloudflare Access" : "Basic認証 + 署名付きセッション",
       destination: base.host,
       migration: rows[0].migration,
       lastSuccessAt: new Date().toISOString(),
+      reviewBatches,
     });
   } catch {
     return jsonResponse({ error: "DBの接続状態を確認できませんでした。" }, 502);

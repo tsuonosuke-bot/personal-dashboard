@@ -20,6 +20,35 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(parsed);
 }
 
+const kindLabels = { generate: "問題の生成", grade: "回答の採点" };
+
+/** Knowledgeの生成・採点バッチ。最終成功時刻・直近24時間の失敗・pg_cronの状態を、状態カードの行に直す。 */
+function batchRows(batches) {
+  if (!batches) return [["復習バッチ", "確認できません（DB migrationの適用前か、取得に失敗しました）"]];
+  const rows = [["復習バッチの警告", batches.alerts.length ? batches.alerts.join("\n") : "なし"]];
+  for (const [kind, label] of Object.entries(kindLabels)) {
+    const batch = batches[kind];
+    rows.push([
+      `${label}`,
+      [
+        `最終成功 ${formatDate(batch.lastOkAt)}`,
+        `直近24時間: 全体の失敗 ${batch.failed24h}回 / 一部のカードの失敗 ${batch.partial24h}回`,
+        batch.lastFailureNote ? `最後の失敗: ${batch.lastFailureNote}` : null,
+      ].filter(Boolean).join("\n"),
+    ]);
+  }
+  for (const job of batches.cron) {
+    rows.push([
+      `定期実行 ${job.jobname}`,
+      [
+        job.active ? `最終実行 ${formatDate(job.lastRunAt)}（${job.lastStatus || "記録なし"}）` : "停止中",
+        `直近24時間の失敗 ${job.failed24h}回`,
+      ].join("\n"),
+    ]);
+  }
+  return rows;
+}
+
 function render(services) {
   const previous = readLastSuccess();
   const next = { ...previous };
@@ -35,6 +64,7 @@ function render(services) {
       ["接続先", service.destination],
       ["DB migration", service.migration],
       ["最終成功時刻", formatDate(service.lastSuccessAt || previous[service.id])],
+      ...(service.id === "knowledge" && service.lastSuccessAt ? batchRows(service.reviewBatches) : []),
     ];
     const list = document.createElement("dl");
     values.forEach(([label, value]) => {

@@ -1,4 +1,5 @@
 import type { HubEnv } from "./hub.ts";
+import { readReviewBatches, type ReviewBatchesStatus } from "./reviewBatches.ts";
 
 export interface ConnectionStatusEnv extends HubEnv {
   AUTH_MODE?: string;
@@ -11,6 +12,8 @@ export interface ServiceConnectionStatus {
   destination: string;
   migration: string;
   lastSuccessAt: string | null;
+  /** Knowledgeのみ。生成・採点バッチの状態（取得できなければnull）。 */
+  reviewBatches?: ReviewBatchesStatus | null;
 }
 
 const DEFAULT_FINANCIAL_URL = "https://finance-9qq.pages.dev/";
@@ -95,7 +98,11 @@ async function remoteStatus(
     || typeof value.migration !== "string" || typeof value.lastSuccessAt !== "string") {
     throw new Error(`${name} status response is invalid.`);
   }
-  return { id, name, authMethod: value.authMethod, destination: value.destination, migration: value.migration, lastSuccessAt: value.lastSuccessAt };
+  const status: ServiceConnectionStatus = {
+    id, name, authMethod: value.authMethod, destination: value.destination, migration: value.migration, lastSuccessAt: value.lastSuccessAt,
+  };
+  if (id === "knowledge") status.reviewBatches = readReviewBatches(value);
+  return status;
 }
 
 export async function loadConnectionStatus(env: ConnectionStatusEnv) {

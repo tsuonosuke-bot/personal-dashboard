@@ -80,6 +80,10 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - `review_batch_runs` はバッチの実行記録。`begin_review_batch` が同じ種類の同時実行を防ぐ（15分で打ち切り扱い）。
   生成はAIの呼び出しかDBで失敗したときだけ `failed`。AIが応答して一部（全部でも）のカードが条件を満たさなかっただけなら
   `succeeded` で、件数を `failed`、理由の例を `note` に残す
+- バッチの健康状態は `get_review_batch_health()`（`GET /api/status` の `reviewBatches`）。`status = failed` をバッチ全体の失敗（AI・DB・打ち切り）、
+  `succeeded` で `failed > 0` を一部のカードだけの失敗として分け、前者が3回続く、または最後の成功（見送りを含む）から生成3時間・採点2時間
+  空く、またはpg_cronのジョブが止まる・失敗する・2時間動かないと `alerts` に出る。しきい値は `functions/_shared/reviewBatchHealth.ts`。
+  Hubのトップと `/status/` がこれを表示する。
 
 ### `review_generation_holds`（問題を作れなかったカード）
 

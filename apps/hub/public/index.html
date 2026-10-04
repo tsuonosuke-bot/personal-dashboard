@@ -47,6 +47,12 @@
           <small id="updatedLabel">更新時刻を確認中</small>
         </div>
 
+        <div class="batch-alert" id="batchAlert" role="alert" hidden>
+          <strong>復習の自動処理に異常があります</strong>
+          <ul id="batchAlertList"></ul>
+          <a id="batchAlertLink" href="/status/">接続状態を確認 →</a>
+        </div>
+
         <section class="dashboard-grid" aria-label="ダッシュボード">
           <a class="dashboard-card compass-card" id="compassLink" href="/compass/">
             <span class="card-icon" aria-hidden="true">
