@@ -29,7 +29,7 @@
               <a href="/compass/?new=inbox"><span class="quick-add-icon idea" aria-hidden="true">I</span><span><strong>Inbox追加</strong><small>思いつきを記録</small></span></a>
               <a href="/finance/?new=expense"><span class="quick-add-icon finance" aria-hidden="true">¥</span><span><strong>家計簿記録</strong><small>収支を追加</small></span></a>
               <a href="/projects/?new=project"><span class="quick-add-icon projects" aria-hidden="true">P</span><span><strong>Project作成</strong><small>目標と次の一手</small></span></a>
-              <a href="/knowledge/?view=quiz&amp;mode=daily"><span class="quick-add-icon knowledge" aria-hidden="true">K</span><span><strong>復習開始</strong><small>今日のキューへ</small></span></a>
+              <a href="/knowledge/?view=quiz&amp;mode=daily"><span class="quick-add-icon knowledge" aria-hidden="true">K</span><span><strong>復習開始</strong><small>問題キューから解く</small></span></a>
             </nav>
           </details>
           <label class="theme-select"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label>
@@ -87,7 +87,7 @@
 
         <section class="snapshot" aria-label="今日のスナップショット">
           <div class="metric-grid">
-            <a href="/knowledge/?view=quiz&amp;mode=daily" id="reviewMetricLink" class="metric review-shortcut"><span>今日の復習を開始 →</span><strong id="dueKnowledge">—</strong><small id="weakKnowledge">キューを確認中</small></a>
+            <a href="/knowledge/?view=quiz&amp;mode=daily" id="reviewMetricLink" class="metric review-shortcut"><span id="reviewMetricLabel">今日の復習を開始 →</span><strong id="dueKnowledge">—</strong><small id="weakKnowledge">キューを確認中</small></a>
             <a href="/habits/" id="habitMetricLink" class="metric habit-shortcut"><span>今日・今週のHabit</span><strong id="remainingHabits">—</strong><small id="habitProgress">実施状況を確認中</small></a>
           </div>
         </section>

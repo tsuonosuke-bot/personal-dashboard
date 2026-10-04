@@ -52,8 +52,8 @@ Browser
 - Knowledge JSON、Finance CSV、個人データを束ねた全体スナップショットの読み取り専用書き出し
 - Personal／Knowledge／Financeの認証方式・接続先・DB migration・最終成功時刻をまとめる接続状態画面
 - HTMLや壊れたJSONなど想定外のAPI応答を、内部解析エラーではなく再試行可能な案内へ変換
-- 今日の復習進捗と開始導線、期限超過、未整理Wantsのスナップショット
-- Knowledge Dashboardの当日固定キューを直接開始するショートカット
+- 今日の復習: Knowledgeの問題キューのすぐ解ける問題数と開始導線、採点待ち・未確認の採点結果（解ける問題がなければ学習ログへ案内）
+- 未整理Wantsのスナップショット
 - 未整理のActive Wantsの件数と最古の滞留日数を表示
 - 未整理のActive Wantsを古い順で最大3件表示
 - 未整理件数と一覧からIdeaの絞り込み表示へ直接移動

@@ -6,8 +6,8 @@
 -- pick_daily_review_queue. Their last definitions are kept in
 -- supabase/archive/daily_review_queue.sql.
 --
--- get_daily_review_status and daily_review_new_card_ids stay: the Hub and the
--- dashboard's daily review panel still show the day's numbers from them.
+-- get_daily_review_status and daily_review_new_card_ids stay: the dashboard's
+-- daily review panel still shows the day's numbers from them.
 --
 -- Apply after 20261004130000_drop_quiz_engine_v1.sql. This permanently deletes
 -- the rows of both tables. Run it yourself once you agree.

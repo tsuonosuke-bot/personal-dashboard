@@ -86,8 +86,8 @@ build that depends on them.
   `pick_daily_review_queue`, `ensure_daily_review_queue`; issue #56). Nothing has
   written the tables since 2026-09-20, and only the quiz-engine-v1 functions
   used them, so it refuses to run until `20261004130000` has been applied.
-  `get_daily_review_status` and `daily_review_new_card_ids` stay for the Hub and
-  the dashboard. It deletes data permanently, so the owner runs it. The dropped
+  `get_daily_review_status` and `daily_review_new_card_ids` stay for the
+  dashboard's daily review panel. It deletes data permanently, so the owner runs it. The dropped
   definitions are kept in `supabase/archive/daily_review_queue.sql`.
 
 After applying a migration, verify its functions with `pg_get_functiondef` and

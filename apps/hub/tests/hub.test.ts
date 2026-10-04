@@ -38,6 +38,7 @@ test("hub combines sources and prioritizes the oldest pending Inbox items", () =
   assert.equal(hub.summary.activeWants, 2);
   assert.equal(hub.summary.untriagedWants, 2);
   assert.equal(hub.navigation.knowledgeReview, "/knowledge/?view=quiz&mode=daily");
+  assert.equal(hub.navigation.knowledgeLog, "/knowledge/?view=log");
   assert.equal(hub.navigation.projects, "/projects/");
   assert.equal(hub.navigation.writing, "/writing/");
   assert.deepEqual(hub.inbox.map((item) => item.id), [1, 2]);
@@ -210,6 +211,60 @@ test("Journal trend uses JST dates, keeps missing days empty, and treats zero as
     { date: "2026-09-24", mood: null },
     { date: "2026-09-25", mood: 0 },
   ]);
+});
+
+test("hub shows the review queue counts instead of the old daily queue", () => {
+  const knowledge = [
+    { id: "11111111-1111-4111-8111-111111111111", title: "Due item", category: "English", times_asked: 1, accuracy: 100, next_review_on: "2026-09-13", created_at: "2026-08-02T00:00:00Z", archived: false },
+  ];
+  const hub = normalizeHub([], [], [], knowledge, {}, now, undefined, undefined, null, [], {
+    ready_due: 6, waiting_grading: 2, grading_errors: 1, unconfirmed_results: 4, generation_held: 3,
+  });
+  assert.equal(hub.summary.reviewReadyDue, 6);
+  assert.equal(hub.summary.reviewWaitingGrading, 2);
+  assert.equal(hub.summary.reviewGradingErrors, 1);
+  assert.equal(hub.summary.reviewUnconfirmed, 4);
+  assert.equal(hub.summary.reviewGenerationHeld, 3);
+  assert.equal("completedKnowledgeToday" in hub.summary, false);
+
+  // 復習キューの状態を取得できなければ、件数を0と偽らずに不明（null）にする。
+  const unavailable = normalizeHub([], [], [], knowledge, {}, now, {
+    inbox: true, wants: true, focus: true, projects: true, writing: true, expenses: true,
+    knowledge: false, journal: true, journalTrend: true, habits: true,
+  });
+  assert.equal(unavailable.summary.reviewReadyDue, null);
+  assert.equal(unavailable.summary.reviewUnconfirmed, null);
+});
+
+test("hub reads the review queue status from Knowledge, not the old daily queue", async () => {
+  const originalFetch = globalThis.fetch;
+  const knowledgePaths: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    if (url.hostname.includes("knowledge")) {
+      knowledgePaths.push(url.pathname);
+      if (url.pathname === "/api/review-queue/status") {
+        return Response.json({ ready_due: 5, ready_total: 9, waiting_grading: 1, grading_errors: 0, unconfirmed_results: 2, generation_held: 0 });
+      }
+    }
+    return url.hostname.includes("pages.dev")
+      ? Response.json({ items: [], total: 0, limit: 1000, offset: 0 })
+      : Response.json([]);
+  };
+  try {
+    const hub = await loadHub({
+      SUPABASE_URL: "https://compass.supabase.co",
+      SUPABASE_SECRET_KEY: "server-secret",
+      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
+    }, now);
+    assert.ok(knowledgePaths.includes("/api/review-queue/status"));
+    assert.equal(knowledgePaths.includes("/api/review/queue"), false);
+    assert.equal(hub.availability.knowledge, true);
+    assert.equal(hub.summary.reviewReadyDue, 5);
+    assert.equal(hub.summary.reviewUnconfirmed, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("Journal queries each target with a past-only descending lookup", async () => {

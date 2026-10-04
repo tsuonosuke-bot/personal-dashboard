@@ -73,7 +73,7 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
   返し、古い問題は先に破棄する。1回分のうち通常の期限到来が5件以上あれば少なくとも5件は通常の問題にする
 - 旧方式の日次固定キュー（`daily_review_queues` / `daily_review_queue_items` / `pick_daily_review_queue`）は
   `20261004150000_drop_daily_review_queue.sql` で削除する（所有者が適用。旧スキル関数の削除後）。今日の数字（今日の回答・残り・
-  期限超過・新規の保留）はトップのパネルとHubのために `get_daily_review_status`（`GET /api/review/queue`）で残す
+  期限超過・新規の保留）はトップのパネルのために `get_daily_review_status`（`GET /api/review/queue`）で残す。Hubは問題キューの状態（`GET /api/review-queue/status`）を読む
 - 回答は `submit_review_answer`。採点は `claim_review_answers` → AI → `record_review_grade`。失敗は `release_review_answer`
 - `record_review_grade` は回答時刻を `record_answer(..., p_answered_at)` に渡し、予定の起点・`quiz_log.created_at`・`asked_on` を
   回答時刻にする。別経路でより新しく回答済みのカードへの古い回答は記録せず `discarded` にする

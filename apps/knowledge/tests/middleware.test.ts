@@ -58,7 +58,7 @@ test("Cloudflare Accessモードは設定不足と不正JWTを拒否する", asy
   assert.doesNotMatch(await invalid.text(), /not-a-jwt/);
 });
 
-test("Hubサービスキーは読み取り専用の一覧・日次キュー・書き出し・接続状態だけを許可する", async () => {
+test("Hubサービスキーは読み取り専用の一覧・復習キューの件数・書き出し・接続状態だけを許可する", async () => {
   const token = "hub-service-token-that-is-at-least-32-characters";
   const env = { HUB_SERVICE_TOKEN: token, DASHBOARD_PASSWORD: "password" };
   const allowed = await onRequest({
@@ -70,12 +70,22 @@ test("Hubサービスキーは読み取り専用の一覧・日次キュー・�
   assert.equal(await allowed.text(), "knowledge");
 
   const queue = await onRequest({
-    request: new Request("https://dashboard.example/api/review/queue?limit=15", { headers: { "X-Hub-Service": token } }),
+    request: new Request("https://dashboard.example/api/review-queue/status", { headers: { "X-Hub-Service": token } }),
     env,
     next: async () => new Response("queue"),
   });
   assert.equal(queue.status, 200);
   assert.equal(await queue.text(), "queue");
+
+  // Hubが使わなくなった旧方式の日次の状況と、復習キューの他のAPIはHubサービスキーでは読めない。
+  for (const path of ["/api/review/queue?limit=15", "/api/review-queue/pending", "/api/review-queue/generation-holds"]) {
+    const closed = await onRequest({
+      request: new Request(`https://dashboard.example${path}`, { headers: { "X-Hub-Service": token } }),
+      env,
+      next: async () => new Response("leak"),
+    });
+    assert.equal(closed.status, 401, path);
+  }
 
   for (const path of ["/api/export", "/api/status"]) {
     const readOnly = await onRequest({

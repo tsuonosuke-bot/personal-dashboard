@@ -44,7 +44,15 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(script, /class="inbox-state">未整理/);
   assert.match(script, /escapeHtml\(item\.url \|\| "\/compass\/\?view=inbox"\)/);
   assert.match(script, /renderFocus\(payload\.focus \|\| \[\], availability\.focus\)/);
-  assert.match(script, /`\$\{summary\.completedKnowledgeToday\} \/ \$\{summary\.todayKnowledgeTotal\}`/);
+  // 「今日の復習」は問題キューのすぐ解ける問題数。なければ学習ログへ案内する。
+  assert.match(html, /<span id="reviewMetricLabel">今日の復習を開始 →<\/span>/);
+  assert.match(script, /els\.dueKnowledge\.textContent = `\$\{readyDue\}問`/);
+  assert.match(script, /canStart \? navigation\.knowledgeReview : navigation\.knowledgeLog/);
+  assert.match(script, /canStart \? "今日の復習を開始 →" : "学習ログを見る →"/);
+  assert.match(script, /`採点待ち \$\{formatCount\(summary\.reviewWaitingGrading\)\}`/);
+  assert.match(script, /`未確認 \$\{formatCount\(summary\.reviewUnconfirmed\)\}`/);
+  assert.match(script, /`すぐ解ける \$\{readyDue\}問`/);
+  assert.doesNotMatch(script, /completedKnowledgeToday|todayKnowledgeTotal|overdueKnowledge|remainingKnowledgeToday/);
   assert.match(script, /fetch\("\/api\/focus"/);
   assert.match(script, /"X-Dashboard-Action": action/);
   assert.match(script, /focus-update/);
