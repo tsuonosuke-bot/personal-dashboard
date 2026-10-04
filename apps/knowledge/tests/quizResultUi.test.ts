@@ -63,3 +63,22 @@ test("復習画面から手動で採点と問題生成ができ、上限到達�
   assert.match(view, /disabled=\{batchBusy !== null \|\| queueStatus\?\.queue_full === true\}/);
   assert.match(summary, /新しい問題の追加を止めています/);
 });
+
+test("答え合わせ画面から、そのカードの優先度変更とアーカイブができ、そのまま次へ進める", async () => {
+  const [view, app] = await Promise.all([
+    readFile(new URL("../src/components/ReviewView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/App.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(app, /<ReviewView[\s\S]*?onKnowledgeUpdate=\{updateKnowledge\}/);
+  assert.match(view, /item=\{knowledgeById\.get\(session\.feedback\.question\.knowledge_id\)\}/);
+  assert.match(view, /<FeedbackKnowledgeActions item=\{item\} recorded=\{result != null\}/);
+  // 楽観ロックの版を付けて1件だけ更新する
+  assert.match(view, /onKnowledgeUpdate\(item\.id, item\.content_version, changes\)/);
+  assert.match(view, /save\(\{ priority: event\.target\.value as KnowledgePriority \}/);
+  // アーカイブは確認し、採点前なら回答が記録されなくなることを伝え、元に戻せる
+  assert.match(view, /採点前にアーカイブしたままだと、この回答は記録されません。/);
+  assert.match(view, /save\(\{ archived: true \}, "アーカイブしました。"\)/);
+  assert.match(view, /save\(\{ archived: false \}, "復元しました。"\)/);
+  // 操作後も「次の問題へ」は残る
+  assert.match(view, /次の問題へ →<\/button>[\s\S]*?<FeedbackKnowledgeActions/);
+});
