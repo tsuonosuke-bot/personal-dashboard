@@ -62,14 +62,13 @@ interface KnowledgeRow {
   created_at?: unknown;
   archived?: unknown;
 }
+/** Knowledgeの問題キューの状態（GET /api/review-queue/status）のうちHubが使う件数。 */
 interface KnowledgeReviewStatus {
-  review_on?: unknown;
-  limit?: unknown;
-  total?: unknown;
-  completed?: unknown;
-  remaining?: unknown;
-  due_total?: unknown;
-  overdue_total?: unknown;
+  ready_due?: unknown;
+  waiting_grading?: unknown;
+  grading_errors?: unknown;
+  unconfirmed_results?: unknown;
+  generation_held?: unknown;
 }
 interface DailyJournalRow {
   entry_date?: unknown;
@@ -595,6 +594,7 @@ export function normalizeHub(
       financial: "/finance/",
       knowledge: "/knowledge/",
       knowledgeReview: "/knowledge/?view=quiz&mode=daily",
+      knowledgeLog: "/knowledge/?view=log",
       habits: "/habits/",
     },
     summary: {
@@ -602,18 +602,12 @@ export function normalizeHub(
       previousMonthSpend: availability.expenses ? previousSpend : null,
       pendingInbox: availability.inbox ? pendingInbox.length : null,
       dueKnowledge: availability.knowledge ? knowledge.dueCount : null,
-      todayKnowledgeTotal: availability.knowledge
-        ? integer(reviewStatus?.total) ?? knowledge.dueCount
-        : null,
-      completedKnowledgeToday: availability.knowledge
-        ? integer(reviewStatus?.completed) ?? 0
-        : null,
-      remainingKnowledgeToday: availability.knowledge
-        ? integer(reviewStatus?.remaining) ?? knowledge.dueCount
-        : null,
-      overdueKnowledge: availability.knowledge
-        ? integer(reviewStatus?.overdue_total) ?? knowledge.dueCount
-        : null,
+      // 問題キューの件数。すぐ解ける問題（期限が来た出題待ち）を主に、採点待ちと未確認の採点結果を添える。
+      reviewReadyDue: availability.knowledge ? integer(reviewStatus?.ready_due) ?? 0 : null,
+      reviewWaitingGrading: availability.knowledge ? integer(reviewStatus?.waiting_grading) ?? 0 : null,
+      reviewGradingErrors: availability.knowledge ? integer(reviewStatus?.grading_errors) ?? 0 : null,
+      reviewUnconfirmed: availability.knowledge ? integer(reviewStatus?.unconfirmed_results) ?? 0 : null,
+      reviewGenerationHeld: availability.knowledge ? integer(reviewStatus?.generation_held) ?? 0 : null,
       weakKnowledge: availability.knowledge ? knowledge.weakCount : null,
       activeWants: availability.wants ? activeWants.length : null,
       untriagedWants: availability.wants ? untriagedWants.length : null,
@@ -652,7 +646,7 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     fetchRows(env, { table: "writing_topics", select: "status" }) as Promise<WritingRow[]>,
     fetchDashboardRows(env, financialUrl, "/api/expenses") as Promise<ExpenseRow[]>,
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,
-    fetchDashboardJson(env, knowledgeUrl, "/api/review/queue?limit=15") as Promise<KnowledgeReviewStatus>,
+    fetchDashboardJson(env, knowledgeUrl, "/api/review-queue/status") as Promise<KnowledgeReviewStatus>,
     loadJournalMoments(env, now),
     loadJournalTrend(env, now),
     loadHabits(env, now),

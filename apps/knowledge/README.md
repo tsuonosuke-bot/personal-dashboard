@@ -62,7 +62,7 @@ Viteだけを起動するため `/api/*` は利用できない。
 | `AUTH_MODE` | 任意 | `basic`（既定）または `access` |
 | `TEAM_DOMAIN` | Access時 | `https://<team>.cloudflareaccess.com` |
 | `POLICY_AUD` | Access時 | Access Application Audience tag |
-| `HUB_SERVICE_TOKEN` | Hub連携時 | Hubから一覧・日次の復習状況・JSON書き出し・接続状態のGETだけを許可する共有secret |
+| `HUB_SERVICE_TOKEN` | Hub連携時 | Hubから一覧・復習キューの件数・JSON書き出し・接続状態のGETだけを許可する共有secret |
 | `SSO_SHARED_SECRET` | Hub連携時 | Hubからの署名付き認証引き継ぎを検証する共有secret |
 | `SESSION_TTL_DAYS` | 任意 | 引き継いだセッションの日数。既定30 |
 | `SUPABASE_URL` | 必須 | SupabaseプロジェクトURL |
@@ -93,7 +93,7 @@ Viteだけを起動するため `/api/*` は利用できない。
 - 履歴: `GET /api/quiz-log`、`GET /api/mastery-history`
 - 復習: `GET /api/review-queue/status`・`pending`・`generation-holds`、
   `POST /api/review-queue/serve`・`answer`・`retry`・`discard`・`confirm`、`POST /api/review-batch/generate`・`grade`
-- 日次の復習状況: `GET /api/review/queue` — 今日の回答数・残り・期限超過・新規の保留を返す（トップの「今日の復習キュー」とHubが使う）
+- 日次の復習状況: `GET /api/review/queue` — 今日の回答数・残り・期限超過・新規の保留を返す（トップの「今日の復習キュー」が使う）
 - 示唆と問い: `GET/POST /api/insights`、`PATCH/DELETE /api/insights/:id`、`POST /api/insights/analyze`、
   `GET/POST /api/insight-groups`、`PATCH/DELETE /api/insight-groups/:id`、`GET/POST/DELETE /api/insight-group-members`
 - 英会話練習: `GET/POST /api/speaking-practice`、`POST /api/speaking-practice/start`
@@ -174,7 +174,7 @@ CSPは外部のスクリプトとスタイルを禁止し、rechartsに必要な
 `AUTH_MODE=access` ではCloudflare Access JWTの署名・issuer・audienceを検証する。
 Personal Hub、家計簿、ナレッジを同じAccess applicationで保護すると、1回のログインで3画面を移動できる。
 
-Basic認証を継続する場合も、3サイトへ同じ `SSO_SHARED_SECRET` を設定すれば、Hubからの署名付き引き継ぎで対象ホストに固定したHttpOnlyセッションを作成できる。`HUB_SERVICE_TOKEN` は `GET /api/knowledge`、`GET /api/review/queue`、`GET /api/export`、`GET /api/status` のみに使え、POST/PATCHや他のAPIは認証を迂回できない。
+Basic認証を継続する場合も、3サイトへ同じ `SSO_SHARED_SECRET` を設定すれば、Hubからの署名付き引き継ぎで対象ホストに固定したHttpOnlyセッションを作成できる。`HUB_SERVICE_TOKEN` は `GET /api/knowledge`、`GET /api/review-queue/status`、`GET /api/export`、`GET /api/status` のみに使え、POST/PATCHや他のAPIは認証を迂回できない。
 引き継ぎトークンのnonceはSupabaseで1回だけ消費されるため、同じURLの再利用は403になる。
 
 生成・採点バッチへのPOSTだけは、Basic認証の代わりに `X-Review-Batch-Token`（`REVIEW_BATCH_TOKEN` と一致するもの）で受け付ける。

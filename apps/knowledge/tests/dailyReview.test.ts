@@ -77,7 +77,7 @@ test("旧日次キューの削除は旧スキル関数の削除後だけ進み�
   assert.match(sql, /drop function if exists public\.ensure_daily_review_queue\(integer\);/);
   assert.match(sql, /drop table if exists public\.daily_review_queue_items;/);
   assert.match(sql, /drop table if exists public\.daily_review_queues;/);
-  // Hubとダッシュボードが使う日次の状態集計は消さない。
+  // ダッシュボードの「今日の復習キュー」が使う日次の状態集計は消さない。
   assert.doesNotMatch(sql, /drop function[^;]*get_daily_review_status/);
   assert.doesNotMatch(sql, /drop function[^;]*daily_review_new_card_ids/);
 });

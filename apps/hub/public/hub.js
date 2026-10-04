@@ -4,7 +4,7 @@ import { renderJournalTrendHtml } from "./journal-trend.js";
 const ids = [
   "sourceBadge", "refreshButton", "quickAddMenu", "dateLabel", "updatedLabel",
   "compassLink", "projectsLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "projectsMeta", "writingMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
-  "reviewMetricLink", "dueKnowledge", "weakKnowledge",
+  "reviewMetricLink", "reviewMetricLabel", "dueKnowledge", "weakKnowledge",
   "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
   "retryButton", "hubContent", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
   "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "journalTrend", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
@@ -74,10 +74,30 @@ function renderNavigation(navigation) {
   els.allKnowledgeLink.href = navigation.knowledge;
 }
 
-function renderSummary(summary) {
-  els.dueKnowledge.textContent = Number.isFinite(summary.completedKnowledgeToday)
-    ? `${summary.completedKnowledgeToday} / ${summary.todayKnowledgeTotal}`
-    : "—";
+/** 問題キューの件数。解ける問題があれば復習を始め、なければ採点待ちや結果のある学習ログへ案内する。 */
+function renderReview(summary, navigation) {
+  const readyDue = summary.reviewReadyDue;
+  if (!Number.isFinite(readyDue)) {
+    els.dueKnowledge.textContent = "—";
+    els.weakKnowledge.textContent = "取得できません";
+    els.knowledgeMeta.textContent = "—";
+    return;
+  }
+  const canStart = readyDue > 0;
+  els.reviewMetricLink.href = canStart ? navigation.knowledgeReview : navigation.knowledgeLog || navigation.knowledge;
+  els.reviewMetricLabel.textContent = canStart ? "今日の復習を開始 →" : "学習ログを見る →";
+  els.dueKnowledge.textContent = `${readyDue}問`;
+  els.weakKnowledge.textContent = [
+    `採点待ち ${formatCount(summary.reviewWaitingGrading)}`,
+    `未確認 ${formatCount(summary.reviewUnconfirmed)}`,
+    summary.reviewGradingErrors > 0 ? `採点エラー ${summary.reviewGradingErrors}件` : null,
+    summary.reviewGenerationHeld > 0 ? `問題を作れず保留 ${summary.reviewGenerationHeld}件` : null,
+  ].filter(Boolean).join(" · ");
+  els.knowledgeMeta.textContent = `すぐ解ける ${readyDue}問`;
+}
+
+function renderSummary(summary, navigation) {
+  renderReview(summary, navigation);
   if (!Number.isFinite(summary.pendingInbox)) {
     els.inboxMeta.textContent = "Inboxを取得できません";
   } else if (summary.pendingInbox > 0) {
@@ -85,18 +105,12 @@ function renderSummary(summary) {
   } else {
     els.inboxMeta.textContent = "未整理のInboxなし";
   }
-  els.weakKnowledge.textContent = Number.isFinite(summary.overdueKnowledge)
-    ? `期限超過 ${summary.overdueKnowledge}件 · 完了 ${summary.completedKnowledgeToday}件`
-    : "取得できません";
   els.compassMeta.textContent = Number.isFinite(summary.untriagedWants)
     ? `Inbox ${formatCount(summary.pendingInbox)} · 未整理 ${formatCount(summary.untriagedWants)}`
     : `Inbox ${formatCount(summary.pendingInbox)} · Wants ${formatCount(summary.activeWants)}`;
   els.projectsMeta.textContent = labeledCount("進行中", summary.activeProjects);
   els.writingMeta.textContent = labeledCount("アイデア", summary.writingIdeas);
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
-  els.knowledgeMeta.textContent = Number.isFinite(summary.remainingKnowledgeToday)
-    ? `今日 残り${summary.remainingKnowledgeToday}件`
-    : "—";
   els.habitsMeta.textContent = labeledCount("残り", summary.remainingHabitsToday);
   els.remainingHabits.textContent = formatCount(summary.remainingHabitsToday);
   els.habitProgress.textContent = Number.isFinite(summary.completedHabitsToday)
@@ -395,7 +409,7 @@ async function loadHub() {
     if (!response.ok) throw new Error(payload.error?.message || "データを読み込めませんでした。");
     const availability = payload.availability || { inbox: true, wants: true, focus: true, expenses: true, knowledge: true, journal: true, habits: true };
     renderNavigation(payload.navigation);
-    renderSummary(payload.summary);
+    renderSummary(payload.summary, payload.navigation);
     renderFocus(payload.focus || [], availability.focus);
     renderInbox(payload.inbox || [], availability.inbox);
     renderExpenses(payload.recentExpenses, availability.expenses);
