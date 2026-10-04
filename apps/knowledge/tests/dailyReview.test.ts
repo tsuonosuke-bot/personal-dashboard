@@ -64,28 +64,22 @@ test("カテゴリ別残数の合計が全体の残数と違う応答は拒否�
   }
 });
 
-test("DB migration fixes the queue for the day and ranks by priority, overdue days, accuracy, then id", async () => {
-  const sql = await readFile(new URL("../supabase/migrations/20260920120000_daily_review_queue.sql", import.meta.url), "utf8");
-  assert.match(sql, /daily_review_queue_items/);
-  assert.match(sql, /if exists \(select 1 from public\.daily_review_queues where review_on = v_today\)/i);
-  assert.match(sql, /case k\.priority when '最高' then 0/);
-  assert.match(sql, /greatest\(v_today - coalesce\(k\.next_review_on, v_today\), 0\) desc/);
-  assert.match(sql, /k\.accuracy asc nulls first/);
-  assert.match(sql, /k\.id\s*\n/);
-  assert.match(sql, /preview_review_recovery/);
-  assert.match(sql, /recovery preview is stale/);
-  assert.match(sql, /set next_review_on = a\.scheduled_on/);
-});
-
-test("reference counts and recovery use the same active review-date rules as the dashboard", async () => {
+test("旧日次キューの削除は旧スキル関数の削除後だけ進み、日次の状態集計は残す", async () => {
   const sql = await readFile(
-    new URL("../supabase/migrations/20260920130000_daily_review_reference_counts.sql", import.meta.url),
+    new URL("../supabase/migrations/20261004150000_drop_daily_review_queue.sql", import.meta.url),
     "utf8",
   );
-  assert.match(sql, /k\.archived = false and k\.next_review_on <= v_today/);
-  assert.match(sql, /k\.archived = false and k\.next_review_on < v_today/);
-  assert.doesNotMatch(sql, /k\.mastery <> '定着'/);
-  assert.doesNotMatch(sql, /k\.times_asked > 0\s+and k\.next_review_on < v_today/);
+  // 旧スキル（quiz-engine-v1）の関数が残っていれば、表を消す前に止める。
+  assert.match(sql, /to_regprocedure\('public\.direct_quiz_pick\(text, text\[\], text\[\], integer\)'\) is not null/);
+  assert.match(sql, /raise exception 'Apply 20261004130000_drop_quiz_engine_v1\.sql first/);
+  assert.ok(sql.indexOf("raise exception") < sql.indexOf("drop table"));
+  assert.match(sql, /drop function if exists public\.pick_daily_review_queue\(integer\);/);
+  assert.match(sql, /drop function if exists public\.ensure_daily_review_queue\(integer\);/);
+  assert.match(sql, /drop table if exists public\.daily_review_queue_items;/);
+  assert.match(sql, /drop table if exists public\.daily_review_queues;/);
+  // Hubとダッシュボードが使う日次の状態集計は消さない。
+  assert.doesNotMatch(sql, /drop function[^;]*get_daily_review_status/);
+  assert.doesNotMatch(sql, /drop function[^;]*daily_review_new_card_ids/);
 });
 
 test("continuous review makes 15 a batch size and gives every quality a distinct cadence", async () => {
