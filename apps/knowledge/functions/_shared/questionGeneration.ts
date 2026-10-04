@@ -55,6 +55,20 @@ export function groupRecentNotes(rows: unknown[]): Map<string, RecentNote[]> {
 
 /** 1件あたり直近何回分のつまずきメモを出題の参考に渡すか。 */
 export const NOTES_PER_ITEM = 2;
+
+/** その回で何を問うか。weak_point は直近の回答で外した点、core は本文（title・explanation）の知識。 */
+export type QuestionFocus = "weak_point" | "core";
+
+/**
+ * 直近の回答で外していて、その前は外していなければ、外した点を突く。それ以外は本文の知識を問う。
+ * メモは正解でも毎回付くため、メモがあるだけで弱点を突くと本文の知識が問われなくなる。
+ * 続けて外しているときも、前回すでに弱点を突いたものとみなして本文に戻る。
+ */
+export function questionFocus(notes: RecentNote[]): QuestionFocus {
+  const [latest, previous] = notes;
+  if (!latest || latest.verdict === "正解") return "core";
+  return previous && previous.verdict !== "正解" ? "core" : "weak_point";
+}
 /** 四択の選択肢数。DBにもUIにも持たせず、ここだけを基準にする。 */
 export const CHOICE_COUNT = 4;
 
@@ -253,8 +267,18 @@ const SYSTEM_PROMPT = `あなたはナレッジDBの復習クイズの出題者�
   - 名言 / 哲学 / 気づき / 脳科学: 誰の言葉か、何を主張しているか、何が示唆されるかを問う
 - 例: title「1453 コンスタンティノープル陥落」→「1453年に起きた、ビザンツ帝国の終焉を決定づけた
   出来事は？」
-- past_notes（前回の回答でどこを外したか）があれば、そこを突く問題文にする。
 - times_asked が 0 の項目は初出題。ひねらず、核心をまっすぐ問う。
+
+## 何を問うか
+
+past_notes は直近の回答の記録（新しい順、最大${NOTES_PER_ITEM}件）で、正解した回にも付く。
+各項目の focus はサーバー側で決定済みなので、それに従う。
+
+- focus が "core": title と explanation に書かれた知識そのものを問う。past_notes は参考にとどめ、
+  前回と同じ論点・同じ問い方を繰り返さず、本文のうちまだ問われていない側面を選ぶ。
+  past_notes にしか出てこない論点を問題の中心にしない。
+- focus が "weak_point": past_notes の先頭（直近の回答）で外した点を突く。
+  ただし問うのは explanation に書かれた知識の範囲に限り、本文から離れた周辺知識は問わない。
 
 ## 出題形式
 
@@ -405,6 +429,7 @@ function buildUserText(
       required_format: allowed.length === 1 ? allowed[0] : null,
       allowed_formats: allowed,
       past_notes: notesById.get(item.id) ?? [],
+      focus: questionFocus(notesById.get(item.id) ?? []),
       ...(previous ? { previous_attempt: previous } : {}),
     };
   }));

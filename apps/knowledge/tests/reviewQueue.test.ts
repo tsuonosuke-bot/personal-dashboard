@@ -6,7 +6,7 @@ import { onRequest as gradeRoute } from "../functions/api/review-batch/grade.ts"
 import { onRequest as answerRoute } from "../functions/api/review-queue/answer.ts";
 import { onRequest as discardRoute } from "../functions/api/review-queue/discard.ts";
 import { onRequest as holdsRoute } from "../functions/api/review-queue/generation-holds.ts";
-import { generationIssue } from "../functions/_shared/questionGeneration.ts";
+import { generationIssue, questionFocus } from "../functions/_shared/questionGeneration.ts";
 import { onRequest as pendingRoute } from "../functions/api/review-queue/pending.ts";
 import { onRequest as serveRoute } from "../functions/api/review-queue/serve.ts";
 import { onRequest as statusRoute } from "../functions/api/review-queue/status.ts";
@@ -762,4 +762,45 @@ test("AIの拒否と、JSONでない応答は理由つきで失敗にする", as
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("過去のメモは正解でも付くので、直近で初めて外したときだけ弱点を突き、それ以外は本文の知識を問う", () => {
+  const note = (verdict: string) => ({ asked_on: "2026-10-01", verdict, note: `${verdict}のメモ` });
+  assert.equal(questionFocus([]), "core");
+  assert.equal(questionFocus([note("正解")]), "core");
+  assert.equal(questionFocus([note("正解"), note("不正解")]), "core");
+  assert.equal(questionFocus([note("不正解")]), "weak_point");
+  assert.equal(questionFocus([note("部分正解"), note("正解")]), "weak_point");
+  // 続けて外しているなら、前回すでに弱点を突いたものとみなして本文へ戻る
+  assert.equal(questionFocus([note("不正解"), note("部分正解")]), "core");
+});
+
+test("生成AIへは直近2回のメモをそのまま渡し、項目ごとに何を問うかを添える", async () => {
+  const record = generationRecord();
+  const base = generationRpc(twoCandidates(), record);
+  await withServices({
+    rpc: (name, body) => {
+      if (name !== "get_recent_quiz_notes") return base(name, body);
+      assert.equal(body.p_per_item, 2);
+      return [
+        { knowledge_id: K1, verdict: "正解", note: "核心は答えられたが理由が抜けた", asked_on: "2026-10-02", quality: 4 },
+        { knowledge_id: K2, verdict: "不正解", note: "部門と組織を取り違えた", asked_on: "2026-10-03", quality: 1 },
+        { knowledge_id: K2, verdict: "正解", note: "正しく答えた", asked_on: "2026-10-01", quality: 5 },
+      ];
+    },
+    ai: () => aiJson({ questions: [CHOICE_QUESTION, FIXED_QUESTION] }),
+  }, async (calls) => {
+    await generateRoute({ request: cronRequest("/api/review-batch/generate"), env });
+    const items = aiItems(calls.ai[0]);
+    const byId = new Map(items.map((item) => [item.id, item]));
+    assert.equal(byId.get(K1)?.focus, "core");
+    assert.equal((byId.get(K1)?.past_notes as unknown[]).length, 1);
+    assert.equal(byId.get(K2)?.focus, "weak_point");
+    assert.deepEqual((byId.get(K2)?.past_notes as { note: string }[]).map((entry) => entry.note), ["部門と組織を取り違えた", "正しく答えた"]);
+    // メモがあるだけで弱点を突けとは指示しない
+    const system = String(calls.ai[0].system);
+    assert.doesNotMatch(system, /past_notes（前回の回答でどこを外したか）があれば、そこを突く/);
+    assert.match(system, /focus が "core": title と explanation に書かれた知識そのものを問う/);
+    assert.match(system, /focus が "weak_point": past_notes の先頭（直近の回答）で外した点を突く/);
+  });
 });
