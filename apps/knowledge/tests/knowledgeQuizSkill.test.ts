@@ -38,3 +38,29 @@ test("knowledge-quiz スキルはキューの v2 関数だけを使い、記録S
   assert.match(migration, /v_quality := case when v_answer = item\.correct_choice then 4 else least\(v_quality, 1\) end/);
   assert.match(migration, /if v_answer = '' then\s+v_quality := 0;/);
 });
+
+test("旧契約 v1 の関数だけを削除し、v2 スキルが使う関数は残す", async () => {
+  const skill = await read("../skills/knowledge-quiz/SKILL.md");
+  const drop = await read("../supabase/migrations/20261004130000_drop_quiz_engine_v1.sql");
+  const archive = await read("../supabase/archive/quiz_engine_v1.sql");
+
+  const dropped = [...drop.matchAll(/drop function if exists public\.([a-z_]+)\(/g)].map((match) => match[1]);
+  assert.deepEqual(dropped.sort(), ["direct_quiz_count", "direct_quiz_health", "direct_quiz_pick", "direct_quiz_record"]);
+  // スキルが呼ぶ関数を1つも消さない
+  const called = new Set([...skill.matchAll(/\b(direct_quiz_[a-z_]+)\(/g)].map((match) => match[1]));
+  assert.ok(called.has("direct_quiz_categories"));
+  for (const name of dropped) assert.equal(called.has(name), false, `${name} is still used by the skill`);
+  assert.match(drop, /create or replace function public\.direct_quiz_categories\(\)/);
+  assert.match(drop, /grant execute on function public\.direct_quiz_categories\(\) to knowledge_quiz/);
+
+  // リポジトリ外で作られていた定義は、消す前に archive へ残す（count は既存のマイグレーションにある）
+  for (const name of ["direct_quiz_health", "direct_quiz_pick", "direct_quiz_record"]) {
+    assert.match(archive, new RegExp(`CREATE OR REPLACE FUNCTION public\\.${name}\\(`));
+  }
+});
+
+test("復習ペース変更前の退避表を削除するマイグレーションは、その表だけを消す", async () => {
+  const sql = await read("../supabase/migrations/20261004140000_drop_schedule_backup.sql");
+  const statements = sql.replace(/--.*$/gm, "").split(";").map((part) => part.trim()).filter(Boolean);
+  assert.deepEqual(statements, ["begin", "drop table if exists public.knowledge_schedule_backup_20260928", "commit"]);
+});

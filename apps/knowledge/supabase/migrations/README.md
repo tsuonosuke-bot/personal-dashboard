@@ -56,6 +56,15 @@ build that depends on them.
 - `20261003100000_review_expected_answer.sql` stores the expected answer with
   each queued question (returned only after answering) and adds
   `discard_review_question` for questions the learner reports as broken.
+- `20261004100000_skill_review_queue.sql` adds the knowledge-quiz skill's
+  quiz-engine-v2 functions (`direct_quiz_queue_health` / `status` / `pick` /
+  `record` / `discard`). The chat skill serves questions from the same review
+  queue as the app, grades in the conversation, and records the answer, model
+  answer and feedback in `quiz_log` as confirmed. Blank answers and multiple
+  choice are corrected in the database as in the app. Integration checks:
+  `tests/reviewScheduler.integration.sql`.
+- `20261004110000_drop_review_recovery.sql` drops the unused review recovery
+  functions (`preview_review_recovery`, `apply_review_recovery`).
 - `20261004120000_review_generation_holds.sql` records cards whose generated
   question still failed the checks after one regeneration
   (`review_generation_holds`, `hold_review_generation_failures`). Generation
@@ -64,6 +73,14 @@ build that depends on them.
   clears the record. `get_review_queue_status` is recreated with
   `generation_held`, and `list_review_generation_holds` lists them.
   Integration checks: `tests/reviewScheduler.integration.sql`.
+- `20261004130000_drop_quiz_engine_v1.sql` drops the skill's quiz-engine-v1
+  functions and versions `direct_quiz_categories`, which v2 still uses. Apply it
+  only after the skill in claude.ai is replaced with the v2 copy in
+  `skills/knowledge-quiz/`. The dropped definitions are kept in
+  `supabase/archive/quiz_engine_v1.sql`.
+- `20261004140000_drop_schedule_backup.sql` drops
+  `knowledge_schedule_backup_20260928` (issue #62). It deletes data
+  permanently, so the owner runs it.
 
 After applying a migration, verify its functions with `pg_get_functiondef` and
 verify the new column/trigger through `information_schema` before deploying the
