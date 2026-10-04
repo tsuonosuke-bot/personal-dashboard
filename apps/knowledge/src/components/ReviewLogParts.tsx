@@ -188,17 +188,19 @@ export function GenerationHoldsPanel({ onOpenKnowledge }: { onOpenKnowledge: (id
 }
 
 /**
- * 採点結果1件に対する操作。採点画面にあった習熟度・優先度の変更、アーカイブ（元に戻せる）、
- * 示唆、あとで深掘り、詳細表示をここに置く。
+ * 採点結果1件に対する操作。習熟度・優先度の変更、アーカイブ（元に戻せる）、
+ * 示唆、あとで深掘り、詳細表示をここに置く。学習ログと復習の答え合わせ画面で共通に使う。
  */
 export function ReviewResultActions({
-  item, onKnowledgeUpdate, insightStore, insightGroupStore, onOpenDetail,
+  item, onKnowledgeUpdate, insightStore, insightGroupStore, onOpenDetail, archiveWarning,
 }: {
   item: Knowledge;
   onKnowledgeUpdate: KnowledgeUpdate;
   insightStore: InsightStore;
   insightGroupStore: InsightGroupStore;
   onOpenDetail: (item: Knowledge) => void;
+  /** アーカイブの確認に添える注意。採点前の回答は、アーカイブされたままだと採点バッチが記録せずに破棄する。 */
+  archiveWarning?: string;
 }) {
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -221,7 +223,8 @@ export function ReviewResultActions({
   };
 
   const archive = () => {
-    if (!window.confirm(`「${item.title}」をアーカイブしますか？\n今後の復習に出題されなくなります。`)) return;
+    const warning = archiveWarning ? `\n${archiveWarning}` : "";
+    if (!window.confirm(`「${item.title}」をアーカイブしますか？\n今後の復習に出題されなくなります。${warning}`)) return;
     void save({ archived: true }, "アーカイブしました。");
   };
 
