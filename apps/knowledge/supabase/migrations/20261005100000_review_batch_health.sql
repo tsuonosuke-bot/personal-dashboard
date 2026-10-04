@@ -6,6 +6,39 @@
 -- Read-only; it also reports the pg_cron jobs that start the batches.
 begin;
 
+create or replace function public.review_batch_kind_health(p_kind text)
+returns jsonb
+language sql
+stable
+set search_path to 'public', 'pg_temp'
+as $$
+  with finished as (
+    select * from public.review_batch_runs where kind = p_kind and status <> 'running'
+  ),
+  last_ok as (
+    select max(started_at) as at from finished where status in ('succeeded', 'skipped')
+  ),
+  last_run as (
+    select started_at, status from finished order by started_at desc limit 1
+  ),
+  last_failure as (
+    select started_at, note from finished where status = 'failed' order by started_at desc limit 1
+  )
+  select jsonb_build_object(
+    'last_ok_at', (select at from last_ok),
+    'last_run_at', (select started_at from last_run),
+    'last_run_status', (select status from last_run),
+    'consecutive_failures', (
+      select count(*) from finished f
+      where f.status = 'failed' and f.started_at > coalesce((select at from last_ok), '-infinity'::timestamptz)
+    ),
+    'failed_24h', (select count(*) from finished where status = 'failed' and started_at > now() - interval '24 hours'),
+    'partial_24h', (select count(*) from finished where status = 'succeeded' and failed > 0 and started_at > now() - interval '24 hours'),
+    'last_failure_at', (select started_at from last_failure),
+    'last_failure_note', (select left(note, 300) from last_failure)
+  );
+$$;
+
 create or replace function public.get_review_batch_health()
 returns jsonb
 language sql
@@ -41,39 +74,6 @@ as $$
       ) lf on true
       where j.jobname in ('review-generate-questions', 'review-grade-answers')
     ), '[]'::jsonb)
-  );
-$$;
-
-create or replace function public.review_batch_kind_health(p_kind text)
-returns jsonb
-language sql
-stable
-set search_path to 'public', 'pg_temp'
-as $$
-  with finished as (
-    select * from public.review_batch_runs where kind = p_kind and status <> 'running'
-  ),
-  last_ok as (
-    select max(started_at) as at from finished where status in ('succeeded', 'skipped')
-  ),
-  last_run as (
-    select started_at, status from finished order by started_at desc limit 1
-  ),
-  last_failure as (
-    select started_at, note from finished where status = 'failed' order by started_at desc limit 1
-  )
-  select jsonb_build_object(
-    'last_ok_at', (select at from last_ok),
-    'last_run_at', (select started_at from last_run),
-    'last_run_status', (select status from last_run),
-    'consecutive_failures', (
-      select count(*) from finished f
-      where f.status = 'failed' and f.started_at > coalesce((select at from last_ok), '-infinity'::timestamptz)
-    ),
-    'failed_24h', (select count(*) from finished where status = 'failed' and started_at > now() - interval '24 hours'),
-    'partial_24h', (select count(*) from finished where status = 'succeeded' and failed > 0 and started_at > now() - interval '24 hours'),
-    'last_failure_at', (select started_at from last_failure),
-    'last_failure_note', (select left(note, 300) from last_failure)
   );
 $$;
 
