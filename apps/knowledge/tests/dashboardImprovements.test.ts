@@ -36,14 +36,15 @@ test("Knowledge JSONは全ページ対象の読み取り専用添付を返す", 
   }
 });
 
-test("Knowledge接続状態は要求された4項目だけを返す", async () => {
+test("Knowledge接続状態は4項目とバッチ状態だけを返す（バッチ状態が取れなくてもnull）", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => Response.json([{ migration: "20260922140000_connection_status" }]);
   try {
     const response = await statusRoute({ request: new Request("https://dashboard.example/api/status"), env });
     assert.equal(response.status, 200);
     const payload = await response.json() as Record<string, unknown>;
-    assert.deepEqual(Object.keys(payload).sort(), ["authMethod", "destination", "lastSuccessAt", "migration"].sort());
+    assert.deepEqual(Object.keys(payload).sort(), ["authMethod", "destination", "lastSuccessAt", "migration", "reviewBatches"].sort());
+    assert.equal(payload.reviewBatches, null);
     assert.equal(payload.destination, "knowledge-db.example");
     assert.equal(payload.migration, "20260922140000_connection_status");
   } finally {

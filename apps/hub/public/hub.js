@@ -4,7 +4,7 @@ import { renderJournalTrendHtml } from "./journal-trend.js";
 const ids = [
   "sourceBadge", "refreshButton", "quickAddMenu", "dateLabel", "updatedLabel",
   "compassLink", "projectsLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "projectsMeta", "writingMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
-  "reviewMetricLink", "reviewMetricLabel", "dueKnowledge", "weakKnowledge",
+  "batchAlert", "batchAlertList", "reviewMetricLink", "reviewMetricLabel", "dueKnowledge", "weakKnowledge",
   "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
   "retryButton", "hubContent", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
   "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "journalTrend", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
@@ -96,8 +96,20 @@ function renderReview(summary, navigation) {
   els.knowledgeMeta.textContent = `すぐ解ける ${readyDue}問`;
 }
 
+/** 生成・採点バッチの警告。無ければ非表示。取得できない（null）ときも出さない。 */
+function renderBatchAlerts(alerts) {
+  const messages = Array.isArray(alerts) ? alerts.filter((message) => typeof message === "string" && message) : [];
+  els.batchAlert.hidden = messages.length === 0;
+  els.batchAlertList.replaceChildren(...messages.map((message) => {
+    const item = document.createElement("li");
+    item.textContent = message;
+    return item;
+  }));
+}
+
 function renderSummary(summary, navigation) {
   renderReview(summary, navigation);
+  renderBatchAlerts(summary.reviewBatchAlerts);
   if (!Number.isFinite(summary.pendingInbox)) {
     els.inboxMeta.textContent = "Inboxを取得できません";
   } else if (summary.pendingInbox > 0) {

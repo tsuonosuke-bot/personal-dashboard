@@ -1,5 +1,6 @@
 import type { DashboardEnv } from "./dashboard.ts";
 import { loadHabits } from "./habits.ts";
+import { readReviewBatches, type ReviewBatchesStatus } from "./reviewBatches.ts";
 import { FOCUS_LIMIT, normalizeFocusRows, type FocusRow } from "./focus.ts";
 
 export interface HubEnv extends DashboardEnv {
@@ -526,6 +527,7 @@ export function normalizeHub(
   projectRows: ProjectRow[] = [],
   writingRows: WritingRow[] = [],
   journalTrend: JournalTrend = normalizeJournalTrend([], now),
+  reviewBatches: ReviewBatchesStatus | null = null,
 ) {
   const { today, year, month } = jstDateParts(now);
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -608,6 +610,8 @@ export function normalizeHub(
       reviewGradingErrors: availability.knowledge ? integer(reviewStatus?.grading_errors) ?? 0 : null,
       reviewUnconfirmed: availability.knowledge ? integer(reviewStatus?.unconfirmed_results) ?? 0 : null,
       reviewGenerationHeld: availability.knowledge ? integer(reviewStatus?.generation_held) ?? 0 : null,
+      // 生成・採点バッチの警告（全体の失敗が続く・成功が途絶える・cronが止まる）。取得できなければnull。
+      reviewBatchAlerts: reviewBatches ? reviewBatches.alerts : null,
       weakKnowledge: availability.knowledge ? knowledge.weakCount : null,
       activeWants: availability.wants ? activeWants.length : null,
       untriagedWants: availability.wants ? untriagedWants.length : null,
@@ -638,7 +642,7 @@ export function normalizeHub(
 export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
-  const [inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, journal, journalTrend, habits] = await Promise.allSettled([
+  const [inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, knowledgeStatus, journal, journalTrend, habits] = await Promise.allSettled([
     fetchRows(env, { table: "idea_inbox", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<InboxRow[]>,
     fetchRows(env, { table: "wants", select: "status,type,revisit_on" }) as Promise<WantRow[]>,
     fetchFocusRows(env),
@@ -647,11 +651,12 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     fetchDashboardRows(env, financialUrl, "/api/expenses") as Promise<ExpenseRow[]>,
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,
     fetchDashboardJson(env, knowledgeUrl, "/api/review-queue/status") as Promise<KnowledgeReviewStatus>,
+    fetchDashboardJson(env, knowledgeUrl, "/api/status"),
     loadJournalMoments(env, now),
     loadJournalTrend(env, now),
     loadHabits(env, now),
   ] as const);
-  const results = { inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, journal, journalTrend, habits };
+  const results = { inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, knowledgeStatus, journal, journalTrend, habits };
   const availability: HubAvailability = {
     inbox: inbox.status === "fulfilled",
     wants: wants.status === "fulfilled",
@@ -687,6 +692,7 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     projects.status === "fulfilled" ? projects.value : [],
     writing.status === "fulfilled" ? writing.value : [],
     journalTrend.status === "fulfilled" ? journalTrend.value : normalizeJournalTrend([], now),
+    knowledgeStatus.status === "fulfilled" ? readReviewBatches(knowledgeStatus.value) : null,
   );
 }
 

@@ -23,7 +23,7 @@ main { width: min(1040px, calc(100% - 28px)); margin: 0 auto; padding: 18px 0 48
 .status-card dl { margin: 0; }
 .status-card dl div { display: grid; gap: 5px; padding: 10px 15px; border-top: 1px solid #ecece7; }
 .status-card dt { color: var(--muted); font-size: 8px; font-weight: 800; text-transform: uppercase; }
-.status-card dd { overflow-wrap: anywhere; margin: 0; font-size: 11px; font-weight: 700; line-height: 1.45; }
+.status-card dd { white-space: pre-line; overflow-wrap: anywhere; margin: 0; font-size: 11px; font-weight: 700; line-height: 1.45; }
 .status-loading, .status-error { min-height: 190px; display: grid; place-items: center; align-content: center; gap: 9px; border: 1px solid var(--line); border-radius: 13px; background: #fff; color: var(--muted); text-align: center; }
 .status-loading span { width: 26px; height: 26px; border: 2px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; }
 .status-loading p, .status-error p { margin: 0; font-size: 10px; }

@@ -107,6 +107,10 @@ a { color: inherit; }
 .refresh-button svg { width: 14px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.8; }
 
 main { width: min(1240px, calc(100% - 24px)); margin: 0 auto; }
+.batch-alert { display: grid; gap: 6px; margin: 0 0 12px; padding: 12px 15px; border: 1px solid #d9b5a8; border-left-width: 4px; border-radius: 10px; background: #fbefe9; color: #6b2a17; font-size: 12px; line-height: 1.5; }
+.batch-alert strong { font-size: 13px; }
+.batch-alert ul { margin: 0; padding-left: 18px; }
+.batch-alert a { justify-self: start; color: inherit; font-weight: 750; }
 .context-strip { min-height: 43px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); }
 .context-strip strong { color: var(--green); font-size: 10px; }
 .context-strip small { font-size: 9px; }
