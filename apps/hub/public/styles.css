@@ -361,7 +361,7 @@ main { width: min(1240px, calc(100% - 28px)); }
 .form-field small { text-align: right; font-size: 10px; font-weight: 500; }
 .form-error { margin: 12px 0 0; padding: 10px 12px; border: 1px solid #e9c9c6; border-radius: 8px; background: #fff5f4; color: #a53f39; font-size: 12px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
-.toast { position: fixed; right: 18px; bottom: 18px; z-index: 80; max-width: min(360px, calc(100vw - 36px)); padding: 12px 15px; border-radius: 10px; background: #202822; color: #fff; box-shadow: var(--shadow); font-size: 12px; }
+.toast { position: fixed; right: 18px; bottom: calc(18px + var(--tabbar-space, 0px)); z-index: 80; max-width: min(360px, calc(100vw - 36px)); padding: 12px 15px; border-radius: 10px; background: #202822; color: #fff; box-shadow: var(--shadow); font-size: 12px; }
 
 @media (max-width: 650px) {
   .topbar { height: 58px; padding: 0 10px; }

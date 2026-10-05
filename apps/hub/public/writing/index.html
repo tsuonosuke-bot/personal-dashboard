@@ -32,7 +32,7 @@
               </summary>
               <div class="dashboard-switcher-menu">
                 <nav aria-label="ダッシュボードを切り替え">
-                  <a href="/compass/">Idea</a><a href="/projects/">Projects</a><span aria-current="page">Writing</span><a href="/habits/">Habits</a><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a>
+                  <a href="/compass/">Idea</a><a href="/projects/">Projects</a><span aria-current="page">Writing</span><a href="/habits/">Habits</a><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a><a href="/status/">接続状態</a>
                 </nav>
                 <label class="theme-select"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label>
               </div>
@@ -86,5 +86,6 @@
     </div>
     <div class="toast" id="toast" role="status" hidden></div>
     <script src="/writing.js" type="module"></script>
+    <script src="/tabbar.js" data-page="writing" defer></script>
   </body>
 </html>

@@ -196,7 +196,7 @@ form textarea { min-height: 70px; padding: 9px 10px; resize: vertical; line-heig
 .resolution-options input { width: auto; min-height: auto; }
 #continueFields, #waitingFields, #holdFields { display: grid; gap: 11px; }
 
-.toast { position: fixed; right: 18px; bottom: 18px; z-index: 100; max-width: min(420px, calc(100% - 36px)); padding: 11px 13px; border-radius: 9px; background: #24313b; color: #fff; box-shadow: 0 12px 34px rgba(20, 27, 33, .24); font-size: 12px; }
+.toast { position: fixed; right: 18px; bottom: calc(18px + var(--tabbar-space, 0px)); z-index: 100; max-width: min(420px, calc(100% - 36px)); padding: 11px 13px; border-radius: 9px; background: #24313b; color: #fff; box-shadow: 0 12px 34px rgba(20, 27, 33, .24); font-size: 12px; }
 
 @media (max-width: 900px) {
   .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

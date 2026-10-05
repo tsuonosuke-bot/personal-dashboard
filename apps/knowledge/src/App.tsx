@@ -433,6 +433,7 @@ export default function App() {
               <div className="dashboard-switcher-menu">
                 <nav aria-label="ダッシュボードを切り替え">
                   <a href="https://personal-dashboard-7md.pages.dev/compass/">Idea</a>
+                  <a href="https://personal-dashboard-7md.pages.dev/projects/">Projects</a>
                   <a href="https://personal-dashboard-7md.pages.dev/writing/">Writing</a>
                   <a href="https://personal-dashboard-7md.pages.dev/habits/">Habits</a>
                   <a href="https://personal-dashboard-7md.pages.dev/go/financial">Finance</a>

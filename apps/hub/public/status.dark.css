@@ -14,37 +14,14 @@
   --green--light: #245949;
   --green-soft: #2f3b35;
   --green-soft--light: #e1ece6;
+  --page-accent: #b4c2ba;
+  --page-accent--light: #52645a;
+  --page-accent-soft: #333633;
+  --page-accent-soft--light: #e8ebe8;
 }
 :root[data-theme="dark"] body {
   color: var(--ink);
   background: var(--paper);
-}
-:root[data-theme="dark"] .status-header {
-  border-bottom: 1px solid var(--line);
-  background: rgba(41, 41, 41, 0.9);
-}
-:root[data-theme="dark"] .status-header a,
-:root[data-theme="dark"] .status-header button {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #292929;
-  color: var(--ink);
-  text-decoration: none;
-}
-:root[data-theme="dark"] .status-header small {
-  color: var(--muted);
-}
-:root[data-theme="dark"] .status-header button {
-  color: var(--green);
-}
-:root[data-theme="dark"] .status-header .theme-select {
-  color: var(--muted);
-}
-:root[data-theme="dark"] .status-header .theme-select select {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #292929;
-  color: var(--ink);
 }
 :root[data-theme="dark"] .status-card {
   border: 1px solid var(--line);

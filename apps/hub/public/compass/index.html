@@ -37,7 +37,9 @@
                 <span>Dashboards</span>
               </summary>
               <div class="dashboard-switcher-menu">
-                <nav id="dashboardNav" aria-label="ダッシュボードを切り替え"><span class="nav-loading">リンクを確認中</span></nav>
+                <nav aria-label="ダッシュボードを切り替え">
+                  <span aria-current="page">Idea</span><a href="/projects/">Projects</a><a href="/writing/">Writing</a><a href="/habits/">Habits</a><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a><a href="/status/">接続状態</a>
+                </nav>
                 <label class="theme-select"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label>
               </div>
             </details>
@@ -142,5 +144,6 @@
     </div>
     <div class="toast" id="toast" role="status" hidden></div>
     <script src="/app.js" type="module"></script>
+    <script src="/tabbar.js" data-page="idea" defer></script>
   </body>
 </html>

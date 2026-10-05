@@ -117,7 +117,7 @@ textarea { resize: vertical; padding: 10px 11px; line-height: 1.5; }
 input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(154,71,39,.12); }
 .form-error { margin: 0; padding: 9px; border-radius: 8px; background: #f7e3e1; color: #9d403a; font-size: 9px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 3px; }
-.toast { position: fixed; z-index: 30; right: 18px; bottom: 18px; max-width: min(360px, calc(100% - 36px)); padding: 11px 14px; border-radius: 10px; background: var(--ink); color: #fff; box-shadow: 0 10px 30px rgba(70,39,24,.2); font-size: 10px; font-weight: 750; }
+.toast { position: fixed; z-index: 30; right: 18px; bottom: calc(18px + var(--tabbar-space, 0px)); max-width: min(360px, calc(100% - 36px)); padding: 11px 14px; border-radius: 10px; background: var(--ink); color: #fff; box-shadow: 0 10px 30px rgba(70,39,24,.2); font-size: 10px; font-weight: 750; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 620px) {
