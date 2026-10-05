@@ -89,3 +89,19 @@ test("答え合わせ画面に学習ログと同じ操作（示唆・あとで�
   // 操作後も「次の問題へ」は残る
   assert.match(view, /次の問題へ →<\/button>[\s\S]*?<ReviewResultActions/);
 });
+
+test("答え合わせ画面は、その知識に付いているタグを表示する（無いときは未設定）", async () => {
+  const [view, css] = await Promise.all([
+    readFile(new URL("../src/components/ReviewView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/index.css", import.meta.url), "utf8"),
+  ]);
+  const feedback = view.slice(view.indexOf("function ReviewFeedbackCard"));
+  // 結果欄（dl）の中に、知識項目があるときだけタグの行を出す
+  assert.match(feedback, /<dl className="review-result-body">[\s\S]*\{item && \([\s\S]*<dt>タグ<\/dt>[\s\S]*<\/dl>/);
+  assert.match(feedback, /item\.tags\.map\(\(tag\) => <span className="tag" key=\{tag\}>#\{tag\}<\/span>\)/);
+  assert.match(feedback, /<span className="muted">未設定<\/span>/);
+  // 質問の表示（回答前）にはタグを出さない: 答えのヒントになりうる
+  const question = view.slice(view.indexOf("function ReviewQuestionCard"), view.indexOf("function ReviewFeedbackCard"));
+  assert.doesNotMatch(question, /\.tags|<dt>タグ/);
+  assert.match(css, /\.review-feedback-tags \{ display: flex; flex-wrap: wrap;/);
+});

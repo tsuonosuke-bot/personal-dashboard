@@ -624,6 +624,7 @@ button.review-card { display: block; }
 .review-unconfirmed { margin-left: 8px; background: #66558c; color: #fff; }
 .review-result-body { display: grid; gap: 8px; margin: 8px 0 0; }
 .review-result-body dt { color: #7a879b; font-size: 11px; font-weight: 700; }
+.review-feedback-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .review-result-body dd { margin: 2px 0 0; color: #334155; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
 .review-result-actions { display: grid; gap: 10px; margin-top: 4px; }
 .review-priority-note { margin: 6px 0 0; font-size: 11px; }

@@ -328,6 +328,17 @@ function ReviewFeedbackCard({
         <div><dt>あなたの回答</dt><dd>{answer || "（空欄）"}</dd></div>
         {modelAnswer && <div><dt>{result ? "正解" : "模範解答"}</dt><dd>{modelAnswer}</dd></div>}
         {result?.explanation && <div><dt>講評</dt><dd>{result.explanation}</dd></div>}
+        {/* この知識に付いているタグ。見るだけで、変更はナレッジ一覧・詳細から行う。 */}
+        {item && (
+          <div>
+            <dt>タグ</dt>
+            <dd className="review-feedback-tags">
+              {item.tags.length > 0
+                ? item.tags.map((tag) => <span className="tag" key={tag}>#{tag}</span>)
+                : <span className="muted">未設定</span>}
+            </dd>
+          </div>
+        )}
       </dl>
       <p className="muted review-answer-hint">
         {result
