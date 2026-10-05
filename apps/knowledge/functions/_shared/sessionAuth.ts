@@ -1,126 +1,16 @@
-import { requestSupabaseFunction, type SupabaseEnv } from "./supabaseRest.ts";
+import {
+  acceptHandoff as acceptSharedHandoff,
+  createNonceConsumer,
+  type SessionEnv as SharedSessionEnv,
+} from "@personal-dashboards/auth";
 import { isUuid } from "./knowledgeValidation.ts";
+import type { SupabaseEnv } from "./supabaseRest.ts";
 
-export interface SessionEnv extends SupabaseEnv {
-  SSO_SHARED_SECRET?: string;
-  SESSION_TTL_DAYS?: string;
-}
+// トークン・Cookie・セッションの共通部分は packages/dashboard-auth にある。ここには
+// Knowledge固有の部分（引き継ぎ後の遷移先と、nonceを消費するDB関数）だけを置く。
+export { attachSession, createHandoffUrl, hasValidSession } from "@personal-dashboards/auth";
 
-type TokenType = "handoff" | "session";
-type TokenPayload = { v: 1; typ: TokenType; aud: string; exp: number; nonce: string };
-const COOKIE_NAME = "personal_hub_session";
-const encoder = new TextEncoder();
-
-function toBase64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function fromBase64Url(value: string): Uint8Array | null {
-  if (!/^[A-Za-z0-9_-]+$/.test(value)) return null;
-  try {
-    const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
-    return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0));
-  } catch { return null; }
-}
-
-function secret(env: SessionEnv): string | null {
-  const value = env.SSO_SHARED_SECRET?.trim();
-  return value && value.length >= 32 ? value : null;
-}
-
-async function hmacKey(value: string) {
-  return crypto.subtle.importKey("raw", encoder.encode(value), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
-}
-
-async function signPayload(payload: TokenPayload, value: string): Promise<string> {
-  const encoded = toBase64Url(encoder.encode(JSON.stringify(payload)));
-  const signature = await crypto.subtle.sign("HMAC", await hmacKey(value), encoder.encode(encoded));
-  return `${encoded}.${toBase64Url(new Uint8Array(signature))}`;
-}
-
-async function verifyToken(
-  token: string,
-  type: TokenType,
-  audience: string,
-  value: string,
-  now = Date.now(),
-): Promise<TokenPayload | null> {
-  const [encoded, encodedSignature, extra] = token.split(".");
-  if (!encoded || !encodedSignature || extra) return null;
-  const payloadBytes = fromBase64Url(encoded);
-  const signature = fromBase64Url(encodedSignature);
-  if (!payloadBytes || !signature) return null;
-  const valid = await crypto.subtle.verify("HMAC", await hmacKey(value), signature as unknown as BufferSource, encoder.encode(encoded));
-  if (!valid) return null;
-  try {
-    const payload = JSON.parse(new TextDecoder().decode(payloadBytes)) as Partial<TokenPayload>;
-    return payload.v === 1 && payload.typ === type && payload.aud === audience
-      && typeof payload.exp === "number" && Number.isInteger(payload.exp)
-      && payload.exp >= Math.floor(now / 1_000) - 5
-      && typeof payload.nonce === "string" && /^[A-Za-z0-9_-]{20,64}$/.test(payload.nonce)
-      ? payload as TokenPayload
-      : null;
-  } catch { return null; }
-}
-
-function nonce(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return toBase64Url(bytes);
-}
-
-function readCookie(request: Request): string | null {
-  const cookies = request.headers.get("Cookie") || "";
-  for (const entry of cookies.split(";")) {
-    const [name, ...parts] = entry.trim().split("=");
-    if (name === COOKIE_NAME) return parts.join("=") || null;
-  }
-  return null;
-}
-
-function sessionDays(env: SessionEnv): number {
-  const parsed = Number(env.SESSION_TTL_DAYS || "30");
-  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 365 ? parsed : 30;
-}
-
-export async function hasValidSession(request: Request, env: SessionEnv): Promise<boolean> {
-  const value = secret(env);
-  const token = readCookie(request);
-  if (!value || !token) return false;
-  return Boolean(await verifyToken(token, "session", new URL(request.url).host, value));
-}
-
-export async function attachSession(response: Response, request: Request, env: SessionEnv): Promise<Response> {
-  const value = secret(env);
-  if (!value) return response;
-  const days = sessionDays(env);
-  const payload: TokenPayload = { v: 1, typ: "session", aud: new URL(request.url).host, exp: Math.floor(Date.now() / 1_000) + days * 86400, nonce: nonce() };
-  const token = await signPayload(payload, value);
-  const secured = new Response(response.body, response);
-  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
-  secured.headers.append("Set-Cookie", `${COOKIE_NAME}=${token}; Path=/; Max-Age=${days * 86400}; HttpOnly${secure}; SameSite=Lax`);
-  return secured;
-}
-
-export async function createHandoffUrl(target: URL, env: SessionEnv): Promise<URL | null> {
-  const value = secret(env);
-  if (!value) return null;
-  const payload: TokenPayload = {
-    v: 1,
-    typ: "handoff",
-    aud: target.host,
-    exp: Math.floor(Date.now() / 1_000) + 60,
-    nonce: nonce(),
-  };
-  const token = await signPayload(payload, value);
-  const redirect = new URL("/auth/handoff", target.origin);
-  redirect.searchParams.set("token", token);
-  const destination = `${target.pathname}${target.search}${target.hash}`;
-  if (destination !== "/") redirect.searchParams.set("next", destination);
-  return redirect;
-}
+export interface SessionEnv extends SupabaseEnv, SharedSessionEnv {}
 
 export function acceptedDestination(value: string | null): string {
   if (!value || !value.startsWith("/")) return "/";
@@ -147,22 +37,9 @@ export function acceptedDestination(value: string | null): string {
   return "/";
 }
 
-export async function acceptHandoff(request: Request, env: SessionEnv): Promise<Response | null> {
-  const url = new URL(request.url);
-  if (url.pathname !== "/auth/handoff") return null;
-  const value = secret(env);
-  if (!value) return new Response("SSO handoff is not configured.\n", { status: 503 });
-  const token = url.searchParams.get("token") || "";
-  const payload = await verifyToken(token, "handoff", url.host, value);
-  if (!payload) return new Response("SSO handoff token is invalid.\n", { status: 403 });
-  const consumed = await requestSupabaseFunction(env, "consume_dashboard_handoff_nonce", {
-    p_nonce: payload.nonce,
-    p_expires_at: payload.exp,
+export function acceptHandoff(request: Request, env: SessionEnv): Promise<Response | null> {
+  return acceptSharedHandoff(request, env, {
+    consumeNonce: createNonceConsumer(env),
+    resolveDestination: acceptedDestination,
   });
-  if (!consumed.ok) return consumed.response;
-  if (consumed.data !== true) {
-    return new Response("SSO handoff token has already been used.\n", { status: 403 });
-  }
-  const destination = acceptedDestination(url.searchParams.get("next"));
-  return attachSession(new Response(null, { status: 302, headers: { Location: destination } }), request, env);
 }

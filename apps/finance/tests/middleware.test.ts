@@ -74,3 +74,40 @@ test('Hubサービスキーは読み取り専用の家計簿・書き出し・�
   })
   assert.equal(denied.status, 401)
 })
+
+test('SSOの引き継ぎトークンは1回しか使えない（再利用は403、DBの失敗は502）', async () => {
+  const { createHandoffUrl } = await import('@personal-dashboards/auth')
+  const env = {
+    SSO_SHARED_SECRET: 'shared-secret-that-is-longer-than-thirty-two-characters',
+    SUPABASE_URL: 'https://project.supabase.co',
+    SUPABASE_SECRET_KEY: 'secret-test-key',
+  }
+  const handoffUrl = await createHandoffUrl(new URL('https://dashboard.example/'), env)
+  assert.ok(handoffUrl)
+  const originalFetch = globalThis.fetch
+  const results = [true, false]
+  const bodies: unknown[] = []
+  try {
+    globalThis.fetch = async (input, init) => {
+      assert.match(String(input), /\/rest\/v1\/rpc\/consume_dashboard_handoff_nonce$/)
+      bodies.push(JSON.parse(String(init?.body)))
+      return Response.json(results.shift() ?? false)
+    }
+    const first = await onRequest({ request: new Request(handoffUrl), env, next: async () => new Response('secret') })
+    assert.equal(first.status, 302)
+    assert.match(first.headers.get('Set-Cookie') ?? '', /personal_hub_session=/)
+    const replay = await onRequest({ request: new Request(handoffUrl), env, next: async () => new Response('secret') })
+    assert.equal(replay.status, 403)
+    assert.equal(replay.headers.get('Set-Cookie'), null)
+    assert.equal(bodies.length, 2)
+    assert.deepEqual(bodies[0], bodies[1])
+
+    globalThis.fetch = async () => Response.json({ message: 'down' }, { status: 500 })
+    const fresh = await createHandoffUrl(new URL('https://dashboard.example/'), env)
+    const failed = await onRequest({ request: new Request(fresh!), env, next: async () => new Response('secret') })
+    assert.equal(failed.status, 502)
+    assert.equal(failed.headers.get('Set-Cookie'), null)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
