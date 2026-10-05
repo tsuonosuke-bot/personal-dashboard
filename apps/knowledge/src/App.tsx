@@ -1,13 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArchivedKnowledgeModal } from "./components/ArchivedKnowledgeModal";
-import { DailyReviewPanel } from "./components/DailyReviewPanel";
 import { FilterBar } from "./components/FilterBar";
 import { KnowledgeTable } from "./components/KnowledgeTable";
 import { KnowledgeDetailModal } from "./components/KnowledgeDetailModal";
 import { KnowledgeFormModal } from "./components/KnowledgeFormModal";
 import { Pagination } from "./components/Pagination";
-import { ReviewInsights } from "./components/ReviewInsights";
-import { StatsCards } from "./components/StatsCards";
+import { MissedReviewSheet } from "./components/MissedReviewSheet";
+import { TodayLearningPanel } from "./components/TodayLearningPanel";
 import { ThemeSelect } from "./components/ThemeSelect";
 import { SpeakingPracticePanel } from "./components/SpeakingPracticePanel";
 import { ALL, DEFAULT_PAGE_SIZE } from "./constants";
@@ -17,9 +16,11 @@ import { useKnowledgeData } from "./hooks/useKnowledgeData";
 import { useInsights } from "./hooks/useInsights";
 import { useInsightGroups } from "./hooks/useInsightGroups";
 import { useReviewQueueStatus } from "./hooks/useReviewQueueStatus";
+import { confirmReviewResults } from "./lib/api";
 import { dashboardRoutePath, parseDashboardRoute, type OrganizeTab } from "./lib/dashboardRoute";
+import { missesToReview } from "./lib/learningSummary";
 import type {
-  Filters, Knowledge, KnowledgeDraft, ReviewFilter, SortKey, SortState,
+  Filters, Knowledge, KnowledgeDraft, SortKey, SortState,
 } from "./types";
 
 const DashboardCharts = lazy(() => import("./components/DashboardCharts")
@@ -46,7 +47,7 @@ export default function App() {
   ));
   const {
     knowledge, archivedKnowledge, quizLog, loading, error, mutating,
-    reload, createKnowledge, updateKnowledge,
+    reload, createKnowledge, updateKnowledge, markConfirmed,
   } = useKnowledgeData();
   const dailyReview = useDailyReview();
   const reviewQueue = useReviewQueueStatus();
@@ -69,6 +70,7 @@ export default function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const [undoArchived, setUndoArchived] = useState<Knowledge | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [missesOpen, setMissesOpen] = useState(false);
 
   // 画面を切り替えても同じdocumentのままなので、直前の画面のスクロール位置が残る。
   const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : showLog ? "log" : organize ? "organize" : "dashboard";
@@ -92,6 +94,11 @@ export default function App() {
     () => [...knowledge, ...archivedKnowledge],
     [archivedKnowledge, knowledge],
   );
+  const knowledgeById = useMemo(
+    () => new Map(registrationKnowledge.map((item) => [item.id, item])),
+    [registrationKnowledge],
+  );
+  const misses = useMemo(() => missesToReview(quizLog), [quizLog]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -183,8 +190,11 @@ export default function App() {
     setPage(1);
   };
 
-  const selectReview = (review: ReviewFilter) => updateFilters({ review });
-  const selectCategory = (category: string) => updateFilters({ category, review: "all" });
+  const confirmMiss = async (quizLogId: number) => {
+    await confirmReviewResults([quizLogId]);
+    markConfirmed([quizLogId]);
+    void reviewQueue.refresh();
+  };
 
   const setQuizOpen = (open: boolean, mode: "daily" | "custom" = "custom") => {
     replaceRoute(open ? { kind: "quiz", mode } : { kind: "dashboard" });
@@ -323,6 +333,8 @@ export default function App() {
           insightGroupStore={insightGroupStore}
           onOpenResults={() => setLogOpen(true, true)}
           onOpenLog={() => setLogOpen(true)}
+          missCount={misses.length}
+          onOpenMisses={() => { setQuizOpen(false); setMissesOpen(true); }}
         />
       </Suspense>
     );
@@ -500,24 +512,22 @@ export default function App() {
 
       {!loading && !error && (
         <>
-          <DailyReviewPanel
+          <TodayLearningPanel
             status={dailyReview.status}
             loading={dailyReview.loading}
             error={dailyReview.error}
-            onStart={() => setQuizOpen(true, "daily")}
             queueStatus={reviewQueue.status}
-            onOpenResults={() => setLogOpen(true, true)}
+            quizLog={quizLog}
+            missCount={misses.length}
+            missWrong={misses.filter((row) => row.verdict === "不正解").length}
+            missPartial={misses.filter((row) => row.verdict === "部分正解").length}
+            onStart={() => setQuizOpen(true, "daily")}
+            onOpenMisses={() => setMissesOpen(true)}
             onOpenLog={() => setLogOpen(true)}
           />
           <SpeakingPracticePanel
             knowledge={knowledge}
             onStart={() => setSpeakingOpen(true)}
-          />
-          <StatsCards knowledge={knowledge} quizLog={quizLog} />
-          <ReviewInsights
-            knowledge={knowledge}
-            onReviewSelect={selectReview}
-            onCategorySelect={selectCategory}
           />
 
           <Suspense fallback={<div className="card chart-loading" role="status">グラフを読み込み中...</div>}>
@@ -568,6 +578,15 @@ export default function App() {
           error={actionError}
           onClose={() => { setFormTarget(undefined); setActionError(null); }}
           onSave={saveKnowledge}
+        />
+      )}
+      {missesOpen && (
+        <MissedReviewSheet
+          misses={misses}
+          knowledgeById={knowledgeById}
+          onConfirm={confirmMiss}
+          onOpenKnowledge={(item) => { setMissesOpen(false); openKnowledge(item); }}
+          onClose={() => setMissesOpen(false)}
         />
       )}
       {archiveOpen && (

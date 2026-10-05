@@ -107,7 +107,7 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - 他: `knowledge_id`, `asked_on`, `quality`, `note`, `attempt_id`（旧スキル契約v1の出題nonce）、
   `was_early`、`schedule_updated`
 - キュー経由の回答は `question`・`user_answer`・`correct_answer`・`explanation`・`answered_at`・`review_queue_id` も持つ。
-  `confirmed_at` が空の行が「未確認の採点結果」。既存の行と都度採点の行はこれらが空
+  `confirmed_at` が空の行が「未確認の採点結果」。正解はトリガー（`quiz_log_auto_confirm_correct`）が記録時に確認済みにするので、未確認は不正解・部分正解だけになる（ダッシュボードの「見直す講評」）。既存の行と都度採点の行はこれらが空
 
 ### `knowledge_mastery_history`
 

@@ -114,21 +114,25 @@ test("カテゴリ別残数は全アクティブカテゴリを今すぐ復習�
   assert.match(sql, /remaining_by_category jsonb/);
 });
 
-test("日次キューは実施数、次バッチ、q別復習間隔を表示する", async () => {
-  const source = await readFile(new URL("../src/components/DailyReviewPanel.tsx", import.meta.url), "utf8");
-  assert.match(source, /今日の復習キュー/);
+test("今日の学習は3つの数字に絞り、出題間隔の説明は折りたたみに置く", async () => {
+  const source = await readFile(new URL("../src/components/TodayLearningPanel.tsx", import.meta.url), "utf8");
+  assert.match(source, /今日の学習/);
   // 問題数やカテゴリは選ばせず、キューの上から解き続ける
   assert.doesNotMatch(source, /カテゴリ・問題数を選ぶ|onCustomStart/);
   assert.match(source, /復習を始める（\$\{readyDue\}問）/);
+  assert.match(source, /今すぐ解ける/);
+  assert.match(source, /今日の回答/);
+  assert.match(source, /見直す講評/);
   assert.match(source, /期限超過/);
+  assert.match(source, /<details className="today-learning-how">/);
   assert.match(source, /途中で終えても大丈夫です/);
   assert.match(source, /q0=10分、q1=30分、q2=6時間、q3=12時間、q4=2日以上、q5=4日以上/);
   assert.match(source, /最高0\.5・高1・中1\.5・低2・最低3倍/);
-  assert.match(source, /新規の保留/);
+  assert.match(source, /新規は保留/);
   assert.match(source, /status\.new_held/);
   assert.match(source, /q4・q5は保持できた期間に応じて伸び/);
   assert.match(source, /再学習は最大10件/);
-  assert.match(source, /ReviewCategoryCounts/);
+  assert.match(source, /categoryBreakdown/);
   assert.doesNotMatch(source, /この配分で更新/);
 });
 

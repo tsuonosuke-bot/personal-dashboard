@@ -24,9 +24,6 @@
   border-radius: 12px;
   box-shadow: none;
 }
-:root[data-theme="dark"] .stat-label {
-  color: #9ca6b8;
-}
 :root[data-theme="dark"] .chart-summary {
   border-top: 1px solid #4f555d;
   color: #a7b1bf;
@@ -219,73 +216,8 @@
 :root[data-theme="dark"] .muted {
   color: #7c8ea8;
 }
-:root[data-theme="dark"] .daily-review-metrics > div {
-  border-radius: 10px;
-  background: #201f23;
-}
-:root[data-theme="dark"] .daily-review-metrics span,
-:root[data-theme="dark"] .daily-review-metrics small {
-  color: #949eae;
-}
-:root[data-theme="dark"] .daily-progress {
-  border-radius: 999px;
-  background: #322e39;
-}
-:root[data-theme="dark"] .daily-progress span {
-  border-radius: inherit;
-  background: #66558c;
-}
-:root[data-theme="dark"] .review-category-breakdown {
-  border-top: 1px solid #534b5f;
-}
-:root[data-theme="dark"] .review-category-heading > span {
-  color: #949eae;
-}
-:root[data-theme="dark"] .review-category-list li {
-  border-radius: 8px;
-  background: #201f23;
-}
-:root[data-theme="dark"] .review-category-list li > span {
-  color: #a4aebc;
-}
-:root[data-theme="dark"] .review-category-list strong {
-  color: #c0b4d6;
-}
-:root[data-theme="dark"] .daily-review-note p {
-  color: #949eae;
-}
 :root[data-theme="dark"] .section-heading p {
   color: #8a97ac;
-}
-:root[data-theme="dark"] .review-card {
-  border: 1px solid #514e55;
-  border-radius: 12px;
-  background: #292929;
-}
-:root[data-theme="dark"] .review-card > span {
-  color: #9ea9b9;
-}
-:root[data-theme="dark"] .review-card > small {
-  color: #7c8ea8;
-}
-:root[data-theme="dark"] .review-card.today {
-  border-left: 4px solid #7967a3;
-}
-:root[data-theme="dark"] .review-card.overdue {
-  border-left: 4px solid #f97316;
-}
-:root[data-theme="dark"] .review-card.weak {
-  border-left: 4px solid #36265a;
-}
-:root[data-theme="dark"] .weak-list button {
-  border: 0;
-  background: #201f27;
-}
-:root[data-theme="dark"] .weak-list button strong {
-  color: #9969e4;
-}
-:root[data-theme="dark"] .weak-list button small {
-  color: #7c8ea8;
 }
 :root[data-theme="dark"] .modal-backdrop {
   background: rgba(15, 23, 42, .52);
@@ -1217,6 +1149,164 @@
 :root[data-theme="dark"] .speaking-complete-actions .primary-button {
   background: #157b6f;
   border-color: #2edbc7;
+}
+:root[data-theme="dark"] .today-learning-start {
+  border-radius: 9px;
+}
+:root[data-theme="dark"] .today-metric {
+  border-radius: 10px;
+  background: #201f23;
+}
+:root[data-theme="dark"] .today-metric > span {
+  color: #aeaab4;
+}
+:root[data-theme="dark"] .today-metric strong {
+  color: #d5d2db;
+}
+:root[data-theme="dark"] .today-metric strong small {
+  color: #aeaab4;
+}
+:root[data-theme="dark"] .today-metric em {
+  color: #aeaab4;
+}
+:root[data-theme="dark"] .today-metric.attention {
+  background: #251b16;
+}
+:root[data-theme="dark"] .today-metric.attention strong {
+  color: #e29c88;
+}
+:root[data-theme="dark"] .today-metric-action {
+  border: 1px solid #cf5b3a;
+  border-radius: 8px;
+  background: #292929;
+  color: #e29c88;
+}
+:root[data-theme="dark"] .today-metric-action:hover:not(:disabled) {
+  background: #a54428;
+  color: #fff;
+}
+:root[data-theme="dark"] .today-learning-line {
+  color: #aeaab4;
+}
+:root[data-theme="dark"] .today-learning-line b {
+  color: #d5d2db;
+}
+:root[data-theme="dark"] .today-learning-how {
+  border-top: 1px solid #55515b;
+}
+:root[data-theme="dark"] .today-learning-how summary {
+  color: #a89cc3;
+}
+:root[data-theme="dark"] .today-learning-how p {
+  color: #aeaab4;
+}
+:root[data-theme="dark"] .progress-heading p {
+  color: #aeaab4;
+}
+:root[data-theme="dark"] .progress-sub {
+  color: #aeaab4;
+}
+:root[data-theme="dark"] .hold-bar {
+  border-radius: 6px;
+}
+:root[data-theme="dark"] .hold-bar:hover {
+  background: #232224;
+}
+:root[data-theme="dark"] .hold-bar > span {
+  color: #aeaab4;
+}
+:root[data-theme="dark"] .hold-bar i {
+  border-radius: 0 4px 4px 0;
+  background: #66558c;
+}
+:root[data-theme="dark"] .hold-bar.unasked i {
+  background: #3c3940;
+}
+:root[data-theme="dark"] .hold-bar b {
+  color: #d5d2db;
+}
+:root[data-theme="dark"] .hold-sep {
+  background: #323036;
+}
+:root[data-theme="dark"] .accuracy-axis div {
+  border-top: 1px solid #55515b;
+}
+:root[data-theme="dark"] .accuracy-axis span {
+  color: #aeaab4;
+}
+:root[data-theme="dark"] .accuracy-plot i {
+  border-radius: 4px 4px 0 0;
+  background: #66558c;
+}
+:root[data-theme="dark"] .accuracy-col.partial .accuracy-plot i {
+  background: repeating-linear-gradient(135deg, #66558c 0 5px, #8c7fb0 5px 8px);
+}
+:root[data-theme="dark"] .accuracy-col > span {
+  color: #aeaab4;
+}
+:root[data-theme="dark"] .progress-tip {
+  border-radius: 8px;
+  background: #27242d;
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .2);
+}
+:root[data-theme="dark"] .other-charts {
+  border: 1px solid #514e55;
+  border-radius: 12px;
+  background: #292929;
+}
+:root[data-theme="dark"] .other-charts summary {
+  color: #a89cc3;
+}
+:root[data-theme="dark"] .missed-review-top {
+  color: #aeaab4;
+}
+:root[data-theme="dark"] .missed-review-bar {
+  border-radius: 999px;
+  background: #322f39;
+}
+:root[data-theme="dark"] .missed-review-bar b {
+  background: #66558c;
+}
+:root[data-theme="dark"] .missed-review-kicker {
+  color: #aeaab4;
+}
+:root[data-theme="dark"] .verdict-badge.wrong {
+  background: #251b16;
+  color: #e29c88;
+}
+:root[data-theme="dark"] .verdict-badge.partial {
+  background: #483c20;
+  color: #ecd09c;
+}
+:root[data-theme="dark"] .missed-review-answers > div {
+  border-radius: 10px;
+}
+:root[data-theme="dark"] .missed-review-answers .mine {
+  background: #251b16;
+}
+:root[data-theme="dark"] .missed-review-answers .mine span {
+  color: #e29c88;
+}
+:root[data-theme="dark"] .missed-review-answers .right {
+  background: #2d3933;
+}
+:root[data-theme="dark"] .missed-review-answers .right span {
+  color: #aedacb;
+}
+:root[data-theme="dark"] .missed-review-explanation {
+  border-left: 3px solid #7967a3;
+  border-radius: 4px 10px 10px 4px;
+  background: #201f23;
+}
+:root[data-theme="dark"] .missed-review-card {
+  color: #aeaab4;
+}
+:root[data-theme="dark"] .missed-review-actions button {
+  border-radius: 9px;
+}
+:root[data-theme="dark"] .missed-review-done p {
+  color: #aeaab4;
 }
 :root[data-theme="dark"] .tabbar-item.hub {
   --tab-accent: #d5ded7;
