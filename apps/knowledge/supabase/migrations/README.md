@@ -101,6 +101,17 @@ After applying a migration, verify its functions with `pg_get_functiondef` and
 verify the new column/trigger through `information_schema` before deploying the
 matching Cloudflare Pages build.
 
+- `20261005130000_semantic_embeddings.sql` adds semantic search across
+  knowledge, knowledge insights and daily journal entries (issue #45):
+  `semantic_embeddings` (one 1024-dim Voyage embedding per source item, with the
+  md5 of the embedded text), `semantic_sources()` (the text to embed and what to
+  show), `pick_semantic_embedding_targets` / `save_semantic_embeddings` for the
+  batch, `search_semantic`, `get_semantic_index_status`, and
+  `trigger_embedding_batch()` scheduled hourly at :40 as `semantic-embeddings`
+  (same Vault token as the review batches). Without `VOYAGE_API_KEY` the batch
+  answers "skipped". The unused `daily_journal.embedding*` columns are kept and
+  commented. Service_role only.
+
 - `20261005120000_auto_confirm_correct_results.sql` treats correct queue results
   as confirmed when they are recorded (a `BEFORE INSERT OR UPDATE` trigger on
   `quiz_log`, so the instant multiple-choice path and the grading batch are both

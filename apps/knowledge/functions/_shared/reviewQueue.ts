@@ -2,9 +2,9 @@ import { jsonResponse, requestSupabaseFunction, type SupabaseEnv } from "./supab
 
 /** 画面から呼ぶ復習キューAPIの操作名。同一オリジンとこのヘッダーの両方を要求する。 */
 export const REVIEW_QUEUE_ACTION_HEADER = "review-queue";
-/** pg_cron から生成・採点バッチを呼ぶときの合言葉ヘッダー。 */
+/** pg_cron から生成・採点・embeddingのバッチを呼ぶときの合言葉ヘッダー。 */
 export const REVIEW_BATCH_TOKEN_HEADER = "X-Review-Batch-Token";
-export const REVIEW_BATCH_PATHS = new Set(["/api/review-batch/generate", "/api/review-batch/grade"]);
+export const REVIEW_BATCH_PATHS = new Set(["/api/review-batch/generate", "/api/review-batch/grade", "/api/embedding-batch"]);
 const MAX_REVIEW_REQUEST_CHARS = 20_000;
 
 export interface ReviewBatchEnv {
@@ -21,7 +21,7 @@ function safeEqual(a: string, b: string): boolean {
 
 /**
  * 定期実行からのバッチ呼び出しかを判定する。Basic認証を通さずに入れるのは、
- * 32文字以上の合言葉が一致した、生成・採点バッチへのPOSTだけ。
+ * 32文字以上の合言葉が一致した、生成・採点・embeddingバッチへのPOSTだけ。
  */
 export function hasReviewBatchToken(request: Request, env: ReviewBatchEnv): boolean {
   if (request.method !== "POST") return false;
@@ -38,7 +38,7 @@ export function hasReviewBatchToken(request: Request, env: ReviewBatchEnv): bool
 }
 
 /** 画面からの書き込み要求を、同一オリジン・専用ヘッダー・JSONに限定する。 */
-export function validateReviewQueueRequest(request: Request): Response | null {
+export function validateReviewQueueRequest(request: Request, action = REVIEW_QUEUE_ACTION_HEADER): Response | null {
   let expectedOrigin: string;
   try {
     expectedOrigin = new URL(request.url).origin;
@@ -48,8 +48,8 @@ export function validateReviewQueueRequest(request: Request): Response | null {
   if (request.headers.get("Origin") !== expectedOrigin) {
     return jsonResponse({ error: "許可されていない送信元です。" }, 403);
   }
-  if (request.headers.get("X-Dashboard-Action") !== REVIEW_QUEUE_ACTION_HEADER) {
-    return jsonResponse({ error: "復習キュー用ヘッダーがありません。" }, 403);
+  if (request.headers.get("X-Dashboard-Action") !== action) {
+    return jsonResponse({ error: action === REVIEW_QUEUE_ACTION_HEADER ? "復習キュー用ヘッダーがありません。" : "操作用ヘッダーがありません。" }, 403);
   }
   const contentType = request.headers.get("Content-Type")?.toLowerCase() ?? "";
   if (!contentType.startsWith("application/json")) {

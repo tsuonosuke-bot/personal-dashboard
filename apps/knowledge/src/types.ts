@@ -138,6 +138,41 @@ export interface ReviewBatchSummary {
   followUp?: ReviewBatchSummary;
 }
 
+/** 意味検索（#45）で横断する種類。 */
+export type SemanticSourceType = "knowledge" | "insight" | "journal";
+
+export interface SemanticSearchResult {
+  source_type: SemanticSourceType;
+  /** ナレッジのuuid、示唆のid、日記の日付（YYYY-MM-DD）。 */
+  source_id: string;
+  /** ナレッジと示唆はナレッジの題名、日記は「YYYY-MM-DDの日記」。 */
+  title: string;
+  /** ナレッジの説明、示唆の本文、日記の要約。 */
+  body: string;
+  /** ナレッジのカテゴリ、日記のテーマなど。 */
+  meta: string | null;
+  /** ナレッジと示唆で開くナレッジ。日記はnull。 */
+  knowledge_id: string | null;
+  entry_date: string | null;
+  /** コサイン類似度（1に近いほど近い）。 */
+  similarity: number;
+}
+
+export interface SemanticIndexStatus {
+  model: string;
+  /** サーバーにVOYAGE_API_KEYが設定されているか。 */
+  configured: boolean;
+  items: { source_type: SemanticSourceType; total: number; embedded: number; last_embedded_at: string | null }[];
+}
+
+export interface EmbeddingBatchSummary {
+  status: "succeeded" | "skipped" | "failed";
+  picked: number;
+  saved: number;
+  tokens: number;
+  note: string | null;
+}
+
 /** 習熟度の変更履歴。is_baselineは記録開始時点の状態。 */
 export interface MasteryHistoryEvent {
   id: number;

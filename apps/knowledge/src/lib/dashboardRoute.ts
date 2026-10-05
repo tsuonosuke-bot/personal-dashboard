@@ -5,6 +5,7 @@ export type DashboardRoute =
   | { kind: "quiz"; mode: "custom" | "daily" }
   | { kind: "speaking" }
   | { kind: "log" }
+  | { kind: "search" }
   | { kind: "organize"; tab: OrganizeTab; questionId: number | null }
   | { kind: "knowledge"; knowledgeId: string }
   | { kind: "invalid-knowledge" };
@@ -26,6 +27,7 @@ export function parseDashboardRoute(value: string | URL): DashboardRoute {
   }
   if (url.searchParams.get("view") === "speaking") return { kind: "speaking" };
   if (url.searchParams.get("view") === "log") return { kind: "log" };
+  if (url.searchParams.get("view") === "search") return { kind: "search" };
   const view = url.searchParams.get("view");
   // 旧URL（view=insights / view=tags）は統合した「整理」ページの該当タブで開く。
   if (view === "insights") return { kind: "organize", tab: "questions", questionId: null };
@@ -59,6 +61,7 @@ export function dashboardRoutePath(value: string | URL, route: DashboardRoute): 
   }
   if (route.kind === "speaking") url.searchParams.set("view", "speaking");
   if (route.kind === "log") url.searchParams.set("view", "log");
+  if (route.kind === "search") url.searchParams.set("view", "search");
   if (route.kind === "organize") {
     url.searchParams.set("view", "organize");
     if (route.tab !== "questions") url.searchParams.set("tab", route.tab);

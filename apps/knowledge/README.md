@@ -68,7 +68,8 @@ Viteだけを起動するため `/api/*` は利用できない。
 | `SUPABASE_URL` | 必須 | SupabaseプロジェクトURL |
 | `SUPABASE_SECRET_KEY` | 必須 | サーバー専用の `sb_secret_...` キー |
 | `ANTHROPIC_API_KEY` | 必須 | 出題・採点・示唆のまとめ・英会話の例文で使うサーバー専用キー |
-| `REVIEW_BATCH_TOKEN` | 定期実行時 | pg_cronから生成・採点バッチを呼ぶ32文字以上の合言葉。SupabaseのVault `review_batch_token` と同じ値。未設定なら画面からの手動実行だけになる |
+| `REVIEW_BATCH_TOKEN` | 定期実行時 | pg_cronから生成・採点・embeddingバッチを呼ぶ32文字以上の合言葉。SupabaseのVault `review_batch_token` と同じ値。未設定なら画面からの手動実行だけになる |
+| `VOYAGE_API_KEY` | 意味検索時 | ナレッジ・示唆・日記の意味検索に使うVoyage AIのサーバー専用キー。未設定ならembeddingを付けず、検索は503 |
 
 `SUPABASE_SECRET_KEY` はRLSを迂回できる強い権限を持つ。Cloudflareでは
 暗号化されたSecretとして登録し、ブラウザ用の `VITE_` 変数、ソースコード、
@@ -97,6 +98,7 @@ Viteだけを起動するため `/api/*` は利用できない。
 - 示唆と問い: `GET/POST /api/insights`、`PATCH/DELETE /api/insights/:id`、`POST /api/insights/analyze`、
   `GET/POST /api/insight-groups`、`PATCH/DELETE /api/insight-groups/:id`、`GET/POST/DELETE /api/insight-group-members`
 - 英会話練習: `GET/POST /api/speaking-practice`、`POST /api/speaking-practice/start`
+- 意味検索: `POST /api/semantic-search`、`GET /api/semantic-search/status`、`POST /api/embedding-batch`
 - その他: `POST /api/inbox`（採点結果の「あとで深掘り」を `idea_inbox` へ登録）、
   `GET /api/export`（読み取り専用JSON）、`GET /api/status`（接続状態）
 

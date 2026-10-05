@@ -33,12 +33,15 @@ const OrganizeView = lazy(() => import("./components/OrganizeView")
   .then((module) => ({ default: module.OrganizeView })));
 const SpeakingPracticeView = lazy(() => import("./components/SpeakingPracticeView")
   .then((module) => ({ default: module.SpeakingPracticeView })));
+const SemanticSearchView = lazy(() => import("./components/SemanticSearchView")
+  .then((module) => ({ default: module.SemanticSearchView })));
 
 export default function App() {
   const initialRoute = parseDashboardRoute(window.location.href);
   const [showQuiz, setShowQuiz] = useState(() => initialRoute.kind === "quiz");
   const [showSpeaking, setShowSpeaking] = useState(() => initialRoute.kind === "speaking");
   const [showLog, setShowLog] = useState(() => initialRoute.kind === "log");
+  const [showSearch, setShowSearch] = useState(() => initialRoute.kind === "search");
   const [organize, setOrganize] = useState<{ tab: OrganizeTab; questionId: number | null } | null>(() => (
     initialRoute.kind === "organize" ? { tab: initialRoute.tab, questionId: initialRoute.questionId } : null
   ));
@@ -73,7 +76,7 @@ export default function App() {
   const [missesOpen, setMissesOpen] = useState(false);
 
   // 画面を切り替えても同じdocumentのままなので、直前の画面のスクロール位置が残る。
-  const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : showLog ? "log" : organize ? "organize" : "dashboard";
+  const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : showLog ? "log" : showSearch ? "search" : organize ? "organize" : "dashboard";
   const previousView = useRef(view);
   useLayoutEffect(() => {
     if (previousView.current === view) return;
@@ -116,17 +119,19 @@ export default function App() {
       setQuizMode(route.mode);
       setShowSpeaking(false);
       setShowLog(false);
+      setShowSearch(false);
       setOrganize(null);
       setShowQuiz(true);
       return;
     }
 
-    if (route.kind === "speaking" || route.kind === "log" || route.kind === "organize") {
+    if (route.kind === "speaking" || route.kind === "log" || route.kind === "search" || route.kind === "organize") {
       setSelected(null);
       setArchiveOpen(false);
       setShowQuiz(false);
       setShowSpeaking(route.kind === "speaking");
       setShowLog(route.kind === "log");
+      setShowSearch(route.kind === "search");
       setOrganize(route.kind === "organize" ? { tab: route.tab, questionId: route.questionId } : null);
       return;
     }
@@ -134,6 +139,7 @@ export default function App() {
     setShowQuiz(false);
     setShowSpeaking(false);
     setShowLog(false);
+    setShowSearch(false);
     setOrganize(null);
     if (loading || error) return;
 
@@ -202,6 +208,7 @@ export default function App() {
     setQuizMode(mode);
     setShowSpeaking(false);
     setShowLog(false);
+    setShowSearch(false);
     setOrganize(null);
     setShowQuiz(open);
     void reviewQueue.refresh();
@@ -212,6 +219,7 @@ export default function App() {
     setSelected(null);
     setShowQuiz(false);
     setShowLog(false);
+    setShowSearch(false);
     setOrganize(null);
     setShowSpeaking(open);
   };
@@ -223,8 +231,19 @@ export default function App() {
     setSelected(null);
     setShowQuiz(false);
     setShowSpeaking(false);
+    setShowSearch(false);
     setOrganize(null);
     setShowLog(open);
+  };
+
+  const setSearchOpen = (open: boolean) => {
+    replaceRoute(open ? { kind: "search" } : { kind: "dashboard" });
+    setSelected(null);
+    setShowQuiz(false);
+    setShowSpeaking(false);
+    setShowLog(false);
+    setOrganize(null);
+    setShowSearch(open);
   };
 
   const setOrganizeOpen = (tab: OrganizeTab | null) => {
@@ -233,6 +252,7 @@ export default function App() {
     setShowQuiz(false);
     setShowSpeaking(false);
     setShowLog(false);
+    setShowSearch(false);
     setOrganize(tab ? { tab, questionId: null } : null);
   };
 
@@ -268,6 +288,7 @@ export default function App() {
   const openEdit = (item: Knowledge) => {
     replaceRoute({ kind: "dashboard" });
     setOrganize(null);
+    setShowSearch(false);
     setSelected(null);
     setActionError(null);
     setFormTarget(item);
@@ -298,6 +319,7 @@ export default function App() {
       const archived = await updateKnowledge(item.id, item.content_version, { archived: true });
       replaceRoute({ kind: "dashboard" });
       setOrganize(null);
+      setShowSearch(false);
       setSelected(null);
       setNotice("ナレッジをアーカイブしました。");
       setUndoArchived(archived);
@@ -377,6 +399,30 @@ export default function App() {
             onClose={closeKnowledge}
             onEdit={() => openEdit(selected)}
             onArchive={() => void archiveKnowledge(selected)}
+            insightStore={insightStore}
+            insightGroupStore={insightGroupStore}
+          />
+        )}
+      </Suspense>
+    );
+  }
+
+  if (showSearch) {
+    return (
+      <Suspense fallback={<div className="msg">読み込み中...</div>}>
+        <SemanticSearchView
+          knowledge={registrationKnowledge}
+          onOpenKnowledge={openKnowledge}
+          onExit={() => setSearchOpen(false)}
+        />
+        {selected && (
+          <KnowledgeDetailModal
+            knowledge={selected}
+            quizLog={quizLog}
+            mutating={mutating}
+            onClose={closeKnowledge}
+            onEdit={selected.archived ? undefined : () => openEdit(selected)}
+            onArchive={selected.archived ? undefined : () => void archiveKnowledge(selected)}
             insightStore={insightStore}
             insightGroupStore={insightGroupStore}
           />
@@ -468,6 +514,7 @@ export default function App() {
 
       <div className="page-tools">
         <button className="page-tool-link" onClick={() => setLogOpen(true)}>学習ログ</button>
+        <button className="page-tool-link" onClick={() => setSearchOpen(true)}>意味で検索</button>
         <button className="page-tool-link" onClick={() => setOrganizeOpen("questions")}>
           問い・示唆・タグ（示唆 {insightStore.insights.length}件）
         </button>

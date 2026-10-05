@@ -2,7 +2,7 @@ import type {
   DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizLog,
   PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary, ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
-  SpeakingPracticeWrite,
+  SpeakingPracticeWrite, EmbeddingBatchSummary, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType,
 } from "../types";
 import {
   parseDailyReviewStatus,
@@ -22,6 +22,9 @@ import {
   parseReviewQueueStatus,
   parseSpeakingPracticeLog,
   parseSpeakingPracticeStart,
+  parseEmbeddingBatchSummary,
+  parseSemanticIndexStatus,
+  parseSemanticSearchResults,
 } from "./apiValidation.ts";
 
 interface ErrorBody {
@@ -449,3 +452,29 @@ export async function getDailyReviewStatus(limit = 15): Promise<DailyReviewStatu
   return parseDailyReviewStatus(data);
 }
 
+const SEMANTIC_SEARCH_HEADERS = {
+  "Content-Type": "application/json",
+  "X-Dashboard-Action": "semantic-search",
+};
+
+/** ナレッジ・示唆・日記を意味で横断検索する。 */
+export async function searchSemantic(query: string, types: SemanticSourceType[], limit = 20): Promise<SemanticSearchResult[]> {
+  return parseSemanticSearchResults(await requestJson("/api/semantic-search", {
+    method: "POST",
+    headers: SEMANTIC_SEARCH_HEADERS,
+    body: JSON.stringify({ query, types, limit }),
+  }));
+}
+
+export async function getSemanticIndexStatus(): Promise<SemanticIndexStatus> {
+  return parseSemanticIndexStatus(await requestJson("/api/semantic-search/status", { method: "GET" }));
+}
+
+/** embeddingが無い・古い項目に、定期実行を待たずにembeddingを付ける。 */
+export async function runEmbeddingBatch(): Promise<EmbeddingBatchSummary> {
+  return parseEmbeddingBatchSummary(await requestJson("/api/embedding-batch", {
+    method: "POST",
+    headers: SEMANTIC_SEARCH_HEADERS,
+    body: "{}",
+  }));
+}
