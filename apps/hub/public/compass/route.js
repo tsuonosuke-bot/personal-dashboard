@@ -4,9 +4,10 @@ import { DEFER_ROUTE, WISH_ROUTE, cadenceLabels, destinationsByIntent, inboxQuic
 import { loadDashboard } from "./data.js";
 import { closeDrawer, renderDrawerItem } from "./drawer.js";
 import { inboxExpected, renderDeferForm, renderWishForm, routeInboxViaApi } from "./edit-forms.js";
-import { escapeHtml, formatCalendarSchedule, showToast } from "./format.js";
+import { escapeHtml, formatCalendarSchedule, setDrawerTitle, showToast, sourceTextMarkup, splitInboxSource } from "./format.js";
 import { els, state } from "./state.js";
 import { refreshGoogleCalendarConnection } from "./todos.js";
+import { continueInboxTriage } from "./triage-flow.js";
 
 export function triageSourceLabel(view = state.triageSource) {
   return view === "inbox" ? "元のInbox" : "元のWant";
@@ -43,10 +44,10 @@ export function startInboxRoute(item, key) {
 
 export function renderTriageStart(item) {
   els.drawerKicker.textContent = triageKicker(item);
-  els.drawerTitle.textContent = `この${viewMeta[state.triageSource].singular}をどう扱いますか？`;
+  setDrawerTitle(`この${viewMeta[state.triageSource].singular}をどう扱いますか？`);
   els.drawerBody.innerHTML = `<div class="source-context">
       <span>${escapeHtml(triageSourceLabel())}</span>
-      <p>${escapeHtml(item.content)}</p>
+      ${sourceTextMarkup(item.content)}
     </div>
     <div class="ai-triage-entry">
       <button class="ai-triage-button" id="askAiTriageButton" type="button">AIに整理案を聞く</button>
@@ -62,14 +63,14 @@ export function renderTriageStart(item) {
   document.getElementById("cancelTriage").addEventListener("click", () => renderDrawerItem(item, state.triageSource));
 }
 
-async function requestAiTriage(item, answers = null) {
+export async function requestAiTriage(item, answers = null) {
   const requestToken = ++state.aiRequestToken;
   const sourceView = state.triageSource;
   els.drawerKicker.textContent = triageKicker(item, sourceView);
-  els.drawerTitle.textContent = "AIが整理案を作成中";
+  setDrawerTitle("AIが整理案を作成中");
   els.drawerBody.innerHTML = `<div class="source-context">
       <span>${escapeHtml(triageSourceLabel(sourceView))}</span>
-      <p>${escapeHtml(item.content)}</p>
+      ${sourceTextMarkup(item.content)}
     </div>
     <div class="ai-loading" role="status"><span aria-hidden="true"></span><p>内容に合う振り分け先を考えています…</p></div>`;
   try {
@@ -96,10 +97,10 @@ async function requestAiTriage(item, answers = null) {
     renderAiSuggestion(item, payload);
   } catch (error) {
     if (requestToken !== state.aiRequestToken || state.drawerItem?.id !== item.id || state.drawerItem?.view !== sourceView) return;
-    els.drawerTitle.textContent = "AI整理案を取得できませんでした";
+    setDrawerTitle("AI整理案を取得できませんでした");
     els.drawerBody.innerHTML = `<div class="source-context">
         <span>${escapeHtml(triageSourceLabel(sourceView))}</span>
-        <p>${escapeHtml(item.content)}</p>
+        ${sourceTextMarkup(item.content)}
       </div>
       <p class="form-error" role="alert">${escapeHtml(error instanceof Error ? error.message : "AI整理案を取得できませんでした。")}</p>
       <p class="ai-data-note">${escapeHtml(viewMeta[sourceView].singular)}は変更されていません。手動の振り分けはそのまま利用できます。</p>
@@ -116,10 +117,10 @@ function renderAiSuggestion(item, result) {
     throw new Error("AI整理案を安全に読み取れませんでした。");
   }
   els.drawerKicker.textContent = triageKicker(item);
-  els.drawerTitle.textContent = "AIからの整理案";
+  setDrawerTitle("AIからの整理案");
   els.drawerBody.innerHTML = `<div class="source-context">
       <span>${escapeHtml(triageSourceLabel())}</span>
-      <p>${escapeHtml(item.content)}</p>
+      ${sourceTextMarkup(item.content)}
     </div>
     <div class="ai-summary"><span>読み取り</span><p>${escapeHtml(result.summary || "整理案を作成しました。")}</p></div>
     ${questions.length > 0 ? `<form class="ai-questions" id="aiClarificationForm">
@@ -141,7 +142,7 @@ function renderAiSuggestion(item, result) {
         </article>`;
       }).join("")}
     </div>
-    <p class="ai-data-note">これは未保存の案です。「この案を使う」の後に内容を編集し、確認画面で確定します。</p>
+    <p class="ai-data-note">これは未保存の案です。「この案を使う」の後に内容を直してから保存します（Google Calendarは確認画面で確定します）。</p>
     <div class="drawer-actions"><button class="secondary-action" id="manualTriageAfterAi" type="button">自分で選ぶ</button><button class="secondary-action" id="askAiAgain" type="button">最初から聞き直す</button></div>`;
 
   document.getElementById("aiClarificationForm")?.addEventListener("submit", (event) => {
@@ -163,11 +164,11 @@ function renderAiSuggestion(item, result) {
 function renderDestinationStep(item, intent) {
   const intentMeta = routeIntentMeta[intent];
   if (!intentMeta) return renderTriageStart(item);
-  els.drawerTitle.textContent = "振り分け先を選ぶ";
+  setDrawerTitle("振り分け先を選ぶ");
   const destinations = destinationsByIntent[intent] || [];
   els.drawerBody.innerHTML = `<div class="source-context">
       <span>${escapeHtml(intentMeta.label)}</span>
-      <p>${escapeHtml(item.content)}</p>
+      ${sourceTextMarkup(item.content)}
     </div>
     <div class="triage-options">
       ${destinations.map((destination) => {
@@ -183,8 +184,10 @@ function renderDestinationStep(item, intent) {
 function renderRouteForm(item, intent, destination, initial = {}, origin = initial.origin || "triage") {
   const destinationMeta = routeDestinationMeta[destination];
   if (!destinationMeta) return renderDestinationStep(item, intent);
-  const title = initial.title ?? item.content.slice(0, 240);
-  const detail = initial.detail ?? "";
+  const title = initial.title ?? splitInboxSource(item.content).body.slice(0, 240);
+  // 深掘りから来たInboxは、本文から外した出典を補足に残す（Issueやナレッジから元のカードを辿れるように）。
+  const inboxSource = state.triageSource === "inbox" ? splitInboxSource(item.content).source : null;
+  const detail = initial.detail ?? (inboxSource ? `深掘り元: ${inboxSource.label}（knowledge ${inboxSource.knowledgeId}）` : "");
   const cadence = initial.cadence ?? "daily";
   const calendar = initial.calendar ?? {
     allDay: true,
@@ -203,9 +206,13 @@ function renderRouteForm(item, intent, destination, initial = {}, origin = initi
     journal: "残したい背景",
     archive: "見送る理由・補足",
   })[destination] || "補足";
-  const routeBoundary = destination === "calendar"
+  // 外部へ実際に書き込むGoogle Calendarだけ確認画面を挟む。それ以外はこの画面から保存する。
+  const needsPreview = destination === "calendar";
+  const routeBoundary = needsPreview
     ? "確認画面の登録ボタンを押すと、Googleのメインカレンダーへ実際に予定を作成します。"
-    : destinationMeta.internal ? "" : "この段階では外部へ送信せず、登録計画だけを保存します。";
+    : destinationMeta.internal
+      ? `保存すると${destinationMeta.label}へ登録し、${triageCompletionNote()}`
+      : `この段階では外部へ送信せず、登録計画だけを保存します。${triageCompletionNote()}`;
   const calendarFields = destination === "calendar" ? `
     <div class="integration-status loading" id="calendarConnectionStatus" role="status">Google Calendarの接続状態を確認しています…</div>
     <label class="form-field" for="routeCalendarDate"><span>日付</span><input id="routeCalendarDate" name="calendarDate" type="date" value="${escapeHtml(calendar.date || "")}" required></label>
@@ -215,21 +222,23 @@ function renderRouteForm(item, intent, destination, initial = {}, origin = initi
       <label class="form-field" for="routeCalendarEnd"><span>終了</span><input id="routeCalendarEnd" name="calendarEnd" type="time" value="${escapeHtml(calendar.endTime || "09:30")}"></label>
     </div>
     <p class="calendar-time-zone">タイムゾーン: Asia/Tokyo</p>` : "";
-  els.drawerTitle.textContent = destinationMeta.label;
+  setDrawerTitle(destinationMeta.label);
   els.drawerBody.innerHTML = `<form class="edit-form" id="routeForm">
-    <div class="source-context"><span>${escapeHtml(triageSourceLabel())}</span><p>${escapeHtml(item.content)}</p></div>
+    <div class="source-context"><span>${escapeHtml(triageSourceLabel())}</span>${sourceTextMarkup(item.content)}</div>
     ${routeBoundary ? `<p class="route-boundary">${escapeHtml(routeBoundary)}</p>` : ""}
     <label class="form-field" for="routeTitle"><span>タイトル</span><textarea id="routeTitle" name="title" rows="3" maxlength="240" required>${escapeHtml(title)}</textarea><small><b id="routeTitleCount">${title.length}</b> / 240</small></label>
     <label class="form-field" for="routeDetail"><span>${escapeHtml(detailLabel)} <small>空欄可</small></span><textarea id="routeDetail" name="detail" rows="6" maxlength="2000">${escapeHtml(detail)}</textarea><small><b id="routeDetailCount">${detail.length}</b> / 2000</small></label>
     ${calendarFields}
     ${destination === "habit" ? `<label class="form-field" for="routeCadence"><span>頻度</span><select id="routeCadence" name="cadence">${Object.entries(cadenceLabels).map(([value, label]) => `<option value="${value}" ${cadence === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>` : ""}
     <p class="form-error" id="routeFormError" role="alert" hidden></p>
-    <div class="drawer-actions"><button class="secondary-action" id="backToDestination" type="button">戻る</button><button class="primary-action" id="routeFormSubmit" type="submit" ${destination === "calendar" ? "disabled" : ""}>確認へ</button></div>
+    <div class="drawer-actions"><button class="secondary-action" id="backToDestination" type="button">戻る</button><button class="primary-action" id="routeFormSubmit" type="submit" ${destination === "calendar" ? "disabled" : ""}>${needsPreview ? "確認へ" : routeConfirmationLabel(destination)}</button></div>
   </form>`;
   const form = document.getElementById("routeForm");
   const titleInput = document.getElementById("routeTitle");
   const detailInput = document.getElementById("routeDetail");
   const formSubmit = document.getElementById("routeFormSubmit");
+  // 保存に失敗して押し直しても二重に登録しないよう、この画面の間は同じキーを使う。
+  const idempotencyKey = initial.idempotencyKey ?? crypto.randomUUID();
   titleInput.addEventListener("input", () => { document.getElementById("routeTitleCount").textContent = titleInput.value.length; });
   detailInput.addEventListener("input", () => { document.getElementById("routeDetailCount").textContent = detailInput.value.length; });
   if (destination === "calendar") {
@@ -284,15 +293,24 @@ function renderRouteForm(item, intent, destination, initial = {}, origin = initi
       }
       nextCalendar = { allDay, date, startTime, endTime, timeZone: "Asia/Tokyo" };
     }
-    renderRoutePreview(item, {
+    const plan = {
       intent,
       destination,
       title: nextTitle,
       detail: form.elements.detail.value.trim(),
       cadence: destination === "habit" ? form.elements.cadence.value : null,
       calendar: nextCalendar,
-      idempotencyKey: crypto.randomUUID(),
+      idempotencyKey,
       origin,
+    };
+    if (needsPreview) {
+      renderRoutePreview(item, plan);
+      return;
+    }
+    saveWantRoute(item, plan, {
+      submit: formSubmit,
+      edit: document.getElementById("backToDestination"),
+      error: document.getElementById("routeFormError"),
     });
   });
   titleInput.focus();
@@ -301,9 +319,9 @@ function renderRouteForm(item, intent, destination, initial = {}, origin = initi
 function renderRoutePreview(item, plan) {
   const intentMeta = routeIntentMeta[plan.intent];
   const destinationMeta = routeDestinationMeta[plan.destination];
-  els.drawerTitle.textContent = "振り分け内容を確認";
+  setDrawerTitle("振り分け内容を確認");
   els.drawerBody.innerHTML = `<div class="route-preview">
-      <div><span>${escapeHtml(triageSourceLabel())}</span><p>${escapeHtml(item.content)}</p></div>
+      <div><span>${escapeHtml(triageSourceLabel())}</span>${sourceTextMarkup(item.content)}</div>
       <div><span>扱い</span><strong>${escapeHtml(intentMeta.label)}</strong></div>
       <div><span>振り分け先</span><strong>${escapeHtml(destinationMeta.label)}</strong></div>
       <div><span>タイトル</span><p>${escapeHtml(plan.title)}</p></div>
@@ -315,17 +333,19 @@ function renderRoutePreview(item, plan) {
     <p class="form-error" id="routeSaveError" role="alert" hidden></p>
     <div class="drawer-actions"><button class="secondary-action" id="editRoutePlan" type="button">修正する</button><button class="primary-action" id="confirmRoutePlan" type="button">${routeConfirmationLabel(plan.destination)}</button></div>`;
   document.getElementById("editRoutePlan").addEventListener("click", () => renderRouteForm(item, plan.intent, plan.destination, plan, plan.origin));
-  document.getElementById("confirmRoutePlan").addEventListener("click", () => saveWantRoute(item, plan));
+  document.getElementById("confirmRoutePlan").addEventListener("click", () => saveWantRoute(item, plan, {
+    submit: document.getElementById("confirmRoutePlan"),
+    edit: document.getElementById("editRoutePlan"),
+    error: document.getElementById("routeSaveError"),
+  }));
 }
 
 function routeConfirmationLabel(destination) {
   return destination === "calendar" ? "Google Calendarに登録して完了" : "振り分けて完了";
 }
 
-async function saveWantRoute(item, plan) {
-  const submit = document.getElementById("confirmRoutePlan");
-  const edit = document.getElementById("editRoutePlan");
-  const errorElement = document.getElementById("routeSaveError");
+async function saveWantRoute(item, plan, controls) {
+  const { submit, edit, error: errorElement } = controls;
   submit.disabled = true;
   edit.disabled = true;
   submit.textContent = plan.destination === "calendar" ? "Calendarへ登録中…" : "保存中…";
@@ -378,9 +398,11 @@ async function saveWantRoute(item, plan) {
       return;
     }
     const closedLabel = fromInbox ? "Inboxを整理済みにしました" : "Wantを完了しました";
-    showToast(plan.destination === "calendar" && routeStatus === "created"
+    const message = plan.destination === "calendar" && routeStatus === "created"
       ? `Google Calendarへ予定を登録し、${closedLabel}。`
-      : routeStatus === "created" ? `振り分け先へ登録し、${closedLabel}。` : `振り分け計画を保存し、${closedLabel}。外部への登録はまだ行っていません。`);
+      : routeStatus === "created" ? `振り分け先へ登録し、${closedLabel}。` : `振り分け計画を保存し、${closedLabel}。外部への登録はまだ行っていません。`;
+    if (fromInbox) continueInboxTriage(item, message);
+    else showToast(message);
   } catch (error) {
     errorElement.textContent = error instanceof Error ? error.message : "振り分けを保存できませんでした。";
     errorElement.hidden = false;
@@ -396,9 +418,9 @@ async function saveWantRoute(item, plan) {
 export function renderRouteCompletion(item, route) {
   const meta = routeCompletionMeta[route.destination];
   if (!meta) return;
-  els.drawerTitle.textContent = meta.action;
+  setDrawerTitle(meta.action);
   els.drawerBody.innerHTML = `<div class="route-preview">
-      <div><span>Want</span><p>${escapeHtml(item.content)}</p></div>
+      <div><span>Want</span>${sourceTextMarkup(item.content)}</div>
       <div><span>${escapeHtml(meta.candidate)}</span><p>${escapeHtml(route.title)}</p></div>
     </div>
     <p class="flow-note">${escapeHtml(meta.note)}</p>

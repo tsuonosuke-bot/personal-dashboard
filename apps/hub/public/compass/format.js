@@ -1,6 +1,46 @@
 // 共通部品: 日付・HTMLエスケープ・ToDoの期限表示・トースト・接続状態の表示。
 import { els } from "./state.js";
 
+/**
+ * ドロワーの見出しを変える。Inbox・Wantの本文そのものを見出しにするときは content を立て、
+ * 長い本文でも読める大きさの書体にする（振り分けの段階名などは従来の見出しのまま）。
+ */
+export function setDrawerTitle(text, { content = false } = {}) {
+  els.drawerTitle.textContent = text;
+  els.drawerTitle.classList.toggle("drawer-title-content", content);
+}
+
+const DEEP_DIVE_SOURCE = /^([\s\S]*?)\n\n深掘り元: ([^\n]+?)（knowledge ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})）\s*$/i;
+
+/**
+ * Knowledgeの「あとで深掘り」から登録されたInboxは、本文の末尾に出典の行が付く
+ * （`<メモ>\n\n深掘り元: 復習「<題名>」（knowledge <uuid>）`）。表示では本文と出典を分ける。
+ */
+export function splitInboxSource(content) {
+  const text = String(content ?? "");
+  const match = DEEP_DIVE_SOURCE.exec(text);
+  if (!match || !match[1].trim()) return { body: text, source: null };
+  return {
+    body: match[1].trim(),
+    source: { label: match[2].trim(), knowledgeId: match[3].toLowerCase(), url: `/knowledge/?knowledge=${match[3].toLowerCase()}` },
+  };
+}
+
+/** 出典のチップ。深掘り元のナレッジを開くリンクにする。 */
+export function sourceChipMarkup(source, { link = true } = {}) {
+  if (!source) return "";
+  const label = `深掘り元: ${escapeHtml(source.label)}`;
+  return link
+    ? `<a class="source-chip" href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer">${label}</a>`
+    : `<span class="source-chip">${label}</span>`;
+}
+
+/** 「元のInbox」などの欄に置く本文。深掘り元は本文の下に小さく添える。 */
+export function sourceTextMarkup(content) {
+  const { body, source } = splitInboxSource(content);
+  return `<p>${escapeHtml(body)}</p>${source ? `<p class="source-context-origin">${sourceChipMarkup(source, { link: false })}</p>` : ""}`;
+}
+
 export function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")

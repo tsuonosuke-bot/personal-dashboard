@@ -35,9 +35,11 @@ export function parseCompassRoute(value) {
  */
 export function compassRoutePath(value, view, id = null, filter = null) {
   const url = asUrl(value);
-  if (view === "wants" || view === "todos") url.searchParams.set("view", view);
+  const hasId = id !== null && Number.isSafeInteger(id) && id > 0;
+  // 詳細のURLはviewが無いと開けない（parseCompassRoute）ので、Inboxでもidがあればviewを付ける。
+  if (view === "wants" || view === "todos" || hasId) url.searchParams.set("view", view);
   else url.searchParams.delete("view");
-  if (id !== null && Number.isSafeInteger(id) && id > 0) url.searchParams.set("id", String(id));
+  if (hasId) url.searchParams.set("id", String(id));
   else url.searchParams.delete("id");
   if (id === null && view === "wants" && filter === "untriaged") url.searchParams.set("filter", "untriaged");
   else if (id === null && view === "wants" && (filter === "knowledge" || filter === "github")) url.searchParams.set("filter", filter);

@@ -4,7 +4,7 @@ import { viewMeta } from "./constants.js";
 import { loadDashboard } from "./data.js";
 import { hideDrawer, renderDrawerItem } from "./drawer.js";
 import { inboxExpected, routeInboxViaApi } from "./edit-forms.js";
-import { escapeHtml, showToast } from "./format.js";
+import { escapeHtml, setDrawerTitle, showToast, sourceTextMarkup, splitInboxSource } from "./format.js";
 import { syncCompassRoute } from "./list.js";
 import { triageCompletionNote, triageKicker, triageSourceLabel } from "./route.js";
 import { els, state } from "./state.js";
@@ -23,8 +23,8 @@ export async function startProjectRoute(item, view) {
   const requestToken = ++state.aiRequestToken;
   state.triageSource = view;
   els.drawerKicker.textContent = triageKicker(item, view);
-  els.drawerTitle.textContent = "Projectとして進める";
-  els.drawerBody.innerHTML = `<div class="source-context"><span>${escapeHtml(triageSourceLabel(view))}</span><p>${escapeHtml(item.content)}</p></div>
+  setDrawerTitle("Projectとして進める");
+  els.drawerBody.innerHTML = `<div class="source-context"><span>${escapeHtml(triageSourceLabel(view))}</span>${sourceTextMarkup(item.content)}</div>
     <div class="ai-loading" role="status"><span aria-hidden="true"></span><p>Projectを確認しています…</p></div>`;
 
   try {
@@ -36,7 +36,7 @@ export async function startProjectRoute(item, view) {
     renderProjectRouteForm(item, view, payload.projects.filter((project) => !["completed", "dropped"].includes(project.status)));
   } catch (error) {
     if (requestToken !== state.aiRequestToken) return;
-    els.drawerBody.innerHTML = `<div class="source-context"><span>${escapeHtml(triageSourceLabel(view))}</span><p>${escapeHtml(item.content)}</p></div>
+    els.drawerBody.innerHTML = `<div class="source-context"><span>${escapeHtml(triageSourceLabel(view))}</span>${sourceTextMarkup(item.content)}</div>
       <div class="integration-status error"><strong>Projectを確認できませんでした</strong><span>${escapeHtml(error instanceof Error ? error.message : "時間をおいて再試行してください。")}</span></div>
       <div class="drawer-actions"><button class="secondary-action" id="cancelProjectRoute" type="button">戻る</button><button class="primary-action" id="retryProjectRoute" type="button">再試行</button></div>`;
     document.getElementById("cancelProjectRoute").addEventListener("click", () => renderDrawerItem(item, view));
@@ -45,13 +45,13 @@ export async function startProjectRoute(item, view) {
 }
 
 function renderProjectRouteForm(item, view, projects) {
-  const title = item.content.slice(0, 240);
+  const title = splitInboxSource(item.content).body.slice(0, 240);
   const options = projects.map((project) => {
     const action = project.nextAction?.content || "Next Action要確認";
     return `<option value="${project.id}">${escapeHtml(project.title)} — ${escapeHtml(action)}</option>`;
   }).join("");
   els.drawerBody.innerHTML = `<form class="edit-form project-route-form" id="projectRouteForm">
-    <div class="source-context"><span>${escapeHtml(triageSourceLabel(view))}</span><p>${escapeHtml(item.content)}</p></div>
+    <div class="source-context"><span>${escapeHtml(triageSourceLabel(view))}</span>${sourceTextMarkup(item.content)}</div>
     <p class="route-boundary">元のデータは消さずにProjectへリンクし、${escapeHtml(triageCompletionNote(view))}</p>
     <fieldset class="project-mode-options">
       <legend>整理先</legend>

@@ -841,3 +841,23 @@ html[data-theme="dark"] {
   color: #fff;
   box-shadow: var(--shadow);
 }
+:root[data-theme="dark"] .drawer-meta {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .source-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #1e1e1a;
+  color: var(--muted);
+  text-decoration: none;
+}
+:root[data-theme="dark"] a.source-chip:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+:root[data-theme="dark"] .more-routes {
+  border-top: 1px solid var(--line);
+}
+:root[data-theme="dark"] .more-routes summary {
+  color: var(--green);
+}

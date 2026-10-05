@@ -3,10 +3,11 @@ import { readApiJson } from "../api-client.js";
 import { closeMeta, itemEditMeta } from "./constants.js";
 import { loadDashboard } from "./data.js";
 import { closeDrawer, renderDrawerItem } from "./drawer.js";
-import { defaultRevisitDate, escapeHtml, showToast, todayInTokyo } from "./format.js";
+import { defaultRevisitDate, escapeHtml, setDrawerTitle, showToast, sourceTextMarkup, todayInTokyo } from "./format.js";
 import { canCloseItem, statusLabel } from "./list.js";
 import { triageKicker } from "./route.js";
 import { els } from "./state.js";
+import { continueInboxTriage } from "./triage-flow.js";
 
 function setCloseItemError(message) {
   const error = document.getElementById("closeItemError");
@@ -49,6 +50,16 @@ export async function closeItem(item, view) {
       if (!response.ok) throw new Error(message || `${meta.button}に失敗しました。`);
     }
 
+    if (view === "inbox") {
+      // Inboxは続けて片付けられるよう、閉じずに次の未整理へ進む。
+      const refreshed = await loadDashboard();
+      if (refreshed) continueInboxTriage(item, meta.success);
+      else {
+        closeDrawer();
+        showToast(`${meta.success} 最新状態は再読込して確認してください。`);
+      }
+      return;
+    }
     closeDrawer();
     const refreshed = await loadDashboard();
     showToast(refreshed ? meta.success : `${meta.success} 最新状態は再読込して確認してください。`);
@@ -67,7 +78,7 @@ export function renderInboxEditForm(item) {
     ? ""
     : `<option value="${escapeHtml(item.status)}" selected disabled>${escapeHtml(statusLabel(item.status))}</option>`;
   const statusOptions = statuses.map((status) => `<option value="${status}" ${item.status === status ? "selected" : ""}>${escapeHtml(statusLabel(status))}</option>`).join("");
-  els.drawerTitle.textContent = "Inboxを編集";
+  setDrawerTitle("Inboxを編集");
   els.drawerBody.innerHTML = `<form class="edit-form" id="inboxEditForm">
     <label class="form-field" for="editInboxContent">
       <span>内容</span>
@@ -170,7 +181,7 @@ export function renderItemEditForm(item, view) {
     ? ""
     : `<option value="${escapeHtml(item.status)}" selected disabled>${escapeHtml(statusLabel(item.status))}</option>`;
   const statusOptions = meta.statuses.map((status) => `<option value="${status}" ${item.status === status ? "selected" : ""}>${escapeHtml(statusLabel(status))}</option>`).join("");
-  els.drawerTitle.textContent = meta.title;
+  setDrawerTitle(meta.title);
   els.drawerBody.innerHTML = `<form class="edit-form" id="itemEditForm">
     <label class="form-field" for="editItemContent">
       <span>内容</span>
@@ -283,9 +294,9 @@ export async function routeInboxViaApi(inboxId, exit, params, idempotencyKey) {
 
 export function renderWishForm(sourceItem) {
   els.drawerKicker.textContent = triageKicker(sourceItem, "inbox");
-  els.drawerTitle.textContent = "欲しいもの";
+  setDrawerTitle("欲しいもの");
   els.drawerBody.innerHTML = `<form class="edit-form" id="wishForm">
-    <div class="source-context"><span>元のInbox</span><p>${escapeHtml(sourceItem.content)}</p></div>
+    <div class="source-context"><span>元のInbox</span>${sourceTextMarkup(sourceItem.content)}</div>
     <p class="route-boundary">購入予定にはせず、欲しいものとしてWantsに残します。必要になったら予定・調査・見送りへ振り分けられます。</p>
     <label class="form-field" for="wishContent">
       <span>欲しいもの</span>
@@ -349,7 +360,7 @@ async function saveWish(event, sourceItem, idempotencyKey) {
       setWishError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
       return;
     }
-    showToast("欲しいものとしてWantsに保存し、Inboxを整理済みにしました。");
+    continueInboxTriage(sourceItem, "欲しいものとしてWantsに保存し、Inboxを整理済みにしました。");
   } catch (error) {
     setWishError(error instanceof Error ? error.message : "欲しいものとして保存できませんでした。");
   } finally {
@@ -364,9 +375,9 @@ async function saveWish(event, sourceItem, idempotencyKey) {
 export function renderDeferForm(sourceItem) {
   const revisitOn = defaultRevisitDate();
   els.drawerKicker.textContent = triageKicker(sourceItem, "inbox");
-  els.drawerTitle.textContent = "保留";
+  setDrawerTitle("保留");
   els.drawerBody.innerHTML = `<form class="edit-form" id="deferForm">
-    <div class="source-context"><span>元のInbox</span><p>${escapeHtml(sourceItem.content)}</p></div>
+    <div class="source-context"><span>元のInbox</span>${sourceTextMarkup(sourceItem.content)}</div>
     <p class="route-boundary">振り分け先は決めず、次に考える日だけ決めてWantsへ置きます。再訪日が来ると未整理のWantsとして浮上します。</p>
     <label class="form-field" for="deferContent">
       <span>内容</span>
@@ -447,7 +458,7 @@ async function saveDefer(event, sourceItem, idempotencyKey) {
       setDeferError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
       return;
     }
-    showToast(`${revisitOn}に再訪するWantとして寝かせ、Inboxを整理済みにしました。`);
+    continueInboxTriage(sourceItem, `${revisitOn}に再訪するWantとして保留し、Inboxを整理済みにしました。`);
   } catch (error) {
     setDeferError(error instanceof Error ? error.message : "保留にできませんでした。");
   } finally {

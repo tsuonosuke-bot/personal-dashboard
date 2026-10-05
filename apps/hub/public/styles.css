@@ -393,3 +393,37 @@ main { width: min(1240px, calc(100% - 28px)); }
   .bulk-item-card { grid-template-columns: 22px minmax(0, 1fr); gap: 8px; }
   .form-modal-head, .form-modal form { padding-inline: 16px; }
 }
+
+/* Inboxを続けて片付ける流れ（AIの案・よく使う振り分け先・その他を畳む・深掘り元のチップ） */
+.drawer h2.drawer-title-content { font-family: inherit; font-size: 19px; font-weight: 700; line-height: 1.65; overflow-wrap: anywhere; white-space: pre-wrap; }
+.drawer-meta { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+.drawer-source { margin: 10px 0 0; }
+.source-chip { display: inline-block; max-width: 100%; overflow: hidden; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: #f6f5f0; color: var(--muted); font-size: 11px; font-weight: 700; line-height: 1.5; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+a.source-chip:hover { border-color: var(--green); color: var(--green); }
+.item-footer .source-chip { max-width: 220px; margin-left: 8px; padding: 1px 7px; font-size: 9px; }
+.source-context-origin { margin-top: 6px !important; }
+.inbox-ai-button { width: 100%; }
+.quick-route-section .ai-data-note { margin-top: 6px; }
+.quick-route-section .quick-route-label { margin-top: 18px; }
+.primary-routes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.primary-routes .quick-route-action { min-height: 64px; }
+.primary-routes .quick-route-action strong { font-size: 13px; }
+.primary-routes .quick-route-action small { font-size: 10px; }
+.more-routes { margin-top: 12px; border-top: 1px solid var(--line); }
+.more-routes summary { min-height: 44px; display: flex; align-items: center; gap: 6px; color: var(--green); font-size: 12px; font-weight: 750; cursor: pointer; list-style: none; }
+.more-routes summary::-webkit-details-marker { display: none; }
+.more-routes summary::after { content: "▾"; font-size: 11px; transition: transform .15s ease; }
+.more-routes[open] summary::after { transform: rotate(180deg); }
+.more-routes[open] summary { margin-bottom: 2px; }
+.more-routes .quick-route-actions { margin-top: 0; }
+.more-routes-intent { min-height: 40px; margin-top: 8px; font-size: 12px; }
+
+@media (max-width: 650px) {
+  /* タブが同じ名前を示すので、見出しは読み上げ用に残して隠す。検索と状態の選択は1行に並べる。 */
+  .workspace-head > div:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .workspace-tools { grid-template-columns: minmax(0, 1fr) auto; }
+  .workspace-tools .search { grid-column: 1; grid-row: 1; }
+  .workspace-tools #statusFilter { grid-column: 2; grid-row: 1; width: auto; max-width: 132px; }
+  .workspace-tools .pending-filter-group, .workspace-tools .todo-filter-group, .workspace-tools .todo-layout-group { grid-column: 1 / -1; }
+  .drawer h2.drawer-title-content { font-size: 17px; }
+}

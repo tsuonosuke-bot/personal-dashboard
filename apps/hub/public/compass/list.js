@@ -5,7 +5,7 @@ import { renderTodoCalendar } from "./calendar.js";
 import { closedStatusesByView, defaultStatusByView, routeDestinationMeta, viewMeta } from "./constants.js";
 import { loadTodos } from "./data.js";
 import { hideDrawer, openDrawer } from "./drawer.js";
-import { escapeHtml, formatCalendarSchedule, formatDate, showToast, sortTodos, todayInTokyo, todoTiming, todoTimingLabel } from "./format.js";
+import { escapeHtml, formatCalendarSchedule, formatDate, showToast, sortTodos, sourceChipMarkup, splitInboxSource, todayInTokyo, todoTiming, todoTimingLabel } from "./format.js";
 import { els, state } from "./state.js";
 
 export function currentItems() {
@@ -125,21 +125,24 @@ function cardMarkup(item) {
       <div class="item-footer"><span>Want · ${item.sourceWantId}</span><span>${item.rescheduleCount ? `日程変更 ${item.rescheduleCount}回` : "Calendar登録済み"}</span></div>
     </button>`;
   }
+  // 深掘りから登録されたInboxは、出典の行を本文から外して小さなチップにする。
+  const { body: text, source } = state.view === "inbox" ? splitInboxSource(item.content) : { body: item.content, source: null };
+  const sourceChip = sourceChipMarkup(source, { link: false });
   if (state.view === "inbox" && state.bulkMode) {
     const checked = state.bulkSelected.has(item.id);
     return `<label class="item-card bulk-item-card${checked ? " selected" : ""}" data-id="${item.id}">
       <input class="bulk-item-checkbox" type="checkbox" value="${item.id}" ${checked ? "checked" : ""} aria-label="Inbox ${item.id}を選択">
       <div class="bulk-item-content">
         <div class="item-top"><span class="item-id">INBOX · ${item.id ?? "?"}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(itemStatusLabel(item))}</span></div>
-        <h3>${escapeHtml(item.content || "内容なし")}</h3>
-        <div class="item-footer"><span>${formatDate(item.createdAt)}</span><span class="route-chips">${triageChips(item, "inbox")}</span></div>
+        <h3>${escapeHtml(text || "内容なし")}</h3>
+        <div class="item-footer"><span>${formatDate(item.createdAt)}${sourceChip}</span><span class="route-chips">${triageChips(item, "inbox")}</span></div>
       </div>
     </label>`;
   }
   return `<button class="item-card" type="button" data-id="${item.id}">
     <div class="item-top"><span class="item-id">${viewMeta[state.view].singular.toUpperCase()} · ${item.id ?? "?"}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(itemStatusLabel(item))}</span></div>
-    <h3>${escapeHtml(item.content || "内容なし")}</h3>
-    <div class="item-footer"><span>${formatDate(item.createdAt)}</span><span class="route-chips">${triageChips(item, state.view)}</span></div>
+    <h3>${escapeHtml(text || "内容なし")}</h3>
+    <div class="item-footer"><span>${formatDate(item.createdAt)}${sourceChip}</span><span class="route-chips">${triageChips(item, state.view)}</span></div>
   </button>`;
 }
 
@@ -151,7 +154,9 @@ export function renderList() {
   els.clearFilter.hidden = !(state.status || state.search || state.metricFilter);
   const knowledgeActive = state.metricFilter === "knowledge";
   const githubActive = state.metricFilter === "github";
-  els.pendingFilterGroup.hidden = state.view === "todos";
+  // 登録待ちはWantsの絞り込み、Calendar再接続はToDoの操作なので、それぞれのタブでだけ出す。
+  els.pendingFilterGroup.hidden = state.view !== "wants";
+  els.pageUtilityToolbar.hidden = state.view !== "todos";
   els.todoFilterGroup.hidden = state.view !== "todos";
   els.knowledgeFilter.classList.toggle("active", knowledgeActive);
   els.knowledgeFilter.setAttribute("aria-pressed", String(knowledgeActive));

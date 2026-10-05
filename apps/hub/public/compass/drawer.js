@@ -1,15 +1,20 @@
 // ドロワーとInbox追加モーダルの開閉、Inboxの追加。
 import { readApiJson } from "../api-client.js";
 import { parseCompassRoute } from "../compass-routing.js";
-import { defaultStatusByView, inboxQuickRoutes, quickWantRoutes, routeCompletionMeta, routeDestinationMeta, viewMeta } from "./constants.js";
+import { PRIMARY_INBOX_ROUTES, defaultStatusByView, inboxQuickRoutes, quickWantRoutes, routeCompletionMeta, routeDestinationMeta, viewMeta } from "./constants.js";
 import { loadDashboard } from "./data.js";
 import { closeItem, renderInboxEditForm, renderItemEditForm } from "./edit-forms.js";
-import { calendarSchedule, escapeHtml, formatCalendarSchedule, formatDate, showToast } from "./format.js";
+import { calendarSchedule, escapeHtml, formatCalendarSchedule, formatDate, setDrawerTitle, showToast, sourceChipMarkup, splitInboxSource } from "./format.js";
 import { canCloseItem, itemStatusLabel, syncCompassRoute } from "./list.js";
 import { startProjectRoute } from "./project-route.js";
-import { renderRouteCompletion, renderTriageStart, startInboxRoute, startQuickWantRoute } from "./route.js";
+import { renderRouteCompletion, renderTriageStart, requestAiTriage, startInboxRoute, startQuickWantRoute } from "./route.js";
 import { els, state } from "./state.js";
 import { renderTodoDrawer } from "./todos.js";
+import { unsortedInboxCount, rememberInboxOrder } from "./triage-flow.js";
+
+function quickRouteButton(key, quick) {
+  return `<button class="quick-route-action" type="button" data-inbox-route="${key}"><strong>${escapeHtml(quick.label)}</strong><small>${escapeHtml(quick.description)}</small></button>`;
+}
 
 export function renderDrawerItem(item, view) {
   if (view === "todos") {
@@ -17,33 +22,56 @@ export function renderDrawerItem(item, view) {
     return;
   }
   state.triageSource = view;
-  els.drawerKicker.textContent = `${viewMeta[view].singular} · ${item.id}`;
-  els.drawerTitle.textContent = item.content || "内容なし";
-  let body = `<div class="detail-grid">
-    <div class="detail-box"><span>Status</span><strong>${escapeHtml(itemStatusLabel(item, view))}</strong></div>
-    <div class="detail-box"><span>Created</span><strong>${escapeHtml(formatDate(item.createdAt, true))}</strong></div>
-  </div>`;
   if (view === "inbox") {
-    const quickRouteMarkup = item.status === "pending"
+    const { body: text, source } = splitInboxSource(item.content);
+    const pending = item.status === "pending";
+    els.drawerKicker.textContent = pending
+      ? `${viewMeta[view].singular} · ${item.id} · 未整理 残り${unsortedInboxCount()}件`
+      : `${viewMeta[view].singular} · ${item.id}`;
+    setDrawerTitle(text || "内容なし", { content: true });
+    const meta = `<p class="drawer-meta">${escapeHtml(itemStatusLabel(item, view))} · ${escapeHtml(formatDate(item.createdAt, true))}</p>
+      ${source ? `<p class="drawer-source">${sourceChipMarkup(source)}</p>` : ""}`;
+    // 未整理なら、まずAIの案を聞くか、よく使う振り分け先を選ぶ。残りの行き先・目的からの選択・Projectは畳む。
+    const quickRouteMarkup = pending
       ? `<div class="detail-section quick-route-section">
-          <span>扱いを決める</span>
-          <p>選ぶとそのまま入力画面へ進みます。迷う場合は「整理する」。</p>
-          <div class="quick-route-actions" role="group" aria-label="Inboxの扱い">
-            ${Object.entries(inboxQuickRoutes).map(([key, quick]) => `<button class="quick-route-action" type="button" data-inbox-route="${key}"><strong>${escapeHtml(quick.label)}</strong><small>${escapeHtml(quick.description)}</small></button>`).join("")}
+          <button class="ai-triage-button inbox-ai-button" id="askAiInboxButton" type="button">AIに振り分け案を聞く</button>
+          <p class="ai-data-note">押した時だけ、本文をClaude APIへ送信します。案を確かめてから保存します。</p>
+          <span class="quick-route-label">自分で選ぶ</span>
+          <div class="quick-route-actions primary-routes" role="group" aria-label="よく使う振り分け先">
+            ${PRIMARY_INBOX_ROUTES.map((key) => quickRouteButton(key, inboxQuickRoutes[key])).join("")}
           </div>
-          <div class="project-route-divider"><span>複数の行動になるなら</span></div>
-          <button class="project-route-action" type="button" data-project-route><strong>Projectとして進める</strong><small>完了条件と最初のNext Actionを決める</small></button>
+          <details class="more-routes">
+            <summary>その他の振り分け先</summary>
+            <div class="quick-route-actions" role="group" aria-label="その他の振り分け先">
+              ${Object.entries(inboxQuickRoutes).filter(([key]) => !PRIMARY_INBOX_ROUTES.includes(key)).map(([key, quick]) => quickRouteButton(key, quick)).join("")}
+            </div>
+            <button class="text-button more-routes-intent" id="triageInboxButton" type="button">目的から選ぶ（行動する・掘り下げる…）</button>
+            <div class="project-route-divider"><span>複数の行動になるなら</span></div>
+            <button class="project-route-action" type="button" data-project-route><strong>Projectとして進める</strong><small>完了条件と最初のNext Actionを決める</small></button>
+          </details>
         </div>`
-      : "";
-    body += `<div class="detail-section"><span>整理結果</span><p>${escapeHtml(item.result || "まだ整理されていません")}</p></div>
+      : `<div class="detail-section"><span>整理結果</span><p>${escapeHtml(item.result || "整理結果はありません")}</p></div>`;
+    els.drawerBody.innerHTML = `${meta}
       ${quickRouteMarkup}
       <div class="drawer-actions">
         <button class="secondary-action" id="editInboxButton" type="button">Inboxを編集</button>
         ${canCloseItem(item, view) ? '<button class="close-action" id="closeItemButton" type="button">Inboxをクローズ</button>' : ""}
-        ${item.status === "pending" ? '<button class="primary-action" id="triageInboxButton" type="button">整理する</button>' : ""}
       </div>
       <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
+    document.getElementById("editInboxButton").addEventListener("click", () => renderInboxEditForm(item));
+    document.getElementById("askAiInboxButton")?.addEventListener("click", () => requestAiTriage(item));
+    document.getElementById("triageInboxButton")?.addEventListener("click", () => renderTriageStart(item));
+    els.drawerBody.querySelectorAll("[data-inbox-route]").forEach((button) => button.addEventListener("click", () => startInboxRoute(item, button.dataset.inboxRoute)));
+    els.drawerBody.querySelector("[data-project-route]")?.addEventListener("click", () => startProjectRoute(item, view));
+    document.getElementById("closeItemButton")?.addEventListener("click", () => closeItem(item, view));
+    return;
   }
+  els.drawerKicker.textContent = `${viewMeta[view].singular} · ${item.id}`;
+  setDrawerTitle(item.content || "内容なし", { content: true });
+  let body = `<div class="detail-grid">
+    <div class="detail-box"><span>Status</span><strong>${escapeHtml(itemStatusLabel(item, view))}</strong></div>
+    <div class="detail-box"><span>Created</span><strong>${escapeHtml(formatDate(item.createdAt, true))}</strong></div>
+  </div>`;
   if (view === "wants") {
     const routes = item.routes || [];
     const quickRouteMarkup = item.status === "active"
@@ -83,9 +111,6 @@ export function renderDrawerItem(item, view) {
       <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
   }
   els.drawerBody.innerHTML = body;
-  document.getElementById("editInboxButton")?.addEventListener("click", () => renderInboxEditForm(item));
-  document.getElementById("triageInboxButton")?.addEventListener("click", () => renderTriageStart(item));
-  els.drawerBody.querySelectorAll("[data-inbox-route]").forEach((button) => button.addEventListener("click", () => startInboxRoute(item, button.dataset.inboxRoute)));
   document.getElementById("editWantButton")?.addEventListener("click", () => renderItemEditForm(item, "wants"));
   document.getElementById("triageWantButton")?.addEventListener("click", () => renderTriageStart(item));
   els.drawerBody.querySelectorAll("[data-quick-route]").forEach((button) => button.addEventListener("click", () => startQuickWantRoute(item, button.dataset.quickRoute)));
@@ -111,6 +136,7 @@ export function openDrawer(id, view = state.view, historyMode = "push") {
   if (!item) return false;
   state.aiRequestToken += 1;
   state.drawerItem = { id, view };
+  if (view === "inbox") rememberInboxOrder();
   renderDrawerItem(item, view);
   els.drawerBackdrop.hidden = false;
   els.drawer.classList.add("open");

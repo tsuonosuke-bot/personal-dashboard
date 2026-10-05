@@ -2,7 +2,7 @@
 import { readApiJson } from "../api-client.js";
 import { loadTodos } from "./data.js";
 import { hideDrawer } from "./drawer.js";
-import { dateOffset, escapeHtml, formatCalendarSchedule, nextWeekendDate, showToast, todayInTokyo, todoTiming, todoTimingLabel } from "./format.js";
+import { dateOffset, escapeHtml, formatCalendarSchedule, nextWeekendDate, setDrawerTitle, showToast, todayInTokyo, todoTiming, todoTimingLabel } from "./format.js";
 import { statusLabel, syncCompassRoute } from "./list.js";
 import { els, state } from "./state.js";
 
@@ -49,7 +49,7 @@ function todoCalendarNotice(item) {
 
 export function renderTodoDrawer(item) {
   els.drawerKicker.textContent = `ToDo · ${item.id}`;
-  els.drawerTitle.textContent = item.title || "内容なし";
+  setDrawerTitle(item.title || "内容なし");
   const canReschedule = item.status === "pending" && item.calendarState === "confirmed" && item.calendarEtag;
   const calendarLink = item.calendarUrl
     ? `<a class="secondary-action action-link" href="${escapeHtml(item.calendarUrl)}" target="_blank" rel="noopener noreferrer">Google Calendarで開く</a>`
@@ -138,7 +138,7 @@ function renderTodoRescheduleForm(item, command = "reschedule") {
   const schedule = item.schedule;
   const recreate = command === "recreate";
   els.drawerKicker.textContent = `ToDo · ${item.id}`;
-  els.drawerTitle.textContent = recreate ? "Calendar予定を再作成" : "日程を決め直す";
+  setDrawerTitle(recreate ? "Calendar予定を再作成" : "日程を決め直す");
   els.drawerBody.innerHTML = `<form class="edit-form" id="todoRescheduleForm">
     <div class="source-context"><span>対象</span><p>${escapeHtml(item.title)}</p></div>
     <div class="quick-date-actions" role="group" aria-label="日付の候補">

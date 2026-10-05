@@ -50,6 +50,10 @@ export const closeMeta = {
 
 export const DEFER_ROUTE = "defer";
 
+// Inboxの詳細で最初から並べる振り分け先。直近30日の振り分けで多い順（開発・調査・執筆）と、
+// 今は決めない「保留」。残りは「その他の振り分け先」に畳む。
+export const PRIMARY_INBOX_ROUTES = ["github", "knowledge", "writing", "defer"];
+
 export const WISH_ROUTE = "wish";
 
 export const inboxQuickRoutes = {
