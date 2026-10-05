@@ -13,3 +13,5 @@ SESSION_TTL_DAYS=30
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_replace-me
 ANTHROPIC_API_KEY=sk-ant-replace-me
+# 意味検索（ナレッジ・示唆・日記）のembedding。未設定なら検索とembeddingバッチは動かない
+VOYAGE_API_KEY=pa-replace-me

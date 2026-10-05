@@ -29,12 +29,13 @@ npm test           # ロジック、API、認証、入力・応答検証
 - `SUPABASE_URL`（必須）
 - `SUPABASE_SECRET_KEY`（必須、CloudflareではSecretとして保存）
 - `ANTHROPIC_API_KEY`（必須、復習クイズの出題・採点に使用。CloudflareではSecretとして保存）
-- `REVIEW_BATCH_TOKEN`（任意、32文字以上。pg_cronから生成・採点バッチを呼ぶ合言葉。SupabaseのVault `review_batch_token` と同じ値。
+- `REVIEW_BATCH_TOKEN`（任意、32文字以上。pg_cronから生成・採点・embeddingバッチを呼ぶ合言葉。SupabaseのVault `review_batch_token` と同じ値。
   未設定なら定期実行は届かず、画面からの手動実行だけになる）
+- `VOYAGE_API_KEY`（任意、意味検索のembeddingに使用。CloudflareではSecretとして保存。未設定ならembeddingバッチは見送り、検索は503）
 
 Secret keyはRLSを迂回するサーバー専用キー。`VITE_` 接頭辞を付けたり、ブラウザ、
 ソース、ログへ出したりしてはいけない。実値がない環境でも型チェックとビルドは可能。
-実データ確認が必要な作業では判断を仰ぐこと。ANTHROPIC_API_KEYも同様にサーバー専用。
+実データ確認が必要な作業では判断を仰ぐこと。ANTHROPIC_API_KEY・VOYAGE_API_KEYも同様にサーバー専用。
 
 ## DBスキーマ（実データに基づく事実）
 
@@ -155,6 +156,22 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
   テーマごとの「この問いとして保存」で、テーマ名と問い文を直してから問いを作り、根拠の示唆をまとめて入れる。
   まとめ結果そのものは保存しない
 
+### 意味検索（`semantic_embeddings`、#45）
+
+- ナレッジ・示唆・日記（`daily_journal`）のembeddingを1つの表に置く。キーは `(source_type, source_id)`。
+  `source_type` は `knowledge` / `insight` / `journal`、`source_id` はナレッジのuuid・示唆のid・日記の日付（YYYY-MM-DD）
+- 埋め込む文はDB関数 `semantic_sources()` が作る（ナレッジは題名・説明・カテゴリ、示唆は本文と元のナレッジ名、
+  日記は要約・感情の要約・テーマ・登場するもの）。その `md5` を `input_hash` に持ち、文が変わった行・モデルが違う行・
+  まだ無い行を `pick_semantic_embedding_targets` が返す。元の行が消えたembeddingもここで消す
+- モデルはVoyage AIの `voyage-4`（1024次元、`_shared/voyageClient.ts` の `EMBEDDING_MODEL`）。保存する文は `input_type: document`、
+  検索語は `query` で送る。モデルを変えると全件を付け直すまで検索結果が空になる
+- `save_semantic_embeddings` は、選んだ後に文が変わった行を保存しない（次の実行で拾い直す）
+- `search_semantic` はコサイン類似度の近い順。アーカイブ済みのナレッジとその示唆は返さない。行数が少ないのでANN索引は付けず全件を比べる
+- バッチはpg_cronの `semantic-embeddings`（毎時40分、`trigger_embedding_batch()`）から `/api/embedding-batch` を呼ぶ。
+  1回最大512件、Voyageへは128件ずつ。Voyageが失敗したらそこで止め、保存済みの分は残す
+- `daily_journal.embedding` / `embedding_input` / `embedded_at` は使わない。journal-dailyスキルが `embedded_at` をNULLへ戻すので列は残す
+- 画面は `?view=search`（`SemanticSearchView`）。検索・索引の件数・手動の「今すぐ索引を更新」
+
 ### DBアクセス
 
 Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは次だけ。
@@ -187,8 +204,13 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `POST /api/review-queue/confirm`: 採点結果（`quiz_log_ids`）を確認済みにする
 - `POST /api/review-batch/generate` / `grade`: 生成・採点バッチ。pg_cronからは `X-Review-Batch-Token`、画面からは
   同一オリジンと `X-Dashboard-Action: review-queue` で受け付ける。ミドルウェアがBasic認証を省くのは、合言葉が一致した
-  この2つのPOSTだけ。生成はキューが上限なら、採点は採点待ちがなければAIを呼ばない。採点で再学習に入った回答があれば、
+  この2つと `/api/embedding-batch` のPOSTだけ。生成はキューが上限なら、採点は採点待ちがなければAIを呼ばない。採点で再学習に入った回答があれば、
   再学習分だけを続けて生成する（`after_grade`）
+- `POST /api/semantic-search`: 検索語（500文字以内）・種類・件数（1〜50、既定20）を受け取り、検索語だけをVoyageへ送って
+  `search_semantic` の結果を返す。検索語をURLやログに残さないようPOSTにし、同一オリジンと `X-Dashboard-Action: semantic-search` を要求する
+- `GET /api/semantic-search/status`: 種類ごとの対象数・今の文とモデルでembedding済みの数・最終更新、キーの設定有無
+- `POST /api/embedding-batch`: embeddingバッチ。pg_cronからは `X-Review-Batch-Token`、画面からは同一オリジンと
+  `X-Dashboard-Action: semantic-search` で受け付ける。Voyageへは `semantic_sources()` の文を送る（日記の要約を含む）
 - 出題・採点のプロンプト、形式の決め方、検証、q値の補正は `_shared/questionGeneration.ts`・`_shared/answerGrading.ts` に
   集約し、生成・採点バッチと回答時の即時採点が使う
 

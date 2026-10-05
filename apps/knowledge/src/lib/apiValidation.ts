@@ -4,6 +4,7 @@ import type {
   ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
   SpeakingPracticeStart, SpeakingPracticeType,
+  EmbeddingBatchSummary, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType,
 } from "../types";
 
 interface PageEnvelope {
@@ -364,6 +365,65 @@ export function parseReviewBatchSummary(value: unknown): ReviewBatchSummary {
     failed: countValue(value, "failed", entity),
     note: optionalString(value, "note", entity),
     followUp: isRecord(value.followUp) ? parseReviewBatchSummary(value.followUp) : undefined,
+  };
+}
+
+const SEMANTIC_SOURCE_TYPE_VALUES = new Set<SemanticSourceType>(["knowledge", "insight", "journal"]);
+const EMBEDDING_BATCH_STATUS_VALUES = new Set(["succeeded", "skipped", "failed"]);
+
+function semanticSourceType(record: Record<string, unknown>, entity: string): SemanticSourceType {
+  const value = stringValue(record, "source_type", entity);
+  if (!SEMANTIC_SOURCE_TYPE_VALUES.has(value as SemanticSourceType)) return fail(entity, "source_type");
+  return value as SemanticSourceType;
+}
+
+export function parseSemanticSearchResults(value: unknown): SemanticSearchResult[] {
+  const entity = "検索結果";
+  if (!isRecord(value) || !Array.isArray(value.results)) return fail(entity);
+  return value.results.map((item) => {
+    if (!isRecord(item)) return fail(entity);
+    return {
+      source_type: semanticSourceType(item, entity),
+      source_id: stringValue(item, "source_id", entity),
+      title: stringValue(item, "title", entity),
+      body: stringValue(item, "body", entity),
+      meta: optionalString(item, "meta", entity),
+      knowledge_id: optionalString(item, "knowledge_id", entity),
+      entry_date: optionalString(item, "entry_date", entity),
+      similarity: numberValue(item, "similarity", entity),
+    };
+  });
+}
+
+export function parseSemanticIndexStatus(value: unknown): SemanticIndexStatus {
+  const entity = "意味検索の索引の状態";
+  if (!isRecord(value) || !Array.isArray(value.items) || typeof value.configured !== "boolean") return fail(entity);
+  return {
+    model: stringValue(value, "model", entity),
+    configured: value.configured,
+    items: value.items.map((item) => {
+      if (!isRecord(item)) return fail(entity);
+      return {
+        source_type: semanticSourceType(item, entity),
+        total: countValue(item, "total", entity),
+        embedded: countValue(item, "embedded", entity),
+        last_embedded_at: optionalString(item, "last_embedded_at", entity),
+      };
+    }),
+  };
+}
+
+export function parseEmbeddingBatchSummary(value: unknown): EmbeddingBatchSummary {
+  const entity = "embeddingバッチの実行結果";
+  if (!isRecord(value)) return fail(entity);
+  const status = stringValue(value, "status", entity);
+  if (!EMBEDDING_BATCH_STATUS_VALUES.has(status)) return fail(entity, "status");
+  return {
+    status: status as EmbeddingBatchSummary["status"],
+    picked: countValue(value, "picked", entity),
+    saved: countValue(value, "saved", entity),
+    tokens: countValue(value, "tokens", entity),
+    note: optionalString(value, "note", entity),
   };
 }
 

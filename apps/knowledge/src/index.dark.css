@@ -1408,3 +1408,70 @@
     color: #d4dade;
   }
 }
+:root[data-theme="dark"] .semantic-search-query {
+  color: #a7b1c3;
+}
+:root[data-theme="dark"] .semantic-search-types {
+  border: 0;
+}
+:root[data-theme="dark"] .semantic-search-types legend {
+  color: #a7b1c3;
+}
+:root[data-theme="dark"] .semantic-search-types label {
+  color: #bac5d6;
+}
+:root[data-theme="dark"] .semantic-search-hint {
+  color: #949eae;
+}
+:root[data-theme="dark"] .semantic-index dt {
+  color: #9ea9b9;
+}
+:root[data-theme="dark"] .semantic-index dd {
+  color: #d5d2db;
+}
+:root[data-theme="dark"] .semantic-index p {
+  color: #9ea9b9;
+}
+:root[data-theme="dark"] .semantic-index .semantic-index-error {
+  color: #eb7a7a;
+}
+:root[data-theme="dark"] .semantic-index-actions {
+  color: #a7b1c3;
+}
+:root[data-theme="dark"] .semantic-results h2 {
+  color: #bac5d6;
+}
+:root[data-theme="dark"] .semantic-empty {
+  color: #9ea9b9;
+}
+:root[data-theme="dark"] .semantic-result h3 {
+  color: #d5d2db;
+}
+:root[data-theme="dark"] .semantic-type {
+  border-radius: 999px;
+  background: #1b191e;
+  color: #b2a6cd;
+}
+:root[data-theme="dark"] .semantic-type.insight {
+  background: #443822;
+  color: #f1cc94;
+}
+:root[data-theme="dark"] .semantic-type.journal {
+  background: #2d3a34;
+  color: #abdac7;
+}
+:root[data-theme="dark"] .semantic-meta {
+  color: #929fb4;
+}
+:root[data-theme="dark"] .semantic-similarity {
+  color: #7c8ea8;
+}
+:root[data-theme="dark"] .semantic-result-body {
+  color: #b0baca;
+}
+:root[data-theme="dark"] .semantic-result-body.insight {
+  color: #d5d2db;
+}
+:root[data-theme="dark"] .semantic-result-source {
+  color: #929fb4;
+}

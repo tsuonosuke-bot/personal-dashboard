@@ -855,3 +855,40 @@ button:disabled { opacity: 0.4; cursor: default; }
   .tabbar-theme select { width: auto; min-width: 120px; height: auto; min-height: 40px; flex: 0 0 auto; padding: 4px 8px; border: 1px solid #dfe2dd; border-radius: 8px; background: #fff; color: #20262a; font: inherit; }
 }
 /* tabbar:end */
+
+/* 意味で検索（#45） */
+.semantic-search { max-width: 760px; display: grid; gap: 12px; }
+.semantic-search-form { display: grid; gap: 10px; }
+.semantic-search-query { display: grid; gap: 6px; color: #526079; font-size: 12px; font-weight: 700; }
+.semantic-search-query textarea { width: 100%; resize: vertical; line-height: 1.55; font-size: 15px; }
+.semantic-search-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.semantic-search-types { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 0; padding: 0; border: 0; }
+.semantic-search-types legend { float: left; margin-right: 6px; color: #526079; font-size: 12px; font-weight: 700; }
+.semantic-search-types label { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; color: #334155; font-size: 13px; }
+.semantic-search-controls .primary-button { min-width: 96px; min-height: 40px; }
+.semantic-search-hint { margin: 0; color: #7a879b; font-size: 12px; line-height: 1.5; }
+.semantic-index { display: grid; gap: 8px; padding: 12px 14px; }
+.semantic-index dl { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; }
+.semantic-index dl div { display: flex; align-items: baseline; gap: 6px; }
+.semantic-index dt { color: #64748b; font-size: 12px; font-weight: 700; }
+.semantic-index dd { margin: 0; color: #27242d; font-size: 13px; font-variant-numeric: tabular-nums; }
+.semantic-index p { margin: 0; color: #64748b; font-size: 12px; line-height: 1.5; }
+.semantic-index .semantic-index-error { color: #b91c1c; }
+.semantic-index-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: #526079; font-size: 12px; }
+.semantic-index-actions button { min-height: 36px; font-size: 13px; }
+.semantic-results h2 { margin: 6px 0 10px; color: #334155; font-size: 15px; overflow-wrap: anywhere; }
+.semantic-results ol { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.semantic-empty { margin: 0; color: #64748b; font-size: 13px; }
+.semantic-result { display: grid; gap: 6px; padding: 14px 16px; }
+.semantic-result h3 { margin: 0; color: #27242d; font-size: 15px; line-height: 1.45; }
+.semantic-result-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.semantic-type { padding: 2px 9px; border-radius: 999px; background: #f1eef6; color: #554479; font-size: 11px; font-weight: 700; }
+.semantic-type.insight { background: #fdf3e1; color: #8a5a12; }
+.semantic-type.journal { background: #e8f3ee; color: #2f6b52; }
+.semantic-meta { color: #71829d; font-size: 12px; }
+.semantic-similarity { margin-left: auto; color: #94a3b8; font-size: 11px; font-variant-numeric: tabular-nums; }
+.semantic-result-body { margin: 0; color: #475569; font-size: 13px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.semantic-result-body.knowledge { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.semantic-result-body.insight { color: #27242d; font-size: 14px; }
+.semantic-result-source { margin: 0; color: #71829d; font-size: 12px; }
+.semantic-result .text-button { justify-self: start; min-height: 32px; font-size: 13px; }
