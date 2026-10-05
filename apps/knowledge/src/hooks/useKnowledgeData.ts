@@ -68,8 +68,16 @@ export function useKnowledgeData() {
     }
   }, []);
 
+  /** 採点結果を確認済みにした後、全件を読み直さずに手元の記録へ反映する。 */
+  const markConfirmed = useCallback((ids: number[], confirmedAt = new Date().toISOString()) => {
+    const targets = new Set(ids);
+    setQuizLog((current) => current.map((row) => (targets.has(row.id) && row.confirmed_at === null
+      ? { ...row, confirmed_at: confirmedAt }
+      : row)));
+  }, []);
+
   return {
     knowledge, archivedKnowledge, quizLog, loading, error, mutating,
-    reload, createKnowledge, updateKnowledge,
+    reload, createKnowledge, updateKnowledge, markConfirmed,
   };
 }

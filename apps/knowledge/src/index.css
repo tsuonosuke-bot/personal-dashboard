@@ -19,9 +19,6 @@ h2, h3, p { margin-top: 0; }
 .card { background: #fff; border: 1px solid #e1dfe4; border-radius: 12px; padding: 18px; box-shadow: none; }
 .table-card { padding: 0; overflow-x: auto; }
 
-.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
-.stat-label { font-size: 12px; color: #66758f; }
-.stat-value { font-size: 29px; font-weight: 750; margin-top: 6px; letter-spacing: -.02em; }
 
 .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 .full { grid-column: 1 / -1; }
@@ -102,47 +99,10 @@ button:disabled { opacity: 0.4; cursor: default; }
 .notice .notice-undo { padding: 4px 8px; border: 1px solid #86efac; border-radius: 7px; font-size: 12px; font-weight: 700; }
 .muted { color: #94a3b8; }
 
-.daily-review { margin-bottom: 16px; }
-.daily-review-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.daily-review-head h2 { margin: 3px 0 0; font-size: 18px; }
-.daily-review-actions { display: flex; align-items: center; gap: 8px; }
-.daily-review-metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 16px; }
-.daily-review-metrics > div { padding: 11px 12px; border-radius: 10px; background: #f7f6fa; }
-.daily-review-metrics span, .daily-review-metrics small { display: block; color: #7a879b; font-size: 10px; }
-.daily-review-metrics strong { display: block; margin: 4px 0 2px; font-size: 21px; }
-.daily-progress { height: 8px; margin-top: 12px; overflow: hidden; border-radius: 999px; background: #ece9f2; }
-.daily-progress span { display: block; height: 100%; border-radius: inherit; background: #66558c; transition: width .2s ease; }
-.review-category-breakdown { margin-top: 14px; padding-top: 13px; border-top: 1px solid #ece8f2; }
-.review-category-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-.review-category-heading h3 { margin: 0; font-size: 13px; }
-.review-category-heading > span { color: #7a879b; font-size: 11px; }
-.review-category-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
-.review-category-list li { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 7px 9px; border-radius: 8px; background: #f7f6fa; font-size: 12px; }
-.review-category-list li > span { min-width: 0; overflow-wrap: anywhere; color: #5f6d80; }
-.review-category-list strong { flex: none; color: #44345f; font-size: 12px; }
-.review-category-list li.empty { opacity: .55; }
-.review-category-breakdown > .muted { margin: 0; font-size: 12px; }
-.daily-review-note { display: grid; gap: 4px; margin-top: 13px; }
-.daily-review-note p { margin: 0; color: #7a879b; font-size: 12px; }
 
-.review-panel { margin: 18px 0; }
 .section-heading { display: flex; justify-content: space-between; align-items: end; margin-bottom: 10px; }
 .section-heading h2 { margin-bottom: 3px; font-size: 16px; }
 .section-heading p { margin-bottom: 0; color: #8491a7; font-size: 12px; }
-.review-grid { display: grid; grid-template-columns: .72fr .72fr 2fr; gap: 12px; }
-.review-card { min-height: 105px; padding: 16px 18px; border: 1px solid #e1dfe4; border-radius: 12px; background: #fff; text-align: left; }
-button.review-card { display: block; }
-.review-card > span { display: block; color: #64748b; font-size: 12px; font-weight: 650; }
-.review-card > strong { display: inline-block; margin-top: 11px; font-size: 28px; line-height: 1; }
-.review-card > small { margin-left: 4px; color: #94a3b8; }
-.review-card.today { border-left: 4px solid #66558c; }
-.review-card.overdue { border-left: 4px solid #f97316; }
-.review-card.weak { border-left: 4px solid #8b5cf6; }
-.weak-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
-.weak-list button { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px; padding: 8px 10px; border: 0; background: #f7f5ff; text-align: left; }
-.weak-list button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-.weak-list button strong { color: #6d28d9; }
-.weak-list button small { grid-column: 1 / -1; color: #94a3b8; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 22px; background: rgba(15, 23, 42, .52); backdrop-filter: blur(3px); }
 .modal { display: flex; flex-direction: column; width: min(760px, 100%); max-height: calc(100vh - 44px); overflow: hidden; border: 1px solid #dce3ed; border-radius: 17px; background: #fff; box-shadow: 0 22px 60px rgba(15, 23, 42, .24); }
@@ -198,10 +158,7 @@ button.review-card { display: block; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 @media (max-width: 800px) {
-  .stats { grid-template-columns: repeat(2, 1fr); }
   .charts { grid-template-columns: 1fr; }
-  .review-grid { grid-template-columns: 1fr 1fr; }
-  .review-card.weak { grid-column: 1 / -1; }
   .metric-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
@@ -210,14 +167,10 @@ button.review-card { display: block; }
   .head { align-items: flex-start; }
   .head-actions { flex-direction: column-reverse; align-items: stretch; }
   .head-actions button { padding-inline: 9px; }
-  .review-grid, .form-grid { grid-template-columns: 1fr; }
-  .review-card.weak, .full-field { grid-column: auto; }
-  .weak-list { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .full-field { grid-column: auto; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .detail-list { grid-template-columns: 1fr; }
-  .daily-review-head { align-items: stretch; flex-direction: column; }
-  .daily-review-actions { align-items: stretch; flex-direction: column; }
-  .daily-review-metrics { grid-template-columns: repeat(2, 1fr); }
   .pager { justify-content: center; }
   .pager-summary { width: 100%; margin: 0; text-align: center; }
   .chart-heading { align-items: stretch; flex-direction: column; }
@@ -260,8 +213,6 @@ button.review-card { display: block; }
 .source-badge.live::before { background: #3b9b6b; box-shadow: 0 0 0 3px rgba(59,155,107,.12); }
 .source-badge.error::before { background: #c75049; }
 .refresh-button { width: 40px; padding: 0; color: #66558c; font-size: 19px; }
-.stats { gap: 9px; }
-.review-panel { margin: 14px 0; }
 .charts { gap: 12px; margin-bottom: 14px; }
 .filters { padding: 14px; border: 1px solid #e1dfe4; border-radius: 12px; background: #fff; }
 .modal { border-radius: 14px; }
@@ -774,6 +725,99 @@ button.review-card { display: block; }
 /* スマホ幅ではHubへの戻りとページ切り替えを下部タブバー（public/tabbar.js）に任せる */
 @media (max-width: 680px) {
   .hub-link, .dashboard-switcher { display: none; }
+}
+
+/* 今日の学習: 今すぐ解ける・今日の回答・見直す講評の3つに絞る */
+.today-learning { margin-bottom: 16px; }
+.today-learning-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.today-learning-head h2 { margin: 3px 0 0; font-size: 18px; }
+.today-learning-start { min-height: 44px; padding: 0 18px; border-radius: 9px; font-size: 14px; }
+.today-learning-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.today-metric { display: grid; align-content: start; gap: 3px; padding: 12px 14px; border-radius: 10px; background: #f7f6fa; }
+.today-metric > span { color: #6f6a78; font-size: 12px; font-weight: 700; }
+.today-metric strong { color: #27242d; font-size: 24px; line-height: 1.15; }
+.today-metric strong small { margin-left: 6px; color: #6f6a78; font-size: 13px; font-weight: 650; }
+.today-metric em { color: #6f6a78; font-size: 12px; font-style: normal; line-height: 1.5; }
+.today-metric-value { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+.today-metric.attention { background: #fff0e9; }
+.today-metric.attention strong { color: #a54428; }
+.today-metric-action { min-height: 36px; padding: 0 12px; border: 1px solid #a54428; border-radius: 8px; background: #fff; color: #a54428; font-size: 12px; font-weight: 800; }
+.today-metric-action:hover:not(:disabled) { background: #a54428; color: #fff; }
+.today-learning-line { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 12px 0 0; color: #6f6a78; font-size: 12px; line-height: 1.6; }
+.today-learning-line b { color: #27242d; font-weight: 650; }
+.today-learning-line .text-button { margin-left: 4px; font-size: 12px; }
+.today-learning .review-queue-full { margin: 10px 0 0; }
+.today-learning-how { margin-top: 8px; padding-top: 8px; border-top: 1px solid #efedf2; }
+.today-learning-how summary { min-height: 32px; display: flex; align-items: center; color: #66558c; font-size: 12px; font-weight: 700; cursor: pointer; }
+.today-learning-how p { margin: 4px 0 0; color: #6f6a78; font-size: 12px; line-height: 1.7; }
+
+/* 学習の進み具合 */
+.progress-heading { display: flex; align-items: baseline; gap: 10px; margin: 6px 2px 10px; }
+.progress-heading h2 { margin: 0; font-size: 17px; white-space: nowrap; }
+.progress-heading p { margin: 0; color: #6f6a78; font-size: 12px; }
+.progress-card h3 { margin: 0; font-size: 14px; }
+.progress-sub { margin: 3px 0 12px; color: #6f6a78; font-size: 12px; }
+.hold-bars { display: grid; gap: 6px; }
+.hold-bar { display: grid; grid-template-columns: 72px minmax(0, 1fr) 40px; align-items: center; gap: 10px; min-height: 26px; border-radius: 6px; font-size: 12px; }
+.hold-bar:hover { background: #faf9fc; }
+.hold-bar > span { color: #6f6a78; font-weight: 650; }
+.hold-bar i { display: block; height: 14px; min-width: 2px; border-radius: 0 4px 4px 0; background: #66558c; }
+.hold-bar.unasked i { background: #c7c3cf; }
+.hold-bar b { color: #27242d; text-align: right; font-variant-numeric: tabular-nums; }
+.hold-sep { height: 1px; margin: 2px 0; background: #efedf2; }
+.accuracy-bars { position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-left: 38px; padding-top: 6px; }
+.accuracy-axis { position: absolute; top: 6px; right: 0; left: 0; height: 140px; pointer-events: none; }
+.accuracy-axis div { position: absolute; right: 0; left: 0; border-top: 1px solid #efedf2; }
+.accuracy-axis span { position: absolute; left: -38px; width: 32px; transform: translateY(-50%); color: #6f6a78; font-size: 11px; text-align: right; }
+.accuracy-col { display: grid; justify-items: center; gap: 6px; }
+.accuracy-plot { position: relative; width: 100%; height: 140px; }
+.accuracy-plot i { position: absolute; bottom: 0; left: 50%; width: min(34px, 70%); transform: translateX(-50%); border-radius: 4px 4px 0 0; background: #66558c; }
+.accuracy-col.partial .accuracy-plot i { background: repeating-linear-gradient(135deg, #66558c 0 5px, #8c7fb0 5px 8px); }
+.accuracy-plot b { position: absolute; left: 0; right: 0; bottom: calc(var(--h, 0%) + 4px); text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+.accuracy-col > span { color: #6f6a78; font-size: 11px; white-space: nowrap; }
+.accuracy-col:hover .accuracy-plot i { filter: brightness(1.15); }
+.progress-tip { position: fixed; z-index: 70; padding: 7px 9px; border-radius: 8px; background: #27242d; color: #fff; font-size: 12px; line-height: 1.5; pointer-events: none; box-shadow: 0 8px 22px rgba(0, 0, 0, .2); }
+.other-charts { margin: 0 0 16px; padding: 10px 14px; border: 1px solid #e1dfe4; border-radius: 12px; background: #fff; }
+.other-charts summary { min-height: 32px; display: flex; align-items: center; color: #66558c; font-size: 13px; font-weight: 700; cursor: pointer; }
+.other-charts[open] summary { margin-bottom: 12px; }
+.other-charts .charts { margin-bottom: 4px; }
+
+/* 外した問題の講評 */
+.missed-review { width: min(640px, 100%); padding: 18px 20px 20px; overflow-y: auto; }
+.missed-review-top { display: flex; align-items: center; justify-content: space-between; color: #6f6a78; font-size: 12px; font-weight: 700; }
+.missed-review-bar { height: 4px; margin: 6px 0 14px; overflow: hidden; border-radius: 999px; background: #ece9f1; }
+.missed-review-bar b { display: block; height: 100%; background: #66558c; transition: width .2s ease; }
+.missed-review-kicker { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; color: #6f6a78; font-size: 12px; font-weight: 700; }
+.verdict-badge.wrong { background: #fff0e9; color: #a54428; font-weight: 800; }
+.verdict-badge.partial { background: #fdf3dc; color: #7d5a18; font-weight: 800; }
+.missed-review-question { margin: 0 0 14px; font-size: 15px; line-height: 1.7; white-space: pre-wrap; }
+.missed-review-answers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.missed-review-answers > div { padding: 10px 12px; border-radius: 10px; }
+.missed-review-answers span { display: block; margin-bottom: 3px; font-size: 11px; font-weight: 800; }
+.missed-review-answers p { margin: 0; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; white-space: pre-wrap; }
+.missed-review-answers .mine { background: #fff0e9; }
+.missed-review-answers .mine span { color: #a54428; }
+.missed-review-answers .right { background: #e9f3ee; }
+.missed-review-answers .right span { color: #2f6754; }
+.missed-review-explanation { margin: 0 0 14px; padding: 12px; border-left: 3px solid #66558c; border-radius: 4px 10px 10px 4px; background: #f7f6fa; font-size: 13px; line-height: 1.75; white-space: pre-wrap; }
+.missed-review-card { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0 0 14px; color: #6f6a78; font-size: 12px; }
+.missed-review-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.missed-review-actions button { min-height: 44px; padding: 0 16px; border-radius: 9px; font-size: 14px; }
+.missed-review-done { display: grid; justify-items: center; gap: 8px; padding: 18px 0 6px; text-align: center; }
+.missed-review-done strong { font-size: 17px; }
+.missed-review-done p { margin: 0 0 6px; color: #6f6a78; font-size: 13px; }
+
+@media (max-width: 720px) {
+  .today-learning-head { flex-direction: column; align-items: stretch; }
+  .today-learning-metrics { grid-template-columns: 1fr; gap: 6px; }
+  .today-metric { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "label value" "note value"; align-items: center; gap: 2px 10px; padding: 10px 12px; }
+  .today-metric > span { grid-area: label; }
+  .today-metric > em { grid-area: note; }
+  .today-metric > strong, .today-metric > .today-metric-value { grid-area: value; justify-self: end; text-align: right; }
+  .today-metric strong { font-size: 22px; }
+  .missed-review-answers { grid-template-columns: 1fr; }
+  .progress-heading { flex-direction: column; gap: 2px; }
+  .missed-review { width: 100%; }
 }
 
 /* tabbar:start — tabbar.js と同じく Hub・Knowledge・Finance で同一の内容。変えるときは3つとも揃える */

@@ -23,6 +23,9 @@ interface Props {
   onOpenResults: () => void;
   onOpenLog: () => void;
   autoStartDaily?: boolean;
+  /** 見直す講評（未確認の不正解・部分正解）の件数。復習を終えた画面から講評の見直しへ進む。 */
+  missCount?: number;
+  onOpenMisses?: () => void;
 }
 
 const MAX_ANSWER_CHARS = 2_000;
@@ -60,7 +63,7 @@ function batchMessage(summary: ReviewBatchSummary): string {
  */
 export function ReviewView({
   knowledge, quizLog, queueStatus, onExit, onRecorded, onKnowledgeUpdate, insightStore, insightGroupStore,
-  onOpenResults, onOpenLog, autoStartDaily = false,
+  onOpenResults, onOpenLog, autoStartDaily = false, missCount = 0, onOpenMisses,
 }: Props) {
   const session = useReviewSession(onRecorded);
   const [answer, setAnswer] = useState("");
@@ -210,12 +213,18 @@ export function ReviewView({
               </p>
             )}
             <p className="muted">
-              採点待ちの回答は1時間ごとに自動で採点されます。AIの採点と講評は学習ログで確認できます。
+              採点待ちの回答は1時間ごとに自動で採点されます。採点が終わると、外した問題だけが「見直す講評」に入ります
+              （正解した問題の講評は確認不要として扱います）。
             </p>
             <div className="review-batch-actions">
               {waitingCount > 0 && (
                 <button className="primary-button" onClick={() => void runBatch("grade")} disabled={batchBusy !== null}>
                   {batchBusy === "grade" ? "採点中…" : "今すぐ採点する"}
+                </button>
+              )}
+              {missCount > 0 && onOpenMisses && (
+                <button className={waitingCount > 0 ? undefined : "primary-button"} onClick={onOpenMisses}>
+                  外した問題の講評を見る（{missCount}件）
                 </button>
               )}
               <button onClick={onOpenResults}>学習ログで結果を見る</button>

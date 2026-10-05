@@ -100,3 +100,9 @@ build that depends on them.
 After applying a migration, verify its functions with `pg_get_functiondef` and
 verify the new column/trigger through `information_schema` before deploying the
 matching Cloudflare Pages build.
+
+- `20261005120000_auto_confirm_correct_results.sql` treats correct queue results
+  as confirmed when they are recorded (a `BEFORE INSERT OR UPDATE` trigger on
+  `quiz_log`, so the instant multiple-choice path and the grading batch are both
+  covered) and backfills existing correct results. "未確認の採点結果" then counts
+  only 不正解・部分正解, which the dashboard shows as 見直す講評.
