@@ -35,7 +35,7 @@ test("回答した直後に想定解で答え合わせし、AIの採点は学習
   assert.match(session, /submitReviewAnswer\(current\.id, answer\)/);
   assert.match(session, /setStage\("feedback"\)/);
   assert.match(view, /result\?\.correct_answer \?\? accepted\.expected_answer/);
-  assert.match(view, /AIによる採点と講評は、15分以内に学習ログへ届きます/);
+  assert.match(view, /AIによる採点と講評は、1時間以内に学習ログへ届きます/);
   assert.match(view, /次の問題へ/);
   // 採点結果の画面は無く、学習ログへ案内する
   assert.match(view, /学習ログで結果を見る/);

@@ -648,10 +648,11 @@ test("採点待ちの一覧は採点待ち・採点中・採点エラーだけ�
   });
 });
 
-test("定期実行は生成を30分ごと、採点を15分ごとに登録する", async () => {
+test("定期実行は生成を30分ごと、採点を1時間ごとに登録する", async () => {
   const sql = await readFile(new URL("../supabase/migrations/20261002120000_review_batch_schedule.sql", import.meta.url), "utf8");
   assert.match(sql, /cron\.schedule\('review-generate-questions', '\*\/30 \* \* \* \*', \$job\$select public\.trigger_review_batch\('generate'\)\$job\$\)/);
-  assert.match(sql, /cron\.schedule\('review-grade-answers', '\*\/15 \* \* \* \*', \$job\$select public\.trigger_review_batch\('grade'\)\$job\$\)/);
+  const hourly = await readFile(new URL("../supabase/migrations/20261005110000_review_grade_hourly.sql", import.meta.url), "utf8");
+  assert.match(hourly, /cron\.schedule\('review-grade-answers', '0 \* \* \* \*', \$job\$select public\.trigger_review_batch\('grade'\)\$job\$\)/);
 });
 
 test("学習ログ用に採点記録の問題・回答・講評・確認状態を返す", async () => {

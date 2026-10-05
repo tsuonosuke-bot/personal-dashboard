@@ -13,7 +13,7 @@ const kind = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 const cron = (jobname: string, overrides: Record<string, unknown> = {}) => ({
-  jobname, schedule: "*/15 * * * *", active: true, last_run_at: hoursAgo(0.1), last_status: "succeeded",
+  jobname, schedule: "0 * * * *", active: true, last_run_at: hoursAgo(0.1), last_status: "succeeded",
   failed_24h: 0, last_failure_message: null, ...overrides,
 });
 const healthy = (overrides: Record<string, unknown> = {}) => ({
@@ -39,10 +39,10 @@ test("バッチ全体の失敗が3回続いたら警告し、直近の失敗理�
   assert.equal(parseBatchHealth(healthy({ grade: kind({ consecutive_failures: 2 }) }), now)?.alerts.length, 0);
 });
 
-test("最後の成功から生成3時間・採点2時間以上空くと警告する", () => {
+test("最後の成功から生成3時間・採点3時間以上空くと警告する", () => {
   const stale = parseBatchHealth(healthy({
     generate: kind({ last_ok_at: hoursAgo(3.5) }),
-    grade: kind({ last_ok_at: hoursAgo(1.9) }),
+    grade: kind({ last_ok_at: hoursAgo(2.9) }),
   }), now);
   assert.deepEqual(stale?.alerts.map((a) => a.code), ["generate_stale"]);
   const noRecord = parseBatchHealth(healthy({ grade: kind({ last_ok_at: null }) }), now);
@@ -58,6 +58,9 @@ test("pg_cronのジョブが無い・止まっている・失敗している・�
     ["cron_failing"],
   );
   assert.deepEqual(codes([cron("review-generate-questions", { last_run_at: hoursAgo(2.5) }), cron("review-grade-answers")]), ["cron_stale"]);
+  // 採点は1時間ごとなので、2.5時間空いていてもまだ警告しない。
+  assert.deepEqual(codes([cron("review-generate-questions"), cron("review-grade-answers", { last_run_at: hoursAgo(2.5) })]), []);
+  assert.deepEqual(codes([cron("review-generate-questions"), cron("review-grade-answers", { last_run_at: hoursAgo(3.5) })]), ["cron_stale"]);
   // 24時間内に失敗があっても、直近が成功なら警告しない。
   assert.deepEqual(codes([cron("review-generate-questions", { failed_24h: 1 }), cron("review-grade-answers")]), []);
 });

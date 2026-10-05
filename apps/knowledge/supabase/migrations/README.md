@@ -53,6 +53,8 @@ build that depends on them.
 - `20261002120000_review_batch_schedule.sql` schedules question generation
   every 30 minutes and grading every 15 minutes through pg_cron. Without the
   Vault secret the jobs only log a warning.
+- `20261005110000_review_grade_hourly.sql` changes the grading job
+  (`review-grade-answers`) to run every hour instead of every 15 minutes.
 - `20261003100000_review_expected_answer.sql` stores the expected answer with
   each queued question (returned only after answering) and adds
   `discard_review_question` for questions the learner reports as broken.

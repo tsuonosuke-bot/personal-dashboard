@@ -9,7 +9,7 @@ const kind = { lastOkAt: "2026-10-05T11:50:00Z", lastRunAt: "2026-10-05T11:50:00
 const batches = (alerts: unknown[] = []) => ({
   generate: kind,
   grade: { ...kind, failed24h: 0 },
-  cron: [{ jobname: "review-grade-answers", schedule: "*/15 * * * *", active: true, lastRunAt: "2026-10-05T11:45:00Z", lastStatus: "succeeded", failed24h: 0, lastFailureMessage: null }],
+  cron: [{ jobname: "review-grade-answers", schedule: "0 * * * *", active: true, lastRunAt: "2026-10-05T11:45:00Z", lastStatus: "succeeded", failed24h: 0, lastFailureMessage: null }],
   alerts,
 });
 const env = {
