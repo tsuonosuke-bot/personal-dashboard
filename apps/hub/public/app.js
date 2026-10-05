@@ -1,6 +1,7 @@
 // Idea画面（/compass/）の入口。機能ごとのモジュールは ./compass/ にあり、ここでは
 // イベントの結線と初期表示だけを行う。
 import { applyInboxBulkUpdate, clearBulkSelection, renderBulkControls, setBulkMode } from "./compass/bulk.js";
+import { restoreTodoLayout, setTodoLayout } from "./compass/calendar.js";
 import { defaultStatusByView } from "./compass/constants.js";
 import { loadDashboard } from "./compass/data.js";
 import { closeDrawer, createInbox, setModalOpen } from "./compass/drawer.js";
@@ -44,6 +45,7 @@ els.todoFilterGroup.querySelectorAll("[data-todo-filter]").forEach((button) => b
   const filter = button.dataset.todoFilter;
   setView("todos", state.metricFilter === filter ? defaultStatusByView.todos : filter);
 }));
+els.todoLayoutGroup.querySelectorAll("[data-todo-layout]").forEach((button) => button.addEventListener("click", () => setTodoLayout(button.dataset.todoLayout)));
 els.refreshButton.addEventListener("click", loadDashboard);
 els.addInboxButton.addEventListener("click", () => setModalOpen(true));
 els.inboxModalClose.addEventListener("click", () => setModalOpen(false));
@@ -63,6 +65,7 @@ document.addEventListener("click", (event) => {
 });
 window.addEventListener("popstate", () => applyCompassRoute());
 
+restoreTodoLayout();
 const initialParameters = new URLSearchParams(window.location.search);
 loadDashboard().then(() => {
   const calendarResult = initialParameters.get("calendar");

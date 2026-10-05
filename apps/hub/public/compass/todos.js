@@ -99,7 +99,7 @@ function todoRequestBody(item, command, options = {}) {
   };
 }
 
-async function sendTodoUpdate(item, command, options = {}) {
+export async function sendTodoUpdate(item, command, options = {}) {
   const response = await fetch("/api/scheduled-actions", {
     method: "PATCH",
     credentials: "same-origin",

@@ -1,6 +1,7 @@
 // 一覧・タブ・まとめ・件数、ビューの切り替えとURLとの同期。
 import { compassRoutePath, parseCompassRoute } from "../compass-routing.js";
 import { clearBulkSelection, renderBulkControls } from "./bulk.js";
+import { renderTodoCalendar } from "./calendar.js";
 import { closedStatusesByView, defaultStatusByView, routeDestinationMeta, viewMeta } from "./constants.js";
 import { loadTodos } from "./data.js";
 import { hideDrawer, openDrawer } from "./drawer.js";
@@ -176,6 +177,16 @@ export function renderList() {
     tab.setAttribute("aria-selected", String(active));
   });
   renderBulkControls(items);
+  els.todoLayoutGroup.hidden = state.view !== "todos";
+  els.todoLayoutGroup.querySelectorAll("[data-todo-layout]").forEach((button) => {
+    const active = button.dataset.todoLayout === state.todoLayout;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  if (state.view === "todos" && state.todoLayout === "calendar") {
+    renderTodoCalendar(items);
+    return;
+  }
   if (!items.length) {
     const description = state.view === "todos" && !state.todosLoaded
       ? "Google CalendarとToDoを同期しています。"
