@@ -210,7 +210,7 @@ export function ReviewView({
               </p>
             )}
             <p className="muted">
-              採点待ちの回答は15分ごとに自動で採点されます。AIの採点と講評は学習ログで確認できます。
+              採点待ちの回答は1時間ごとに自動で採点されます。AIの採点と講評は学習ログで確認できます。
             </p>
             <div className="review-batch-actions">
               {waitingCount > 0 && (
@@ -343,7 +343,7 @@ function ReviewFeedbackCard({
       <p className="muted review-answer-hint">
         {result
           ? "この結果は記録済みです。"
-          : "AIによる採点と講評は、15分以内に学習ログへ届きます。"}
+          : "AIによる採点と講評は、1時間以内に学習ログへ届きます。"}
       </p>
       <div className="quiz-question-actions">
         <span className="action-spacer" />

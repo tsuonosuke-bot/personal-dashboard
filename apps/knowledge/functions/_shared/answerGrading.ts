@@ -7,7 +7,7 @@ import {
 import { MAX_ANSWER_CHARS, type QuizFormat } from "./quizValidation.ts";
 
 /**
- * 復習回答の採点。15分ごとの採点バッチ（api/review-batch/grade）と回答直後の即時採点が
+ * 復習回答の採点。1時間ごとの採点バッチ（api/review-batch/grade）と回答直後の即時採点が
  * 同じプロンプト・引用照合・q値の補正を使う。
  */
 

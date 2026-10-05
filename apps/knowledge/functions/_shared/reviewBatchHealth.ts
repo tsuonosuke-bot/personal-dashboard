@@ -1,12 +1,12 @@
 import { callRpc, isRecord } from "./reviewQueue.ts";
 import type { SupabaseEnv } from "./supabaseRest.ts";
 
-/** 全体の失敗がこの回数続いたら警告する（生成は30分ごと、採点は15分ごとに動く）。 */
+/** 全体の失敗がこの回数続いたら警告する（生成は30分ごと、採点は1時間ごとに動く）。 */
 export const FAILURE_STREAK_LIMIT = 3;
 /** 最後の成功（何もなく見送った実行も含む）からこの時間が空いたら警告する。 */
-export const STALE_HOURS = { generate: 3, grade: 2 } as const;
+export const STALE_HOURS = { generate: 3, grade: 3 } as const;
 /** pg_cronのジョブが最後に動いてからこの時間が空いたら警告する。 */
-const CRON_STALE_HOURS = 2;
+const CRON_STALE_HOURS = { generate: 2, grade: 3 } as const;
 
 export interface BatchKindHealth {
   /** 最後に成功した（または対象がなく見送った）実行の開始時刻。 */
@@ -111,8 +111,8 @@ export function evaluateAlerts(health: Omit<ReviewBatchHealth, "alerts">, now: D
       alerts.push({ code: "cron_failing", message: `${label}の定期実行ジョブが直近で失敗しています${reason}` });
     } else {
       const since = hoursSince(job.lastRunAt, now);
-      if (since === null || since >= CRON_STALE_HOURS) {
-        alerts.push({ code: "cron_stale", message: `${label}の定期実行ジョブが${CRON_STALE_HOURS}時間以上動いていません。` });
+      if (since === null || since >= CRON_STALE_HOURS[kind]) {
+        alerts.push({ code: "cron_stale", message: `${label}の定期実行ジョブが${CRON_STALE_HOURS[kind]}時間以上動いていません。` });
       }
     }
   }

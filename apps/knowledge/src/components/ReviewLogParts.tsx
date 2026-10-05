@@ -97,7 +97,7 @@ export function PendingAnswersPanel({
           {busy ? "採点中…" : "今すぐ採点する"}
         </button>
       </div>
-      <p className="muted">15分ごとに自動で採点されます。採点が終わると、下の一覧に結果と講評が入ります。</p>
+      <p className="muted">1時間ごとに自動で採点されます。採点が終わると、下の一覧に結果と講評が入ります。</p>
       {message && <p className="review-batch-notice" role="status">{message}</p>}
       {error && <div className="err compact" role="alert">{error}</div>}
       {items.length > 0 && (
