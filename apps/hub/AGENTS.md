@@ -14,5 +14,6 @@
 ## Dark mode
 
 - `public/static/theme.js` loads before every stylesheet and sets `data-theme="light|dark"` on `<html>` from the saved choice (`dashboard-theme` in localStorage: 自動/ライト/ダーク) or the OS setting. Knowledge and Finance ship the same script, so the choice is shared under the Hub origin.
+- The Idea screen (`/compass/`) is `public/app.js` (event wiring and boot only) plus ES modules in `public/compass/`: `state` / `constants` / `format` (shared parts), `list`, `data`, `bulk`, `route` and `project-route` (triage flow), `todos` (ToDo and Calendar), `edit-forms`, `drawer`. Vite bundles them into one script, so no build setting is involved. UI tests read the whole screen through `tests/compassScript.ts` instead of a single file. After adding a module, `npm run check` syntax-checks every file in `public/compass/`.
 - Author light CSS only. After editing any stylesheet, run `npm run theme` to regenerate the matching `*.dark.css`; `tests/darkTheme.test.ts` fails when a generated file is stale. Never edit `*.dark.css` by hand.
 - A new page must load `/theme.js` before its stylesheets, link `X.dark.css` right after each `X.css`, and include the `select[data-theme-select]` switcher.

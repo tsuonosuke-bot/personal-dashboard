@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { readCompassScript } from "./compassScript.ts";
 
 test("Projects page keeps the goal, current action, waiting, and review loop visible", async () => {
   const [html, script, css] = await Promise.all([
@@ -54,7 +55,7 @@ test("Projects migration links sources instead of moving them and enforces one n
 
 test("Compass offers Project as a separate commitment without replacing Inbox routes", async () => {
   const [script, css] = await Promise.all([
-    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readCompassScript(),
     readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
   ]);
   assert.match(script, /Projectとして進める/);
