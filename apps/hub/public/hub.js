@@ -114,9 +114,13 @@ function renderSummary(summary, navigation) {
   } else {
     els.inboxMeta.textContent = "未整理のInboxなし";
   }
-  els.compassMeta.textContent = Number.isFinite(summary.untriagedWants)
-    ? `Inbox ${formatCount(summary.pendingInbox)} · 未整理 ${formatCount(summary.untriagedWants)}`
+  // 1行に収まるよう合計だけを出し、内訳はマウスを重ねたときに見せる。
+  const compassDetail = Number.isFinite(summary.untriagedWants)
+    ? `Inbox ${formatCount(summary.pendingInbox)} · 未整理のWants ${formatCount(summary.untriagedWants)}`
     : `Inbox ${formatCount(summary.pendingInbox)} · Wants ${formatCount(summary.activeWants)}`;
+  const untriaged = (summary.pendingInbox ?? 0) + (summary.untriagedWants ?? 0);
+  els.compassMeta.textContent = Number.isFinite(summary.pendingInbox) ? `未整理 ${untriaged}件` : "—";
+  els.compassLink.title = compassDetail;
   els.projectsMeta.textContent = labeledCount("進行中", summary.activeProjects);
   els.writingMeta.textContent = labeledCount("アイデア", summary.writingIdeas);
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
