@@ -284,6 +284,49 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .todo-schedule {
   color: var(--blue);
 }
+:root[data-theme="dark"] .calendar-weekdays span {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .calendar-weekdays span:first-child {
+  color: #d69080;
+}
+:root[data-theme="dark"] .calendar-day {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #292929;
+}
+:root[data-theme="dark"] .calendar-day.is-outside {
+  background: transparent;
+}
+:root[data-theme="dark"] .calendar-day.is-past:not(.is-outside) {
+  background: #22221f;
+}
+:root[data-theme="dark"] .calendar-day.is-today {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+:root[data-theme="dark"] .calendar-day.is-drop-target {
+  border-color: var(--orange);
+  background: var(--orange-soft);
+}
+:root[data-theme="dark"] .calendar-day-number {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .calendar-day.is-today .calendar-day-number {
+  color: var(--green);
+}
+:root[data-theme="dark"] .calendar-chip {
+  border: 0;
+  border-radius: 6px;
+}
+:root[data-theme="dark"] .calendar-chip-closed {
+  background: #3b3830;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+:root[data-theme="dark"] .calendar-hint {
+  color: var(--muted);
+}
 :root[data-theme="dark"] .todo-notice {
   border: 1px solid #424e54;
   border-radius: 9px;
