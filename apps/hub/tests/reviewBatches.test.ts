@@ -80,5 +80,5 @@ test("トップのバナーはhub.jsが使うidをindex.htmlに持ち、警告�
   ]);
   assert.match(html, /id="batchAlert"[^>]*role="alert"[^>]*hidden/);
   assert.match(html, /id="batchAlertList"/);
-  assert.match(js, /renderBatchAlerts\(summary\.reviewBatchAlerts\)/);
+  assert.match(js, /renderAlerts\(summary\)/);
 });

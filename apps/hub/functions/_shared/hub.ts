@@ -1,5 +1,6 @@
 import type { DashboardEnv } from "./dashboard.ts";
 import { loadHabits } from "./habits.ts";
+import { loadDatabaseUsage, type DatabaseUsage } from "./databaseUsage.ts";
 import { readReviewBatches, type ReviewBatchesStatus } from "./reviewBatches.ts";
 import { FOCUS_LIMIT, normalizeFocusRows, type FocusRow } from "./focus.ts";
 
@@ -528,6 +529,7 @@ export function normalizeHub(
   writingRows: WritingRow[] = [],
   journalTrend: JournalTrend = normalizeJournalTrend([], now),
   reviewBatches: ReviewBatchesStatus | null = null,
+  databaseUsage: DatabaseUsage | null = null,
 ) {
   const { today, year, month } = jstDateParts(now);
   const currentMonth = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -612,6 +614,8 @@ export function normalizeHub(
       reviewGenerationHeld: availability.knowledge ? integer(reviewStatus?.generation_held) ?? 0 : null,
       // 生成・採点バッチの警告（全体の失敗が続く・成功が途絶える・cronが止まる）。取得できなければnull。
       reviewBatchAlerts: reviewBatches ? reviewBatches.alerts : null,
+      // SupabaseのDB容量が逼迫しているときの警告。取得できない・余裕があるときはnull。
+      databaseAlert: databaseUsage?.alert ?? null,
       weakKnowledge: availability.knowledge ? knowledge.weakCount : null,
       activeWants: availability.wants ? activeWants.length : null,
       untriagedWants: availability.wants ? untriagedWants.length : null,
@@ -642,6 +646,8 @@ export function normalizeHub(
 export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
+  // DB容量は失敗してもnullで返るので、「すべての取得元が失敗したら503」の判定（results）には入れない。
+  const databaseUsage = loadDatabaseUsage(env);
   const [inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, knowledgeStatus, journal, journalTrend, habits] = await Promise.allSettled([
     fetchRows(env, { table: "idea_inbox", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<InboxRow[]>,
     fetchRows(env, { table: "wants", select: "status,type,revisit_on" }) as Promise<WantRow[]>,
@@ -693,6 +699,7 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     writing.status === "fulfilled" ? writing.value : [],
     journalTrend.status === "fulfilled" ? journalTrend.value : normalizeJournalTrend([], now),
     knowledgeStatus.status === "fulfilled" ? readReviewBatches(knowledgeStatus.value) : null,
+    await databaseUsage,
   );
 }
 
