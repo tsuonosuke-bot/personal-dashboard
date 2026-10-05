@@ -1,17 +1,18 @@
 import { readApiJson } from "./api-client.js";
 import { renderJournalTrendHtml } from "./journal-trend.js";
+import { createTodayPanel } from "./today-panel.js";
 
 const ids = [
   "sourceBadge", "refreshButton", "quickAddMenu", "dateLabel", "updatedLabel",
   "compassLink", "projectsLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "projectsMeta", "writingMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
-  "batchAlert", "batchAlertList", "reviewMetricLink", "reviewMetricLabel", "dueKnowledge", "weakKnowledge",
-  "habitMetricLink", "remainingHabits", "habitProgress", "loadingState", "errorState", "errorMessage",
+  "batchAlert", "batchAlertList", "loadingState", "errorState", "errorMessage", "todayPanel",
   "retryButton", "hubContent", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
   "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "journalTrend", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
 ];
 
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
 const FOCUS_BOARD_LIMIT = 5;
+const today = createTodayPanel(els.todayPanel);
 let focusItems = [];
 let focusReturnTarget = null;
 
@@ -66,34 +67,29 @@ function renderNavigation(navigation) {
   els.financialLink.href = navigation.financial;
   els.knowledgeLink.href = navigation.knowledge;
   els.habitsLink.href = navigation.habits;
-  els.reviewMetricLink.href = navigation.knowledgeReview;
-  els.habitMetricLink.href = navigation.habits;
   els.writingLink.href = navigation.writing || "/writing/";
   els.allInboxLink.href = `${navigation.compass || "/compass/"}?view=inbox`;
   els.allExpensesLink.href = navigation.financial;
   els.allKnowledgeLink.href = navigation.knowledge;
 }
 
-/** 問題キューの件数。解ける問題があれば復習を始め、なければ採点待ちや結果のある学習ログへ案内する。 */
+/** 問題キューの件数。解ける問題があればKnowledgeから直接復習を始め、なければ通常の入口へ案内する。 */
 function renderReview(summary, navigation) {
   const readyDue = summary.reviewReadyDue;
   if (!Number.isFinite(readyDue)) {
-    els.dueKnowledge.textContent = "—";
-    els.weakKnowledge.textContent = "取得できません";
     els.knowledgeMeta.textContent = "—";
+    els.knowledgeLink.removeAttribute("title");
     return;
   }
-  const canStart = readyDue > 0;
-  els.reviewMetricLink.href = canStart ? navigation.knowledgeReview : navigation.knowledgeLog || navigation.knowledge;
-  els.reviewMetricLabel.textContent = canStart ? "今日の復習を開始 →" : "学習ログを見る →";
-  els.dueKnowledge.textContent = `${readyDue}問`;
-  els.weakKnowledge.textContent = [
+  els.knowledgeLink.href = readyDue > 0 ? navigation.knowledgeReview : navigation.knowledge;
+  els.knowledgeMeta.textContent = readyDue > 0 ? `復習 ${readyDue}問` : "復習なし";
+  els.knowledgeLink.title = [
+    `すぐ解ける ${readyDue}問`,
     `採点待ち ${formatCount(summary.reviewWaitingGrading)}`,
     `未確認 ${formatCount(summary.reviewUnconfirmed)}`,
     summary.reviewGradingErrors > 0 ? `採点エラー ${summary.reviewGradingErrors}件` : null,
     summary.reviewGenerationHeld > 0 ? `問題を作れず保留 ${summary.reviewGenerationHeld}件` : null,
   ].filter(Boolean).join(" · ");
-  els.knowledgeMeta.textContent = `すぐ解ける ${readyDue}問`;
 }
 
 /** 確認が必要な項目（復習バッチの異常・DB容量の逼迫）。無ければ非表示。取得できない（null）ときも出さない。 */
@@ -125,10 +121,6 @@ function renderSummary(summary, navigation) {
   els.writingMeta.textContent = labeledCount("アイデア", summary.writingIdeas);
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
   els.habitsMeta.textContent = labeledCount("残り", summary.remainingHabitsToday);
-  els.remainingHabits.textContent = formatCount(summary.remainingHabitsToday);
-  els.habitProgress.textContent = Number.isFinite(summary.completedHabitsToday)
-    ? `${summary.completedHabitsToday}件を今日記録`
-    : "取得できません";
 }
 
 function renderExpenses(items, available = true) {
@@ -180,7 +172,8 @@ function renderInbox(items, available = true) {
     return;
   }
   if (!items.length) {
-    els.inboxList.innerHTML = empty("未整理のInboxはありません");
+    // 見出しの「未整理のInboxなし」で足りるので、空の一覧は高さを取らない。
+    els.inboxList.innerHTML = "";
     return;
   }
   els.inboxList.innerHTML = items.map((item, index) => {
@@ -422,6 +415,7 @@ async function loadHub() {
     if (!response.ok) throw new Error(payload.error?.message || "データを読み込めませんでした。");
     const availability = payload.availability || { inbox: true, wants: true, focus: true, expenses: true, knowledge: true, journal: true, habits: true };
     renderNavigation(payload.navigation);
+    today.setNavigation(payload.navigation);
     renderSummary(payload.summary, payload.navigation);
     renderFocus(payload.focus || [], availability.focus);
     renderInbox(payload.inbox || [], availability.inbox);
@@ -444,7 +438,10 @@ async function loadHub() {
   }
 }
 
-els.refreshButton.addEventListener("click", loadHub);
+els.refreshButton.addEventListener("click", () => {
+  void today.load();
+  void loadHub();
+});
 els.retryButton.addEventListener("click", loadHub);
 els.manageFocusButton.addEventListener("click", () => openFocusModal());
 els.focusList.addEventListener("click", (event) => {
@@ -494,7 +491,7 @@ els.focusManageList.addEventListener("click", async (event) => {
   }
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape") return;
+  if (event.key !== "Escape" || today.isOpen()) return;
   if (els.quickAddMenu.open) {
     els.quickAddMenu.removeAttribute("open");
     els.quickAddMenu.querySelector("summary").focus();
@@ -504,6 +501,7 @@ document.addEventListener("click", (event) => {
   if (!els.quickAddMenu.contains(event.target)) els.quickAddMenu.removeAttribute("open");
 });
 setClock();
+void today.load();
 loadHub();
 
 if ("serviceWorker" in navigator) {

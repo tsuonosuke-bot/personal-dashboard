@@ -16,17 +16,21 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(html, /id="habitsLink"/);
   assert.match(html, /id="financialLink"/);
   assert.match(html, /id="knowledgeLink"/);
-  assert.match(html, /id="reviewMetricLink"/);
-  assert.match(html, /今日の復習を開始 →/);
+  // 復習と習慣の数字カードは「今日やること」とKnowledgeの件数表示に置き換えた
+  assert.doesNotMatch(html, /id="reviewMetricLink"|id="habitMetricLink"|class="metric-grid"/);
   assert.doesNotMatch(html, /id="reviewStartLink"|id="spendMetricLink"|id="currentMonthSpend"|id="pendingInbox"|id="untriagedMetricLink"|id="untriagedWants"|id="oldestUntriaged"/);
-  assert.match(html, /id="habitMetricLink"/);
   assert.match(html, /id="writingLink"/);
-  assert.match(html, /class="dashboard-card writing-card" id="writingLink"/);
+  assert.match(html, /class="app-pill writing-pill" id="writingLink"/);
   assert.match(html, /id="projectsMeta">—/);
   assert.match(html, /id="writingMeta">—/);
   assert.doesNotMatch(html, /目標をNext Actionへ|Pomeraで書くテーマ/);
   assert.ok(html.indexOf('id="hubContent"') < html.indexOf('class="data-tools"'));
-  assert.match(html, /class="metric-grid"/);
+  // 「今日やること」はアプリ一覧のすぐ下、既存の一覧より前に置く
+  assert.ok(html.indexOf('class="app-row"') < html.indexOf('id="todayPanel"'));
+  assert.ok(html.indexOf('id="todayPanel"') < html.indexOf('id="hubContent"'));
+  for (const id of ["todayDoneCounter", "todayAllDone", "todayTodos", "todayHabits", "todayProjects", "todaySheet", "todayToast"]) {
+    assert.match(html, new RegExp(`id="${id}"`));
+  }
   assert.match(html, /id="inboxList"/);
   assert.match(html, /未整理のInbox/);
   assert.match(html, /id="focusList"/);
@@ -41,18 +45,19 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(script, /labeledCount\("進行中", summary\.activeProjects\)/);
   assert.match(script, /labeledCount\("アイデア", summary\.writingIdeas\)/);
   assert.match(script, /Inboxを取得できませんでした/);
-  assert.match(script, /未整理のInboxはありません/);
+  assert.match(script, /els\.inboxMeta\.textContent = "未整理のInboxなし"/);
+  assert.match(script, /els\.inboxList\.innerHTML = "";/);
   assert.match(script, /class="inbox-state">未整理/);
   assert.match(script, /escapeHtml\(item\.url \|\| "\/compass\/\?view=inbox"\)/);
   assert.match(script, /renderFocus\(payload\.focus \|\| \[\], availability\.focus\)/);
-  // 「今日の復習」は問題キューのすぐ解ける問題数。なければ学習ログへ案内する。
-  assert.match(html, /<span id="reviewMetricLabel">今日の復習を開始 →<\/span>/);
-  assert.match(script, /els\.dueKnowledge\.textContent = `\$\{readyDue\}問`/);
-  assert.match(script, /canStart \? navigation\.knowledgeReview : navigation\.knowledgeLog/);
-  assert.match(script, /canStart \? "今日の復習を開始 →" : "学習ログを見る →"/);
+  // Knowledgeは問題キューのすぐ解ける問題数を出し、あればそのまま復習を始める。
+  assert.match(script, /els\.knowledgeLink\.href = readyDue > 0 \? navigation\.knowledgeReview : navigation\.knowledge/);
+  assert.match(script, /readyDue > 0 \? `復習 \$\{readyDue\}問` : "復習なし"/);
   assert.match(script, /`採点待ち \$\{formatCount\(summary\.reviewWaitingGrading\)\}`/);
   assert.match(script, /`未確認 \$\{formatCount\(summary\.reviewUnconfirmed\)\}`/);
   assert.match(script, /`すぐ解ける \$\{readyDue\}問`/);
+  assert.match(script, /import \{ createTodayPanel \} from "\.\/today-panel\.js"/);
+  assert.match(script, /today\.setNavigation\(payload\.navigation\)/);
   assert.doesNotMatch(script, /completedKnowledgeToday|todayKnowledgeTotal|overdueKnowledge|remainingKnowledgeToday/);
   assert.match(script, /fetch\("\/api\/focus"/);
   assert.match(script, /"X-Dashboard-Action": action/);
@@ -62,34 +67,52 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(script, /renderJournal\(payload\.journalMoments, availability\.journal\)/);
   assert.match(script, /renderJournalTrend\(payload\.journalTrend, availability\.journalTrend !== false\)/);
   assert.match(script, /target="_blank" rel="noopener noreferrer"/);
-  assert.match(script, /reviewMetricLink\.href = navigation\.knowledgeReview/);
   assert.doesNotMatch(script, /reviewStartLink|spendMetricLink|spendComparison|els\.currentMonthSpend|els\.pendingInbox|untriagedMetricLink|oldestUntriaged|renderWants/);
   assert.match(script, /一部取得不可/);
   assert.match(script, /renderExpenses\(payload\.recentExpenses, availability\.expenses\)/);
   assert.doesNotMatch(`${html}\n${script}`, /再訪日|再訪期限/);
 });
 
-test("Hub keeps six primary destinations readable on desktop and mobile", async () => {
+test("Hub keeps six destinations in one compact row and readable text on mobile", async () => {
   const css = await readFile(new URL("../public/hub.css", import.meta.url), "utf8");
 
   assert.match(css, /@media \(max-width: 620px\)/);
-  assert.match(css, /\.dashboard-grid \{ display: grid; grid-template-columns: repeat\(6, 1fr\);/);
-  assert.match(css, /\.projects-card \{ --accent: var\(--gold\); --soft: var\(--gold-soft\); \}/);
-  assert.match(css, /\.finance-card \{ --accent: var\(--blue\); --soft: var\(--blue-soft\); \}/);
-  assert.match(css, /\.writing-card \{ --accent: var\(--plum\); --soft: var\(--plum-soft\); \}/);
+  assert.match(css, /\.app-row \{ display: grid; grid-template-columns: repeat\(6, minmax\(0, 1fr\)\);/);
+  assert.match(css, /\.app-row \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/);
+  assert.match(css, /\.projects-pill \{ --accent: var\(--project\); --soft: var\(--project-soft\); \}/);
+  assert.match(css, /\.finance-pill \{ --accent: var\(--blue\); --soft: var\(--blue-soft\); \}/);
+  assert.match(css, /\.writing-pill \{ --accent: var\(--plum\); --soft: var\(--plum-soft\); \}/);
+  assert.match(css, /\.habits-pill \{ --accent: var\(--habit\); --soft: var\(--habit-soft\); \}/);
   assert.match(css, /\.topbar \{[\s\S]*position: relative;[\s\S]*z-index: 50;/);
   assert.match(css, /\.quick-add-menu \{ position: relative; z-index: 2; \}/);
-  assert.match(css, /\.dashboard-grid \{ grid-template-columns: repeat\(3, 1fr\); gap: 5px; \}/);
-  assert.match(css, /\.dashboard-card \{ min-height: 88px;/);
-  assert.match(css, /\.metric-grid \{ grid-template-columns: 1fr 1fr;/);
-  assert.match(css, /\.metric-grid \{ display: grid; grid-template-columns: repeat\(2, 1fr\);/);
-  assert.match(css, /box-shadow: inset 0 3px 0 var\(--metric-accent\)/);
-  assert.match(css, /\.review-shortcut \{ --metric-accent: var\(--violet\);/);
-  assert.match(css, /\.habit-shortcut \{ --metric-accent: var\(--rust\);/);
+  assert.doesNotMatch(css, /\.dashboard-grid|\.dashboard-card|\.metric-grid|\.review-shortcut|\.habit-shortcut/);
   assert.match(css, /\.inbox-panel \{ grid-column: 1 \/ -1; \}/);
   assert.match(css, /\.inbox-list \{ grid-template-columns: repeat\(3, 1fr\); \}/);
   assert.doesNotMatch(css, /\.want-metric|\.wants-panel|\.want-list/);
   assert.match(css, /\.journal-list \{ grid-template-columns: 1fr; \}/);
+});
+
+test("Today panel follows the other pages' controls with 44px targets and 11px+ text", async () => {
+  const css = await readFile(new URL("../public/hub.css", import.meta.url), "utf8");
+  const rules = css.split("\n").filter((line) => /^\s*\.(today-|app-)/.test(line));
+  assert.ok(rules.length > 40);
+  for (const rule of rules) {
+    for (const [, size] of rule.matchAll(/font-size: (\d+)px/g)) {
+      assert.ok(Number(size) >= 11, `${rule.trim()} uses ${size}px`);
+    }
+  }
+  // 完了の丸はHabitsページ（.check-button）と同じ線色・塗りで、押せる範囲は44px
+  assert.match(css, /--check-line: #c4b5ab;/);
+  assert.match(css, /\.today-check \{[^}]*width: 44px; height: 44px;/);
+  assert.match(css, /\.today-check\.is-on \.today-check-mark \{ border-color: var\(--check\); background: var\(--check\); color: #fff; \}/);
+  // 期限切れはIdea、次の一手と注意はProjectsと同じ色
+  assert.match(css, /--overdue: #a54428;/);
+  assert.match(css, /--overdue-soft: #fff0e9;/);
+  assert.match(css, /--attention: #9a493c;/);
+  assert.match(css, /\.today-next-action \{[^}]*border-left: 3px solid var\(--project\);[^}]*background: var\(--project-soft\);/);
+  // スマホでは見直しを下から出し、トーストは画面幅いっぱいにする
+  assert.match(css, /\.today-sheet \{ place-items: end stretch; padding: 0; \}/);
+  assert.match(css, /\.today-toast \{ right: 12px; left: 12px; bottom: 12px;/);
 });
 
 test("Compass exposes a real Inbox create menu", async () => {
@@ -338,13 +361,13 @@ test("Hub and personal dashboards use the requested page names and shared shell"
     readFile(new URL("../public/dashboard-shell.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(hub, /<h2>Idea<\/h2>/);
-  assert.match(hub, /<h2>Finance<\/h2>/);
-  assert.match(hub, /<h2>Knowledge<\/h2>/);
+  assert.match(hub, /<b>Idea<\/b>/);
+  assert.match(hub, /<b>Finance<\/b>/);
+  assert.match(hub, /<b>Knowledge<\/b>/);
   assert.match(idea, /<h1>Idea<\/h1>/);
   assert.match(hub, /class="idea-mark-icon"/);
   assert.match(idea, /class="idea-mark-icon"/);
-  assert.doesNotMatch(hub, /class="card-icon"[^>]*>↗<\/span>/);
+  assert.doesNotMatch(hub, /class="app-icon"[^>]*>↗<\/span>/);
   assert.doesNotMatch(idea, /class="dashboard-brand-mark idea"[^>]*>↗<\/span>/);
   assert.match(writing, /<h1>Writing<\/h1>/);
   assert.match(habits, /<h1>Habits<\/h1>/);
