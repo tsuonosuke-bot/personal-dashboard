@@ -53,48 +53,51 @@
           <a id="batchAlertLink" href="/status/">接続状態を確認 →</a>
         </div>
 
-        <section class="dashboard-grid" aria-label="ダッシュボード">
-          <a class="dashboard-card compass-card" id="compassLink" href="/compass/">
-            <span class="card-icon" aria-hidden="true">
+        <nav class="app-row" aria-label="アプリ">
+          <a class="app-pill compass-pill" id="compassLink" href="/compass/">
+            <span class="app-icon" aria-hidden="true">
               <svg class="idea-mark-icon" viewBox="0 0 24 24">
                 <path d="M9 18h6M10 21h4" />
                 <path d="M8.5 14.5a6 6 0 1 1 7 0c-.9.7-1.5 1.6-1.5 2.5h-4c0-.9-.6-1.8-1.5-2.5Z" />
               </svg>
             </span>
-            <div><h2>Idea</h2><strong id="compassMeta">—</strong></div>
-            <b class="card-arrow" aria-hidden="true">→</b>
+            <b>Idea</b><small id="compassMeta">—</small>
           </a>
-          <a class="dashboard-card projects-card" id="projectsLink" href="/projects/">
-            <span class="card-icon" aria-hidden="true">P</span>
-            <div><h2>Projects</h2><strong id="projectsMeta">—</strong></div>
-            <b class="card-arrow" aria-hidden="true">→</b>
-          </a>
-          <a class="dashboard-card writing-card" id="writingLink" href="/writing/">
-            <span class="card-icon" aria-hidden="true">W</span>
-            <div><h2>Writing</h2><strong id="writingMeta">—</strong></div>
-            <b class="card-arrow" aria-hidden="true">→</b>
-          </a>
-          <a class="dashboard-card habits-card" id="habitsLink" href="/habits/">
-            <span class="card-icon" aria-hidden="true">✓</span>
-            <div><h2>Habits</h2><strong id="habitsMeta">—</strong></div>
-            <b class="card-arrow" aria-hidden="true">→</b>
-          </a>
-          <a class="dashboard-card finance-card" id="financialLink" href="/finance/">
-            <span class="card-icon" aria-hidden="true">¥</span>
-            <div><h2>Finance</h2><strong id="financialMeta">—</strong></div>
-            <b class="card-arrow" aria-hidden="true">→</b>
-          </a>
-          <a class="dashboard-card knowledge-card" id="knowledgeLink" href="/knowledge/">
-            <span class="card-icon" aria-hidden="true">K</span>
-            <div><h2>Knowledge</h2><strong id="knowledgeMeta">—</strong></div>
-            <b class="card-arrow" aria-hidden="true">→</b>
-          </a>
-        </section>
+          <a class="app-pill projects-pill" id="projectsLink" href="/projects/"><span class="app-icon" aria-hidden="true">P</span><b>Projects</b><small id="projectsMeta">—</small></a>
+          <a class="app-pill writing-pill" id="writingLink" href="/writing/"><span class="app-icon" aria-hidden="true">W</span><b>Writing</b><small id="writingMeta">—</small></a>
+          <a class="app-pill habits-pill" id="habitsLink" href="/habits/"><span class="app-icon" aria-hidden="true">✓</span><b>Habits</b><small id="habitsMeta">—</small></a>
+          <a class="app-pill finance-pill" id="financialLink" href="/finance/"><span class="app-icon" aria-hidden="true">¥</span><b>Finance</b><small id="financialMeta">—</small></a>
+          <a class="app-pill knowledge-pill" id="knowledgeLink" href="/knowledge/"><span class="app-icon" aria-hidden="true">K</span><b>Knowledge</b><small id="knowledgeMeta">—</small></a>
+        </nav>
 
-        <section class="snapshot" aria-label="今日のスナップショット">
-          <div class="metric-grid">
-            <a href="/knowledge/?view=quiz&amp;mode=daily" id="reviewMetricLink" class="metric review-shortcut"><span id="reviewMetricLabel">今日の復習を開始 →</span><strong id="dueKnowledge">—</strong><small id="weakKnowledge">キューを確認中</small></a>
-            <a href="/habits/" id="habitMetricLink" class="metric habit-shortcut"><span>今日・今週のHabit</span><strong id="remainingHabits">—</strong><small id="habitProgress">実施状況を確認中</small></a>
+        <section class="today-panel" id="todayPanel" aria-labelledby="todayTitle">
+          <div class="today-head">
+            <h2 id="todayTitle">今日やること</h2>
+            <span class="today-counter" id="todayDoneCounter" hidden></span>
+          </div>
+          <div class="today-all-done" id="todayAllDone" role="status" hidden></div>
+          <div class="today-grid">
+            <section class="today-sec" aria-labelledby="todayTodoTitle">
+              <div class="today-sec-head">
+                <span class="today-sec-icon todo" aria-hidden="true">
+                  <svg class="idea-mark-icon" viewBox="0 0 24 24">
+                    <path d="M9 18h6M10 21h4" />
+                    <path d="M8.5 14.5a6 6 0 1 1 7 0c-.9.7-1.5 1.6-1.5 2.5h-4c0-.9-.6-1.8-1.5-2.5Z" />
+                  </svg>
+                </span>
+                <h3 id="todayTodoTitle">ToDo</h3>
+                <a id="todayTodoLink" href="/compass/?view=todos">一覧 →</a>
+              </div>
+              <div id="todayTodos"></div>
+            </section>
+            <section class="today-sec" aria-labelledby="todayHabitTitle">
+              <div class="today-sec-head"><span class="today-sec-icon habit" aria-hidden="true">✓</span><h3 id="todayHabitTitle">Habit</h3><a href="/habits/">一覧 →</a></div>
+              <div id="todayHabits"></div>
+            </section>
+            <section class="today-sec" aria-labelledby="todayProjectTitle">
+              <div class="today-sec-head"><span class="today-sec-icon project" aria-hidden="true">P</span><h3 id="todayProjectTitle">Projectの次の一手</h3><a href="/projects/">一覧 →</a></div>
+              <div id="todayProjects"></div>
+            </section>
           </div>
         </section>
 
@@ -169,6 +172,19 @@
         <div class="focus-manage-list" id="focusManageList"></div>
         <a class="focus-add-link" href="/compass/">IdeaでWantをFocusに振り分ける →</a>
       </section>
+    </div>
+    <div class="today-sheet" id="todaySheet" hidden>
+      <section class="today-sheet-dialog" role="dialog" aria-modal="true" aria-labelledby="todaySheetTitle">
+        <div class="today-sheet-top"><span id="todaySheetStep">期限切れの見直し</span><button type="button" id="todaySheetClose" aria-label="見直しを閉じる">×</button></div>
+        <div class="today-sheet-steps" aria-hidden="true"><b id="todaySheetBar"></b></div>
+        <h2 id="todaySheetTitle"></h2>
+        <div class="today-row-meta" id="todaySheetMeta"></div>
+        <p class="today-sheet-notice" id="todaySheetNotice" role="alert" hidden></p>
+        <div class="today-sheet-actions" id="todaySheetActions"></div>
+      </section>
+    </div>
+    <div class="today-toast-region" role="status" aria-live="polite">
+      <div class="today-toast" id="todayToast" hidden><span id="todayToastText"></span><button type="button" id="todayToastUndo" hidden>取り消す</button></div>
     </div>
     <script src="/hub.js" type="module"></script>
   </body>

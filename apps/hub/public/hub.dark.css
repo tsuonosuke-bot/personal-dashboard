@@ -38,6 +38,27 @@
   --gold--light: #7d5a18;
   --gold-soft: #443c26;
   --gold-soft--light: #f4ecd8;
+  --project: #ecd09c;
+  --project--light: #7d5a18;
+  --project-soft: #443c26;
+  --project-soft--light: #f4ecd8;
+  --habit: #e2a58e;
+  --habit--light: #9a4727;
+  --habit-soft: #463227;
+  --habit-soft--light: #f3ded2;
+  --habit-done: #241f1c;
+  --habit-done--light: #fcf6f2;
+  --habit-line: #5b4e46;
+  --attention: #d49a91;
+  --attention--light: #9a493c;
+  --attention-soft: #422b26;
+  --attention-soft--light: #f7e4e0;
+  --overdue: #e29c88;
+  --overdue--light: #a54428;
+  --overdue-soft: #251b16;
+  --overdue-soft--light: #fff0e9;
+  --check-line: #4a443f;
+  --divider: #59584e;
 }
 html[data-theme="dark"] {
   background: var(--paper);
@@ -167,81 +188,349 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .context-strip strong {
   color: var(--green);
 }
-:root[data-theme="dark"] .dashboard-card {
-  --accent--light: var(--rust--light, var(--rust));
-  --soft--light: var(--rust-soft--light, var(--rust-soft));
+:root[data-theme="dark"] .app-pill {
+  --accent--light: var(--violet--light, var(--violet));
+  --soft--light: var(--violet-soft--light, var(--violet-soft));
   border: 1px solid rgba(111, 154, 130, 0.12);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--surface);
   text-decoration: none;
 }
-:root[data-theme="dark"] .dashboard-card:hover {
+:root[data-theme="dark"] .app-pill:hover,
+:root[data-theme="dark"] .app-pill:focus-visible {
   border-color: var(--accent);
+  outline: none;
 }
-:root[data-theme="dark"] .writing-card {
-  --accent--light: var(--rust--light, var(--rust));
-  --soft--light: var(--rust-soft--light, var(--rust-soft));
+:root[data-theme="dark"] .app-pill small {
+  color: var(--accent);
 }
-:root[data-theme="dark"] .projects-card {
-  --accent--light: var(--rust--light, var(--rust));
-  --soft--light: var(--rust-soft--light, var(--rust-soft));
-}
-:root[data-theme="dark"] .finance-card {
-  --accent--light: var(--rust--light, var(--rust));
-  --soft--light: var(--rust-soft--light, var(--rust-soft));
-}
-:root[data-theme="dark"] .knowledge-card {
-  --accent--light: var(--rust--light, var(--rust));
-  --soft--light: var(--rust-soft--light, var(--rust-soft));
-}
-:root[data-theme="dark"] .habits-card {
-  --accent--light: var(--rust--light, var(--rust));
-  --soft--light: var(--rust-soft--light, var(--rust-soft));
-}
-:root[data-theme="dark"] .card-icon {
-  border-radius: 10px;
+:root[data-theme="dark"] .app-icon {
+  border-radius: 8px;
   background: var(--soft);
   color: var(--accent);
+}
+:root[data-theme="dark"] .projects-pill {
+  --accent--light: var(--violet--light, var(--violet));
+  --soft--light: var(--violet-soft--light, var(--violet-soft));
+}
+:root[data-theme="dark"] .writing-pill {
+  --accent--light: var(--violet--light, var(--violet));
+  --soft--light: var(--violet-soft--light, var(--violet-soft));
+}
+:root[data-theme="dark"] .habits-pill {
+  --accent--light: var(--violet--light, var(--violet));
+  --soft--light: var(--violet-soft--light, var(--violet-soft));
+}
+:root[data-theme="dark"] .finance-pill {
+  --accent--light: var(--violet--light, var(--violet));
+  --soft--light: var(--violet-soft--light, var(--violet-soft));
+}
+:root[data-theme="dark"] .knowledge-pill {
+  --accent--light: var(--violet--light, var(--violet));
+  --soft--light: var(--violet-soft--light, var(--violet-soft));
 }
 :root[data-theme="dark"] .idea-mark-icon {
   fill: none;
   stroke: currentColor;
 }
-:root[data-theme="dark"] .dashboard-card strong {
-  color: var(--accent);
+:root[data-theme="dark"] .today-panel {
+  border: 1px solid rgba(111, 154, 130, 0.14);
+  border-radius: 14px;
+  background: var(--surface);
 }
-:root[data-theme="dark"] .card-arrow {
-  color: var(--accent);
+:root[data-theme="dark"] .today-head {
+  border-bottom: 1px solid var(--divider);
 }
-:root[data-theme="dark"] .metric {
-  --metric-accent--light: var(--rust--light, var(--rust));
-  --metric-tint: #202321;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: rgba(41, 41, 41, 0.86);
-  box-shadow: inset 0 3px 0 var(--metric-accent), 0 1px 2px rgba(32,40,34,.03);
+:root[data-theme="dark"] .today-counter {
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green);
+}
+:root[data-theme="dark"] .today-all-done {
+  border-radius: 10px;
+  background: var(--green-soft);
+  color: var(--green);
+}
+:root[data-theme="dark"] .today-sec + .today-sec {
+  border-left: 1px solid var(--divider);
+}
+:root[data-theme="dark"] .today-sec-head a {
+  color: var(--green);
   text-decoration: none;
 }
-:root[data-theme="dark"] .metric:hover {
-  border-color: var(--metric-accent);
-  background: var(--metric-tint);
+:root[data-theme="dark"] .today-sec-head a:hover {
+  text-decoration: underline;
 }
-:root[data-theme="dark"] .metric span {
-  color: var(--metric-accent);
+:root[data-theme="dark"] .today-sec-icon {
+  border-radius: 7px;
 }
-:root[data-theme="dark"] .metric strong {
+:root[data-theme="dark"] .today-sec-icon.todo {
+  background: var(--green-soft);
+  color: var(--green);
+}
+:root[data-theme="dark"] .today-sec-icon.habit {
+  background: var(--habit-soft);
+  color: var(--habit);
+}
+:root[data-theme="dark"] .today-sec-icon.project {
+  background: var(--project-soft);
+  color: var(--project);
+}
+:root[data-theme="dark"] .today-group {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .today-quiet {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .today-ok {
+  color: var(--green);
+}
+:root[data-theme="dark"] .today-error {
+  border-radius: 9px;
+  background: var(--overdue-soft);
+  color: var(--overdue);
+}
+:root[data-theme="dark"] .today-error button {
+  border: 1px solid var(--overdue);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--overdue);
+}
+:root[data-theme="dark"] .today-triage {
+  border-radius: 10px;
+  background: var(--overdue-soft);
+}
+:root[data-theme="dark"] .today-triage b {
+  color: var(--overdue);
+}
+:root[data-theme="dark"] .today-triage button {
+  border: 1px solid var(--overdue);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--overdue);
+}
+:root[data-theme="dark"] .today-triage button:hover {
+  background: var(--overdue--light, var(--overdue));
+  color: #fff;
+}
+:root[data-theme="dark"] .today-row {
+  border-top: 1px solid var(--divider);
+}
+:root[data-theme="dark"] .today-row:first-child {
+  border-top: 0;
+}
+:root[data-theme="dark"] .today-row-title {
+  color: var(--ink);
+  text-decoration: none;
+}
+:root[data-theme="dark"] a.today-row-title:hover {
+  text-decoration: underline;
+}
+:root[data-theme="dark"] .today-row-meta {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .today-pill {
+  border-radius: 999px;
+}
+:root[data-theme="dark"] .today-pill.overdue {
+  background: var(--overdue-soft);
+  color: var(--overdue);
+}
+:root[data-theme="dark"] .today-pill.today {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+:root[data-theme="dark"] .today-pill.upcoming {
+  background: var(--green-soft);
+  color: var(--green);
+}
+:root[data-theme="dark"] .today-pill.attention {
+  background: var(--attention-soft);
+  color: var(--attention);
+}
+:root[data-theme="dark"] .today-more {
+  border: 0;
+  border-top: 1px solid var(--divider);
+  background: none;
+  color: var(--muted);
+}
+:root[data-theme="dark"] .today-more:hover {
   color: var(--ink);
 }
-:root[data-theme="dark"] .metric small {
-  color: #9ca39f;
+:root[data-theme="dark"] .today-check {
+  --check--light: var(--project--light, var(--project));
+  border: 0;
+  border-radius: 50%;
+  background: none;
 }
-:root[data-theme="dark"] .review-shortcut {
-  --metric-accent--light: var(--rust--light, var(--rust));
-  --metric-tint: #232224;
+:root[data-theme="dark"] .today-check-mark {
+  border: 2px solid var(--check-line);
+  border-radius: 50%;
+  color: transparent;
 }
-:root[data-theme="dark"] .habit-shortcut {
-  --metric-accent--light: var(--rust--light, var(--rust));
-  --metric-tint: #24211f;
+:root[data-theme="dark"] .today-check:hover .today-check-mark {
+  border-color: var(--check);
+}
+:root[data-theme="dark"] .today-check:focus-visible {
+  outline: 3px solid rgba(81, 184, 153, 0.25);
+  outline-offset: -4px;
+}
+:root[data-theme="dark"] .today-check.is-on .today-check-mark {
+  border-color: var(--check);
+  background: var(--check--light, var(--check));
+  color: #fff;
+}
+:root[data-theme="dark"] .today-project-row .today-check {
+  --check--light: var(--project--light, var(--project));
+}
+:root[data-theme="dark"] .today-chip {
+  border: 1px solid var(--habit-line);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--ink);
+}
+:root[data-theme="dark"] .today-chip:hover {
+  border-color: var(--habit);
+}
+:root[data-theme="dark"] .today-chip:focus-visible {
+  outline: 3px solid rgba(206, 100, 60, 0.22);
+  outline-offset: 1px;
+}
+:root[data-theme="dark"] .today-chip-dot {
+  border: 2px solid var(--check-line);
+  border-radius: 50%;
+  color: transparent;
+}
+:root[data-theme="dark"] .today-chip small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .today-chip[aria-pressed="true"] {
+  border-color: #59473d;
+  background: var(--habit-done);
+}
+:root[data-theme="dark"] .today-chip[aria-pressed="true"] .today-chip-dot {
+  border-color: var(--habit);
+  background: var(--habit--light, var(--habit));
+  color: #fff;
+}
+:root[data-theme="dark"] .today-chip[aria-pressed="true"] small {
+  color: var(--habit);
+}
+:root[data-theme="dark"] .today-progress {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .today-progress i {
+  border-radius: 999px;
+  background: #3d342d;
+}
+:root[data-theme="dark"] .today-progress i b {
+  border-radius: inherit;
+  background: var(--habit--light, var(--habit));
+}
+:root[data-theme="dark"] .today-project-row {
+  border-top: 0;
+}
+:root[data-theme="dark"] .today-next-action {
+  border-left: 3px solid var(--project);
+  border-radius: 5px 9px 9px 5px;
+  background: var(--project-soft);
+}
+:root[data-theme="dark"] .today-next-action.attention {
+  border-left-color: var(--attention);
+  background: var(--attention-soft);
+}
+:root[data-theme="dark"] .today-resolver {
+  border-top: 1px solid rgba(216, 158, 50, 0.18);
+}
+:root[data-theme="dark"] .today-resolver-primary {
+  border: 0;
+  border-radius: 9px;
+  background: var(--project--light, var(--project));
+  color: #fff;
+}
+:root[data-theme="dark"] .today-next-form input {
+  border: 1px solid #4a514b;
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+}
+:root[data-theme="dark"] .today-next-form input:focus {
+  border-color: var(--project);
+  box-shadow: 0 0 0 3px rgba(125,90,24,.14);
+}
+:root[data-theme="dark"] .today-next-form button {
+  border: 1px solid var(--project);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--project);
+}
+:root[data-theme="dark"] .today-resolver-foot button {
+  border: 0;
+  background: none;
+  color: var(--muted);
+}
+:root[data-theme="dark"] .today-resolver-foot a {
+  color: var(--project);
+}
+:root[data-theme="dark"] .today-sheet {
+  background: rgba(24,31,27,.45);
+}
+:root[data-theme="dark"] .today-sheet-dialog {
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: 0 22px 70px rgba(19,29,23,.28);
+}
+:root[data-theme="dark"] .today-sheet-top {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .today-sheet-top button {
+  border: 0;
+  background: none;
+  color: var(--muted);
+}
+:root[data-theme="dark"] .today-sheet-steps {
+  border-radius: 999px;
+  background: #3a3933;
+}
+:root[data-theme="dark"] .today-sheet-steps b {
+  background: var(--overdue--light, var(--overdue));
+}
+:root[data-theme="dark"] .today-sheet-notice {
+  border-radius: 8px;
+  background: var(--overdue-soft);
+  color: var(--overdue);
+}
+:root[data-theme="dark"] .today-sheet-actions button {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+}
+:root[data-theme="dark"] .today-sheet-actions button:hover:not(:disabled) {
+  border-color: var(--green);
+}
+:root[data-theme="dark"] .today-sheet-actions small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .today-sheet-actions .primary {
+  border-color: var(--green);
+  background: var(--green--light, var(--green));
+  color: #fff;
+}
+:root[data-theme="dark"] .today-sheet-actions .subtle {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .today-toast {
+  border-radius: 10px;
+  background: #202822;
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(27,39,32,.22);
+}
+:root[data-theme="dark"] .today-toast button {
+  border: 0;
+  background: none;
+  color: #b9e0cc;
 }
 :root[data-theme="dark"] .data-tools {
   border: 1px solid var(--line);
@@ -608,18 +897,21 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .empty span {
   color: var(--orange);
 }
+@media (max-width: 900px) {
+  :root[data-theme="dark"] .today-sec + .today-sec {
+    border-left: 0;
+    border-top: 1px solid var(--divider);
+  }
+}
 @media (max-width: 620px) {
   :root[data-theme="dark"] .brand-mark {
     border-radius: 8px;
   }
-  :root[data-theme="dark"] .dashboard-card {
-    border-radius: 10px;
+  :root[data-theme="dark"] .today-panel {
+    border-radius: 12px;
   }
-  :root[data-theme="dark"] .card-icon {
-    border-radius: 8px;
-  }
-  :root[data-theme="dark"] .metric {
-    border-radius: 9px;
+  :root[data-theme="dark"] .today-sheet-dialog {
+    border-radius: 18px 18px 0 0;
   }
   :root[data-theme="dark"] .focus-dialog {
     border-radius: 12px;
