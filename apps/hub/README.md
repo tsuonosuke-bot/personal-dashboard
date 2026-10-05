@@ -203,6 +203,7 @@ PreviewとProductionの両方に、次の環境変数を設定します。
 | `NAV_KNOWLEDGE_URL` | Optional | Knowledge DBダッシュボードURL |
 | `NAV_FINANCIAL_URL` | Optional | FinancialダッシュボードURL |
 | `NAV_TASK_BOARD_URL` | Optional | Task Board URL |
+| `SUPABASE_DB_LIMIT_MB` | Optional | SupabaseのDB容量の上限（MB）。既定は無料プランの500。プランを変えたらここを変える。使用率が80%で「注意」、90%で「逼迫」としてHubのトップに警告し、`/status/` に使用量と大きい表を出す（`get_database_usage()`、`supabase/migrations/202610050002_database_usage.sql`） |
 
 `SUPABASE_SECRET_KEY`、`ANTHROPIC_API_KEY`、`GOOGLE_OAUTH_CLIENT_SECRET`、`GOOGLE_TOKEN_ENCRYPTION_KEY`、`HUB_SERVICE_TOKEN`、`SSO_SHARED_SECRET` はCloudflare側の暗号化されたSecretとして登録し、GitHubやフロントエンド環境変数（`VITE_*`）には登録しません。`ANTHROPIC_MODEL`、`GOOGLE_OAUTH_CLIENT_ID`、必要な場合の `ANTHROPIC_WORKSPACE_ID` は通常のサーバー環境変数として設定できます。Hubは家計簿・ナレッジの各Pages Functionが公開する読取専用APIを呼ぶため、別プロジェクトのSupabaseキーを複製しません。
 

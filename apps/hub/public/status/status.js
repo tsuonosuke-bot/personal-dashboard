@@ -20,6 +20,29 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(parsed);
 }
 
+const levelLabels = { ok: "余裕あり", warn: "注意", critical: "逼迫" };
+
+function formatBytes(value) {
+  if (!Number.isFinite(value)) return "—";
+  const mb = value / (1024 * 1024);
+  if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`;
+  if (mb >= 1) return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`;
+  return `${Math.max(0, Math.round(value / 1024))} KB`;
+}
+
+/** SupabaseのDB容量。使用量・上限に対する割合・大きい表。3アプリが同じDBを使うのでPersonalのカードに出す。 */
+function usageRows(usage) {
+  if (!usage) return [["DB容量", "確認できません（DB migrationの適用前か、取得に失敗しました）"]];
+  const percent = Math.round(usage.ratio * 100);
+  const rows = [
+    ["DB容量", `${formatBytes(usage.usedBytes)} / ${formatBytes(usage.limitBytes)}（${percent}%・${levelLabels[usage.level] || usage.level}）`],
+  ];
+  if (usage.topTables.length) {
+    rows.push(["大きい表", usage.topTables.map((table) => `${table.name} ${formatBytes(table.bytes)}`).join("\n")]);
+  }
+  return rows;
+}
+
 const kindLabels = { generate: "問題の生成", grade: "回答の採点" };
 
 /** Knowledgeの生成・採点バッチ。最終成功時刻・直近24時間の失敗・pg_cronの状態を、状態カードの行に直す。 */
@@ -64,6 +87,7 @@ function render(services) {
       ["接続先", service.destination],
       ["DB migration", service.migration],
       ["最終成功時刻", formatDate(service.lastSuccessAt || previous[service.id])],
+      ...(service.id === "personal" && service.lastSuccessAt ? usageRows(service.databaseUsage) : []),
       ...(service.id === "knowledge" && service.lastSuccessAt ? batchRows(service.reviewBatches) : []),
     ];
     const list = document.createElement("dl");

@@ -96,9 +96,10 @@ function renderReview(summary, navigation) {
   els.knowledgeMeta.textContent = `すぐ解ける ${readyDue}問`;
 }
 
-/** 生成・採点バッチの警告。無ければ非表示。取得できない（null）ときも出さない。 */
-function renderBatchAlerts(alerts) {
-  const messages = Array.isArray(alerts) ? alerts.filter((message) => typeof message === "string" && message) : [];
+/** 確認が必要な項目（復習バッチの異常・DB容量の逼迫）。無ければ非表示。取得できない（null）ときも出さない。 */
+function renderAlerts(summary) {
+  const batch = Array.isArray(summary.reviewBatchAlerts) ? summary.reviewBatchAlerts : [];
+  const messages = [...batch, summary.databaseAlert].filter((message) => typeof message === "string" && message);
   els.batchAlert.hidden = messages.length === 0;
   els.batchAlertList.replaceChildren(...messages.map((message) => {
     const item = document.createElement("li");
@@ -109,7 +110,7 @@ function renderBatchAlerts(alerts) {
 
 function renderSummary(summary, navigation) {
   renderReview(summary, navigation);
-  renderBatchAlerts(summary.reviewBatchAlerts);
+  renderAlerts(summary);
   if (!Number.isFinite(summary.pendingInbox)) {
     els.inboxMeta.textContent = "Inboxを取得できません";
   } else if (summary.pendingInbox > 0) {

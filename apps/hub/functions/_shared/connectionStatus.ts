@@ -1,7 +1,8 @@
 import type { HubEnv } from "./hub.ts";
+import { loadDatabaseUsage, type DatabaseUsage, type DatabaseUsageEnv } from "./databaseUsage.ts";
 import { readReviewBatches, type ReviewBatchesStatus } from "./reviewBatches.ts";
 
-export interface ConnectionStatusEnv extends HubEnv {
+export interface ConnectionStatusEnv extends HubEnv, DatabaseUsageEnv {
   AUTH_MODE?: string;
 }
 
@@ -14,6 +15,8 @@ export interface ServiceConnectionStatus {
   lastSuccessAt: string | null;
   /** Knowledgeのみ。生成・採点バッチの状態（取得できなければnull）。 */
   reviewBatches?: ReviewBatchesStatus | null;
+  /** Personalのみ。SupabaseのDB容量（取得できなければnull）。全アプリが同じDBを使う。 */
+  databaseUsage?: DatabaseUsage | null;
 }
 
 const DEFAULT_FINANCIAL_URL = "https://finance-9qq.pages.dev/";
@@ -66,6 +69,7 @@ async function localStatus(env: ConnectionStatusEnv): Promise<ServiceConnectionS
     throw new Error("Personal DB migration status is unavailable.");
   }
   const migration = rows[0].migration;
+  const databaseUsage = await loadDatabaseUsage(env);
   return {
     id: "personal",
     name: "Personal",
@@ -73,6 +77,7 @@ async function localStatus(env: ConnectionStatusEnv): Promise<ServiceConnectionS
     destination: safeHost(rawUrl, "https://invalid.example"),
     migration,
     lastSuccessAt: new Date().toISOString(),
+    databaseUsage,
   };
 }
 
