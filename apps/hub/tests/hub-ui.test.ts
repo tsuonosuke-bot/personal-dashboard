@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { readCompassScript } from "./compassScript.ts";
 
 test("Hub keeps navigation and summary compact without a greeting hero", async () => {
   const [html, script] = await Promise.all([
@@ -94,7 +95,7 @@ test("Hub keeps six primary destinations readable on desktop and mobile", async 
 test("Compass exposes a real Inbox create menu", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readCompassScript(),
   ]);
 
   assert.match(html, /id="addInboxButton"/);
@@ -105,7 +106,7 @@ test("Compass exposes a real Inbox create menu", async () => {
 });
 
 test("Compass edits an Inbox and reloads the canonical data", async () => {
-  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const script = await readCompassScript();
 
   assert.match(script, /id="editInboxButton"/);
   assert.match(script, /method: "PATCH"/);
@@ -116,7 +117,7 @@ test("Compass edits an Inbox and reloads the canonical data", async () => {
 test("Compass supports confirmation-safe bulk Inbox status changes", async () => {
   const [html, script, style] = await Promise.all([
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readCompassScript(),
     readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
   ]);
 
@@ -136,7 +137,7 @@ test("Compass supports confirmation-safe bulk Inbox status changes", async () =>
 test("Compass bulk-routes pending Inbox items to the triage destinations that need no per-item input", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readCompassScript(),
   ]);
 
   for (const [key, label] of [["wish", "欲しいもの"], ["writing", "執筆"], ["knowledge", "調査"], ["focus", "Focus"], ["github", "開発"], ["journal", "日記"], ["defer", "保留"]]) {
@@ -154,7 +155,7 @@ test("Compass bulk-routes pending Inbox items to the triage destinations that ne
 });
 
 test("Compass edits Wants through a dedicated API", async () => {
-  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const script = await readCompassScript();
 
   assert.match(script, /id="editWantButton"/);
   assert.match(script, /endpoint: "\/api\/wants"/);
@@ -164,7 +165,7 @@ test("Compass edits Wants through a dedicated API", async () => {
 test("Compass previews every route and requires explicit confirmation for Google Calendar", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readCompassScript(),
   ]);
 
   assert.doesNotMatch(html, /id="completedWants"/);
@@ -188,7 +189,7 @@ test("Compass previews every route and requires explicit confirmation for Google
 
 test("Compass offers confirmation-safe quick routes for common Want destinations", async () => {
   const [script, style] = await Promise.all([
-    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readCompassScript(),
     readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
   ]);
 
@@ -212,7 +213,7 @@ test("Idea keeps Google Calendar reconnection available from the main screen", a
 });
 
 test("Compass asks AI only on explicit action and sends suggestions through human review", async () => {
-  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const script = await readCompassScript();
 
   assert.match(script, /id="askAiTriageButton"/);
   assert.match(script, /askAiTriageButton"\)\.addEventListener\("click", \(\) => requestAiTriage\(item\)\)/);
@@ -228,7 +229,7 @@ test("Compass asks AI only on explicit action and sends suggestions through huma
 });
 
 test("Compass closes actionable Inbox and Wants with conflict-safe updates", async () => {
-  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const script = await readCompassScript();
 
   assert.match(script, /inbox:[\s\S]*closedStatus: "done"/);
   assert.match(script, /wants:[\s\S]*closedStatus: "completed"/);
@@ -242,7 +243,7 @@ test("Compass closes actionable Inbox and Wants with conflict-safe updates", asy
 });
 
 test("Compass exposes all nine first-class Inbox outcomes without hiding the detailed triage menu", async () => {
-  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const script = await readCompassScript();
 
   assert.match(script, /id="triageInboxButton"/);
   assert.match(script, /data-inbox-route="\$\{key\}"/);
@@ -266,7 +267,7 @@ test("Compass exposes all nine first-class Inbox outcomes without hiding the det
 
 test("Compass stores 欲しい as a typed active Want", async () => {
   const [script, style] = await Promise.all([
-    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readCompassScript(),
     readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
   ]);
 
@@ -279,7 +280,7 @@ test("Compass stores 欲しい as a typed active Want", async () => {
 
 test("Compass exposes Wants registration queues for Knowledge and GitHub", async () => {
   const [script, html, style] = await Promise.all([
-    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readCompassScript(),
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
     readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
   ]);
@@ -298,7 +299,7 @@ test("Compass exposes Wants registration queues for Knowledge and GitHub", async
 });
 
 test("Compass defers an Inbox item with a required revisit date", async () => {
-  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const script = await readCompassScript();
 
   assert.match(script, /function renderDeferForm\(sourceItem\)/);
   assert.match(script, /id="deferRevisitOn" name="revisitOn" type="date"/);
@@ -312,7 +313,7 @@ test("Compass defers an Inbox item with a required revisit date", async () => {
 test("Idea starts with utility actions and the workspace, without summary cards or a decorative hero", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readCompassScript(),
   ]);
 
   assert.doesNotMatch(html, /class="hero"|PERSONAL DIRECTION|頭の中を、|hero-date|dayLabel|dateLabel|updatedLabel/);
@@ -323,7 +324,7 @@ test("Idea starts with utility actions and the workspace, without summary cards 
 });
 
 test("Idea updates the ToDo tab count as soon as background loading finishes", async () => {
-  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const script = await readCompassScript();
 
   assert.match(script, /async function loadTodos[\s\S]*state\.todosLoaded = true;[\s\S]*els\.todosTabCount\.textContent = state\.data\.todosSummary\.pending;[\s\S]*if \(state\.view === "todos"\)/);
 });
@@ -363,7 +364,7 @@ test("Hub and personal dashboards use the requested page names and shared shell"
 });
 
 test("Compass defaults each tab to actionable items and counts the filtered results", async () => {
-  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const script = await readCompassScript();
 
   assert.match(script, /status: "pending"/);
   assert.match(script, /inbox: "pending",\s+wants: "active",/);
@@ -374,7 +375,7 @@ test("Compass defaults each tab to actionable items and counts the filtered resu
 
 test("Idea exposes a Calendar-backed ToDo tab with completion and rescheduling", async () => {
   const [script, html, style] = await Promise.all([
-    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readCompassScript(),
     readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
     readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
   ]);
@@ -395,7 +396,7 @@ test("Idea exposes a Calendar-backed ToDo tab with completion and rescheduling",
 });
 
 test("Compass applies direct record routes and safe fallbacks", async () => {
-  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const script = await readCompassScript();
 
   assert.match(script, /parseCompassRoute\(window\.location\.href\)/);
   assert.match(script, /window\.addEventListener\("popstate"/);

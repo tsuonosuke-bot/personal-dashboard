@@ -5,6 +5,7 @@ import { loadConnectionStatus } from "../functions/_shared/connectionStatus.ts";
 import { onRequest as snapshotRoute } from "../functions/api/export/snapshot.ts";
 // @ts-expect-error The browser helper is intentionally plain JavaScript.
 import { readApiJson } from "../public/api-client.js";
+import { readCompassScript } from "./compassScript.ts";
 
 const serviceToken = "hub-service-token-that-is-at-least-32-characters";
 const env = {
@@ -29,7 +30,7 @@ test("API clientはHTMLと壊れたJSONを利用者向けエラーへ変換す�
 test("Hubは4つの直接追加と3種類の書き出しと接続状態を案内する", async () => {
   const [html, compass, projects, migration] = await Promise.all([
     readFile(new URL("../public/index.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/app.js", import.meta.url), "utf8"),
+    readCompassScript(),
     readFile(new URL("../public/projects.js", import.meta.url), "utf8"),
     readFile(new URL("../supabase/migrations/202609220005_connection_status.sql", import.meta.url), "utf8"),
   ]);

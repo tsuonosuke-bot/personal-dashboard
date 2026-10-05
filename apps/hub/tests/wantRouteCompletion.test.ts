@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { onRequest as routeEndpoint } from "../functions/api/want-routes.ts";
+import { readCompassScript } from "./compassScript.ts";
 
 const env = {
   SUPABASE_URL: "https://project.supabase.co",
@@ -333,7 +333,7 @@ test("GitHub候補の完了ではIssue URLの形式と振り分け先の一致�
 });
 
 test("Idea画面は登録待ちのKnowledge・GitHub候補だけに登録済み操作を出す", async () => {
-  const script = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  const script = await readCompassScript();
   assert.match(script, /route\.status === "planned" \? routeCompletionMeta\[route\.destination\]/);
   assert.match(script, /data-route-complete/);
   assert.match(script, /action: "Knowledge登録済みにする"/);
