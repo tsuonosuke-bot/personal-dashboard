@@ -83,6 +83,9 @@ test("Hub keeps six destinations in one compact row and readable text on mobile"
   assert.match(css, /\.finance-pill \{ --accent: var\(--blue\); --soft: var\(--blue-soft\); \}/);
   assert.match(css, /\.writing-pill \{ --accent: var\(--plum\); --soft: var\(--plum-soft\); \}/);
   assert.match(css, /\.habits-pill \{ --accent: var\(--habit\); --soft: var\(--habit-soft\); \}/);
+  // 件数が長くてもアプリ名は省略しない（件数側だけを…で切る）
+  assert.match(css, /\.app-pill b \{ flex: none;/);
+  assert.match(css, /\.app-pill small \{ min-width: 0;[^}]*text-overflow: ellipsis;/);
   assert.match(css, /\.quick-add-menu \{ position: relative; z-index: 2; \}/);
   assert.doesNotMatch(css, /\.dashboard-grid|\.dashboard-card|\.metric-grid|\.review-shortcut|\.habit-shortcut/);
   assert.match(css, /\.inbox-panel \{ grid-column: 1 \/ -1; \}/);

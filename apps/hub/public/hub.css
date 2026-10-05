@@ -92,8 +92,9 @@ main { width: min(1240px, calc(100% - 32px)); margin: 0 auto; }
 .app-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
 .app-pill { --accent: var(--green); --soft: var(--green-soft); min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid rgba(49,70,58,.12); border-radius: 10px; background: var(--surface); text-decoration: none; transition: border-color .18s ease; }
 .app-pill:hover, .app-pill:focus-visible { border-color: var(--accent); outline: none; }
-.app-pill b { min-width: 0; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.app-pill small { margin-left: auto; overflow: hidden; color: var(--accent); font-size: 11px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+/* 名前は縮めず、件数側だけを省略する */
+.app-pill b { flex: none; font-size: 13px; white-space: nowrap; }
+.app-pill small { min-width: 0; margin-left: auto; overflow: hidden; color: var(--accent); font-size: 11px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
 .app-icon { width: 28px; height: 28px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 8px; background: var(--soft); color: var(--accent); font: 600 13px/1 Georgia, serif; }
 .projects-pill { --accent: var(--project); --soft: var(--project-soft); }
 .writing-pill { --accent: var(--plum); --soft: var(--plum-soft); }
@@ -105,18 +106,18 @@ main { width: min(1240px, calc(100% - 32px)); margin: 0 auto; }
 /* 今日やること：外枠は1枚。中は区切り線で分け、完了の丸はHabitsページと同じ見た目にする */
 .today-panel { margin-bottom: 10px; padding: 16px 18px 10px; border: 1px solid rgba(49,70,58,.14); border-radius: 14px; background: var(--surface); }
 .today-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--divider); }
-.today-head h2 { margin: 0; font: 750 19px/1.2 Inter, "Segoe UI", sans-serif; }
-.today-counter { padding: 5px 11px; border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 13px; font-weight: 750; white-space: nowrap; }
-.today-all-done { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--green-soft); color: var(--green); font-size: 14px; font-weight: 750; }
+.today-head h2 { margin: 0; font: 750 17px/1.2 Inter, "Segoe UI", sans-serif; }
+.today-counter { padding: 5px 11px; border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 12px; font-weight: 750; white-space: nowrap; }
+.today-all-done { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--green-soft); color: var(--green); font-size: 13px; font-weight: 750; }
 .today-all-done > span { font-size: 20px; }
-.today-all-done small { display: block; margin-top: 2px; font-size: 12px; font-weight: 600; }
+.today-all-done small { display: block; margin-top: 2px; font-size: 11px; font-weight: 600; }
 .today-grid { display: grid; grid-template-columns: 1.2fr 1fr 1.2fr; }
 .today-sec { min-width: 0; padding: 14px 16px 6px; }
 .today-sec:first-child { padding-left: 0; }
 .today-sec:last-child { padding-right: 0; }
 .today-sec + .today-sec { border-left: 1px solid var(--divider); }
 .today-sec-head { display: flex; align-items: center; gap: 8px; min-height: 28px; margin-bottom: 6px; }
-.today-sec-head h3 { margin: 0; font-size: 15px; }
+.today-sec-head h3 { margin: 0; font-size: 14px; }
 .today-sec-head a { margin-left: auto; color: var(--green); font-size: 12px; font-weight: 750; text-decoration: none; white-space: nowrap; }
 .today-sec-head a:hover { text-decoration: underline; }
 .today-sec-icon { width: 24px; height: 24px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 7px; font: 600 12px/1 Georgia, serif; }
@@ -124,28 +125,28 @@ main { width: min(1240px, calc(100% - 32px)); margin: 0 auto; }
 .today-sec-icon.todo { background: var(--green-soft); color: var(--green); }
 .today-sec-icon.habit { background: var(--habit-soft); color: var(--habit); }
 .today-sec-icon.project { background: var(--project-soft); color: var(--project); }
-.today-group { margin: 10px 0 2px; color: var(--muted); font-size: 12px; font-weight: 750; }
-.today-quiet { margin: 4px 0 6px; color: var(--muted); font-size: 12px; line-height: 1.55; }
-.today-ok { display: flex; align-items: center; min-height: 44px; margin: 0; color: var(--green); font-size: 13px; font-weight: 700; }
+.today-group { margin: 10px 0 2px; color: var(--muted); font-size: 11px; font-weight: 750; }
+.today-quiet { margin: 4px 0 6px; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.today-ok { display: flex; align-items: center; min-height: 44px; margin: 0; color: var(--green); font-size: 12px; font-weight: 700; }
 .today-error { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 9px; background: var(--overdue-soft); color: var(--overdue); font-size: 12px; }
 .today-error button { min-height: 36px; padding: 0 12px; border: 1px solid var(--overdue); border-radius: 8px; background: var(--surface); color: var(--overdue); font-size: 12px; font-weight: 800; cursor: pointer; }
 .today-triage { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 2px 0 4px; padding: 8px 8px 8px 12px; border-radius: 10px; background: var(--overdue-soft); }
-.today-triage b { color: var(--overdue); font-size: 13px; }
-.today-triage button { min-height: 40px; padding: 0 14px; border: 1px solid var(--overdue); border-radius: 9px; background: var(--surface); color: var(--overdue); font-size: 13px; font-weight: 800; cursor: pointer; }
+.today-triage b { color: var(--overdue); font-size: 12px; }
+.today-triage button { min-height: 40px; padding: 0 14px; border: 1px solid var(--overdue); border-radius: 9px; background: var(--surface); color: var(--overdue); font-size: 12px; font-weight: 800; cursor: pointer; }
 .today-triage button:hover { background: var(--overdue); color: #fff; }
 .today-list { margin: 0; padding: 0; list-style: none; }
 .today-row { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 4px; min-height: 52px; border-top: 1px solid var(--divider); }
 .today-row:first-child { border-top: 0; }
 .today-row-body { min-width: 0; padding: 7px 0; }
-.today-row-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--ink); font-size: 14px; font-weight: 650; line-height: 1.4; text-decoration: none; }
+.today-row-title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--ink); font-size: 13px; font-weight: 650; line-height: 1.4; text-decoration: none; }
 a.today-row-title:hover { text-decoration: underline; }
-.today-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 3px; color: var(--muted); font-size: 12px; }
+.today-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 3px; color: var(--muted); font-size: 11px; }
 .today-pill { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 750; }
 .today-pill.overdue { background: var(--overdue-soft); color: var(--overdue); }
 .today-pill.today { background: var(--blue-soft); color: var(--blue); }
 .today-pill.upcoming { background: var(--green-soft); color: var(--green); }
 .today-pill.attention { background: var(--attention-soft); color: var(--attention); }
-.today-more { width: 100%; min-height: 44px; border: 0; border-top: 1px solid var(--divider); background: none; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 700; }
+.today-more { width: 100%; min-height: 44px; border: 0; border-top: 1px solid var(--divider); background: none; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 700; }
 .today-more:hover { color: var(--ink); }
 .today-check { --check: var(--green); width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
 .today-check-mark { width: 26px; height: 26px; display: grid; place-items: center; border: 2px solid var(--check-line); border-radius: 50%; color: transparent; font-size: 13px; font-weight: 900; transition: background .15s ease, border-color .15s ease; }
@@ -161,12 +162,12 @@ a.today-row-title:hover { text-decoration: underline; }
 .today-chip:focus-visible { outline: 3px solid rgba(154,71,39,.22); outline-offset: 1px; }
 .today-chip:disabled { cursor: default; }
 .today-chip-dot { width: 26px; height: 26px; display: grid; place-items: center; border: 2px solid var(--check-line); border-radius: 50%; color: transparent; font-size: 13px; font-weight: 900; }
-.today-chip b { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 14px; line-height: 1.35; }
+.today-chip b { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 13px; line-height: 1.35; }
 .today-chip small { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
 .today-chip[aria-pressed="true"] { border-color: #e2c6b8; background: var(--habit-done); }
 .today-chip[aria-pressed="true"] .today-chip-dot { border-color: var(--habit); background: var(--habit); color: #fff; }
 .today-chip[aria-pressed="true"] small { color: var(--habit); font-weight: 700; }
-.today-progress { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; color: var(--muted); font-size: 12px; }
+.today-progress { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; color: var(--muted); font-size: 11px; }
 .today-progress i { flex: 1; height: 5px; overflow: hidden; border-radius: 999px; background: #efe7e1; }
 .today-progress i b { display: block; height: 100%; border-radius: inherit; background: var(--habit); transition: width .25s ease; }
 .today-project-row { align-items: start; border-top: 0; padding: 3px 0; }
@@ -175,14 +176,14 @@ a.today-row-title:hover { text-decoration: underline; }
 .today-next-action.attention { border-left-color: var(--attention); background: var(--attention-soft); }
 .today-next-action .today-row-meta { margin: 0 0 3px; }
 .today-resolver { display: grid; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(125,90,24,.18); }
-.today-resolver-primary { min-height: 44px; padding: 6px 12px; border: 0; border-radius: 9px; background: var(--project); color: #fff; cursor: pointer; font-size: 13px; font-weight: 800; text-align: left; }
+.today-resolver-primary { min-height: 44px; padding: 6px 12px; border: 0; border-radius: 9px; background: var(--project); color: #fff; cursor: pointer; font-size: 12px; font-weight: 800; text-align: left; }
 .today-next-form { display: flex; flex-wrap: wrap; gap: 6px; }
 .today-next-form input { flex: 1 1 160px; min-width: 0; height: 44px; padding: 0 10px; border: 1px solid #cfd8d1; border-radius: 9px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; outline: none; }
 .today-next-form input:focus { border-color: var(--project); box-shadow: 0 0 0 3px rgba(125,90,24,.14); }
-.today-next-form button { flex: 0 0 auto; min-height: 44px; padding: 0 12px; border: 1px solid var(--project); border-radius: 9px; background: var(--surface); color: var(--project); cursor: pointer; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.today-next-form button { flex: 0 0 auto; min-height: 44px; padding: 0 12px; border: 1px solid var(--project); border-radius: 9px; background: var(--surface); color: var(--project); cursor: pointer; font-size: 12px; font-weight: 800; white-space: nowrap; }
 .today-resolver-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
-.today-resolver-foot button { min-height: 36px; padding: 0 10px; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 750; }
-.today-resolver-foot a { color: var(--project); font-size: 12px; font-weight: 750; }
+.today-resolver-foot button { min-height: 36px; padding: 0 10px; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 11px; font-weight: 750; }
+.today-resolver-foot a { color: var(--project); font-size: 11px; font-weight: 750; }
 .inbox-list:empty { display: none; }
 
 .today-sheet { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 14px; background: rgba(24,31,27,.45); }
@@ -392,8 +393,8 @@ a.today-row-title:hover { text-decoration: underline; }
   .app-pill .idea-mark-icon { width: 15px; height: 15px; }
   .app-pill b { font-size: 12px; }
   .today-panel { padding: 14px 12px 8px; border-radius: 12px; }
-  .today-head h2 { font-size: 18px; }
-  .today-counter { font-size: 12px; }
+  .today-head h2 { font-size: 16px; }
+  .today-counter { font-size: 11px; }
   .today-chips { grid-template-columns: 1fr 1fr; }
   .today-sheet { place-items: end stretch; padding: 0; }
   .today-sheet-dialog { width: 100%; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0; }
