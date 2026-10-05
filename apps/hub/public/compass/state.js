@@ -8,6 +8,7 @@ export const state = {
   metricFilter: "",
   drawerItem: null,
   triageSource: "wants",
+  triageOrder: [],
   aiRequestToken: 0,
   calendarConnection: null,
   todosLoaded: false,
@@ -26,7 +27,7 @@ export const state = {
 export const els = Object.fromEntries([
   "sourceBadge", "refreshButton",
   "inboxTabCount", "wantsTabCount", "todosTabCount", "listTitle", "searchInput",
-  "statusFilter", "pendingFilterGroup", "knowledgeFilter", "knowledgePendingCount", "githubFilter", "githubPendingCount", "todoFilterGroup", "todoLayoutGroup", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
+  "statusFilter", "pageUtilityToolbar", "pendingFilterGroup", "knowledgeFilter", "knowledgePendingCount", "githubFilter", "githubPendingCount", "todoFilterGroup", "todoLayoutGroup", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
   "bulkModeButton", "bulkToolbar", "bulkSelectAll", "bulkSelectionCount", "bulkStatusSelect", "bulkRevisitField", "bulkRevisitOn", "bulkApplyButton", "bulkCancelButton", "bulkError",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher",
   "addInboxButton", "inboxModal", "inboxModalClose", "inboxCancelButton", "inboxForm",

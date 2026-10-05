@@ -84,3 +84,10 @@ test("Compass route paths preserve unrelated callback parameters", () => {
     "/compass/?view=wants&filter=untriaged",
   );
 });
+
+test("Inboxの詳細URLはviewを付けて書き、そのまま開き直せる", () => {
+  const path = compassRoutePath("https://hub.example/compass/", "inbox", 192);
+  assert.equal(path, "/compass/?view=inbox&id=192");
+  assert.deepEqual(parseCompassRoute(`https://hub.example${path}`), { view: "inbox", id: 192, filter: null, error: null });
+  assert.equal(compassRoutePath(`https://hub.example${path}`, "inbox"), "/compass/");
+});
