@@ -6,7 +6,7 @@ export interface AccessEnv {
   POLICY_AUD?: string;
 }
 
-export type AccessCheck =
+export type AccessResult =
   | { ok: true }
   | { ok: false; status: 403 | 503; message: string };
 
@@ -23,7 +23,8 @@ function teamDomain(value: string | undefined): string | null {
   }
 }
 
-export async function validateAccess(request: Request, env: AccessEnv): Promise<AccessCheck> {
+/** Cloudflare AccessのJWT（Cf-Access-Jwt-Assertion）を検証する。 */
+export async function validateAccess(request: Request, env: AccessEnv): Promise<AccessResult> {
   const issuer = teamDomain(env.TEAM_DOMAIN?.trim());
   const audience = env.POLICY_AUD?.trim();
   if (!issuer || !audience) {

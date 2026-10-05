@@ -1,0 +1,21 @@
+{
+  "name": "@personal-dashboards/auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "認証（Cloudflare Access・SSO引き継ぎ・Basic認証）とSupabase RESTの共通部分。3アプリのPages Functionsが使う。",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --test-isolation=none tests/*.test.ts"
+  },
+  "dependencies": {
+    "jose": "^6.2.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "~6.0.2"
+  }
+}

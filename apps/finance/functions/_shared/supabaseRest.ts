@@ -1,8 +1,7 @@
-export interface SupabaseEnv {
-  SUPABASE_URL?: string
-  SUPABASE_SECRET_KEY?: string
-}
+import { fetchSupabase, jsonResponse, methodNotAllowed, type SupabaseEnv } from '@personal-dashboards/auth'
 
+// 共通部分は packages/dashboard-auth にある。既存の呼び出し側は変えずに、ここから再公開する。
+export { fetchSupabase, jsonResponse, methodNotAllowed, type SupabaseEnv }
 export type SupabaseTable = 'expenses' | 'budget_categories' | 'recurring_expenses'
 
 type QueryDefinition = {
@@ -14,51 +13,6 @@ export type Pagination = { limit: number; offset: number }
 
 const DEFAULT_PAGE_SIZE = 500
 const MAX_PAGE_SIZE = 1_000
-
-export function jsonResponse(body: unknown, status = 200): Response {
-  return Response.json(body, {
-    status,
-    headers: {
-      'Cache-Control': 'private, no-store',
-      'Content-Type': 'application/json; charset=utf-8',
-    },
-  })
-}
-
-export function methodNotAllowed(allow = 'GET'): Response {
-  return new Response('Method Not Allowed\n', {
-    status: 405,
-    headers: {
-      Allow: allow,
-      'Cache-Control': 'private, no-store',
-      'Content-Type': 'text/plain; charset=utf-8',
-    },
-  })
-}
-
-/** 同じキーの同時リクエストのうち片方だけが、Supabase側でJWTの検証エラー（PGRST303）として
- * 401になることがある。拒否されたリクエストは実行されていないので、少し待って1回だけやり直す。 */
-const AUTH_RETRY_DELAY_MS = 300
-
-async function isTransientAuthError(response: Response): Promise<boolean> {
-  if (response.status !== 401) return false
-  if (response.headers.get('Proxy-Status')?.includes('PGRST303')) return true
-  try {
-    const body: unknown = await response.clone().json()
-    return typeof body === 'object' && body !== null && (body as { code?: unknown }).code === 'PGRST303'
-  } catch {
-    return false
-  }
-}
-
-/** Supabase REST APIへのfetch。一時的な認証エラーのときだけ1回やり直す。 */
-export async function fetchSupabase(input: URL, init: RequestInit): Promise<Response> {
-  const response = await fetch(input, init)
-  if (!(await isTransientAuthError(response))) return response
-  console.warn(`Supabase ${input.pathname} rejected the key transiently (PGRST303); retrying once`)
-  await new Promise((resolve) => setTimeout(resolve, AUTH_RETRY_DELAY_MS))
-  return fetch(input, init)
-}
 
 export async function insertSupabaseRow(
   env: SupabaseEnv,

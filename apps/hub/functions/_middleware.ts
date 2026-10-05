@@ -1,18 +1,9 @@
-import { validateAccess, type AccessEnv } from "./_shared/accessAuth.ts";
-import { acceptHandoff, attachSession, hasValidSession, type SessionEnv } from "./_shared/sessionAuth.ts";
+import { applyPublicCache, createAuthMiddleware, type AuthEnv } from "@personal-dashboards/auth";
+import { acceptHandoff, type SessionEnv } from "./_shared/sessionAuth.ts";
 
-interface Env extends AccessEnv, SessionEnv {
-  DASHBOARD_PASSWORD?: string;
-  DASHBOARD_USER?: string;
-}
+// 認証の本体は packages/dashboard-auth。ここにはHub固有の設定だけを置く。
+interface Env extends AuthEnv, SessionEnv {}
 
-interface MiddlewareContext {
-  request: Request;
-  env: Env;
-  next: () => Promise<Response>;
-}
-
-const REALM = 'Basic realm="compass-dashboard", charset="UTF-8"';
 const PUBLIC_OAUTH_PATHS = new Set([
   "/oauth",
   "/oauth/",
@@ -23,109 +14,23 @@ const PUBLIC_OAUTH_PATHS = new Set([
   "/oauth.css",
 ]);
 
-function securityHeaders(response: Response): Response {
-  const secured = new Response(response.body, response);
-  secured.headers.set(
-    "Content-Security-Policy",
-    "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
-  );
-  secured.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  secured.headers.set("Referrer-Policy", "no-referrer");
-  secured.headers.set("X-Content-Type-Options", "nosniff");
-  secured.headers.set("X-Frame-Options", "DENY");
-  return secured;
-}
-
-function withPrivacyHeaders(response: Response): Response {
-  const secured = securityHeaders(response);
-  secured.headers.set("Cache-Control", "private, no-store");
-  secured.headers.set("Vary", "Authorization, Cf-Access-Jwt-Assertion, Cookie");
-  secured.headers.set("X-Robots-Tag", "noindex, nofollow");
-  return secured;
-}
-
-function withPublicHeaders(response: Response): Response {
-  const secured = securityHeaders(response);
-  secured.headers.set("Cache-Control", "public, max-age=300");
-  secured.headers.set("X-Robots-Tag", "index, follow");
-  return secured;
-}
-
-function unauthorized(): Response {
-  return withPrivacyHeaders(new Response("Authentication required.\n", {
-    status: 401,
-    headers: {
-      "WWW-Authenticate": REALM,
-      "Content-Type": "text/plain; charset=utf-8",
-    },
-  }));
-}
-
-function safeEqual(left: string, right: string): boolean {
-  if (left.length !== right.length) return false;
-  let difference = 0;
-  for (let index = 0; index < left.length; index += 1) {
-    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
-  }
-  return difference === 0;
-}
-
-export const onRequest = async (context: MiddlewareContext): Promise<Response> => {
-  const requestUrl = new URL(context.request.url);
-  if ((context.request.method === "GET" || context.request.method === "HEAD") && PUBLIC_OAUTH_PATHS.has(requestUrl.pathname)) {
-    return withPublicHeaders(await context.next());
-  }
-
-  const authMode = context.env.AUTH_MODE?.trim().toLowerCase() || "basic";
-  if (authMode === "access") {
-    const access = await validateAccess(context.request, context.env);
-    if (!access.ok) {
-      return withPrivacyHeaders(new Response(access.message, {
-        status: access.status,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
-      }));
+export const onRequest = createAuthMiddleware<Env>({
+  realm: "compass-dashboard",
+  headers: {
+    csp: "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    permissionsPolicy: "camera=(), microphone=(), geolocation=()",
+  },
+  messages: {
+    unauthorized: "Authentication required.\n",
+    passwordMissing: "DASHBOARD_PASSWORD is not configured.\n",
+  },
+  acceptHandoff,
+  // OAuthの同意画面が参照する静的ページだけは、認証なしで公開する。
+  publicRoute: async ({ request, next }, headers) => {
+    const { pathname } = new URL(request.url);
+    if ((request.method === "GET" || request.method === "HEAD") && PUBLIC_OAUTH_PATHS.has(pathname)) {
+      return applyPublicCache(headers.security(await next()));
     }
-    return withPrivacyHeaders(await context.next());
-  }
-  if (authMode !== "basic") {
-    return withPrivacyHeaders(new Response("AUTH_MODE is invalid.\n", {
-      status: 503,
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
-    }));
-  }
-
-  const handoff = await acceptHandoff(context.request, context.env);
-  if (handoff) return withPrivacyHeaders(handoff);
-  if (await hasValidSession(context.request, context.env)) {
-    return withPrivacyHeaders(await context.next());
-  }
-
-  const expectedPassword = context.env.DASHBOARD_PASSWORD;
-  if (!expectedPassword) {
-    return withPrivacyHeaders(new Response(
-      "DASHBOARD_PASSWORD is not configured.\n",
-      { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } },
-    ));
-  }
-
-  const authorization = context.request.headers.get("Authorization");
-  if (!authorization?.startsWith("Basic ")) return unauthorized();
-
-  let decoded: string;
-  try {
-    decoded = atob(authorization.slice("Basic ".length));
-  } catch {
-    return unauthorized();
-  }
-  const separator = decoded.indexOf(":");
-  if (separator < 0) return unauthorized();
-
-  const suppliedUser = decoded.slice(0, separator);
-  const suppliedPassword = decoded.slice(separator + 1);
-  const expectedUser = context.env.DASHBOARD_USER || "admin";
-  const userMatches = safeEqual(suppliedUser, expectedUser);
-  const passwordMatches = safeEqual(suppliedPassword, expectedPassword);
-  if (!userMatches || !passwordMatches) return unauthorized();
-
-  return withPrivacyHeaders(await attachSession(await context.next(), context.request, context.env));
-};
+    return null;
+  },
+});

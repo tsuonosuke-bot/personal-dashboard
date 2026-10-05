@@ -2,14 +2,15 @@
   "name": "personal-dashboards",
   "private": true,
   "workspaces": [
+    "packages/dashboard-auth",
     "apps/hub",
     "apps/knowledge",
     "apps/finance"
   ],
   "scripts": {
-    "typecheck": "npm run typecheck --workspaces",
-    "test": "npm test --workspaces",
-    "build": "npm run build --workspaces",
-    "theme:check": "npm run theme:check --workspaces"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "theme:check": "npm run theme:check --workspaces --if-present"
   }
 }
