@@ -83,7 +83,6 @@ test("Hub keeps six destinations in one compact row and readable text on mobile"
   assert.match(css, /\.finance-pill \{ --accent: var\(--blue\); --soft: var\(--blue-soft\); \}/);
   assert.match(css, /\.writing-pill \{ --accent: var\(--plum\); --soft: var\(--plum-soft\); \}/);
   assert.match(css, /\.habits-pill \{ --accent: var\(--habit\); --soft: var\(--habit-soft\); \}/);
-  assert.match(css, /\.topbar \{[\s\S]*position: relative;[\s\S]*z-index: 50;/);
   assert.match(css, /\.quick-add-menu \{ position: relative; z-index: 2; \}/);
   assert.doesNotMatch(css, /\.dashboard-grid|\.dashboard-card|\.metric-grid|\.review-shortcut|\.habit-shortcut/);
   assert.match(css, /\.inbox-panel \{ grid-column: 1 \/ -1; \}/);
@@ -112,7 +111,7 @@ test("Today panel follows the other pages' controls with 44px targets and 11px+ 
   assert.match(css, /\.today-next-action \{[^}]*border-left: 3px solid var\(--project\);[^}]*background: var\(--project-soft\);/);
   // スマホでは見直しを下から出し、トーストは画面幅いっぱいにする
   assert.match(css, /\.today-sheet \{ place-items: end stretch; padding: 0; \}/);
-  assert.match(css, /\.today-toast \{ right: 12px; left: 12px; bottom: 12px;/);
+  assert.match(css, /\.today-toast \{ right: 12px; left: 12px; bottom: calc\(12px \+ var\(--tabbar-space, 0px\)\);/);
 });
 
 test("Compass exposes a real Inbox create menu", async () => {
@@ -426,4 +425,79 @@ test("Compass applies direct record routes and safe fallbacks", async () => {
   assert.match(script, /openDrawer\(route\.id, route\.view, "none"\)/);
   assert.match(script, /完了またはアーカイブ済みです。一覧を表示します/);
   assert.match(script, /が見つかりません。一覧を表示します/);
+});
+
+test("every Hub page shares one header, the same page switcher and the phone tab bar", async () => {
+  const pages = {
+    hub: "../public/index.html",
+    idea: "../public/compass/index.html",
+    projects: "../public/projects/index.html",
+    habits: "../public/habits/index.html",
+    writing: "../public/writing/index.html",
+    status: "../public/status/index.html",
+  };
+  const links = ["Idea", "Projects", "Writing", "Habits", "Finance", "Knowledge", "接続状態"];
+  for (const [page, path] of Object.entries(pages)) {
+    const html = await readFile(new URL(path, import.meta.url), "utf8");
+    assert.match(html, /<header class="dashboard-header">/, page);
+    assert.match(html, /href="\/dashboard-shell\.css"/, page);
+    assert.match(html, /href="\/dashboard-shell\.dark\.css"/, page);
+    assert.match(html, new RegExp(`<script src="/tabbar\\.js" data-page="${page}" defer></script>`), page);
+    assert.doesNotMatch(html, /class="topbar"|class="status-header"|id="dashboardNav"/, page);
+    const nav = html.match(/<nav aria-label="ダッシュボードを切り替え">([\s\S]*?)<\/nav>/)?.[1] || "";
+    assert.deepEqual([...nav.matchAll(/>([^<>]+)<\/(?:a|span)>/g)].map((match) => match[1]), links, page);
+    assert.equal((nav.match(/aria-current="page"/g) || []).length, page === "hub" ? 0 : 1, page);
+  }
+});
+
+test("phone tab bar keeps Hub, Idea, Projects and Habits one tap away and lifts toasts above it", async () => {
+  const [script, shell, habits, projects, compass, writing] = await Promise.all([
+    readFile(new URL("../public/static/tabbar.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/dashboard-shell.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/habits.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/projects.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/writing.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(script, /\{ id: "hub", label: "ホーム", href: "\/"/);
+  assert.match(script, /\{ id: "idea", label: "Idea", href: "\/compass\/"/);
+  assert.match(script, /\{ id: "projects", label: "Projects", href: "\/projects\/"/);
+  assert.match(script, /\{ id: "habits", label: "Habits", href: "\/habits\/"/);
+  assert.match(script, /<span>その他<\/span>/);
+  assert.match(script, /data-theme-select/);
+  assert.match(shell, /\.tabbar \{ display: none; \}/);
+  assert.match(shell, /:root \{ --tabbar-space: calc\(62px \+ env\(safe-area-inset-bottom\)\); \}/);
+  assert.match(shell, /\.dashboard-hub, \.dashboard-actions \.dashboard-switcher \{ display: none; \}/);
+  assert.match(shell, /min-height: 54px;/);
+  for (const css of [habits, projects, compass, writing]) {
+    assert.match(css, /\.toast \{ position: fixed;[^}]*bottom: calc\(1\dpx \+ var\(--tabbar-space, 0px\)\);/);
+  }
+});
+
+test("Knowledge and Finance ship the same tab bar script and styles as the Hub", async () => {
+  const read = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
+  const block = (css: string) => css.slice(css.indexOf("/* tabbar:start"), css.indexOf("/* tabbar:end */"));
+  const [script, knowledgeScript, financeScript, shell, knowledgeCss, financeCss, knowledgeHtml, financeHtml, knowledgeApp, financeApp] = await Promise.all([
+    read("../public/static/tabbar.js"),
+    read("../../knowledge/public/tabbar.js"),
+    read("../../finance/public/tabbar.js"),
+    read("../public/dashboard-shell.css"),
+    read("../../knowledge/src/index.css"),
+    read("../../finance/src/index.css"),
+    read("../../knowledge/index.html"),
+    read("../../finance/index.html"),
+    read("../../knowledge/src/App.tsx"),
+    read("../../finance/src/App.tsx"),
+  ]);
+  assert.equal(knowledgeScript, script);
+  assert.equal(financeScript, script);
+  assert.ok(block(shell).length > 1000);
+  assert.equal(block(knowledgeCss), block(shell));
+  assert.equal(block(financeCss), block(shell));
+  assert.match(knowledgeHtml, /<script src="\.\/tabbar\.js" data-page="knowledge" data-hub="https:\/\/personal-dashboard-7md\.pages\.dev" defer><\/script>/);
+  assert.match(financeHtml, /<script src="\.\/tabbar\.js" data-page="finance" data-hub="https:\/\/personal-dashboard-7md\.pages\.dev" defer><\/script>/);
+  for (const app of [knowledgeApp, financeApp]) {
+    const nav = app.match(/<nav aria-label="ダッシュボードを切り替え">([\s\S]*?)<\/nav>/)?.[1] || "";
+    assert.deepEqual([...nav.matchAll(/>([^<>{}]+)<\/(?:a|span)>/g)].map((match) => match[1]), ["Idea", "Projects", "Writing", "Habits", "Finance", "Knowledge", "接続状態"]);
+  }
 });

@@ -57,15 +57,6 @@ function renderCurrentTabCount(items) {
   countElement.textContent = items.length;
 }
 
-export function renderNavigation(items) {
-  els.dashboardNav.innerHTML = items.map((item) => {
-    const label = escapeHtml(item.label);
-    if (item.current) return `<span class="current">${label}<small>CURRENT</small></span>`;
-    if (!item.url) return `<span class="unavailable">${label}<small>SOON</small></span>`;
-    return `<a href="${escapeHtml(item.url)}">${label}<small>OPEN</small></a>`;
-  }).join("");
-}
-
 export function statusLabel(status, view = state.view) {
   if (view === "todos") return ({ pending: "未実施", completed: "完了", skipped: "見送り" })[status] || status;
   return ({ pending: "未整理", done: "整理済み", skipped: "対象外", active: "未整理", completed: "整理済み", dropped: "見送り", closed: "完了" })[status] || status;

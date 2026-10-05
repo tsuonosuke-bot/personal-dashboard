@@ -2,7 +2,7 @@
 import { readApiJson } from "../api-client.js";
 import { parseCompassRoute } from "../compass-routing.js";
 import { escapeHtml, setSource } from "./format.js";
-import { applyCompassRoute, renderList, renderNavigation, renderSummary, updateStatusOptions } from "./list.js";
+import { applyCompassRoute, renderList, renderSummary, updateStatusOptions } from "./list.js";
 import { els, state } from "./state.js";
 
 export async function loadTodos(render = state.view === "todos") {
@@ -47,7 +47,6 @@ export async function loadDashboard() {
     state.data = payload;
     setSource(payload.source);
     renderSummary();
-    renderNavigation(payload.navigation || []);
     const requestedRoute = parseCompassRoute(window.location.href);
     if (requestedRoute.view === "todos") await loadTodos(false);
     applyCompassRoute();

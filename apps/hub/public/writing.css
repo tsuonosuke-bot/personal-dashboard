@@ -88,7 +88,7 @@ main { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding-bottom: 28
 .editor-actions .save-button { border-color: var(--accent); background: var(--accent); color: #fff; }
 .editor-actions .save-button:hover { background: var(--accent-hover); }
 .editor-actions button:disabled { opacity: .5; }
-.toast { position: fixed; right: 16px; bottom: 16px; z-index: 30; max-width: min(380px, calc(100vw - 32px)); padding: 10px 13px; border-radius: 9px; background: var(--ink); color: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.2); font-size: 9px; font-weight: 750; }
+.toast { position: fixed; right: 16px; bottom: calc(16px + var(--tabbar-space, 0px)); z-index: 30; max-width: min(380px, calc(100vw - 32px)); padding: 10px 13px; border-radius: 9px; background: var(--ink); color: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.2); font-size: 9px; font-weight: 750; }
 @media (max-width: 760px) {
   .topbar { padding: 0 10px; }
   .topbar nav { gap: 8px; }

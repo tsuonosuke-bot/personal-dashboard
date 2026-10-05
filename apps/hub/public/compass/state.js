@@ -28,7 +28,7 @@ export const els = Object.fromEntries([
   "inboxTabCount", "wantsTabCount", "todosTabCount", "listTitle", "searchInput",
   "statusFilter", "pendingFilterGroup", "knowledgeFilter", "knowledgePendingCount", "githubFilter", "githubPendingCount", "todoFilterGroup", "todoLayoutGroup", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
   "bulkModeButton", "bulkToolbar", "bulkSelectAll", "bulkSelectionCount", "bulkStatusSelect", "bulkRevisitField", "bulkRevisitOn", "bulkApplyButton", "bulkCancelButton", "bulkError",
-  "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher", "dashboardNav",
+  "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher",
   "addInboxButton", "inboxModal", "inboxModalClose", "inboxCancelButton", "inboxForm",
   "inboxContent", "inboxCharacterCount", "inboxFormError", "inboxSubmitButton", "toast",
 ].map((id) => [id, document.getElementById(id)]));

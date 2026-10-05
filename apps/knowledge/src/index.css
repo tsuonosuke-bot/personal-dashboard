@@ -770,3 +770,44 @@ button.review-card { display: block; }
 :root[data-theme="dark"] .learning-log .speaking-swatch-almost, :root[data-theme="dark"] .learning-log .speaking-bar-almost { color: #5598e7; }
 :root[data-theme="dark"] .learning-log .speaking-swatch-retry, :root[data-theme="dark"] .learning-log .speaking-bar-retry { color: #1c5cab; }
 :root[data-theme="dark"] .learning-log .speaking-log-chart .recharts-bar-rectangle path { stroke: #292929; }
+
+/* スマホ幅ではHubへの戻りとページ切り替えを下部タブバー（public/tabbar.js）に任せる */
+@media (max-width: 680px) {
+  .hub-link, .dashboard-switcher { display: none; }
+}
+
+/* tabbar:start — tabbar.js と同じく Hub・Knowledge・Finance で同一の内容。変えるときは3つとも揃える */
+.tabbar { display: none; }
+.tabbar-item.hub { --tab-accent: #202822; --tab-soft: #e8e9e5; }
+.tabbar-item.idea { --tab-accent: #2f6754; --tab-soft: #e1ece6; }
+.tabbar-item.projects { --tab-accent: #7d5a18; --tab-soft: #f4ecd8; }
+.tabbar-item.habits { --tab-accent: #9a4727; --tab-soft: #f3ded2; }
+.tabbar-item.more { --tab-accent: #52645a; --tab-soft: #e8ebe8; }
+.tabbar-sheet-link.writing { --tab-accent: #7a3f62; --tab-soft: #f2e4ec; }
+.tabbar-sheet-link.finance { --tab-accent: #315f78; --tab-soft: #e0ebf0; }
+.tabbar-sheet-link.knowledge { --tab-accent: #66558c; --tab-soft: #ebe7f4; }
+.tabbar-sheet-link.status { --tab-accent: #52645a; --tab-soft: #e8ebe8; }
+
+@media (max-width: 680px) {
+  :root { --tabbar-space: calc(62px + env(safe-area-inset-bottom)); }
+  body { padding-bottom: var(--tabbar-space); }
+  .tabbar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 8; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 4px max(4px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(4px, env(safe-area-inset-left)); border-top: 1px solid #dfe2dd; background: rgba(255, 255, 255, .95); backdrop-filter: blur(12px); font-family: Inter, "Segoe UI", "Yu Gothic UI", Meiryo, sans-serif; }
+  .tabbar-item { min-width: 0; min-height: 54px; display: grid; place-items: center; align-content: center; gap: 3px; padding: 4px 2px; border-radius: 10px; color: #6f7771; font-size: 11px; font-weight: 700; text-decoration: none; cursor: pointer; list-style: none; }
+  .tabbar-item::-webkit-details-marker { display: none; }
+  .tabbar-item > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tabbar-item:focus-visible, .tabbar-sheet-link:focus-visible { outline: 3px solid rgba(82, 100, 90, .3); outline-offset: -3px; }
+  .tabbar-mark { width: 28px; height: 26px; display: grid; place-items: center; border-radius: 8px; color: var(--tab-accent); font: 600 13px/1 Georgia, serif; }
+  .tabbar-mark svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tabbar-item[aria-current="page"], .tabbar-item.is-current { color: var(--tab-accent); }
+  .tabbar-item[aria-current="page"] .tabbar-mark, .tabbar-item.is-current .tabbar-mark, .tabbar-more[open] .tabbar-item .tabbar-mark { background: var(--tab-soft); }
+  .tabbar-sheet { position: fixed; right: 8px; bottom: calc(var(--tabbar-space) + 8px); left: 8px; display: grid; gap: 6px; padding: 8px; border: 1px solid #dfe2dd; border-radius: 14px; background: #fff; box-shadow: 0 16px 42px rgba(30, 37, 32, .2); }
+  .tabbar-sheet-links { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .tabbar-sheet-link { min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; color: #20262a; font-size: 13px; font-weight: 700; text-decoration: none; }
+  .tabbar-sheet-link .tabbar-mark { background: var(--tab-soft); }
+  .tabbar-sheet-link:hover { background: #f3f4f1; }
+  .tabbar-sheet-link[aria-current="page"] { background: var(--tab-soft); color: var(--tab-accent); }
+  .tabbar-theme { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 8px 2px; border-top: 1px solid #dfe2dd; color: #6f7771; font-size: 12px; font-weight: 700; }
+  .tabbar-theme > span { flex: none; white-space: nowrap; }
+  .tabbar-theme select { width: auto; min-width: 120px; height: auto; min-height: 40px; flex: 0 0 auto; padding: 4px 8px; border: 1px solid #dfe2dd; border-radius: 8px; background: #fff; color: #20262a; font: inherit; }
+}
+/* tabbar:end */

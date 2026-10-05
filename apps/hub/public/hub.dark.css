@@ -59,6 +59,8 @@
   --overdue-soft--light: #fff0e9;
   --check-line: #4a443f;
   --divider: #59584e;
+  --page-accent--light: var(--green--light, var(--green));
+  --page-accent-soft--light: var(--green-soft--light, var(--green-soft));
 }
 html[data-theme="dark"] {
   background: var(--paper);
@@ -72,24 +74,6 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] a {
   color: inherit;
-}
-:root[data-theme="dark"] .topbar {
-  border-bottom: 1px solid rgba(122, 144, 129, 0.14);
-  background: rgba(31, 31, 27, 0.88);
-}
-:root[data-theme="dark"] .brand {
-  text-decoration: none;
-}
-:root[data-theme="dark"] .brand-mark {
-  border-radius: 9px;
-  background: var(--ink--light, var(--ink));
-  color: #fff;
-}
-:root[data-theme="dark"] .quick-add-menu summary {
-  border: 1px solid var(--green);
-  border-radius: 9px;
-  background: var(--green--light, var(--green));
-  color: #fff;
 }
 :root[data-theme="dark"] .quick-add-menu summary:focus-visible {
   outline: 3px solid rgba(81, 184, 153, 0.25);
@@ -130,47 +114,9 @@ html[data-theme="dark"] {
   color: var(--violet);
   background: var(--violet-soft);
 }
-:root[data-theme="dark"] .theme-select {
-  color: var(--muted);
-}
-:root[data-theme="dark"] .theme-select select {
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface);
-  color: var(--ink);
-}
-:root[data-theme="dark"] .source-badge {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(41, 41, 41, 0.62);
-  color: var(--muted);
-}
-:root[data-theme="dark"] .source-badge i {
-  border-radius: 50%;
-  background: #9da39f;
-}
-:root[data-theme="dark"] .source-badge.live i {
-  background: #3a9669;
-  box-shadow: 0 0 0 3px rgba(58,150,105,.12);
-}
 :root[data-theme="dark"] .source-badge.partial i {
   background: var(--orange--light, var(--orange));
   box-shadow: 0 0 0 3px rgba(201,104,55,.12);
-}
-:root[data-theme="dark"] .source-badge.error i {
-  background: #c75049;
-}
-:root[data-theme="dark"] .refresh-button {
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface);
-}
-:root[data-theme="dark"] .refresh-button:hover {
-  border-color: var(--green);
-}
-:root[data-theme="dark"] .refresh-button svg {
-  fill: none;
-  stroke: currentColor;
 }
 :root[data-theme="dark"] .batch-alert {
   border: 1px solid #54423b;
@@ -904,9 +850,6 @@ html[data-theme="dark"] {
   }
 }
 @media (max-width: 620px) {
-  :root[data-theme="dark"] .brand-mark {
-    border-radius: 8px;
-  }
   :root[data-theme="dark"] .today-panel {
     border-radius: 12px;
   }
