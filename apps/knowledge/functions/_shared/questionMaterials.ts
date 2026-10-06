@@ -10,6 +10,11 @@ import { EMBEDDING_MODEL, embedTexts, type VoyageEnv } from "./voyageClient.ts";
 
 /** 種類ごとに並べる件数。 */
 export const MATERIALS_PER_TYPE = 8;
+/**
+ * これより近さが低い材料は出さない。3つの問いで見た限り、0.45未満は問いとずれたもの
+ * （1日の出来事がまとめて入った日記など）が多かった。
+ */
+export const MIN_MATERIAL_SIMILARITY = 0.45;
 
 export interface QuestionExclusion {
   source_type: SemanticSourceType;
@@ -74,7 +79,8 @@ export async function loadQuestionMaterials(env: SupabaseEnv & VoyageEnv, groupI
   if (materials.some((row) => row === null) || excluded.some((row) => row === null)) {
     throw new Error("問いの材料に必須項目の不足があります。");
   }
-  return { ok: true, materials: materials as SemanticSearchResult[], excluded: excluded as QuestionExclusion[], note };
+  const close = (materials as SemanticSearchResult[]).filter((row) => row.similarity >= MIN_MATERIAL_SIMILARITY);
+  return { ok: true, materials: close, excluded: excluded as QuestionExclusion[], note };
 }
 
 export interface MaterialChange {
