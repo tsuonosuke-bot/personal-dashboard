@@ -205,7 +205,10 @@ function renderRouteForm(item, intent, destination, initial = {}, origin = initi
     focus: "意味・意識したい理由",
     journal: "残したい背景",
     archive: "見送る理由・補足",
+    question: "補足",
   })[destination] || "補足";
+  // 問いでは、タイトルがそのまま問い文になる（Knowledgeの問いページで短い名前が付く）。
+  const titleLabel = destination === "question" ? "問い文" : "タイトル";
   // 外部へ実際に書き込むGoogle Calendarだけ確認画面を挟む。それ以外はこの画面から保存する。
   const needsPreview = destination === "calendar";
   const routeBoundary = needsPreview
@@ -226,7 +229,7 @@ function renderRouteForm(item, intent, destination, initial = {}, origin = initi
   els.drawerBody.innerHTML = `<form class="edit-form" id="routeForm">
     <div class="source-context"><span>${escapeHtml(triageSourceLabel())}</span>${sourceTextMarkup(item.content)}</div>
     ${routeBoundary ? `<p class="route-boundary">${escapeHtml(routeBoundary)}</p>` : ""}
-    <label class="form-field" for="routeTitle"><span>タイトル</span><textarea id="routeTitle" name="title" rows="3" maxlength="240" required>${escapeHtml(title)}</textarea><small><b id="routeTitleCount">${title.length}</b> / 240</small></label>
+    <label class="form-field" for="routeTitle"><span>${escapeHtml(titleLabel)}</span><textarea id="routeTitle" name="title" rows="3" maxlength="240" required>${escapeHtml(title)}</textarea><small><b id="routeTitleCount">${title.length}</b> / 240</small></label>
     <label class="form-field" for="routeDetail"><span>${escapeHtml(detailLabel)} <small>空欄可</small></span><textarea id="routeDetail" name="detail" rows="6" maxlength="2000">${escapeHtml(detail)}</textarea><small><b id="routeDetailCount">${detail.length}</b> / 2000</small></label>
     ${calendarFields}
     ${destination === "habit" ? `<label class="form-field" for="routeCadence"><span>頻度</span><select id="routeCadence" name="cadence">${Object.entries(cadenceLabels).map(([value, label]) => `<option value="${value}" ${cadence === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>` : ""}

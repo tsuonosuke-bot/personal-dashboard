@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import { dashboardRoutePath } from "../lib/dashboardRoute";
 import type { InsightGroup, Knowledge, KnowledgeInsight } from "../types";
+import { QuestionMaterialsPanel } from "./QuestionMaterialsPanel";
 
 interface Props {
   knowledge: Knowledge[];
@@ -89,7 +90,8 @@ export function InsightGroupsPanel({ knowledge, insights, store, initialGroupId 
 
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy || !title.trim() || !question.trim()) return;
+    // 名前は任意。空ならサーバーが問い文から付ける。
+    if (busy || !question.trim()) return;
     setBusy(true);
     setActionError(null);
     try {
@@ -148,7 +150,7 @@ export function InsightGroupsPanel({ knowledge, insights, store, initialGroupId 
       <div className="insight-organizer-intro card">
         <div>
           <h2>問いで考える</h2>
-          <p>示唆を「何を判断したいか」という問いで束ねます。まず自分で答えを考え、次に示唆を開いて確かめます。</p>
+          <p>「何を判断したいか」を問いとして立てると、意味の近い示唆・ナレッジ・日記をAIが集めます。まず自分で答えを考え、次に材料を開いて確かめます。</p>
           <small>ここで読むだけでは、通常の復習記録や次回復習日は変わりません。</small>
         </div>
         <button className="primary-button" type="button" onClick={startCreate} disabled={busy || store.loading || Boolean(store.error)}>＋ 問いを作る</button>
@@ -165,24 +167,24 @@ export function InsightGroupsPanel({ knowledge, insights, store, initialGroupId 
         <form className="insight-group-form card" onSubmit={(event) => void save(event)}>
           <h3>{editing ? "問いを編集" : "新しい問い"}</h3>
           <label>
-            <span>テーマ名</span>
-            <input type="text" required maxLength={120} value={title} placeholder="例：失敗から改善を生む" onChange={(event) => setTitle(event.target.value)} />
+            <span>問い文</span>
+            <textarea required maxLength={300} rows={2} value={question} placeholder="例：失敗を改善につなげるには？" onChange={(event) => setQuestion(event.target.value)} />
           </label>
           <label>
-            <span>思い出すための問い</span>
-            <textarea required maxLength={300} rows={2} value={question} placeholder="例：失敗を改善につなげるには？" onChange={(event) => setQuestion(event.target.value)} />
+            <span>短い名前（任意）</span>
+            <input type="text" maxLength={120} value={title} placeholder="空なら問い文から付けます" onChange={(event) => setTitle(event.target.value)} />
           </label>
           <div className="insight-group-form-actions">
             <button type="button" onClick={() => { setCreating(false); setEditing(false); setActionError(null); }} disabled={busy}>やめる</button>
-            <button className="primary-button" type="submit" disabled={busy || !title.trim() || !question.trim()}>{busy ? "保存中…" : "保存する"}</button>
+            <button className="primary-button" type="submit" disabled={busy || !question.trim()}>{busy ? "保存中…" : "保存する"}</button>
           </div>
         </form>
       )}
 
       {!store.loading && !store.error && store.groups.length === 0 && (
         <div className="card insight-group-empty">
-          <h3>問いのグループはまだありません</h3>
-          <p>示唆が増えたら、共通して使いたい場面から問いを作れます。今ある示唆は下の「未分類」に残っています。</p>
+          <h3>問いはまだありません</h3>
+          <p>「＋ 問いを作る」で問い文を書くと、関係する示唆・ナレッジ・日記をAIが集めます。</p>
         </div>
       )}
 
@@ -214,7 +216,7 @@ export function InsightGroupsPanel({ knowledge, insights, store, initialGroupId 
               </div>
               <p className="insight-recall-question">{selected.guiding_question}</p>
               {selectedInsights.length === 0 ? (
-                <p className="muted">この問いに示唆はまだありません。下から追加できます。</p>
+                <p className="muted">自分で入れた示唆はまだありません。下のAIが集めた材料から「問いに入れる」か、検索して追加できます。</p>
               ) : (
                 <>
                   <label className="insight-recall-input">
@@ -242,6 +244,13 @@ export function InsightGroupsPanel({ knowledge, insights, store, initialGroupId 
                   )}
                 </>
               )}
+              <QuestionMaterialsPanel
+                groupId={selected.id}
+                question={selected.guiding_question}
+                memberCount={selectedIds.size}
+                busy={busy}
+                onAddInsight={(insightId) => store.addMember(selected.id, insightId)}
+              />
               <div className="insight-group-add">
                 <button type="button" onClick={() => setChoosing((value) => !value)} aria-expanded={choosing}>
                   {choosing ? "追加候補を閉じる" : "＋ この問いに示唆を追加"}

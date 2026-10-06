@@ -80,23 +80,34 @@ export function readGroupId(raw: string | string[] | undefined): number | null {
   return readPositiveId(Array.isArray(raw) ? raw[0] : raw);
 }
 
+/** 問いの短い名前。空なら問い文から作る（末尾の「？」を外し、長ければ40文字で切る）。 */
+export function deriveQuestionTitle(question: string): string {
+  const base = question.replace(/\s+/g, " ").trim().replace(/[？?]+$/, "").trim() || question.trim();
+  return base.length > 40 ? `${base.slice(0, 39)}…` : base;
+}
+
+function readTitle(value: unknown, question: string): Result<string> {
+  if (value === "" || (typeof value === "string" && !value.trim())) return { ok: true, value: deriveQuestionTitle(question) };
+  return readText(value, 120, "問いの名前");
+}
+
 export async function readGroupCreate(request: Request): Promise<Result<{ title: string; guidingQuestion: string }>> {
   const parsed = await readObject(request, ["title", "guiding_question"]);
   if (!parsed.ok) return parsed;
-  const title = readText(parsed.value.title, 120, "グループ名");
-  if (!title.ok) return title;
-  const question = readText(parsed.value.guiding_question, 300, "中心となる問い");
+  const question = readText(parsed.value.guiding_question, 300, "問い文");
   if (!question.ok) return question;
+  const title = readTitle(parsed.value.title, question.value);
+  if (!title.ok) return title;
   return { ok: true, value: { title: title.value, guidingQuestion: question.value } };
 }
 
 export async function readGroupUpdate(request: Request): Promise<Result<{ title: string; guidingQuestion: string; expectedUpdatedAt: string }>> {
   const parsed = await readObject(request, ["title", "guiding_question", "expected_updated_at"]);
   if (!parsed.ok) return parsed;
-  const title = readText(parsed.value.title, 120, "グループ名");
-  if (!title.ok) return title;
-  const question = readText(parsed.value.guiding_question, 300, "中心となる問い");
+  const question = readText(parsed.value.guiding_question, 300, "問い文");
   if (!question.ok) return question;
+  const title = readTitle(parsed.value.title, question.value);
+  if (!title.ok) return title;
   const timestamp = readTimestamp(parsed.value.expected_updated_at);
   if (!timestamp.ok) return timestamp;
   return { ok: true, value: { title: title.value, guidingQuestion: question.value, expectedUpdatedAt: timestamp.value } };

@@ -173,6 +173,14 @@ export interface EmbeddingBatchSummary {
   note: string | null;
 }
 
+/** 問いにAIが集めた材料（#95）。外したものは excluded に入り、二度と materials には出ない。 */
+export interface QuestionMaterials {
+  materials: SemanticSearchResult[];
+  excluded: { source_type: SemanticSourceType; source_id: string; title: string; body: string; excluded_at: string }[];
+  /** 材料を集められなかった理由（キー未設定など）。集められたときはnull。 */
+  note: string | null;
+}
+
 /** 習熟度の変更履歴。is_baselineは記録開始時点の状態。 */
 export interface MasteryHistoryEvent {
   id: number;

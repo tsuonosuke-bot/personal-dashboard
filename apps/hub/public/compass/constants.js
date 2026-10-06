@@ -65,6 +65,7 @@ export const inboxQuickRoutes = {
   focus: { label: "Focus", description: "意識し続ける", intent: "keep", destination: "focus" },
   github: { label: "開発", description: "GitHub候補として残す", intent: "act", destination: "github" },
   journal: { label: "日記", description: "Journal候補として残す", intent: "keep", destination: "journal" },
+  question: { label: "問い", description: "問いとして立て、材料を集める", intent: "explore", destination: "question" },
   defer: { label: "保留", description: "再訪日を決めて置く" },
 };
 
@@ -85,6 +86,7 @@ export const routeDestinationMeta = {
   knowledge: { label: "Knowledge候補", description: "調査・検証後のDB登録候補として保存", internal: false },
   focus: { label: "Focus", description: "繰り返し意識したい言葉として登録", internal: true },
   journal: { label: "Journal候補", description: "その日の記録として保存する計画", internal: false },
+  question: { label: "問い", description: "Knowledgeの問いとして立て、関係する示唆・ナレッジ・日記を集める", internal: true },
   archive: { label: "アーカイブ", description: "外部へ登録せず整理記録だけを残す", internal: true },
 };
 

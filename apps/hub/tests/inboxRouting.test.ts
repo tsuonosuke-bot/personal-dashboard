@@ -245,3 +245,40 @@ test("migrationは振り分けをDB関数に集約し、service_roleだけに実
   }
   assert.doesNotMatch(sql, /security definer/);
 });
+
+test("Inboxを問いへ振り分けると、問い文をそのままroute_inbox_itemへ渡す", async () => {
+  const originalFetch = globalThis.fetch;
+  const sent: Record<string, unknown>[] = [];
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    if (url.pathname !== "/rest/v1/rpc/route_inbox_item") throw new Error(`Unexpected request: ${url}`);
+    sent.push(JSON.parse(String(init?.body)));
+    return Response.json(rpcResult({
+      exit: "question",
+      inbox: { id: 7, status: "done", result: "問いへ振り分け" },
+      route: { id: 42, status: "created", title: "失敗を改善につなげるには？", detail: null, target_id: "5", target_url: "/knowledge/?view=organize&question=5", destination_data: {} },
+    }));
+  };
+  try {
+    const params = { expected: { content: "失敗を改善につなげるには？", result: null }, intent: "explore", title: "失敗を改善につなげるには？", detail: null };
+    const response = await inboxRouteEndpoint({ request: request({ inboxId: 7, exit: "question", params, idempotencyKey }), env });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).route.target_url, "/knowledge/?view=organize&question=5");
+    assert.equal(sent[0]?.p_exit, "question");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("問いの出口のmigrationは、問い文からKnowledgeの問いを作り、名前を問い文から付ける", async () => {
+  const sql = await readFile(new URL("../supabase/migrations/202610060001_inbox_route_question.sql", import.meta.url), "utf8");
+  assert.match(sql, /when 'question' then\s+v_route_exit := true; v_destination := 'question'; v_intents := array\['explore'\]; v_label := '問い';/);
+  assert.match(sql, /insert into public\.insight_groups \(title, guiding_question\)\s+values \(v_question_title, v_title\)/);
+  assert.match(sql, /v_target_url := '\/knowledge\/\?view=organize&question=' \|\| v_target_id;/);
+  assert.match(sql, /intent = 'explore' and destination = any \(array\['calendar', 'knowledge', 'writing', 'question'\]\)/);
+  assert.match(sql, /'question',\s+jsonb_build_object\('label', '問い'/);
+  // 既存の出口は変えない（202609230001の定義に分岐を足しただけ）
+  for (const exit of ["calendar", "github", "writing", "knowledge", "habit", "focus", "journal", "archive", "wish", "defer", "project_create", "project_link", "close"]) {
+    assert.match(sql, new RegExp(`when '${exit}' then`));
+  }
+});

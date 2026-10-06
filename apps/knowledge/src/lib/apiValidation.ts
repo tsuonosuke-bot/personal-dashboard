@@ -4,7 +4,7 @@ import type {
   ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
   SpeakingPracticeStart, SpeakingPracticeType,
-  EmbeddingBatchSummary, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType,
+  EmbeddingBatchSummary, QuestionMaterials, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType,
 } from "../types";
 
 interface PageEnvelope {
@@ -393,6 +393,25 @@ export function parseSemanticSearchResults(value: unknown): SemanticSearchResult
       similarity: numberValue(item, "similarity", entity),
     };
   });
+}
+
+export function parseQuestionMaterials(value: unknown): QuestionMaterials {
+  const entity = "問いの材料";
+  if (!isRecord(value) || !Array.isArray(value.excluded)) return fail(entity);
+  return {
+    materials: parseSemanticSearchResults({ results: value.materials }),
+    excluded: value.excluded.map((item) => {
+      if (!isRecord(item)) return fail(entity);
+      return {
+        source_type: semanticSourceType(item, entity),
+        source_id: stringValue(item, "source_id", entity),
+        title: stringValue(item, "title", entity),
+        body: stringValue(item, "body", entity),
+        excluded_at: stringValue(item, "excluded_at", entity),
+      };
+    }),
+    note: optionalString(value, "note", entity),
+  };
 }
 
 export function parseSemanticIndexStatus(value: unknown): SemanticIndexStatus {

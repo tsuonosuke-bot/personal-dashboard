@@ -3,6 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { onRequest as groupsRoute } from "../functions/api/insight-groups.ts";
 import { onRequest as groupRoute } from "../functions/api/insight-groups/[id].ts";
+import { onRequest as materialsRoute } from "../functions/api/insight-groups/[id]/materials.ts";
+import { deriveQuestionTitle } from "../functions/_shared/insightGroupValidation.ts";
+import { parseQuestionMaterials } from "../src/lib/apiValidation.ts";
 import { onRequest as membersRoute } from "../functions/api/insight-group-members.ts";
 import { parseInsightGroup, parseInsightGroupMember } from "../src/lib/apiValidation.ts";
 
@@ -75,7 +78,7 @@ test("問いグループを保存し、制限付きページングで取得す�
 test("問いグループの入力と送信元を検証する", async () => {
   await withFetch(() => { throw new Error("invalid request must not access DB"); }, async () => {
     const base = "/api/insight-groups";
-    assert.equal((await groupsRoute({ request: request(base, "POST", { title: "", guiding_question: "問い" }), env })).status, 400);
+    assert.equal((await groupsRoute({ request: request(base, "POST", { title: "", guiding_question: "  " }), env })).status, 400);
     assert.equal((await groupsRoute({ request: request(base, "POST", { title: "a".repeat(121), guiding_question: "問い" }), env })).status, 400);
     assert.equal((await groupsRoute({ request: request(base, "POST", { title: "題", guiding_question: "a".repeat(301) }), env })).status, 400);
     assert.equal((await groupsRoute({ request: request(base, "POST", { title: "題", guiding_question: "問い", extra: true }), env })).status, 400);
@@ -209,4 +212,109 @@ test("DBは示唆本文を複製せず、所属だけをcascade削除する", as
   assert.match(sql, /notify pgrst, 'reload schema'/);
   assert.match(sql, /values \('knowledge-dashboard', '20260925100000_insight_groups', now\(\)\)/);
   assert.doesNotMatch(sql, /\b(?:update|insert into|delete from)\s+public\.(?:quiz_log|knowledge)\b/i);
+});
+
+test("問いの名前は任意で、空なら問い文から付ける", async () => {
+  assert.equal(deriveQuestionTitle("失敗を改善につなげるには？"), "失敗を改善につなげるには");
+  assert.equal(deriveQuestionTitle("  どう  話す?? "), "どう 話す");
+  assert.equal(deriveQuestionTitle("あ".repeat(60)), `${"あ".repeat(39)}…`);
+  await withFetch((_url, init) => {
+    assert.deepEqual(JSON.parse(String(init?.body)), { title: "失敗を改善につなげるには", guiding_question: "失敗を改善につなげるには？" });
+    return Response.json([group], { status: 201 });
+  }, async () => {
+    const created = await groupsRoute({ request: request("/api/insight-groups", "POST", { title: " ", guiding_question: "失敗を改善につなげるには？" }), env });
+    assert.equal(created.status, 201);
+  });
+});
+
+const material = {
+  source_type: "insight", source_id: "11", title: "クローズドループ現象", body: "失敗を公開する",
+  meta: "示唆", knowledge_id: "11111111-1111-4111-8111-111111111111", entry_date: null, similarity: 0.74,
+};
+
+test("問いの材料は、問い文が変わったときだけembeddingを作り直して返す", async () => {
+  const calls: string[] = [];
+  const voyage: unknown[] = [];
+  const vector = Array.from({ length: 1024 }, (_, i) => (i === 0 ? 1 : 0));
+  await withFetch(async (url, init) => {
+    if (url.hostname === "api.voyageai.com") {
+      voyage.push(JSON.parse(String(init?.body)));
+      return Response.json({ data: [{ index: 0, embedding: vector }], usage: { total_tokens: 5 } });
+    }
+    const name = url.pathname.replace("/rest/v1/rpc/", "");
+    calls.push(name);
+    const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+    if (name === "question_material_state") {
+      return Response.json([{ group_id: 7, guiding_question: "失敗を改善につなげるには？", input_hash: "h1", needs_embedding: calls.filter((c) => c === name).length === 1 }]);
+    }
+    if (name === "save_question_embedding") {
+      assert.equal(body.p_input_hash, "h1");
+      assert.equal(JSON.parse(String(body.p_embedding)).length, 1024);
+      return Response.json(true);
+    }
+    if (name === "list_question_materials") {
+      assert.deepEqual({ group: body.p_group_id, per: body.p_per_type, model: body.p_model }, { group: 7, per: 8, model: "voyage-4" });
+      return Response.json([material]);
+    }
+    if (name === "list_question_exclusions") return Response.json([]);
+    throw new Error(`unexpected ${name}`);
+  }, async () => {
+    const env2 = { ...env, VOYAGE_API_KEY: "key" };
+    const first = await materialsRoute({ request: new Request("https://dashboard.example/api/insight-groups/7/materials"), params: { id: "7" }, env: env2 });
+    assert.equal(first.status, 200);
+    const body = await first.json();
+    assert.deepEqual(parseQuestionMaterials(body).materials[0].source_id, "11");
+    assert.equal(body.note, null);
+    assert.equal((voyage[0] as { input_type: string }).input_type, "query");
+    await materialsRoute({ request: new Request("https://dashboard.example/api/insight-groups/7/materials"), params: { id: "7" }, env: env2 });
+    assert.equal(voyage.length, 1);
+    assert.equal(calls.filter((c) => c === "save_question_embedding").length, 1);
+  });
+});
+
+test("問いの材料はキーが無ければ集めずに理由を返し、外す・戻すは検証して記録する", async () => {
+  const writes: Array<{ method?: string; url: URL; body: unknown }> = [];
+  await withFetch((url, init) => {
+    if (url.pathname.endsWith("/question_material_state")) {
+      return Response.json([{ group_id: 7, guiding_question: "問い", input_hash: "h", needs_embedding: true }]);
+    }
+    if (url.pathname.endsWith("/list_question_exclusions")) return Response.json([]);
+    if (url.pathname === "/rest/v1/question_material_exclusions") {
+      writes.push({ method: init?.method, url, body: init?.body ? JSON.parse(String(init.body)) : null });
+      return Response.json([{ group_id: 7 }]);
+    }
+    throw new Error(`unexpected ${url.pathname}`);
+  }, async () => {
+    const noKey = await materialsRoute({ request: new Request("https://dashboard.example/api/insight-groups/7/materials"), params: { id: "7" }, env });
+    const body = await noKey.json() as { materials: unknown[]; note: string };
+    assert.deepEqual(body.materials, []);
+    assert.match(body.note, /VOYAGE_API_KEY/);
+
+    const path = "/api/insight-groups/7/materials";
+    const excluded = await materialsRoute({ request: request(path, "POST", { action: "exclude", source_type: "journal", source_id: "2026-10-04" }), params: { id: "7" }, env });
+    assert.equal(excluded.status, 200);
+    assert.deepEqual(writes[0].body, { group_id: 7, source_type: "journal", source_id: "2026-10-04" });
+    assert.equal(writes[0].url.searchParams.get("on_conflict"), "group_id,source_type,source_id");
+    const restored = await materialsRoute({ request: request(path, "POST", { action: "restore", source_type: "journal", source_id: "2026-10-04" }), params: { id: "7" }, env });
+    assert.equal(restored.status, 200);
+    assert.equal(writes[1].method, "DELETE");
+    assert.equal(writes[1].url.searchParams.get("source_id"), "eq.2026-10-04");
+
+    assert.equal((await materialsRoute({ request: request(path, "POST", { action: "drop", source_type: "journal", source_id: "x" }), params: { id: "7" }, env })).status, 400);
+    assert.equal((await materialsRoute({ request: request(path, "POST", { action: "exclude", source_type: "wants", source_id: "1" }), params: { id: "7" }, env })).status, 400);
+    assert.equal((await materialsRoute({ request: request(path, "POST", { action: "exclude", source_type: "insight", source_id: "1" }, { "X-Dashboard-Action": "x" }), params: { id: "7" }, env })).status, 403);
+    assert.equal(writes.length, 2);
+  });
+});
+
+test("問いの材料のマイグレーションは、外したものと自分で入れた示唆をAIの一覧から外す", async () => {
+  const sql = await readFile(new URL("../supabase/migrations/20261006100000_question_materials.sql", import.meta.url), "utf8");
+  assert.match(sql, /question_material_exclusions x\s+where x\.group_id = p_group_id/);
+  assert.match(sql, /insight_group_members m\s+where m\.group_id = p_group_id/);
+  assert.match(sql, /references public\.insight_groups\(id\) on delete cascade/);
+  for (const fn of ["question_material_state(bigint, text)", "save_question_embedding(bigint, text, text, text)",
+    "list_question_materials(bigint, text, integer)", "list_question_exclusions(bigint)"]) {
+    assert.ok(sql.includes(`revoke all on function public.${fn} from public, anon, authenticated;`), fn);
+    assert.ok(sql.includes(`grant execute on function public.${fn} to service_role;`), fn);
+  }
 });

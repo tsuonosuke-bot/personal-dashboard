@@ -22,6 +22,7 @@ export const INBOX_EXITS = [
   "focus",
   "github",
   "journal",
+  "question",
   "defer",
   "archive",
   "project_create",
