@@ -112,6 +112,15 @@ matching Cloudflare Pages build.
   answers "skipped". The unused `daily_journal.embedding*` columns are kept and
   commented. Service_role only.
 
+- `20261006100000_question_materials.sql` lets a question (`insight_groups`)
+  collect its own materials (issues #94 / #95): `question_embeddings` (the
+  guiding question embedded with the semantic-search model, re-made when its
+  sha256 changes), `question_material_exclusions` (removed items never return
+  for that question), `question_material_state`, `save_question_embedding`,
+  `list_question_materials` (nearest items per type, leaving out removed items,
+  archived knowledge and insights already added by hand) and
+  `list_question_exclusions`. Service_role only.
+
 - `20261005120000_auto_confirm_correct_results.sql` treats correct queue results
   as confirmed when they are recorded (a `BEFORE INSERT OR UPDATE` trigger on
   `quiz_log`, so the instant multiple-choice path and the grading batch are both

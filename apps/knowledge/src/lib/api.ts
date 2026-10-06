@@ -2,7 +2,7 @@ import type {
   DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizLog,
   PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary, ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
-  SpeakingPracticeWrite, EmbeddingBatchSummary, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType,
+  SpeakingPracticeWrite, EmbeddingBatchSummary, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType, QuestionMaterials,
 } from "../types";
 import {
   parseDailyReviewStatus,
@@ -25,6 +25,7 @@ import {
   parseEmbeddingBatchSummary,
   parseSemanticIndexStatus,
   parseSemanticSearchResults,
+  parseQuestionMaterials,
 } from "./apiValidation.ts";
 
 interface ErrorBody {
@@ -241,6 +242,25 @@ const INSIGHT_GROUP_HEADERS = {
   "Content-Type": "application/json",
   "X-Dashboard-Action": "knowledge-insight-group",
 };
+
+/** 問いに近いナレッジ・示唆・日記と、外したもの。問い文が変わっていればサーバーがembeddingを作り直す。 */
+export async function getQuestionMaterials(groupId: number): Promise<QuestionMaterials> {
+  return parseQuestionMaterials(await requestJson(`/api/insight-groups/${groupId}/materials`, { method: "GET" }));
+}
+
+/** 材料をこの問いから外す（exclude）、外したものを戻す（restore）。 */
+export async function changeQuestionMaterial(
+  groupId: number,
+  action: "exclude" | "restore",
+  sourceType: SemanticSourceType,
+  sourceId: string,
+): Promise<void> {
+  await requestJson(`/api/insight-groups/${groupId}/materials`, {
+    method: "POST",
+    headers: INSIGHT_GROUP_HEADERS,
+    body: JSON.stringify({ action, source_type: sourceType, source_id: sourceId }),
+  });
+}
 
 export function getInsightGroups(): Promise<InsightGroup[]> {
   return getAllPages("/api/insight-groups", parseInsightGroup);

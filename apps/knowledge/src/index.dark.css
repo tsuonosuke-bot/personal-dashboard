@@ -1475,3 +1475,55 @@
 :root[data-theme="dark"] .semantic-result-source {
   color: #929fb4;
 }
+:root[data-theme="dark"] .question-materials {
+  border-top: 1px solid #4f555d;
+}
+:root[data-theme="dark"] .question-materials-head h4 {
+  color: #d5d2db;
+}
+:root[data-theme="dark"] .question-materials-head p {
+  color: #9ea9b9;
+}
+:root[data-theme="dark"] .question-materials-note {
+  border-radius: 9px;
+  background: #201f23;
+  color: #a7b1c3;
+}
+:root[data-theme="dark"] .question-materials-group h5 {
+  color: #b2a6cd;
+}
+:root[data-theme="dark"] .question-materials-group h5 span {
+  color: #7c8ea8;
+}
+:root[data-theme="dark"] .question-material {
+  border: 1px solid #4f555d;
+  border-radius: 10px;
+  background: #292929;
+}
+:root[data-theme="dark"] .question-material-text p {
+  color: #bac5d6;
+}
+:root[data-theme="dark"] .question-material-text small,
+:root[data-theme="dark"] .question-material-text small a {
+  color: #929fb4;
+}
+:root[data-theme="dark"] .question-material-text strong,
+:root[data-theme="dark"] .question-material-text strong a {
+  color: #d5d2db;
+}
+:root[data-theme="dark"] .question-material-body {
+  color: #9ea9b9 !important;
+}
+:root[data-theme="dark"] .question-material-similarity {
+  color: #7c8ea8;
+}
+:root[data-theme="dark"] .question-materials-excluded li {
+  border-radius: 9px;
+  background: #201f23;
+}
+:root[data-theme="dark"] .question-materials-excluded li span {
+  color: #929fb4;
+}
+:root[data-theme="dark"] .question-materials-excluded li p {
+  color: #9ea9b9;
+}

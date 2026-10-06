@@ -175,6 +175,7 @@ const DESTINATION_LABELS: Record<string, string> = {
   knowledge: "Knowledge候補",
   focus: "Focus",
   journal: "Journal候補",
+  question: "問い",
   archive: "アーカイブ",
 };
 

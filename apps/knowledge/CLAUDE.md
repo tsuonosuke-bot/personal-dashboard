@@ -136,7 +136,14 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 
 ### 示唆の問いグループ
 
-- `insight_groups` は自分で付けるテーマ名と、先に思い出すための `guiding_question` を保持する
+- `insight_groups` は問い。必須は問い文（`guiding_question`）だけで、短い名前（`title`）は空なら
+  `deriveQuestionTitle` が問い文から付ける（末尾の「？」を外し、40文字を超えたら39文字＋「…」）。
+  HubのInboxの振り分け先「問い」（`route_inbox_item` の出口 `question`）も同じ規則で作る
+- 問いの材料（#95）: 問い文をVoyageで `input_type: query` としてembeddingにし（`question_embeddings`、問い文のsha256が
+  変わったときだけ作り直す）、`list_question_materials` が `semantic_embeddings` から種類ごとに近い順で8件ずつ返す。
+  確認はしない。合わないものは「外す」と `question_material_exclusions` に残り、その問いには二度と出ない（戻せる）。
+  自分で入れた示唆（`insight_group_members`）はAIの一覧から除き、別に表示する。API は
+  `GET/POST /api/insight-groups/:id/materials`（POSTは `{action: "exclude" | "restore", source_type, source_id}`）
 - `insight_group_members` は `knowledge_insights.id` とグループの多対多の所属だけを保持する。示唆本文は複製しない
 - グループ削除では所属だけを消し、示唆本文を残す。示唆削除では所属を連動削除する
 - グループを閲覧・整理しても `quiz_log`、習熟度、次回復習時刻を更新しない
