@@ -1,4 +1,5 @@
 import type { Knowledge } from "../types";
+import { allTagNames } from "./knowledge.ts";
 
 export type TagSelection =
   | { kind: "all" }
@@ -14,11 +15,12 @@ export function distinctTags(tags: readonly string[]): string[] {
   return [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))];
 }
 
-export function tagGroupsForKnowledge(knowledge: readonly Pick<Knowledge, "tags">[]): TagGroup[] {
+/** 自分で付けたタグと自動タグ（#93）を合わせて数える。 */
+export function tagGroupsForKnowledge(knowledge: readonly Pick<Knowledge, "tags" | "auto_tags">[]): TagGroup[] {
   const counts = new Map<string, number>();
   let untaggedCount = 0;
   for (const item of knowledge) {
-    const tags = distinctTags(item.tags);
+    const tags = distinctTags(allTagNames(item));
     if (tags.length === 0) untaggedCount += 1;
     for (const tag of tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
   }
@@ -28,7 +30,7 @@ export function tagGroupsForKnowledge(knowledge: readonly Pick<Knowledge, "tags"
   return [...groups, { kind: "untagged", count: untaggedCount }];
 }
 
-export function filterTagKnowledge<T extends Pick<Knowledge, "tags" | "category" | "title" | "explanation" | "source_note">>(
+export function filterTagKnowledge<T extends Pick<Knowledge, "tags" | "auto_tags" | "category" | "title" | "explanation" | "source_note">>(
   knowledge: readonly T[],
   selection: TagSelection,
   category: string,
@@ -37,7 +39,7 @@ export function filterTagKnowledge<T extends Pick<Knowledge, "tags" | "category"
   const needle = query.trim().toLowerCase();
   return knowledge.filter((item) => {
     if (category && item.category !== category) return false;
-    const tags = distinctTags(item.tags);
+    const tags = distinctTags(allTagNames(item));
     if (selection.kind === "tag" && !tags.includes(selection.tag)) return false;
     if (selection.kind === "untagged" && tags.length !== 0) return false;
     if (!needle) return true;

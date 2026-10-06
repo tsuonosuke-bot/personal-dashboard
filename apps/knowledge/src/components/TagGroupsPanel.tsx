@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { distinctTags, filterTagKnowledge, tagGroupsForKnowledge, type TagSelection } from "../lib/tagGroups";
+import { filterTagKnowledge, tagGroupsForKnowledge, type TagSelection } from "../lib/tagGroups";
 import type { Knowledge, KnowledgeInsight } from "../types";
+import { TagChips } from "./TagChips";
 import "./tagGroups.css";
 
 interface Props {
@@ -115,7 +116,7 @@ export function TagGroupsPanel({
                         {item.source_note && <p className="tag-knowledge-source"><b>出典</b> {item.source_note}</p>}
                         <div className="tag-knowledge-footer">
                           <div className="tag-knowledge-tags" aria-label="タグ">
-                            {distinctTags(item.tags).map((tag) => <span className="tag" key={tag}>#{tag}</span>)}
+                            <TagChips item={item} />
                           </div>
                           <button type="button" className="text-button" onClick={() => onOpenKnowledge(item)}>
                             詳細を見る<span className="sr-only">: {item.title}</span>

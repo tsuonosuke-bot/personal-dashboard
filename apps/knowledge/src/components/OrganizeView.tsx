@@ -1,6 +1,7 @@
 import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
 import type { OrganizeTab } from "../lib/dashboardRoute";
+import { allTagNames } from "../lib/knowledge";
 import type { Knowledge } from "../types";
 import { InsightGroupsPanel } from "./InsightGroupsPanel";
 import { InsightListPanel } from "./InsightListPanel";
@@ -36,7 +37,7 @@ export function OrganizeView({
   const counts: Record<OrganizeTab, number> = {
     questions: groupStore.groups.length,
     insights: insightStore.insights.length,
-    tags: new Set(activeKnowledge.flatMap((item) => item.tags)).size,
+    tags: new Set(activeKnowledge.flatMap((item) => allTagNames(item))).size,
   };
 
   return (

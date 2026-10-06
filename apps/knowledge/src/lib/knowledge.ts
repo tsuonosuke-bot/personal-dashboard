@@ -3,6 +3,20 @@ import type {
 } from "../types";
 import { ALL, MASTERY_ORDER, PRIORITY_ORDER } from "../constants.ts";
 
+/** 画面に出すタグ。自分で付けたタグの後に、同じ名前を除いた自動タグを近い順に続ける。 */
+export function displayTags(item: Pick<Knowledge, "tags" | "auto_tags">): { tag: string; auto: boolean }[] {
+  const own = new Set(item.tags);
+  return [
+    ...item.tags.map((tag) => ({ tag, auto: false })),
+    ...(item.auto_tags ?? []).filter((tag) => !own.has(tag)).map((tag) => ({ tag, auto: true })),
+  ];
+}
+
+/** 絞り込み・集計に使う、自分で付けたタグと自動タグを合わせた名前。 */
+export function allTagNames(item: Pick<Knowledge, "tags" | "auto_tags">): string[] {
+  return displayTags(item).map((entry) => entry.tag);
+}
+
 export interface WeakCategory {
   category: string;
   accuracy: number;
@@ -41,7 +55,7 @@ export function filterKnowledge(
     if (search) {
       const haystack = [
         item.title, item.explanation ?? "", item.source_note ?? "",
-        item.category, item.tags.join(" "),
+        item.category, allTagNames(item).join(" "),
       ].join(" ").toLowerCase();
       if (!haystack.includes(search)) return false;
     }

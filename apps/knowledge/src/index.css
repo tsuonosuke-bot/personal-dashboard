@@ -935,3 +935,9 @@ body.quiz-open { padding-bottom: 0; }
 .related-knowledge-item small { color: #71829d; font-size: 11px; }
 .related-knowledge-body { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .related-knowledge-loading, .related-knowledge-error { margin: 14px 0 0; font-size: 12px; }
+
+/* 自動タグ（#93）: 自分で付けたタグと同じ並びに、薄い枠と「自動」の印で出す */
+.tag.tag-auto { display: inline-flex; align-items: center; gap: 4px; border: 1px dashed #c9bfdc; background: #faf9fc; }
+.tag.tag-auto small { color: #8a7fa3; font-size: 9px; font-weight: 700; }
+.tag-remove { min-height: 0; margin-left: 2px; padding: 0 3px; border: 0; background: transparent; color: #8a7fa3; font-size: 12px; line-height: 1; cursor: pointer; }
+.tag-remove:hover:not(:disabled) { color: #b91c1c; background: transparent; }

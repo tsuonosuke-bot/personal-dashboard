@@ -27,6 +27,8 @@ import {
   parseSemanticSearchResults,
   parseQuestionMaterials,
   parseRelatedItems,
+  parseAutoTag,
+  type AutoTag,
 } from "./apiValidation.ts";
 
 interface ErrorBody {
@@ -176,6 +178,20 @@ async function getAllPages<T>(
 
 export function getKnowledge(): Promise<Knowledge[]> {
   return getAllPages("/api/knowledge?status=all", parseKnowledge);
+}
+
+/** 外されていない自動タグ（#93）の一覧。 */
+export function getAutoTags(): Promise<AutoTag[]> {
+  return getAllPages("/api/auto-tags", parseAutoTag);
+}
+
+/** 自動タグを外す（remove）・戻す（restore）。外したタグは次の自動処理でも付かない。 */
+export async function changeAutoTag(knowledgeId: string, tag: string, action: "remove" | "restore"): Promise<void> {
+  await requestJson("/api/auto-tags", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Dashboard-Action": "auto-tag" },
+    body: JSON.stringify({ knowledge_id: knowledgeId, tag, action }),
+  });
 }
 
 /** このナレッジに意味の近いナレッジ・示唆・問い。読み取りだけで、復習記録には関わらない。 */

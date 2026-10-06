@@ -112,6 +112,16 @@ matching Cloudflare Pages build.
   answers "skipped". The unused `daily_journal.embedding*` columns are kept and
   commented. Service_role only.
 
+- `20261007110000_auto_tags.sql` adds automatic tags (issue #93):
+  `knowledge_tag_vocabulary` (46 tags with the centroid embedding of their seed
+  cards, reviewed by the owner), `knowledge_auto_tags` (1-3 tags per card;
+  `removed_at` keeps removed tags from coming back), `knowledge_auto_tag_state`
+  and `assign_auto_tags(model, limit)`, which tags new or edited cards
+  (similarity >= 0.6, within 0.04 of the best, skipping English cards, the
+  owner's own tags and removed tags). It tags every current card once. The
+  embedding batch calls it after saving embeddings. `knowledge.tags` and
+  question generation are unchanged. Service_role only.
+
 - `20261007100000_related_knowledge.sql` adds `related_knowledge(knowledge_id,
   model, per_kind, min_similarity)` for the review answer screen (issue #97):
   the nearest other knowledge, insights on other knowledge and questions, from

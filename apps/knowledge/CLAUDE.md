@@ -177,6 +177,11 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - バッチはpg_cronの `semantic-embeddings`（毎時40分、`trigger_embedding_batch()`）から `/api/embedding-batch` を呼ぶ。
   1回最大512件、Voyageへは128件ずつ。Voyageが失敗したらそこで止め、保存済みの分は残す
 - `daily_journal.embedding` / `embedding_input` / `embedded_at` は使わない。journal-dailyスキルが `embedded_at` をNULLへ戻すので列は残す
+- 自動タグ（#93）: `knowledge_auto_tags` に1枚1〜3個。語彙は `knowledge_tag_vocabulary`（46個、種カードのembeddingの平均）で固定し、
+  `assign_auto_tags` がembeddingの新しくなったカードだけに付け直す（embeddingバッチの最後に呼ぶ）。英語カード・自分で付けた
+  タグ・外したタグ（`removed_at`）は対象外。`knowledge.tags`（自分で付けたタグ）とは別に保存し、画面では `auto_tags` として
+  合わせて表示・絞り込みする（`TagChips` が「自動」の印と外すボタンを出す）。出題（`questionGeneration`）には渡さない。
+  API は `GET/POST /api/auto-tags`（POSTは `{knowledge_id, tag, action: "remove" | "restore"}`、ヘッダー `X-Dashboard-Action: auto-tag`）
 - 答え合わせ画面の「関連」（#97、`RelatedKnowledgePanel`）は `GET /api/knowledge/:id/related` → `related_knowledge`。
   そのカードのembeddingに近い別のナレッジ・ほかのナレッジの示唆・問いを、種類ごとに4件まで（近さ0.45以上）返す。
   embedding APIは呼ばず、出題・採点・予定にも関わらない。回答前の問題には出さない（ヒントになるため）

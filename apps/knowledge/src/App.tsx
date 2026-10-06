@@ -50,7 +50,7 @@ export default function App() {
   ));
   const {
     knowledge, archivedKnowledge, quizLog, loading, error, mutating,
-    reload, createKnowledge, updateKnowledge, markConfirmed,
+    reload, createKnowledge, updateKnowledge, removeAutoTag, markConfirmed,
   } = useKnowledgeData();
   const dailyReview = useDailyReview();
   const reviewQueue = useReviewQueueStatus();
@@ -282,6 +282,19 @@ export default function App() {
     replaceRoute({ kind: "dashboard" });
   };
 
+  // 自動タグを外したら、開いている詳細にもすぐ反映する。
+  const removeAutoTagFrom = async (item: Knowledge, tag: string) => {
+    setActionError(null);
+    try {
+      await removeAutoTag(item.id, tag);
+      setSelected((current) => (current && current.id === item.id
+        ? { ...current, auto_tags: current.auto_tags.filter((name) => name !== tag) }
+        : current));
+    } catch (caught) {
+      setActionError(caught instanceof Error ? caught.message : "自動タグを外せませんでした。");
+    }
+  };
+
   const reloadAfterReview = async () => {
     await Promise.all([reload(), dailyReview.refresh(), reviewQueue.refresh()]);
   };
@@ -407,6 +420,7 @@ export default function App() {
             onArchive={() => void archiveKnowledge(selected)}
             insightStore={insightStore}
             insightGroupStore={insightGroupStore}
+            onRemoveAutoTag={(tag) => void removeAutoTagFrom(selected, tag)}
           />
         )}
       </Suspense>
@@ -431,6 +445,7 @@ export default function App() {
             onArchive={selected.archived ? undefined : () => void archiveKnowledge(selected)}
             insightStore={insightStore}
             insightGroupStore={insightGroupStore}
+            onRemoveAutoTag={(tag) => void removeAutoTagFrom(selected, tag)}
           />
         )}
       </Suspense>
@@ -467,6 +482,7 @@ export default function App() {
             onArchive={() => void archiveKnowledge(selected)}
             insightStore={insightStore}
             insightGroupStore={insightGroupStore}
+            onRemoveAutoTag={(tag) => void removeAutoTagFrom(selected, tag)}
           />
         )}
       </Suspense>
@@ -619,6 +635,7 @@ export default function App() {
           onArchive={selected.archived ? undefined : () => void archiveKnowledge(selected)}
           insightStore={insightStore}
           insightGroupStore={insightGroupStore}
+          onRemoveAutoTag={(tag) => void removeAutoTagFrom(selected, tag)}
         />
       )}
       {formTarget !== undefined && (

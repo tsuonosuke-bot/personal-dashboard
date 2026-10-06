@@ -1,11 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  changeAutoTag,
   createKnowledge as createKnowledgeApi,
+  getAutoTags,
   getKnowledge,
   getQuizLog,
   updateKnowledge as updateKnowledgeApi,
 } from "../lib/api";
 import type { Knowledge, KnowledgeDraft, QuizLog } from "../types";
+
+/** 自動タグ（#93）をナレッジごとにまとめる。一覧APIは近い順に返す。 */
+function groupAutoTags(rows: { knowledge_id: string; tag: string }[]): Map<string, string[]> {
+  const byId = new Map<string, string[]>();
+  for (const row of rows) byId.set(row.knowledge_id, [...(byId.get(row.knowledge_id) ?? []), row.tag]);
+  return byId;
+}
+
 
 export function useKnowledgeData() {
   const [knowledge, setKnowledge] = useState<Knowledge[]>([]);
@@ -14,15 +24,22 @@ export function useKnowledgeData() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mutating, setMutating] = useState(false);
+  // 保存の応答には自動タグが無いので、手元の一覧から引き継ぐために最新の一覧を持っておく。
+  const listsRef = useRef<Knowledge[]>([]);
+  listsRef.current = [...knowledge, ...archivedKnowledge];
 
   const reload = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [nextKnowledge, nextQuizLog] = await Promise.all([
+      const [loadedKnowledge, nextQuizLog, autoTags] = await Promise.all([
         getKnowledge(),
         getQuizLog(),
+        // 自動タグが読めなくても一覧は出す（自分で付けたタグだけになる）。
+        getAutoTags().catch(() => []),
       ]);
+      const autoById = groupAutoTags(autoTags);
+      const nextKnowledge = loadedKnowledge.map((item) => ({ ...item, auto_tags: autoById.get(item.id) ?? [] }));
       setKnowledge(nextKnowledge.filter((item) => !item.archived));
       setArchivedKnowledge(nextKnowledge.filter((item) => item.archived));
       setQuizLog(nextQuizLog);
@@ -55,7 +72,9 @@ export function useKnowledgeData() {
   ) => {
     setMutating(true);
     try {
-      const updated = await updateKnowledgeApi(id, expectedVersion, input);
+      const saved = await updateKnowledgeApi(id, expectedVersion, input);
+      const previous = listsRef.current.find((item) => item.id === id);
+      const updated = previous ? { ...saved, auto_tags: previous.auto_tags } : saved;
       setKnowledge((current) => updated.archived
         ? current.filter((item) => item.id !== id)
         : [updated, ...current.filter((item) => item.id !== id)]);
@@ -63,6 +82,21 @@ export function useKnowledgeData() {
         ? [updated, ...current.filter((item) => item.id !== id)]
         : current.filter((item) => item.id !== id));
       return updated;
+    } finally {
+      setMutating(false);
+    }
+  }, []);
+
+  /** 自動タグを外す。外したタグは次の自動処理でも付かない。 */
+  const removeAutoTag = useCallback(async (knowledgeId: string, tag: string) => {
+    setMutating(true);
+    try {
+      await changeAutoTag(knowledgeId, tag, "remove");
+      const drop = (items: Knowledge[]) => items.map((item) => (item.id === knowledgeId
+        ? { ...item, auto_tags: item.auto_tags.filter((name) => name !== tag) }
+        : item));
+      setKnowledge(drop);
+      setArchivedKnowledge(drop);
     } finally {
       setMutating(false);
     }
@@ -78,6 +112,6 @@ export function useKnowledgeData() {
 
   return {
     knowledge, archivedKnowledge, quizLog, loading, error, mutating,
-    reload, createKnowledge, updateKnowledge, markConfirmed,
+    reload, createKnowledge, updateKnowledge, removeAutoTag, markConfirmed,
   };
 }

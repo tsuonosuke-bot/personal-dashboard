@@ -1553,3 +1553,19 @@
 :root[data-theme="dark"] .related-knowledge-item small {
   color: #929fb4;
 }
+:root[data-theme="dark"] .tag.tag-auto {
+  border: 1px dashed #484155;
+  background: #232224;
+}
+:root[data-theme="dark"] .tag.tag-auto small {
+  color: #978dad;
+}
+:root[data-theme="dark"] .tag-remove {
+  border: 0;
+  background: transparent;
+  color: #978dad;
+}
+:root[data-theme="dark"] .tag-remove:hover:not(:disabled) {
+  color: #eb7a7a;
+  background: transparent;
+}
