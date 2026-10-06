@@ -4,7 +4,7 @@ import type {
   ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
   SpeakingPracticeStart, SpeakingPracticeType,
-  EmbeddingBatchSummary, QuestionMaterials, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType,
+  EmbeddingBatchSummary, QuestionMaterials, RelatedItem, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType,
 } from "../types";
 
 interface PageEnvelope {
@@ -390,6 +390,26 @@ export function parseSemanticSearchResults(value: unknown): SemanticSearchResult
       meta: optionalString(item, "meta", entity),
       knowledge_id: optionalString(item, "knowledge_id", entity),
       entry_date: optionalString(item, "entry_date", entity),
+      similarity: numberValue(item, "similarity", entity),
+    };
+  });
+}
+
+const RELATED_KIND_VALUES = new Set<RelatedItem["kind"]>(["knowledge", "insight", "question"]);
+
+export function parseRelatedItems(value: unknown): RelatedItem[] {
+  const entity = "関連ナレッジ";
+  if (!isRecord(value) || !Array.isArray(value.items)) return fail(entity);
+  return value.items.map((item) => {
+    if (!isRecord(item)) return fail(entity);
+    const kind = stringValue(item, "kind", entity);
+    if (!RELATED_KIND_VALUES.has(kind as RelatedItem["kind"])) return fail(entity, "kind");
+    return {
+      kind: kind as RelatedItem["kind"],
+      item_id: stringValue(item, "item_id", entity),
+      title: stringValue(item, "title", entity),
+      body: stringValue(item, "body", entity),
+      knowledge_id: optionalString(item, "knowledge_id", entity),
       similarity: numberValue(item, "similarity", entity),
     };
   });

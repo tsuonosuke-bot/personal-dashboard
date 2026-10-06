@@ -112,6 +112,12 @@ matching Cloudflare Pages build.
   answers "skipped". The unused `daily_journal.embedding*` columns are kept and
   commented. Service_role only.
 
+- `20261007100000_related_knowledge.sql` adds `related_knowledge(knowledge_id,
+  model, per_kind, min_similarity)` for the review answer screen (issue #97):
+  the nearest other knowledge, insights on other knowledge and questions, from
+  the card's stored embedding (no embedding API call). Read-only; never touches
+  quiz_log or the review schedule. Service_role only.
+
 - `20261006100000_question_materials.sql` lets a question (`insight_groups`)
   collect its own materials (issues #94 / #95): `question_embeddings` (the
   guiding question embedded with the semantic-search model, re-made when its

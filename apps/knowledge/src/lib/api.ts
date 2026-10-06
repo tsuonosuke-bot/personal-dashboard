@@ -2,7 +2,7 @@ import type {
   DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizLog,
   PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary, ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
-  SpeakingPracticeWrite, EmbeddingBatchSummary, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType, QuestionMaterials,
+  SpeakingPracticeWrite, EmbeddingBatchSummary, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType, QuestionMaterials, RelatedItem,
 } from "../types";
 import {
   parseDailyReviewStatus,
@@ -26,6 +26,7 @@ import {
   parseSemanticIndexStatus,
   parseSemanticSearchResults,
   parseQuestionMaterials,
+  parseRelatedItems,
 } from "./apiValidation.ts";
 
 interface ErrorBody {
@@ -175,6 +176,11 @@ async function getAllPages<T>(
 
 export function getKnowledge(): Promise<Knowledge[]> {
   return getAllPages("/api/knowledge?status=all", parseKnowledge);
+}
+
+/** このナレッジに意味の近いナレッジ・示唆・問い。読み取りだけで、復習記録には関わらない。 */
+export async function getRelatedKnowledge(id: string): Promise<RelatedItem[]> {
+  return parseRelatedItems(await requestJson(`/api/knowledge/${encodeURIComponent(id)}/related`, { method: "GET" }));
 }
 
 export async function getKnowledgeItem(id: string): Promise<Knowledge> {
