@@ -861,3 +861,42 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .more-routes summary {
   color: var(--green);
 }
+:root[data-theme="dark"] .want-group {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #292929;
+}
+:root[data-theme="dark"] .want-group-head {
+  border-bottom: 1px solid var(--line);
+  background: #232320;
+}
+:root[data-theme="dark"] .want-group-head b {
+  color: var(--green);
+}
+:root[data-theme="dark"] .want-group-head small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .want-row {
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+}
+:root[data-theme="dark"] .want-row:first-child {
+  border-top: 0;
+}
+:root[data-theme="dark"] .want-row:hover {
+  background: var(--green-soft);
+}
+:root[data-theme="dark"] .want-row:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: -2px;
+}
+:root[data-theme="dark"] .want-stage-sleeping .want-row-title {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .want-category-field select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #292929;
+  color: var(--ink);
+}

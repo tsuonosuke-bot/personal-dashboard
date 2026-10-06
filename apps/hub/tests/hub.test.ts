@@ -13,7 +13,7 @@ test("hub combines sources and prioritizes the oldest pending Inbox items", () =
       { id: 3, content: "Closed inbox", status: "done", created_at: "2026-09-03T00:00:00Z" },
     ],
     [
-      { id: 1, content: "Want one", status: "active", created_at: "2026-09-01T00:00:00Z" },
+      { id: 1, content: "Want one", status: "active", revisit_on: "2026-09-10", created_at: "2026-09-01T00:00:00Z" },
       { id: 2, content: "Want two", status: "active", created_at: "2026-09-02T00:00:00Z" },
       { id: 3, content: "Closed want", status: "completed", created_at: "2026-09-03T00:00:00Z" },
     ],
@@ -36,7 +36,7 @@ test("hub combines sources and prioritizes the oldest pending Inbox items", () =
   assert.equal(hub.summary.dueKnowledge, 1);
   assert.equal(hub.summary.weakKnowledge, 1);
   assert.equal(hub.summary.activeWants, 2);
-  assert.equal(hub.summary.untriagedWants, 2);
+  assert.equal(hub.summary.untriagedWants, 1);
   assert.equal(hub.navigation.knowledgeReview, "/knowledge/?view=quiz&mode=daily");
   assert.equal(hub.navigation.knowledgeLog, "/knowledge/?view=log");
   assert.equal(hub.navigation.projects, "/projects/");
@@ -69,7 +69,7 @@ test("Inbox preview keeps the three oldest pending items", () => {
   assert.deepEqual(first, second);
 });
 
-test("Wants summary treats every actionable Active Want as requiring organization", () => {
+test("Wants without a revisit date are backlog, not untriaged", () => {
   const wants = Array.from({ length: 7 }, (_, index) => ({
     id: index + 1,
     content: `Want ${index + 1}`,
@@ -78,17 +78,18 @@ test("Wants summary treats every actionable Active Want as requiring organizatio
   }));
   const hub = normalizeHub([], wants, [], [], {}, now);
   assert.equal(hub.summary.activeWants, 6);
-  assert.equal(hub.summary.untriagedWants, 6);
+  assert.equal(hub.summary.untriagedWants, 0);
 });
 
-test("Hub keeps wishes and future deferred Wants active without counting them as untriaged", () => {
+test("Hub counts only Wants whose revisit date has arrived as untriaged", () => {
   const hub = normalizeHub([], [
-    { id: 1, content: "未整理", status: "active", type: "want", created_at: "2026-09-01T00:00:00Z" },
-    { id: 2, content: "欲しい", status: "active", type: "wish", created_at: "2026-09-02T00:00:00Z" },
+    { id: 1, content: "バックログ", status: "active", type: "want", created_at: "2026-09-01T00:00:00Z" },
+    { id: 2, content: "欲しい", status: "active", type: "wish", revisit_on: "2026-09-01", created_at: "2026-09-02T00:00:00Z" },
     { id: 3, content: "寝かせる", status: "active", type: "want", revisit_on: "2099-01-01", created_at: "2026-09-03T00:00:00Z" },
+    { id: 4, content: "今日が再訪日", status: "active", type: "want", revisit_on: "2026-09-14", created_at: "2026-09-04T00:00:00Z" },
   ], [], [], {}, now);
 
-  assert.equal(hub.summary.activeWants, 3);
+  assert.equal(hub.summary.activeWants, 4);
   assert.equal(hub.summary.untriagedWants, 1);
 });
 
@@ -452,7 +453,7 @@ test("Hub does not depend on want_routes after successful routing auto-completes
       { id: 9, content: "Handle this first", status: "pending", created_at: "2026-09-01T00:00:00Z" },
     ]);
     if (url.includes("/wants?")) return Response.json([
-      { id: 1, content: "Still visible", status: "active", created_at: "2026-09-01T00:00:00Z" },
+      { id: 1, content: "Still visible", status: "active", revisit_on: "2026-09-01", created_at: "2026-09-01T00:00:00Z" },
     ]);
     if (url.includes("pages.dev")) return Response.json({ items: [], total: 0, limit: 1000, offset: 0 });
     return Response.json([]);

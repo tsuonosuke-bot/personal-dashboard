@@ -8,6 +8,7 @@ import { canCloseItem, statusLabel } from "./list.js";
 import { triageKicker } from "./route.js";
 import { els } from "./state.js";
 import { continueInboxTriage } from "./triage-flow.js";
+import { STORED_WANT_CATEGORIES, WANT_CATEGORIES, wantCategory } from "./want-category.js";
 
 function setCloseItemError(message) {
   const error = document.getElementById("closeItemError");
@@ -174,6 +175,43 @@ async function saveInbox(event, item) {
   }
 }
 
+// 分類の選択肢。「未分類」は空の値で、保存時にnullへ変える。
+export function wantCategoryOptions(item) {
+  const current = wantCategory(item);
+  return WANT_CATEGORIES.map((category) => {
+    const value = category.key === "other" ? "" : category.key;
+    return `<option value="${value}" ${current === category.key ? "selected" : ""}>${escapeHtml(category.label)}（${escapeHtml(category.description)}）</option>`;
+  }).join("");
+}
+
+function storedCategory(value) {
+  return STORED_WANT_CATEGORIES.includes(value) ? value : null;
+}
+
+// 詳細の分類セレクトから、内容とステータスを変えずに分類だけ保存する。
+export async function saveWantCategory(item, value) {
+  const response = await fetch(itemEditMeta.wants.endpoint, {
+    method: "PATCH",
+    credentials: "same-origin",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": itemEditMeta.wants.actionHeader,
+    },
+    body: JSON.stringify({
+      id: item.id,
+      content: item.content,
+      status: item.status,
+      category: storedCategory(value),
+      original: { content: item.content, status: item.status },
+    }),
+  });
+  const payload = await readApiJson(response);
+  const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
+  if (!response.ok) throw new Error(message || "分類を保存できませんでした。");
+  await loadDashboard();
+}
+
 export function renderItemEditForm(item, view) {
   const meta = itemEditMeta[view];
   if (!meta) return;
@@ -188,6 +226,10 @@ export function renderItemEditForm(item, view) {
       <textarea id="editItemContent" name="content" rows="7" maxlength="2000" required>${escapeHtml(item.content)}</textarea>
       <small><b id="editItemContentCount">${item.content.length}</b> / 2000</small>
     </label>
+    ${view === "wants" ? `<label class="form-field" for="editItemCategory">
+      <span>分類</span>
+      <select id="editItemCategory" name="category">${wantCategoryOptions(item)}</select>
+    </label>` : ""}
     <label class="form-field" for="editItemStatus">
       <span>ステータス</span>
       <select id="editItemStatus" name="status">${currentOption}${statusOptions}</select>
@@ -246,6 +288,7 @@ async function saveItem(event, item, view) {
         id: item.id,
         content,
         status: form.elements.status.value,
+        ...(view === "wants" ? { category: storedCategory(form.elements.category.value) } : {}),
         original: { content: item.content, status: item.status },
       }),
     });

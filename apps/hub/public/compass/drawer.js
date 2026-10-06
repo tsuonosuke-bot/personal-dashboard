@@ -3,7 +3,7 @@ import { readApiJson } from "../api-client.js";
 import { parseCompassRoute } from "../compass-routing.js";
 import { PRIMARY_INBOX_ROUTES, defaultStatusByView, inboxQuickRoutes, quickWantRoutes, routeCompletionMeta, routeDestinationMeta, viewMeta } from "./constants.js";
 import { loadDashboard } from "./data.js";
-import { closeItem, renderInboxEditForm, renderItemEditForm } from "./edit-forms.js";
+import { closeItem, renderInboxEditForm, renderItemEditForm, saveWantCategory, wantCategoryOptions } from "./edit-forms.js";
 import { calendarSchedule, escapeHtml, formatCalendarSchedule, formatDate, setDrawerTitle, showToast, sourceChipMarkup, splitInboxSource } from "./format.js";
 import { canCloseItem, itemStatusLabel, syncCompassRoute } from "./list.js";
 import { startProjectRoute } from "./project-route.js";
@@ -11,6 +11,7 @@ import { renderRouteCompletion, renderTriageStart, requestAiTriage, startInboxRo
 import { els, state } from "./state.js";
 import { renderTodoDrawer } from "./todos.js";
 import { unsortedInboxCount, rememberInboxOrder } from "./triage-flow.js";
+import { wantCategory, wantCategoryMeta } from "./want-category.js";
 
 function quickRouteButton(key, quick) {
   return `<button class="quick-route-action" type="button" data-inbox-route="${key}"><strong>${escapeHtml(quick.label)}</strong><small>${escapeHtml(quick.description)}</small></button>`;
@@ -66,9 +67,13 @@ export function renderDrawerItem(item, view) {
     document.getElementById("closeItemButton")?.addEventListener("click", () => closeItem(item, view));
     return;
   }
-  els.drawerKicker.textContent = `${viewMeta[view].singular} · ${item.id}`;
+  const category = view === "wants" ? wantCategoryMeta(wantCategory(item)) : null;
+  els.drawerKicker.textContent = category
+    ? `${viewMeta[view].singular} · ${item.id} · ${category.label}`
+    : `${viewMeta[view].singular} · ${item.id}`;
   setDrawerTitle(item.content || "内容なし", { content: true });
   let body = `<div class="detail-grid">
+    ${category ? `<label class="detail-box detail-box-wide want-category-field"><span>分類</span><select id="wantCategorySelect" aria-label="分類を変更">${wantCategoryOptions(item)}</select></label>` : ""}
     <div class="detail-box"><span>Status</span><strong>${escapeHtml(itemStatusLabel(item, view))}</strong></div>
     <div class="detail-box"><span>Created</span><strong>${escapeHtml(formatDate(item.createdAt, true))}</strong></div>
   </div>`;
@@ -76,8 +81,8 @@ export function renderDrawerItem(item, view) {
     const routes = item.routes || [];
     const quickRouteMarkup = item.status === "active"
       ? `<div class="detail-section quick-route-section">
-          <span>クイック操作</span>
-          <p>よく使う振り分け先から、入力画面へ直接進めます。</p>
+          <span>次の一歩</span>
+          <p>やる日を決める、調べる、見送るなど、このやりたいことを前に進めます。</p>
           <div class="quick-route-actions" role="group" aria-label="よく使う振り分け">
             ${Object.entries(quickWantRoutes).map(([key, quick]) => `<button class="quick-route-action" type="button" data-quick-route="${key}"><strong>${escapeHtml(quick.label)}</strong><small>${escapeHtml(quick.description)}</small></button>`).join("")}
           </div>
@@ -112,6 +117,19 @@ export function renderDrawerItem(item, view) {
   }
   els.drawerBody.innerHTML = body;
   document.getElementById("editWantButton")?.addEventListener("click", () => renderItemEditForm(item, "wants"));
+  const categorySelect = document.getElementById("wantCategorySelect");
+  categorySelect?.addEventListener("change", async () => {
+    categorySelect.disabled = true;
+    try {
+      await saveWantCategory(item, categorySelect.value);
+      showToast(`分類を「${wantCategoryMeta(categorySelect.value || "other").label}」にしました。`);
+    } catch (error) {
+      categorySelect.value = item.category || "";
+      showToast(error instanceof Error ? error.message : "分類を保存できませんでした。");
+    } finally {
+      if (categorySelect.isConnected) categorySelect.disabled = false;
+    }
+  });
   document.getElementById("triageWantButton")?.addEventListener("click", () => renderTriageStart(item));
   els.drawerBody.querySelectorAll("[data-quick-route]").forEach((button) => button.addEventListener("click", () => startQuickWantRoute(item, button.dataset.quickRoute)));
   els.drawerBody.querySelector("[data-project-route]")?.addEventListener("click", () => startProjectRoute(item, view));

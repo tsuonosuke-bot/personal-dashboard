@@ -16,7 +16,8 @@ els.statusFilter.addEventListener("change", () => {
   syncCompassRoute(state.view);
 });
 els.clearFilter.addEventListener("click", () => {
-  state.status = ""; state.search = ""; state.metricFilter = "";
+  // Wantsはバックログ（Active）に戻す。他のタブはすべてのステータスを出す。
+  state.status = state.view === "wants" ? "active" : ""; state.search = ""; state.metricFilter = ""; state.wantCategory = "";
   els.searchInput.value = ""; clearBulkSelection(); updateStatusOptions(); renderList(); syncCompassRoute(state.view);
 });
 els.bulkModeButton.addEventListener("click", () => setBulkMode(true));

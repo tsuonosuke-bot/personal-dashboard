@@ -90,3 +90,27 @@ test("別画面で更新済みのWantと異なるOriginを拒否する", async (
     globalThis.fetch = originalFetch;
   }
 });
+
+test("Wantの分類を更新し、指定しなければ分類を送らない", async () => {
+  const originalFetch = globalThis.fetch;
+  const bodies: unknown[] = [];
+  globalThis.fetch = async (_input, init) => {
+    bodies.push(JSON.parse(String(init?.body)));
+    return Response.json([{ id: 10, content: "台湾", status: "active", category: "place" }]);
+  };
+  try {
+    const base = { id: 10, content: "台湾", status: "active", original: { content: "台湾", status: "active" } };
+    assert.equal((await wantRoute({ request: request("want-update", { ...base, category: "place" }), env })).status, 200);
+    assert.equal((await wantRoute({ request: request("want-update", { ...base, category: null }), env })).status, 200);
+    assert.equal((await wantRoute({ request: request("want-update", base), env })).status, 200);
+    assert.deepEqual(bodies, [
+      { content: "台湾", status: "active", category: "place" },
+      { content: "台湾", status: "active", category: null },
+      { content: "台湾", status: "active" },
+    ]);
+    const rejected = await wantRoute({ request: request("want-update", { ...base, category: "other" }), env });
+    assert.equal(rejected.status, 400);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
