@@ -173,6 +173,16 @@ export interface EmbeddingBatchSummary {
   note: string | null;
 }
 
+/** 答え合わせ画面の「関連」欄（#97）。そのナレッジに意味の近いナレッジ・示唆・問い。 */
+export interface RelatedItem {
+  kind: "knowledge" | "insight" | "question";
+  item_id: string;
+  title: string;
+  body: string;
+  knowledge_id: string | null;
+  similarity: number;
+}
+
 /** 問いにAIが集めた材料（#95）。外したものは excluded に入り、二度と materials には出ない。 */
 export interface QuestionMaterials {
   materials: SemanticSearchResult[];

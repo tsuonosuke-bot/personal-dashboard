@@ -923,3 +923,15 @@ body.quiz-open { padding-bottom: 0; }
   .question-material { flex-direction: column; gap: 8px; }
   .question-material-actions { align-self: flex-end; }
 }
+
+/* 答え合わせ画面の「関連」（#97） */
+.related-knowledge { display: grid; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid #edf0f4; }
+.related-knowledge h3 { margin: 0; color: #27242d; font-size: 14px; }
+.related-knowledge h4 { margin: 0 0 6px; color: #554479; font-size: 12px; }
+.related-knowledge ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.related-knowledge-item { width: 100%; display: grid; gap: 2px; padding: 9px 11px; border: 1px solid #edf0f4; border-radius: 9px; background: #fff; color: #334155; font-size: 13px; line-height: 1.55; text-align: left; text-decoration: none; cursor: pointer; }
+.related-knowledge-item:hover:not(:disabled) { border-color: #d7cfea; background: #f7f5fb; }
+.related-knowledge-item strong { color: #27242d; font-size: 13px; }
+.related-knowledge-item small { color: #71829d; font-size: 11px; }
+.related-knowledge-body { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.related-knowledge-loading, .related-knowledge-error { margin: 14px 0 0; font-size: 12px; }

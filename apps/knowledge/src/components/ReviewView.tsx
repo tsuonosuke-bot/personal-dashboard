@@ -7,6 +7,7 @@ import type { Knowledge, QuizLog, ReviewBatchSummary, ReviewQuestion, ReviewQueu
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import { ReviewResultActions, type KnowledgeUpdate } from "./ReviewLogParts";
 import { ReviewQueueSummary } from "./ReviewQueueSummary";
+import { RelatedKnowledgePanel } from "./RelatedKnowledgePanel";
 
 interface Props {
   knowledge: Knowledge[];
@@ -189,6 +190,7 @@ export function ReviewView({
             insightStore={insightStore}
             insightGroupStore={insightGroupStore}
             onOpenDetail={(item) => setDetailId(item.id)}
+            onOpenKnowledgeId={setDetailId}
             onNext={() => void session.next()}
           />
         )}
@@ -312,7 +314,7 @@ function ReviewQuestionCard({
 
 /** 回答した直後の答え合わせ。四択と無回答は確定した結果、それ以外は想定解を示す。 */
 function ReviewFeedbackCard({
-  feedback, item, onKnowledgeUpdate, insightStore, insightGroupStore, onOpenDetail, onNext,
+  feedback, item, onKnowledgeUpdate, insightStore, insightGroupStore, onOpenDetail, onOpenKnowledgeId, onNext,
 }: {
   feedback: ReviewFeedback;
   item: Knowledge | undefined;
@@ -320,6 +322,7 @@ function ReviewFeedbackCard({
   insightStore: InsightStore;
   insightGroupStore: InsightGroupStore;
   onOpenDetail: (item: Knowledge) => void;
+  onOpenKnowledgeId: (id: string) => void;
   onNext: () => void;
 }) {
   const { question, answer, accepted } = feedback;
@@ -371,6 +374,8 @@ function ReviewFeedbackCard({
           />
         </div>
       )}
+      {/* 意味の近いナレッジ・示唆・問い（#97）。答えを見た後だけ出す: 回答前に出すとヒントになる。 */}
+      <RelatedKnowledgePanel knowledgeId={question.knowledge_id} onOpenKnowledge={onOpenKnowledgeId} />
     </div>
   );
 }

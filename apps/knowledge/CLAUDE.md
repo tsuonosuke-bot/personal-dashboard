@@ -177,6 +177,9 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - バッチはpg_cronの `semantic-embeddings`（毎時40分、`trigger_embedding_batch()`）から `/api/embedding-batch` を呼ぶ。
   1回最大512件、Voyageへは128件ずつ。Voyageが失敗したらそこで止め、保存済みの分は残す
 - `daily_journal.embedding` / `embedding_input` / `embedded_at` は使わない。journal-dailyスキルが `embedded_at` をNULLへ戻すので列は残す
+- 答え合わせ画面の「関連」（#97、`RelatedKnowledgePanel`）は `GET /api/knowledge/:id/related` → `related_knowledge`。
+  そのカードのembeddingに近い別のナレッジ・ほかのナレッジの示唆・問いを、種類ごとに4件まで（近さ0.45以上）返す。
+  embedding APIは呼ばず、出題・採点・予定にも関わらない。回答前の問題には出さない（ヒントになるため）
 - 画面は `?view=search`（`SemanticSearchView`）。検索・索引の件数・手動の「今すぐ索引を更新」
 
 ### DBアクセス

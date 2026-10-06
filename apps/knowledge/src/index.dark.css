@@ -1527,3 +1527,29 @@
 :root[data-theme="dark"] .question-materials-excluded li p {
   color: #9ea9b9;
 }
+:root[data-theme="dark"] .related-knowledge {
+  border-top: 1px solid #4f555d;
+}
+:root[data-theme="dark"] .related-knowledge h3 {
+  color: #d5d2db;
+}
+:root[data-theme="dark"] .related-knowledge h4 {
+  color: #b2a6cd;
+}
+:root[data-theme="dark"] .related-knowledge-item {
+  border: 1px solid #4f555d;
+  border-radius: 9px;
+  background: #292929;
+  color: #bac5d6;
+  text-decoration: none;
+}
+:root[data-theme="dark"] .related-knowledge-item:hover:not(:disabled) {
+  border-color: #4a425e;
+  background: #201f23;
+}
+:root[data-theme="dark"] .related-knowledge-item strong {
+  color: #d5d2db;
+}
+:root[data-theme="dark"] .related-knowledge-item small {
+  color: #929fb4;
+}
