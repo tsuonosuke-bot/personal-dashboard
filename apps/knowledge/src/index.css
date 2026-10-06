@@ -892,3 +892,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .semantic-result-body.insight { color: #27242d; font-size: 14px; }
 .semantic-result-source { margin: 0; color: #71829d; font-size: 12px; }
 .semantic-result .text-button { justify-self: start; min-height: 32px; font-size: 13px; }
+
+/* クイズ中は下部タブバーを出さない（App.tsx が body.quiz-open を付ける） */
+body.quiz-open .tabbar { display: none !important; }
+body.quiz-open { padding-bottom: 0; }

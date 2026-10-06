@@ -453,7 +453,7 @@ test("every Hub page shares one header, the same page switcher and the phone tab
   }
 });
 
-test("phone tab bar keeps Hub, Idea, Projects and Habits one tap away and lifts toasts above it", async () => {
+test("phone tab bar keeps Hub, Idea, Knowledge and Finance one tap away and lifts toasts above it", async () => {
   const [script, shell, habits, projects, compass, writing] = await Promise.all([
     readFile(new URL("../public/static/tabbar.js", import.meta.url), "utf8"),
     readFile(new URL("../public/dashboard-shell.css", import.meta.url), "utf8"),
@@ -464,8 +464,8 @@ test("phone tab bar keeps Hub, Idea, Projects and Habits one tap away and lifts 
   ]);
   assert.match(script, /\{ id: "hub", label: "ホーム", href: "\/"/);
   assert.match(script, /\{ id: "idea", label: "Idea", href: "\/compass\/"/);
-  assert.match(script, /\{ id: "projects", label: "Projects", href: "\/projects\/"/);
-  assert.match(script, /\{ id: "habits", label: "Habits", href: "\/habits\/"/);
+  assert.match(script, /\{ id: "knowledge", label: "Knowledge", href: "\/go\/knowledge"/);
+  assert.match(script, /\{ id: "finance", label: "Finance", href: "\/go\/financial"/);
   assert.match(script, /<span>その他<\/span>/);
   assert.match(script, /data-theme-select/);
   assert.match(shell, /\.tabbar \{ display: none; \}/);
