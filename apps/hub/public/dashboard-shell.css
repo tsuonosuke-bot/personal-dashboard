@@ -296,9 +296,9 @@ a.dashboard-brand { text-decoration: none; }
 .tabbar-sheet-link.status { --tab-accent: #52645a; --tab-soft: #e8ebe8; }
 
 @media (max-width: 680px) {
-  :root { --tabbar-space: calc(62px + env(safe-area-inset-bottom)); }
+  :root { --tabbar-bottom: max(10px, env(safe-area-inset-bottom)); --tabbar-space: calc(64px + var(--tabbar-bottom)); }
   body { padding-bottom: var(--tabbar-space); }
-  .tabbar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 8; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 4px max(4px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(4px, env(safe-area-inset-left)); border-top: 1px solid #dfe2dd; background: rgba(255, 255, 255, .95); backdrop-filter: blur(12px); font-family: Inter, "Segoe UI", "Yu Gothic UI", Meiryo, sans-serif; }
+  .tabbar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 8; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px max(4px, env(safe-area-inset-right)) var(--tabbar-bottom) max(4px, env(safe-area-inset-left)); border-top: 1px solid #dfe2dd; background: rgba(255, 255, 255, .95); backdrop-filter: blur(12px); font-family: Inter, "Segoe UI", "Yu Gothic UI", Meiryo, sans-serif; }
   .tabbar-item { min-width: 0; min-height: 54px; display: grid; place-items: center; align-content: center; gap: 3px; padding: 4px 2px; border-radius: 10px; color: #6f7771; font-size: 11px; font-weight: 700; text-decoration: none; cursor: pointer; list-style: none; }
   .tabbar-item::-webkit-details-marker { display: none; }
   .tabbar-item > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
