@@ -560,8 +560,9 @@ export function normalizeHub(
   });
   const activeWants = wants
     .filter((want) => want.status === "active");
+  // 未整理は再訪日が来たWantだけ。再訪日の無いWantはバックログなので数えない。
   const untriagedWants = activeWants
-    .filter((want) => want.type !== "wish" && (want.revisitOn === null || want.revisitOn <= today));
+    .filter((want) => want.type !== "wish" && want.revisitOn !== null && want.revisitOn <= today);
   const focus = normalizeFocusRows(focusRows)
     .filter((item) => item.status === "active")
     .slice(0, FOCUS_LIMIT);

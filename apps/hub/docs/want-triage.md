@@ -72,7 +72,7 @@ Active Wantsは「やりたいこと・欲しいもののバックログ」と�
 1. 物やサービスを欲しい状態として残す場合は「欲しいもの」を選び、名称と任意メモを確認する。
 2. 確定するとWantsへ`type='wish'`・`status='active'`で登録し、元Inboxを整理済みにする。
 3. 購入日を勝手に予定化せず、必要になった時点で予定・調査・見送りなどへ明示的に振り分ける。
-4. `type='wish'`はActive Wants一覧には残るが、Hubの「未整理Wants」には含めない。
+4. `type='wish'`はActive Wants一覧には残るが、Hubの「未整理Wants」には含めない（再訪日が来ていても数えない）。
 
 ### 保留の運用
 
@@ -80,6 +80,7 @@ Active Wantsは「やりたいこと・欲しいもののバックログ」と�
 2. 再訪日は必須で、既定は1ヶ月後。今日より前の日付は保存しない。
 3. 確定するとWantsへ`type='want'`・`revisit_on`つきで登録し、元Inboxを「保留（再訪 日付）」として整理済みにする（2026-09以前の「寝かせる（再訪 日付）」も同じ意味として読む）。
 4. 再訪日が来たWantはHubの未整理Wantsとして浮上し、そこで動かすか、寝かせ直すかを決める。
+5. 「未整理Wants」は `status='active'`・`type<>'wish'`・`revisit_on <= 今日（JST）` だけを数える。再訪日の無いActive Wantはやりたいことのバックログであり、未整理とはみなさない。定義は `functions/_shared/hub.ts`・`functions/_shared/dashboard.ts`・`public/compass/list.js`（`?filter=untriaged`）の3か所で揃える。
 
 ### Knowledge登録待ちの見分け方
 

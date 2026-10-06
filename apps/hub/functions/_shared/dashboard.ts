@@ -307,8 +307,9 @@ export function normalizeDashboard(
   }));
 
   const activeWants = wants.filter((item) => item.status === "active");
+  // 未整理は再訪日が来たWantだけ。再訪日の無いWantはバックログなので数えない（hub.tsと同じ定義）。
   const untriagedWants = activeWants.filter((item) => item.type !== "wish"
-    && (item.revisitOn === null || item.revisitOn <= today));
+    && item.revisitOn !== null && item.revisitOn <= today);
   const completedWants = wants.filter((item) => item.status === "completed");
 
   return {

@@ -23,7 +23,7 @@ export function currentItems({ ignoreCategory = false } = {}) {
   if (state.view === "wants" && state.metricFilter === "untriaged") {
     items = items.filter((item) => item.status === "active"
       && item.type !== "wish"
-      && (!item.revisitOn || item.revisitOn <= todayInTokyo()));
+      && Boolean(item.revisitOn) && item.revisitOn <= todayInTokyo());
   }
   if (state.metricFilter === "knowledge" || state.metricFilter === "github") {
     items = items.filter((item) => isDestinationPending(item, state.view, state.metricFilter));
