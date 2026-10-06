@@ -469,7 +469,12 @@ test("phone tab bar keeps Hub, Idea, Projects and Habits one tap away and lifts 
   assert.match(script, /<span>その他<\/span>/);
   assert.match(script, /data-theme-select/);
   assert.match(shell, /\.tabbar \{ display: none; \}/);
-  assert.match(shell, /:root \{ --tabbar-space: calc\(62px \+ env\(safe-area-inset-bottom\)\); \}/);
+  // viewport-fit=cover がないとiOSでsafe-areaが0になり、タブバーがホームインジケーターに重なる
+  assert.match(shell, /:root \{ --tabbar-bottom: max\(10px, env\(safe-area-inset-bottom\)\); --tabbar-space: calc\(64px \+ var\(--tabbar-bottom\)\); \}/);
+  for (const path of ["index.html", "compass/index.html", "projects/index.html", "habits/index.html", "writing/index.html", "status/index.html"]) {
+    const page = await readFile(new URL(`../public/${path}`, import.meta.url), "utf8");
+    assert.match(page, /name="viewport" content="[^"]*viewport-fit=cover"/, path);
+  }
   assert.match(shell, /\.dashboard-hub, \.dashboard-actions \.dashboard-switcher \{ display: none; \}/);
   assert.match(shell, /min-height: 54px;/);
   for (const css of [habits, projects, compass, writing]) {
