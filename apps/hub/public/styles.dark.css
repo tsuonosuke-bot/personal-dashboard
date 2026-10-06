@@ -894,3 +894,9 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .want-stage-sleeping .want-row-title {
   color: var(--muted);
 }
+:root[data-theme="dark"] .want-category-field select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #292929;
+  color: var(--ink);
+}

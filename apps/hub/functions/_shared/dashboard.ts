@@ -33,6 +33,7 @@ interface WantRow {
   content?: unknown;
   status?: unknown;
   type?: unknown;
+  category?: unknown;
   source_inbox_id?: unknown;
   revisit_on?: unknown;
   revisit_count?: unknown;
@@ -61,7 +62,7 @@ const TABLES: Record<string, TableDefinition> = {
   inbox: { name: "idea_inbox", select: "id,content,status,result,created_at", order: "created_at.desc,id.desc" },
   wants: {
     name: "wants",
-    select: "id,content,status,type,revisit_on,revisit_count,note,created_at,source_inbox_id",
+    select: "id,content,status,type,category,revisit_on,revisit_count,note,created_at,source_inbox_id",
     order: "created_at.desc,id.desc",
   },
   routes: {
@@ -284,6 +285,7 @@ export function normalizeDashboard(
     content: text(row.content),
     status: text(row.status) || "unknown",
     type: text(row.type) || "want",
+    category: text(row.category) || null,
     sourceInboxId: integer(row.source_inbox_id),
     revisitOn: plainDate(row.revisit_on),
     revisitCount: integer(row.revisit_count) ?? 0,

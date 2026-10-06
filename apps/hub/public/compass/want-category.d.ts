@@ -2,18 +2,18 @@ export interface WantCategory {
   key: string;
   label: string;
   description: string;
-  tags: string[];
 }
 
 export interface BacklogWant {
   id?: number | null;
   type?: string | null;
-  note?: string | null;
+  category?: string | null;
   revisitOn?: string | null;
   createdAt?: string | null;
 }
 
 export const WANT_CATEGORIES: WantCategory[];
+export const STORED_WANT_CATEGORIES: string[];
 export function wantCategoryMeta(key: string): WantCategory;
 export function wantCategory(want: BacklogWant): string;
 export function wantBacklogStage(want: BacklogWant, today: string): "ready" | "due" | "sleeping";

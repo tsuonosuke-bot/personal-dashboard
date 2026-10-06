@@ -2,6 +2,8 @@ import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 
 const MAX_REQUEST_CHARS = 8_000;
 const MAX_CONTENT_CHARS = 2_000;
+// Wantsの分類（public.wants.category の check制約と同じ値）。nullは未分類。
+export const WANT_CATEGORIES: ReadonlySet<string> = new Set(["place", "watch", "play", "read", "do", "wish"]);
 
 export interface ItemUpdateDefinition {
   table: "wants";
@@ -15,7 +17,7 @@ export const WANT_UPDATE: ItemUpdateDefinition = {
   table: "wants",
   actionHeader: "want-update",
   allowedStatuses: new Set(["active", "completed", "dropped"]),
-  select: "id,content,status,created_at",
+  select: "id,content,status,category,created_at",
   conflictCode: "WANT_UPDATE_CONFLICT",
 };
 
@@ -28,6 +30,8 @@ export interface ItemUpdateInput {
   id: number;
   content: string;
   status: string;
+  /** 省略時は分類を変更しない。nullは未分類にする。 */
+  category?: string | null;
   original: ItemSnapshot;
 }
 
@@ -99,7 +103,10 @@ export async function readItemUpdateInput(
   } catch {
     return { ok: false, status: 400, error: "JSONの形式が正しくありません。" };
   }
-  if (!isPlainObject(value) || !hasOnlyKeys(value, ["id", "content", "status", "original"])) {
+  const keys = isPlainObject(value) && "category" in value
+    ? ["id", "content", "status", "category", "original"]
+    : ["id", "content", "status", "original"];
+  if (!isPlainObject(value) || !hasOnlyKeys(value, keys)) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
   if (!Number.isSafeInteger(value.id) || Number(value.id) <= 0) {
@@ -115,6 +122,10 @@ export async function readItemUpdateInput(
   if (typeof value.status !== "string" || !definition.allowedStatuses.has(value.status)) {
     return { ok: false, status: 400, error: "ステータスが正しくありません。" };
   }
+  if ("category" in value && value.category !== null
+    && (typeof value.category !== "string" || !WANT_CATEGORIES.has(value.category))) {
+    return { ok: false, status: 400, error: "分類が正しくありません。" };
+  }
   if (!validSnapshot(value.original)) {
     return { ok: false, status: 400, error: "編集前の情報が正しくありません。" };
   }
@@ -125,6 +136,7 @@ export async function readItemUpdateInput(
       id: Number(value.id),
       content,
       status: value.status,
+      ...("category" in value ? { category: value.category as string | null } : {}),
       original: value.original,
     },
   };
@@ -164,7 +176,11 @@ export async function updateItem(
         Prefer: "return=representation",
         apikey: key,
       },
-      body: JSON.stringify({ content: input.content, status: input.status }),
+      body: JSON.stringify({
+        content: input.content,
+        status: input.status,
+        ...(input.category !== undefined ? { category: input.category } : {}),
+      }),
     });
   } catch {
     throw new DashboardError("SUPABASE_UNAVAILABLE", `Could not reach ${definition.table}.`);

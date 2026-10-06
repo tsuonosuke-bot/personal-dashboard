@@ -453,3 +453,5 @@ a.source-chip:hover { border-color: var(--green); color: var(--green); }
   .card-list.backlog { grid-template-columns: 1fr; }
   .want-row-title { white-space: normal; }
 }
+.want-category-field select { width: 100%; min-height: 38px; margin-top: 4px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); font-size: 13px; font-weight: 700; }
+.want-category-field select:disabled { cursor: wait; opacity: .6; }

@@ -319,6 +319,8 @@ export function applyCompassRoute(notify = true) {
   state.bulkMode = false;
   state.bulkSubmitting = false;
   clearBulkSelection();
+  // 保存後の再読み込みでも、選んでいた分類の絞り込みは残す。
+  if (state.view !== route.view || route.filter) state.wantCategory = "";
   state.view = route.view;
   state.status = route.filter === "knowledge" || route.filter === "github"
     ? ""
@@ -326,7 +328,6 @@ export function applyCompassRoute(notify = true) {
       ? "pending"
       : defaultStatusByView[route.view];
   state.metricFilter = route.filter || "";
-  state.wantCategory = "";
   state.search = "";
   els.searchInput.value = "";
   hideDrawer();

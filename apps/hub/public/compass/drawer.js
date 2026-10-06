@@ -3,7 +3,7 @@ import { readApiJson } from "../api-client.js";
 import { parseCompassRoute } from "../compass-routing.js";
 import { PRIMARY_INBOX_ROUTES, defaultStatusByView, inboxQuickRoutes, quickWantRoutes, routeCompletionMeta, routeDestinationMeta, viewMeta } from "./constants.js";
 import { loadDashboard } from "./data.js";
-import { closeItem, renderInboxEditForm, renderItemEditForm } from "./edit-forms.js";
+import { closeItem, renderInboxEditForm, renderItemEditForm, saveWantCategory, wantCategoryOptions } from "./edit-forms.js";
 import { calendarSchedule, escapeHtml, formatCalendarSchedule, formatDate, setDrawerTitle, showToast, sourceChipMarkup, splitInboxSource } from "./format.js";
 import { canCloseItem, itemStatusLabel, syncCompassRoute } from "./list.js";
 import { startProjectRoute } from "./project-route.js";
@@ -73,7 +73,7 @@ export function renderDrawerItem(item, view) {
     : `${viewMeta[view].singular} · ${item.id}`;
   setDrawerTitle(item.content || "内容なし", { content: true });
   let body = `<div class="detail-grid">
-    ${category ? `<div class="detail-box detail-box-wide"><span>分類</span><strong>${escapeHtml(category.description)}</strong></div>` : ""}
+    ${category ? `<label class="detail-box detail-box-wide want-category-field"><span>分類</span><select id="wantCategorySelect" aria-label="分類を変更">${wantCategoryOptions(item)}</select></label>` : ""}
     <div class="detail-box"><span>Status</span><strong>${escapeHtml(itemStatusLabel(item, view))}</strong></div>
     <div class="detail-box"><span>Created</span><strong>${escapeHtml(formatDate(item.createdAt, true))}</strong></div>
   </div>`;
@@ -117,6 +117,19 @@ export function renderDrawerItem(item, view) {
   }
   els.drawerBody.innerHTML = body;
   document.getElementById("editWantButton")?.addEventListener("click", () => renderItemEditForm(item, "wants"));
+  const categorySelect = document.getElementById("wantCategorySelect");
+  categorySelect?.addEventListener("change", async () => {
+    categorySelect.disabled = true;
+    try {
+      await saveWantCategory(item, categorySelect.value);
+      showToast(`分類を「${wantCategoryMeta(categorySelect.value || "other").label}」にしました。`);
+    } catch (error) {
+      categorySelect.value = item.category || "";
+      showToast(error instanceof Error ? error.message : "分類を保存できませんでした。");
+    } finally {
+      if (categorySelect.isConnected) categorySelect.disabled = false;
+    }
+  });
   document.getElementById("triageWantButton")?.addEventListener("click", () => renderTriageStart(item));
   els.drawerBody.querySelectorAll("[data-quick-route]").forEach((button) => button.addEventListener("click", () => startQuickWantRoute(item, button.dataset.quickRoute)));
   els.drawerBody.querySelector("[data-project-route]")?.addEventListener("click", () => startProjectRoute(item, view));
