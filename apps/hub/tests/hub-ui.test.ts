@@ -111,7 +111,9 @@ test("Today panel follows the other pages' controls with 44px targets and 11px+ 
   assert.match(css, /--overdue: #a54428;/);
   assert.match(css, /--overdue-soft: #fff0e9;/);
   assert.match(css, /--attention: #9a493c;/);
-  assert.match(css, /\.today-next-action \{[^}]*border-left: 3px solid var\(--project\);[^}]*background: var\(--project-soft\);/);
+  // ToDo・Habit・Projectは同じ行の形（44pxの丸＋本文、区切り線）に揃え、カードの塗りは使わない
+  assert.match(css, /\.today-chip \{[^}]*grid-template-columns: 44px minmax\(0, 1fr\);[^}]*border-top: 1px solid var\(--divider\);[^}]*background: none;/);
+  assert.match(css, /\.today-next-action \{ min-width: 0; padding: 7px 0; \}/);
   // スマホでは見直しを下から出し、トーストは画面幅いっぱいにする
   assert.match(css, /\.today-sheet \{ place-items: end stretch; padding: 0; \}/);
   assert.match(css, /\.today-toast \{ right: 12px; left: 12px; bottom: calc\(12px \+ var\(--tabbar-space, 0px\)\);/);

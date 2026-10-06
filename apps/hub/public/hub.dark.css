@@ -330,17 +330,21 @@ html[data-theme="dark"] {
   --check--light: var(--project--light, var(--project));
 }
 :root[data-theme="dark"] .today-chip {
-  border: 1px solid var(--habit-line);
-  border-radius: 11px;
-  background: var(--surface);
+  border: 0;
+  border-top: 1px solid var(--divider);
+  border-radius: 0;
+  background: none;
   color: var(--ink);
 }
-:root[data-theme="dark"] .today-chip:hover {
+:root[data-theme="dark"] .today-chip:nth-child(-n+2) {
+  border-top-color: transparent;
+}
+:root[data-theme="dark"] .today-chip:hover .today-chip-dot {
   border-color: var(--habit);
 }
 :root[data-theme="dark"] .today-chip:focus-visible {
   outline: 3px solid rgba(206, 100, 60, 0.22);
-  outline-offset: 1px;
+  outline-offset: -3px;
 }
 :root[data-theme="dark"] .today-chip-dot {
   border: 2px solid var(--check-line);
@@ -349,10 +353,6 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] .today-chip small {
   color: var(--muted);
-}
-:root[data-theme="dark"] .today-chip[aria-pressed="true"] {
-  border-color: #59473d;
-  background: var(--habit-done);
 }
 :root[data-theme="dark"] .today-chip[aria-pressed="true"] .today-chip-dot {
   border-color: var(--habit);
@@ -372,18 +372,6 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .today-progress i b {
   border-radius: inherit;
   background: var(--habit--light, var(--habit));
-}
-:root[data-theme="dark"] .today-project-row {
-  border-top: 0;
-}
-:root[data-theme="dark"] .today-next-action {
-  border-left: 3px solid var(--project);
-  border-radius: 5px 9px 9px 5px;
-  background: var(--project-soft);
-}
-:root[data-theme="dark"] .today-next-action.attention {
-  border-left-color: var(--attention);
-  background: var(--attention-soft);
 }
 :root[data-theme="dark"] .today-resolver {
   border-top: 1px solid rgba(216, 158, 50, 0.18);
