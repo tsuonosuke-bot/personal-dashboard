@@ -386,8 +386,8 @@ export function renderProjectSection(section, { resolvingActionId = null, now = 
     return `<li class="today-row today-project-row">
       ${check}
       <div class="today-next-action${row.attention ? " attention" : ""}">
-        <div class="today-row-meta">${projectMeta(row, today)}</div>
         ${title}
+        <div class="today-row-meta">${projectMeta(row, today)}</div>
         ${resolving ? projectResolver(row) : ""}
       </div>
     </li>`;

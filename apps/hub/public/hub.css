@@ -156,25 +156,23 @@ a.today-row-title:hover { text-decoration: underline; }
 .today-check:disabled { cursor: wait; }
 .today-check-spacer { width: 44px; }
 .today-project-row .today-check { --check: var(--project); }
-.today-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-bottom: 4px; }
-.today-chip { min-height: 52px; display: grid; grid-template-columns: 26px minmax(0, 1fr); align-items: center; gap: 9px; padding: 7px 10px; border: 1px solid var(--habit-line); border-radius: 11px; background: var(--surface); color: var(--ink); cursor: pointer; text-align: left; }
-.today-chip:hover { border-color: var(--habit); }
-.today-chip:focus-visible { outline: 3px solid rgba(154,71,39,.22); outline-offset: 1px; }
+.today-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); column-gap: 12px; margin-bottom: 4px; }
+.today-chip { min-height: 52px; display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 4px; padding: 7px 0; border: 0; border-top: 1px solid var(--divider); border-radius: 0; background: none; color: var(--ink); cursor: pointer; font: inherit; text-align: left; }
+.today-chip:nth-child(-n+2) { border-top-color: transparent; }
+.today-chip:hover .today-chip-dot { border-color: var(--habit); }
+.today-chip:focus-visible { outline: 3px solid rgba(154,71,39,.22); outline-offset: -3px; }
 .today-chip:disabled { cursor: default; }
-.today-chip-dot { width: 26px; height: 26px; display: grid; place-items: center; border: 2px solid var(--check-line); border-radius: 50%; color: transparent; font-size: 13px; font-weight: 900; }
-.today-chip b { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 13px; line-height: 1.35; }
-.today-chip small { display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }
-.today-chip[aria-pressed="true"] { border-color: #e2c6b8; background: var(--habit-done); }
+.today-chip-dot { justify-self: center; width: 26px; height: 26px; display: grid; place-items: center; border: 2px solid var(--check-line); border-radius: 50%; color: transparent; font-size: 13px; font-weight: 900; }
+.today-chip b { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 13px; font-weight: 650; line-height: 1.4; }
+.today-chip small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
 .today-chip[aria-pressed="true"] .today-chip-dot { border-color: var(--habit); background: var(--habit); color: #fff; }
 .today-chip[aria-pressed="true"] small { color: var(--habit); font-weight: 700; }
 .today-progress { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; color: var(--muted); font-size: 11px; }
 .today-progress i { flex: 1; height: 5px; overflow: hidden; border-radius: 999px; background: #efe7e1; }
 .today-progress i b { display: block; height: 100%; border-radius: inherit; background: var(--habit); transition: width .25s ease; }
-.today-project-row { align-items: start; border-top: 0; padding: 3px 0; }
+.today-project-row { align-items: start; }
 .today-project-row .today-check { margin-top: 4px; }
-.today-next-action { min-width: 0; padding: 8px 10px; border-left: 3px solid var(--project); border-radius: 5px 9px 9px 5px; background: var(--project-soft); }
-.today-next-action.attention { border-left-color: var(--attention); background: var(--attention-soft); }
-.today-next-action .today-row-meta { margin: 0 0 3px; }
+.today-next-action { min-width: 0; padding: 7px 0; }
 .today-resolver { display: grid; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(125,90,24,.18); }
 .today-resolver-primary { min-height: 44px; padding: 6px 12px; border: 0; border-radius: 9px; background: var(--project); color: #fff; cursor: pointer; font-size: 12px; font-weight: 800; text-align: left; }
 .today-next-form { display: flex; flex-wrap: wrap; gap: 6px; }
