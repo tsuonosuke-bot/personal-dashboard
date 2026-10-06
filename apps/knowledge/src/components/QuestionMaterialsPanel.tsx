@@ -83,7 +83,7 @@ export function QuestionMaterialsPanel({ groupId, question, memberCount, busy, o
     <section className="question-materials" aria-label="AIが集めた材料">
       <div className="question-materials-head">
         <h4>AIが集めた材料</h4>
-        <p>問い文に意味が近いものを並べています。合わないものは「外す」と、この問いには二度と出ません。</p>
+        <p>問い文に意味が近いもの（近さ0.45以上）を並べています。合わないものは「外す」と、この問いには二度と出ません。</p>
       </div>
       {loading && !data && <p className="muted" role="status">材料を集めています…</p>}
       {error && <div className="err compact" role="alert">{error}</div>}

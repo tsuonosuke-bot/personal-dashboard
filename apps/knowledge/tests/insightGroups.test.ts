@@ -318,3 +318,23 @@ test("問いの材料のマイグレーションは、外したものと自分�
     assert.ok(sql.includes(`grant execute on function public.${fn} to service_role;`), fn);
   }
 });
+
+test("問いの材料は近さ0.45未満を返さない", async () => {
+  await withFetch(async (url) => {
+    const name = url.pathname.replace("/rest/v1/rpc/", "");
+    if (name === "question_material_state") return Response.json([{ group_id: 7, guiding_question: "問い", input_hash: "h", needs_embedding: false }]);
+    if (name === "list_question_materials") {
+      return Response.json([
+        { ...material, source_id: "1", similarity: 0.45 },
+        { ...material, source_id: "2", similarity: 0.449 },
+        { ...material, source_type: "journal", source_id: "2026-01-01", similarity: 0.3 },
+      ]);
+    }
+    if (name === "list_question_exclusions") return Response.json([]);
+    throw new Error(`unexpected ${name}`);
+  }, async () => {
+    const response = await materialsRoute({ request: new Request("https://dashboard.example/api/insight-groups/7/materials"), params: { id: "7" }, env: { ...env, VOYAGE_API_KEY: "key" } });
+    const body = await response.json() as { materials: Array<{ source_id: string }> };
+    assert.deepEqual(body.materials.map((row) => row.source_id), ["1"]);
+  });
+});
