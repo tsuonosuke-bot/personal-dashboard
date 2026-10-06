@@ -7,8 +7,16 @@ import { loadTodos } from "./data.js";
 import { hideDrawer, openDrawer } from "./drawer.js";
 import { escapeHtml, formatCalendarSchedule, formatDate, showToast, sortTodos, sourceChipMarkup, splitInboxSource, todayInTokyo, todoTiming, todoTimingLabel } from "./format.js";
 import { els, state } from "./state.js";
+import { WANT_CATEGORIES, groupWantsByCategory, wantBacklogStage, wantCategory, wantCategoryMeta } from "./want-category.js";
 
-export function currentItems() {
+// Wantsの既定の見え方。Active Wantsを「やりたいことのバックログ」として分類ごとに並べる。
+// 登録待ち（Knowledge・GitHub）や完了・見送りの確認は、従来どおりカードの一覧で出す。
+export function isWantsBacklog() {
+  return state.view === "wants" && state.status === "active"
+    && state.metricFilter !== "knowledge" && state.metricFilter !== "github";
+}
+
+export function currentItems({ ignoreCategory = false } = {}) {
   if (!state.data) return [];
   let items = state.data[state.view] || [];
   if (state.status) items = items.filter((item) => item.status === state.status);
@@ -27,6 +35,9 @@ export function currentItems() {
   if (needle) {
     items = items.filter((item) => [item.content, item.title, item.detail, item.result, item.note]
       .filter(Boolean).some((value) => value.toLocaleLowerCase("ja").includes(needle)));
+  }
+  if (!ignoreCategory && isWantsBacklog() && state.wantCategory) {
+    items = items.filter((item) => wantCategory(item) === state.wantCategory);
   }
   return state.view === "todos" ? sortTodos(items) : items;
 }
@@ -58,6 +69,7 @@ function renderCurrentTabCount(items) {
 }
 
 export function statusLabel(status, view = state.view) {
+  if (view === "wants") return ({ active: "バックログ", completed: "完了", dropped: "見送り" })[status] || status;
   if (view === "todos") return ({ pending: "未実施", completed: "完了", skipped: "見送り" })[status] || status;
   return ({ pending: "未整理", done: "整理済み", skipped: "対象外", active: "未整理", completed: "整理済み", dropped: "見送り", closed: "完了" })[status] || status;
 }
@@ -65,7 +77,8 @@ export function statusLabel(status, view = state.view) {
 export function itemStatusLabel(item, view = state.view) {
   if (view === "wants" && item.status === "active" && item.type === "wish") return "欲しいもの";
   if (view === "wants" && item.status === "active" && item.revisitOn && item.revisitOn > todayInTokyo()) return "寝かせ中";
-  return statusLabel(item.status);
+  if (view === "wants" && item.status === "active" && item.revisitOn) return "再訪日が来た";
+  return statusLabel(item.status, view);
 }
 
 export function canCloseItem(item, view) {
@@ -146,12 +159,73 @@ function cardMarkup(item) {
   </button>`;
 }
 
+function wantRowMarkup(item, today) {
+  const stage = wantBacklogStage(item, today);
+  const chips = [];
+  if (stage === "due") chips.push(`<span class="route-chip route-chip-pending">再訪日 ${escapeHtml(formatDate(item.revisitOn))}</span>`);
+  if (stage === "sleeping") chips.push(`<span class="route-chip">寝かせ中 〜${escapeHtml(formatDate(item.revisitOn))}</span>`);
+  (item.routes || []).filter((route) => route.status === "planned").forEach((route) => {
+    const label = routeDestinationMeta[route.destination]?.label || route.destination;
+    chips.push(`<span class="route-chip route-chip-pending">${escapeHtml(label)} · 登録待ち</span>`);
+  });
+  return `<button class="want-row want-stage-${stage}" type="button" data-id="${item.id}">
+    <span class="want-row-title">${escapeHtml(item.content || "内容なし")}</span>
+    ${chips.length ? `<span class="want-row-meta">${chips.join("")}</span>` : ""}
+  </button>`;
+}
+
+function renderWantCategoryBar() {
+  const backlog = isWantsBacklog();
+  els.wantCategoryBar.hidden = !backlog;
+  if (!backlog) return;
+  const counts = new Map();
+  currentItems({ ignoreCategory: true }).forEach((item) => {
+    const key = wantCategory(item);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  const total = [...counts.values()].reduce((sum, count) => sum + count, 0);
+  const chip = (key, label, count) => {
+    const active = state.wantCategory === key;
+    return `<button class="filter-chip category-chip${active ? " active" : ""}" type="button" data-want-category="${escapeHtml(key)}" aria-pressed="${active}">${escapeHtml(label)} <b>${count}</b></button>`;
+  };
+  els.wantCategoryBar.innerHTML = chip("", "すべて", total)
+    + WANT_CATEGORIES.filter((category) => counts.has(category.key) || state.wantCategory === category.key)
+      .map((category) => chip(category.key, category.label, counts.get(category.key) || 0)).join("");
+  els.wantCategoryBar.querySelectorAll("[data-want-category]").forEach((button) => button.addEventListener("click", () => {
+    state.wantCategory = state.wantCategory === button.dataset.wantCategory ? "" : button.dataset.wantCategory;
+    renderList();
+  }));
+}
+
+function renderWantsBacklog(items) {
+  const today = todayInTokyo();
+  const groups = groupWantsByCategory(items, today);
+  const sleeping = items.filter((item) => wantBacklogStage(item, today) === "sleeping").length;
+  const due = items.filter((item) => wantBacklogStage(item, today) === "due").length;
+  const scope = state.wantCategory ? wantCategoryMeta(state.wantCategory).label : "やりたいこと";
+  els.resultCount.textContent = `${scope} ${items.length}件`
+    + (due ? ` · 再訪日が来た ${due}件` : "")
+    + (sleeping ? ` · 寝かせ中 ${sleeping}件` : "");
+  els.cardList.classList.add("backlog");
+  if (!items.length) {
+    els.cardList.innerHTML = `<div class="empty-state"><span>◇</span><h3>該当するやりたいことはありません</h3><p>Inboxで「欲しいもの」や「保留」に振り分けると、ここに積まれます。</p></div>`;
+    return;
+  }
+  els.cardList.innerHTML = groups.map((group) => `<section class="want-group" aria-label="${escapeHtml(group.label)} ${group.items.length}件">
+    <header class="want-group-head"><h3>${escapeHtml(group.label)}</h3><b>${group.items.length}</b><small>${escapeHtml(group.description)}</small></header>
+    <div class="want-group-items">${group.items.map((item) => wantRowMarkup(item, today)).join("")}</div>
+  </section>`).join("");
+  els.cardList.querySelectorAll(".want-row").forEach((row) => row.addEventListener("click", () => openDrawer(Number(row.dataset.id))));
+}
+
 export function renderList() {
   const items = currentItems();
   renderCurrentTabCount(items);
   els.listTitle.textContent = viewMeta[state.view].title;
   els.resultCount.textContent = `${items.length}件を表示`;
-  els.clearFilter.hidden = !(state.status || state.search || state.metricFilter);
+  els.clearFilter.hidden = state.view === "wants"
+    ? !(state.status !== "active" || state.search || state.metricFilter || state.wantCategory)
+    : !(state.status || state.search || state.metricFilter);
   const knowledgeActive = state.metricFilter === "knowledge";
   const githubActive = state.metricFilter === "github";
   // 登録待ちはWantsの絞り込み、Calendar再接続はToDoの操作なので、それぞれのタブでだけ出す。
@@ -179,6 +253,12 @@ export function renderList() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+  renderWantCategoryBar();
+  els.cardList.classList.remove("backlog");
+  if (isWantsBacklog()) {
+    renderWantsBacklog(items);
+    return;
+  }
   if (state.view === "todos" && state.todoLayout === "calendar") {
     renderTodoCalendar(items);
     return;
@@ -218,6 +298,7 @@ export function setView(view, filter = defaultStatusByView[view], sync = true) {
   clearBulkSelection();
   state.view = view;
   state.metricFilter = filter;
+  state.wantCategory = "";
   state.status = filter === "untriaged"
     ? "active"
     : filter === "knowledge" || filter === "github"
@@ -245,6 +326,7 @@ export function applyCompassRoute(notify = true) {
       ? "pending"
       : defaultStatusByView[route.view];
   state.metricFilter = route.filter || "";
+  state.wantCategory = "";
   state.search = "";
   els.searchInput.value = "";
   hideDrawer();

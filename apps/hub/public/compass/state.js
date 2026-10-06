@@ -6,6 +6,7 @@ export const state = {
   status: "pending",
   search: "",
   metricFilter: "",
+  wantCategory: "",
   drawerItem: null,
   triageSource: "wants",
   triageOrder: [],
@@ -27,7 +28,7 @@ export const state = {
 export const els = Object.fromEntries([
   "sourceBadge", "refreshButton",
   "inboxTabCount", "wantsTabCount", "todosTabCount", "listTitle", "searchInput",
-  "statusFilter", "pageUtilityToolbar", "pendingFilterGroup", "knowledgeFilter", "knowledgePendingCount", "githubFilter", "githubPendingCount", "todoFilterGroup", "todoLayoutGroup", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
+  "statusFilter", "pageUtilityToolbar", "pendingFilterGroup", "knowledgeFilter", "knowledgePendingCount", "githubFilter", "githubPendingCount", "todoFilterGroup", "todoLayoutGroup", "wantCategoryBar", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
   "bulkModeButton", "bulkToolbar", "bulkSelectAll", "bulkSelectionCount", "bulkStatusSelect", "bulkRevisitField", "bulkRevisitOn", "bulkApplyButton", "bulkCancelButton", "bulkError",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher",
   "addInboxButton", "inboxModal", "inboxModalClose", "inboxCancelButton", "inboxForm",

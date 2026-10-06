@@ -427,3 +427,29 @@ a.source-chip:hover { border-color: var(--green); color: var(--green); }
   .workspace-tools .pending-filter-group, .workspace-tools .todo-filter-group, .workspace-tools .todo-layout-group { grid-column: 1 / -1; }
   .drawer h2.drawer-title-content { font-size: 17px; }
 }
+
+/* Wants: やりたいことのバックログを分類ごとに並べる */
+.detail-box-wide { grid-column: 1 / -1; }
+.want-category-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.category-chip { height: 32px; }
+.card-list.backlog { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); align-items: start; gap: 12px; }
+.want-group { border: 1px solid var(--line); border-radius: 10px; background: #fff; overflow: hidden; }
+.want-group-head { display: flex; align-items: baseline; gap: 8px; padding: 11px 14px 9px; border-bottom: 1px solid var(--line); background: #fafaf7; }
+.want-group-head h3 { margin: 0; font-size: 14px; font-weight: 750; }
+.want-group-head b { color: var(--green); font-size: 12px; }
+.want-group-head small { margin-left: auto; color: var(--muted); font-size: 10px; }
+.want-group-items { display: grid; }
+.want-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 8px 14px; border: 0; border-top: 1px solid var(--line); background: transparent; text-align: left; cursor: pointer; }
+.want-row:first-child { border-top: 0; }
+.want-row:hover { background: var(--green-soft); }
+.want-row:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+.want-row-title { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 600; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
+.want-row-meta { display: inline-flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.want-stage-sleeping .want-row-title { color: var(--muted); font-weight: 500; }
+
+@media (max-width: 650px) {
+  .want-category-bar { flex-wrap: nowrap; overflow-x: auto; margin-inline: -10px; padding: 0 10px 2px; scrollbar-width: none; }
+  .want-category-bar .filter-chip { flex: 0 0 auto; }
+  .card-list.backlog { grid-template-columns: 1fr; }
+  .want-row-title { white-space: normal; }
+}
