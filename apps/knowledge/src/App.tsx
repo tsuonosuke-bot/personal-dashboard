@@ -77,6 +77,12 @@ export default function App() {
 
   // 画面を切り替えても同じdocumentのままなので、直前の画面のスクロール位置が残る。
   const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : showLog ? "log" : showSearch ? "search" : organize ? "organize" : "dashboard";
+
+  // クイズ中は下部タブバーを隠す（回答・模範解答の画面を広く使う）
+  useEffect(() => {
+    document.body.classList.toggle("quiz-open", showQuiz);
+    return () => document.body.classList.remove("quiz-open");
+  }, [showQuiz]);
   const previousView = useRef(view);
   useLayoutEffect(() => {
     if (previousView.current === view) return;

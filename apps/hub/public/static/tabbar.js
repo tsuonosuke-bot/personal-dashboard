@@ -23,13 +23,13 @@
   const MAIN = [
     { id: "hub", label: "ホーム", href: "/", icon: "home" },
     { id: "idea", label: "Idea", href: "/compass/", icon: "idea" },
-    { id: "projects", label: "Projects", href: "/projects/", glyph: "P" },
-    { id: "habits", label: "Habits", href: "/habits/", glyph: "✓" },
+    { id: "knowledge", label: "Knowledge", href: "/go/knowledge", glyph: "K" },
+    { id: "finance", label: "Finance", href: "/go/financial", glyph: "¥" },
   ];
   const MORE = [
+    { id: "projects", label: "Projects", href: "/projects/", glyph: "P" },
+    { id: "habits", label: "Habits", href: "/habits/", glyph: "✓" },
     { id: "writing", label: "Writing", href: "/writing/", glyph: "W" },
-    { id: "finance", label: "Finance", href: "/go/financial", glyph: "¥" },
-    { id: "knowledge", label: "Knowledge", href: "/go/knowledge", glyph: "K" },
     { id: "status", label: "接続状態", href: "/status/", icon: "status" },
   ];
   const current = (item) => (item.id === page ? ' aria-current="page"' : "");
