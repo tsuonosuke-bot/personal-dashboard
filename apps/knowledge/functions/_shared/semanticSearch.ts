@@ -27,6 +27,17 @@ export interface EmbeddingBatchSummary {
   saved: number;
   tokens: number;
   note: string | null;
+  /** 自動タグ（#93）を付け直したナレッジの数。 */
+  tagged?: number;
+}
+
+/**
+ * embeddingが新しくなったナレッジに自動タグを付ける（#93）。DBの中だけで済み、APIは呼ばない。
+ * embeddingが無いナレッジは対象にならないので、embeddingを付けた後に呼ぶ。
+ */
+async function assignAutoTags(env: Env): Promise<number> {
+  const count = await callRpc(env, "assign_auto_tags", { p_model: EMBEDDING_MODEL, p_limit: 1000 });
+  return typeof count === "number" && Number.isSafeInteger(count) ? count : 0;
 }
 
 interface EmbeddingTarget {
@@ -60,7 +71,10 @@ export async function runEmbeddingBatch(env: Env): Promise<EmbeddingBatchSummary
     p_limit: EMBEDDING_BATCH_LIMIT,
   });
   if (!Array.isArray(picked) || !picked.every(isTarget)) throw new Error("embeddingの対象の応答形式が正しくありません。");
-  if (picked.length === 0) return { ...base, status: "skipped", note: "新しくembeddingを付ける項目はありませんでした。" };
+  if (picked.length === 0) {
+    const tagged = await assignAutoTags(env);
+    return { ...base, status: "skipped", note: "新しくembeddingを付ける項目はありませんでした。", tagged };
+  }
 
   let saved = 0;
   let tokens = 0;
@@ -91,12 +105,14 @@ export async function runEmbeddingBatch(env: Env): Promise<EmbeddingBatchSummary
   }
 
   const changed = picked.length - saved;
+  const tagged = await assignAutoTags(env);
   return {
     status: "succeeded",
     picked: picked.length,
     saved,
     tokens,
     note: changed > 0 ? `処理中に内容が変わった${changed}件は、次の実行で付け直します。` : null,
+    tagged,
   };
 }
 

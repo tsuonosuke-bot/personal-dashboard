@@ -1,3 +1,4 @@
+import { allTagNames } from "../lib/knowledge";
 import type { Knowledge, SortKey, SortState } from "../types";
 
 interface Props {
@@ -48,7 +49,7 @@ export function KnowledgeTable({ rows, sort, onSort, onOpen }: Props) {
                   <td>
                     <div className="title">{k.title}</div>
                     {k.explanation && <div className="expl">{k.explanation}</div>}
-                    {k.tags.length > 0 && <div className="tag-preview">{k.tags.slice(0, 3).map((tag) => `#${tag}`).join(" ")}</div>}
+                    {allTagNames(k).length > 0 && <div className="tag-preview">{allTagNames(k).slice(0, 3).map((tag) => `#${tag}`).join(" ")}</div>}
                   </td>
                   <td>{k.category}</td>
                   <td>

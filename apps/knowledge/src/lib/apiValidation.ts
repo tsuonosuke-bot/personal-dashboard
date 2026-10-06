@@ -122,6 +122,8 @@ export function parseKnowledge(value: unknown): Knowledge {
     learned_on: stringValue(value, "learned_on", entity),
     last_asked_on: nullableStringValue(value, "last_asked_on", entity),
     tags: stringArrayValue(value, "tags", entity),
+    // 自動タグは別のAPIから読み、useKnowledgeDataで合わせる。
+    auto_tags: [],
     accuracy: nullableNumberValue(value, "accuracy", entity),
     next_review_on: nullableStringValue(value, "next_review_on", entity),
     next_review_at: stringValue(value, "next_review_at", entity),
@@ -396,6 +398,22 @@ export function parseSemanticSearchResults(value: unknown): SemanticSearchResult
 }
 
 const RELATED_KIND_VALUES = new Set<RelatedItem["kind"]>(["knowledge", "insight", "question"]);
+
+export interface AutoTag {
+  knowledge_id: string;
+  tag: string;
+  similarity: number;
+}
+
+export function parseAutoTag(value: unknown): AutoTag {
+  const entity = "自動タグ";
+  if (!isRecord(value)) return fail(entity);
+  return {
+    knowledge_id: stringValue(value, "knowledge_id", entity),
+    tag: stringValue(value, "tag", entity),
+    similarity: numberValue(value, "similarity", entity),
+  };
+}
 
 export function parseRelatedItems(value: unknown): RelatedItem[] {
   const entity = "関連ナレッジ";

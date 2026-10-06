@@ -39,7 +39,8 @@ test("ページ応答とナレッジの全フィールドを検証する", () =>
   const row = validKnowledge();
   const page = parsePageEnvelope({ items: [row], total: 1, limit: 1000, offset: 0 });
   assert.equal(page.total, 1);
-  assert.deepEqual(parseKnowledge(page.items[0]), row);
+  // 自動タグは別のAPIから合わせるので、ここでは空で返す。
+  assert.deepEqual(parseKnowledge(page.items[0]), { ...row, auto_tags: [] });
 });
 
 test("壊れたタグやページ情報を受理しない", () => {

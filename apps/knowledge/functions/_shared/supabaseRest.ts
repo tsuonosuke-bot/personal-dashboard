@@ -2,7 +2,7 @@ import { fetchSupabase, jsonResponse, methodNotAllowed, type SupabaseEnv } from 
 
 // 共通部分は packages/dashboard-auth にある。既存の呼び出し側は変えずに、ここから再公開する。
 export { fetchSupabase, jsonResponse, methodNotAllowed, type SupabaseEnv };
-export type SupabaseTable = "knowledge" | "quiz_log" | "speaking_practice_log" | "knowledge_mastery_history" | "idea_inbox" | "knowledge_insights" | "insight_groups" | "insight_group_members" | "review_queue" | "question_material_exclusions";
+export type SupabaseTable = "knowledge" | "quiz_log" | "speaking_practice_log" | "knowledge_mastery_history" | "idea_inbox" | "knowledge_insights" | "insight_groups" | "insight_group_members" | "review_queue" | "question_material_exclusions" | "knowledge_auto_tags";
 
 interface QueryDefinition {
   table: SupabaseTable;

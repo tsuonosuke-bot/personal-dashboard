@@ -8,6 +8,7 @@ import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import { ReviewResultActions, type KnowledgeUpdate } from "./ReviewLogParts";
 import { ReviewQueueSummary } from "./ReviewQueueSummary";
 import { RelatedKnowledgePanel } from "./RelatedKnowledgePanel";
+import { TagChips } from "./TagChips";
 
 interface Props {
   knowledge: Knowledge[];
@@ -345,9 +346,7 @@ function ReviewFeedbackCard({
           <div>
             <dt>タグ</dt>
             <dd className="review-feedback-tags">
-              {item.tags.length > 0
-                ? item.tags.map((tag) => <span className="tag" key={tag}>#{tag}</span>)
-                : <span className="muted">未設定</span>}
+              <TagChips item={item} emptyLabel="未設定" />
             </dd>
           </div>
         )}

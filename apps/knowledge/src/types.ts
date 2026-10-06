@@ -22,7 +22,10 @@ export interface Knowledge {
   times_correct: number;
   learned_on: string;
   last_asked_on: string | null;
+  /** 自分で付けたタグ。出題（単語・文法など）にも使う。 */
   tags: string[];
+  /** 自動で付いたタグ（#93）。表示と絞り込みだけに使い、出題には渡さない。近い順。 */
+  auto_tags: string[];
   accuracy: number | null;
   next_review_on: string | null;
   /** 時刻まで含む、実際の次回出題時刻。 */

@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { PRIORITY_INTERVAL_HINTS } from "../constants";
+import { TagChips } from "./TagChips";
 import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
 import { useModalDialog } from "../hooks/useModalDialog";
@@ -18,6 +19,8 @@ interface Props {
   insightStore?: InsightStore;
   /** 渡すと、示唆を問いに入れたり、入っている問いを表示したりできる。 */
   insightGroupStore?: InsightGroupStore;
+  /** 渡すと、自動タグ（#93）を外せる。外したタグは次の自動処理でも付かない。 */
+  onRemoveAutoTag?: (tag: string) => void;
 }
 
 function displayDateTime(value: string): string {
@@ -37,7 +40,7 @@ function displayRelearning(stage: Knowledge["relearning_stage"]): string {
 }
 
 export function KnowledgeDetailModal({
-  knowledge, quizLog, mutating, onClose, onEdit, onArchive, insightStore, insightGroupStore,
+  knowledge, quizLog, mutating, onClose, onEdit, onArchive, insightStore, insightGroupStore, onRemoveAutoTag,
 }: Props) {
   const titleId = useId();
   const history = quizLog
@@ -61,7 +64,7 @@ export function KnowledgeDetailModal({
             {knowledge.archived && <span className="tag">アーカイブ済み</span>}
             <span className={`mastery-pill mastery-${knowledge.mastery}`}>{knowledge.mastery}</span>
             <span className={`badge priority-${knowledge.priority}`}>優先度 {knowledge.priority}</span>
-            {knowledge.tags.map((tag) => <span className="tag" key={tag}>#{tag}</span>)}
+            <TagChips item={knowledge} onRemoveAuto={onRemoveAutoTag} disabled={mutating} />
           </div>
           <div className="content-block">
             <h3>説明</h3>

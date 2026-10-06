@@ -127,6 +127,7 @@ test("バッチは128件ずつembeddingにし、文の版（hash）を添えて�
   await withServices({
     rpc: (name, body) => {
       if (name === "pick_semantic_embedding_targets") return picked;
+      if (name === "assign_auto_tags") return 7;
       if (name === "save_semantic_embeddings") {
         const items = body.p_items as unknown[];
         // 2回目の保存では、処理中に文が変わった1件をDBが捨てた想定。
@@ -151,6 +152,9 @@ test("バッチは128件ずつembeddingにし、文の版（hash）を添えて�
       { status: summary.status, picked: summary.picked, saved: summary.saved, tokens: summary.tokens },
       { status: "succeeded", picked: 130, saved: 129, tokens: 1300 },
     );
+    // 保存の後に、embeddingが新しくなったナレッジへ自動タグを付ける（#93）
+    assert.equal(summary.tagged, 7);
+    assert.deepEqual(calls.rpc.at(-1), { name: "assign_auto_tags", body: { p_model: EMBEDDING_MODEL, p_limit: 1000 } });
     assert.match(summary.note ?? "", /1件は、次の実行で付け直します/);
   });
 });
@@ -188,7 +192,10 @@ test("バッチAPIは合言葉か、画面からの同一オリジン・専用�
     assert.equal(wrongAction.status, 403);
     const manual = await batchRoute({ request: pageRequest("/api/embedding-batch", {}), env });
     assert.equal(manual.status, 200);
-    assert.equal(calls.rpc.length, 2);
+    // 合言葉と画面の2回とも、対象選び→自動タグの順に呼ぶ
+    assert.deepEqual(calls.rpc.map((call) => call.name), [
+      "pick_semantic_embedding_targets", "assign_auto_tags", "pick_semantic_embedding_targets", "assign_auto_tags",
+    ]);
   });
 });
 

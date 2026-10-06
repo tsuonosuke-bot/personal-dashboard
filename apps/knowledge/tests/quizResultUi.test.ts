@@ -98,8 +98,8 @@ test("答え合わせ画面は、その知識に付いているタグを表示�
   const feedback = view.slice(view.indexOf("function ReviewFeedbackCard"));
   // 結果欄（dl）の中に、知識項目があるときだけタグの行を出す
   assert.match(feedback, /<dl className="review-result-body">[\s\S]*\{item && \([\s\S]*<dt>タグ<\/dt>[\s\S]*<\/dl>/);
-  assert.match(feedback, /item\.tags\.map\(\(tag\) => <span className="tag" key=\{tag\}>#\{tag\}<\/span>\)/);
-  assert.match(feedback, /<span className="muted">未設定<\/span>/);
+  // 自分で付けたタグと自動タグ（#93）を1つの並びで出し、無いときは「未設定」
+  assert.match(feedback, /<TagChips item=\{item\} emptyLabel="未設定" \/>/);
   // 質問の表示（回答前）にはタグを出さない: 答えのヒントになりうる
   const question = view.slice(view.indexOf("function ReviewQuestionCard"), view.indexOf("function ReviewFeedbackCard"));
   assert.doesNotMatch(question, /\.tags|<dt>タグ/);
