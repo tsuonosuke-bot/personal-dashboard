@@ -317,18 +317,52 @@
 :root[data-theme="dark"] .hub-link {
   border-radius: 8px;
 }
-:root[data-theme="dark"] .archive-button {
-  color: #a89cc3;
-}
-:root[data-theme="dark"] .page-tool-link {
+:root[data-theme="dark"] .page-tool {
   border: 1px solid #4f4a57;
   border-radius: 8px;
   background: #292929;
   color: #a89cc3;
+}
+:root[data-theme="dark"] .page-tool:hover:not(:disabled) {
+  border-color: #7967a3;
+  background: #292929;
+}
+:root[data-theme="dark"] .page-tool-count {
+  border-radius: 999px;
+  background: #1b1820;
+  color: #a89cc3;
+}
+:root[data-theme="dark"] .page-tool-primary {
+  border-color: #7967a3;
+  background: #66558c;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(102, 85, 140, .22);
+}
+:root[data-theme="dark"] .page-tool-primary:hover:not(:disabled) {
+  border-color: #7862a7;
+  background: #554479;
+}
+:root[data-theme="dark"] .page-tool-primary .page-tool-count {
+  background: rgba(41, 41, 41, 0.2);
+  color: #fff;
+}
+:root[data-theme="dark"] .page-tool-icon {
+  fill: none;
+  stroke: currentColor;
+}
+:root[data-theme="dark"] .page-tool-menu {
+  border: 1px solid #514e55;
+  border-radius: 10px;
+  background: #292929;
+  box-shadow: 0 16px 42px rgba(49, 41, 62, .16);
+}
+:root[data-theme="dark"] .page-tool-menu a {
+  border-radius: 7px;
+  color: #d7d2db;
   text-decoration: none;
 }
-:root[data-theme="dark"] .page-tool-link:hover {
-  border-color: #7967a3;
+:root[data-theme="dark"] .page-tool-menu a:hover {
+  background: #1e1b22;
 }
 :root[data-theme="dark"] .load-error {
   border-radius: 12px;
