@@ -19,6 +19,8 @@ import { useReviewQueueStatus } from "./hooks/useReviewQueueStatus";
 import { confirmReviewResults } from "./lib/api";
 import { dashboardRoutePath, parseDashboardRoute, type OrganizeTab } from "./lib/dashboardRoute";
 import { missesToReview } from "./lib/learningSummary";
+import type { NoteSelection } from "./components/NotesPanel";
+import type { ReviewScope } from "./components/ReviewView";
 import type {
   Filters, Knowledge, KnowledgeDraft, SortKey, SortState,
 } from "./types";
@@ -36,21 +38,28 @@ const SpeakingPracticeView = lazy(() => import("./components/SpeakingPracticeVie
 const SemanticSearchView = lazy(() => import("./components/SemanticSearchView")
   .then((module) => ({ default: module.SemanticSearchView })));
 
+/** 整理ページのタブと、ノートタブで開いている問い・テーマ。 */
+type OrganizeState = { tab: OrganizeTab; questionId: number | null; theme: string | null };
+
 export default function App() {
   const initialRoute = parseDashboardRoute(window.location.href);
   const [showQuiz, setShowQuiz] = useState(() => initialRoute.kind === "quiz");
   const [showSpeaking, setShowSpeaking] = useState(() => initialRoute.kind === "speaking");
   const [showLog, setShowLog] = useState(() => initialRoute.kind === "log");
   const [showSearch, setShowSearch] = useState(() => initialRoute.kind === "search");
-  const [organize, setOrganize] = useState<{ tab: OrganizeTab; questionId: number | null } | null>(() => (
-    initialRoute.kind === "organize" ? { tab: initialRoute.tab, questionId: initialRoute.questionId } : null
+  const [organize, setOrganize] = useState<OrganizeState | null>(() => (
+    initialRoute.kind === "organize"
+      ? { tab: initialRoute.tab, questionId: initialRoute.questionId, theme: initialRoute.theme ?? null }
+      : null
   ));
+  /** ノートから始めた復習（#96）。終えたらそのノートへ戻る。 */
+  const [reviewScope, setReviewScope] = useState<(ReviewScope & { returnTo: NoteSelection }) | null>(null);
   const [quizMode, setQuizMode] = useState<"daily" | "custom">(() => (
     initialRoute.kind === "quiz" ? initialRoute.mode : "custom"
   ));
   const {
     knowledge, archivedKnowledge, quizLog, loading, error, mutating,
-    reload, createKnowledge, updateKnowledge, removeAutoTag, markConfirmed,
+    reload, createKnowledge, updateKnowledge, removeAutoTag, restoreAutoTag, markConfirmed,
   } = useKnowledgeData();
   const dailyReview = useDailyReview();
   const reviewQueue = useReviewQueueStatus();
@@ -138,7 +147,7 @@ export default function App() {
       setShowSpeaking(route.kind === "speaking");
       setShowLog(route.kind === "log");
       setShowSearch(route.kind === "search");
-      setOrganize(route.kind === "organize" ? { tab: route.tab, questionId: route.questionId } : null);
+      setOrganize(route.kind === "organize" ? { tab: route.tab, questionId: route.questionId, theme: route.theme ?? null } : null);
       return;
     }
 
@@ -210,6 +219,7 @@ export default function App() {
 
   const setQuizOpen = (open: boolean, mode: "daily" | "custom" = "custom") => {
     replaceRoute(open ? { kind: "quiz", mode } : { kind: "dashboard" });
+    setReviewScope(null);
     setSelected(null);
     setQuizMode(mode);
     setShowSpeaking(false);
@@ -259,7 +269,43 @@ export default function App() {
     setShowSpeaking(false);
     setShowLog(false);
     setShowSearch(false);
-    setOrganize(tab ? { tab, questionId: null } : null);
+    setOrganize(tab ? { tab, questionId: null, theme: null } : null);
+  };
+
+  const noteSelection: NoteSelection | null = organize?.tab !== "notes" ? null
+    : organize.questionId !== null ? { kind: "question", id: organize.questionId }
+      : organize.theme ? { kind: "theme", tag: organize.theme } : null;
+
+  const selectNote = (note: NoteSelection | null) => {
+    const next: OrganizeState = {
+      tab: "notes",
+      questionId: note?.kind === "question" ? note.id : null,
+      theme: note?.kind === "theme" ? note.tag : null,
+    };
+    replaceRoute({ kind: "organize", ...next });
+    setSelected(null);
+    setShowQuiz(false);
+    setShowSpeaking(false);
+    setShowLog(false);
+    setShowSearch(false);
+    setOrganize(next);
+  };
+
+  /** ノートのナレッジのうち期限が来たものだけを復習する。終えたらノートへ戻る。 */
+  const reviewNote = (scope: ReviewScope) => {
+    if (!noteSelection) return;
+    setQuizOpen(true, "custom");
+    setReviewScope({ ...scope, returnTo: noteSelection });
+  };
+
+  const exitReview = () => {
+    if (reviewScope) {
+      void reviewQueue.refresh();
+      selectNote(reviewScope.returnTo);
+      setReviewScope(null);
+      return;
+    }
+    setQuizOpen(false);
   };
 
   const openKnowledge = (item: Knowledge) => {
@@ -366,8 +412,9 @@ export default function App() {
           knowledge={registrationKnowledge}
           quizLog={quizLog}
           queueStatus={reviewQueue.status}
-          onExit={() => setQuizOpen(false)}
+          onExit={exitReview}
           autoStartDaily={quizMode === "daily"}
+          scope={reviewScope}
           onRecorded={reloadAfterReview}
           onKnowledgeUpdate={updateKnowledge}
           insightStore={insightStore}
@@ -409,6 +456,11 @@ export default function App() {
           onTabChange={(tab) => setOrganizeOpen(tab)}
           onOpenKnowledge={openKnowledge}
           onExit={() => setOrganizeOpen(null)}
+          noteSelection={noteSelection}
+          onNoteSelect={selectNote}
+          onReviewNote={reviewNote}
+          onRemoveAutoTag={removeAutoTag}
+          onRestoreAutoTag={restoreAutoTag}
         />
         {selected && (
           <KnowledgeDetailModal

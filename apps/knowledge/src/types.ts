@@ -194,6 +194,36 @@ export interface QuestionMaterials {
   note: string | null;
 }
 
+/** ノートの一覧（#96）。問いと、自動タグの語彙から作ったテーマ。 */
+export interface NoteTopic {
+  kind: "question" | "theme";
+  /** 問いはid、テーマはタグ名。 */
+  key: string;
+  title: string;
+  guiding_question: string | null;
+  knowledge_count: number;
+  insight_count: number;
+  journal_count: number;
+  /** 問い文のembeddingがまだ無いときはfalse（件数は自分で入れた示唆だけ。ノートを開くと集まる）。 */
+  materials_ready: boolean;
+}
+
+/** なぜテーマのノートに入ったか。 */
+export type ThemeOrigin = "own_tag" | "auto_tag" | "tagged_knowledge" | "nearby";
+
+export interface ThemeMaterial extends Omit<SemanticSearchResult, "similarity"> {
+  /** テーマとの意味の近さ。自分で付けたタグのナレッジなどはnull。 */
+  similarity: number | null;
+  origin: ThemeOrigin;
+}
+
+/** テーマのノート。外したもの（示唆・日記）は excluded に入り、二度と materials には出ない。 */
+export interface ThemeNote {
+  tag: string;
+  materials: ThemeMaterial[];
+  excluded: QuestionMaterials["excluded"];
+}
+
 /** 習熟度の変更履歴。is_baselineは記録開始時点の状態。 */
 export interface MasteryHistoryEvent {
   id: number;

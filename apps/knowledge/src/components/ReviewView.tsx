@@ -28,6 +28,14 @@ interface Props {
   /** 見直す講評（未確認の不正解・部分正解）の件数。復習を終えた画面から講評の見直しへ進む。 */
   missCount?: number;
   onOpenMisses?: () => void;
+  /** ノートの復習（#96）。そのノートのナレッジの問題だけを出し、終えたらノートへ戻る。 */
+  scope?: ReviewScope | null;
+}
+
+export interface ReviewScope {
+  /** 問いの短い名前かテーマ名。 */
+  label: string;
+  knowledgeIds: string[];
 }
 
 const MAX_ANSWER_CHARS = 2_000;
@@ -65,9 +73,9 @@ function batchMessage(summary: ReviewBatchSummary): string {
  */
 export function ReviewView({
   knowledge, quizLog, queueStatus, onExit, onRecorded, onKnowledgeUpdate, insightStore, insightGroupStore,
-  onOpenResults, onOpenLog, autoStartDaily = false, missCount = 0, onOpenMisses,
+  onOpenResults, onOpenLog, autoStartDaily = false, missCount = 0, onOpenMisses, scope = null,
 }: Props) {
-  const session = useReviewSession(onRecorded);
+  const session = useReviewSession(onRecorded, scope?.knowledgeIds);
   const [answer, setAnswer] = useState("");
   const [batchBusy, setBatchBusy] = useState<"generate" | "grade" | null>(null);
   const [batchNotice, setBatchNotice] = useState<string | null>(null);
@@ -80,12 +88,22 @@ export function ReviewView({
   const [detailId, setDetailId] = useState<string | null>(null);
   const detail = detailId ? knowledgeById.get(detailId) ?? null : null;
   const readyDue = queueStatus?.ready_due ?? 0;
+  /** ノートのナレッジのうち期限が来たカード。問題がまだ作られていなければ、期限が来ていても出ない。 */
+  const scopeDue = useMemo(() => {
+    if (!scope) return 0;
+    const now = Date.now();
+    return scope.knowledgeIds.filter((id) => {
+      const item = knowledgeById.get(id);
+      return item && !item.archived && Date.parse(item.next_review_at) <= now;
+    }).length;
+  }, [knowledgeById, scope]);
+  const autoStart = autoStartDaily || (scope !== null && scopeDue > 0);
 
   useEffect(() => {
-    if (!autoStartDaily || autoStarted.current || session.stage !== "setup") return;
+    if (!autoStart || autoStarted.current || session.stage !== "setup") return;
     autoStarted.current = true;
     void session.start();
-  }, [autoStartDaily, session]);
+  }, [autoStart, session]);
 
   useEffect(() => { setAnswer(""); }, [session.current?.id]);
 
@@ -132,8 +150,8 @@ export function ReviewView({
   return (
     <div className="quiz-page">
       <header className="quiz-header">
-        <button className="text-button" onClick={onExit}>← ダッシュボードへ戻る</button>
-        <h1>復習</h1>
+        <button className="text-button" onClick={onExit}>{scope ? "← ノートへ戻る" : "← ダッシュボードへ戻る"}</button>
+        <h1>{scope ? `「${scope.label}」の復習` : "復習"}</h1>
       </header>
 
       <main className="quiz-body">
@@ -147,7 +165,25 @@ export function ReviewView({
           </div>
         )}
 
-        {session.stage === "setup" && (
+        {session.stage === "setup" && scope && (
+          <div className="quiz-setup card">
+            <div className="daily-quiz-start">
+              <div>
+                <strong>このノートの復習</strong>
+                <span>期限が来たカード {scopeDue}枚（ノートのナレッジ {scope.knowledgeIds.length}件のうち）</span>
+              </div>
+              <button className="primary-button" disabled={scopeDue === 0} onClick={() => void session.start()}>
+                {scopeDue > 0 ? "このノートの復習を始める" : "期限が来たカードはありません"}
+              </button>
+            </div>
+            <p className="muted review-start-note">
+              このノートのナレッジのうち、期限が来て問題ができているものだけを、いつもの順で出題します。
+              復習の予定は前倒ししません。
+            </p>
+          </div>
+        )}
+
+        {session.stage === "setup" && !scope && (
           <div className="quiz-setup card">
             <div className="daily-quiz-start">
               <div>
@@ -198,7 +234,16 @@ export function ReviewView({
 
         {session.stage === "done" && (
           <div className="quiz-setup card review-done">
-            <h2>{session.exhausted ? "今すぐ解ける問題はすべて解きました" : `${answered.length}問に回答しました`}</h2>
+            <h2>
+              {!session.exhausted ? `${answered.length}問に回答しました`
+                : scope ? "このノートで今すぐ解ける問題はすべて解きました" : "今すぐ解ける問題はすべて解きました"}
+            </h2>
+            {scope && session.exhausted && answered.length === 0 && (
+              <div className="review-batch-actions">
+                <p className="muted">期限が来たばかりのカードは、まだ問題が作られていないことがあります。</p>
+                {generateButton}
+              </div>
+            )}
             <ul className="review-done-counts">
               <li><strong>{answered.length}</strong><span>回答</span></li>
               <li><strong>{graded.length}</strong><span>その場で記録（四択・無回答）</span></li>

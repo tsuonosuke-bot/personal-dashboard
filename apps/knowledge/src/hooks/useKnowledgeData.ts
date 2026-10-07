@@ -102,6 +102,21 @@ export function useKnowledgeData() {
     }
   }, []);
 
+  /** 外した自動タグを戻す（ノートの「外したもの」から）。 */
+  const restoreAutoTag = useCallback(async (knowledgeId: string, tag: string) => {
+    setMutating(true);
+    try {
+      await changeAutoTag(knowledgeId, tag, "restore");
+      const add = (items: Knowledge[]) => items.map((item) => (item.id === knowledgeId && !item.auto_tags.includes(tag)
+        ? { ...item, auto_tags: [...item.auto_tags, tag] }
+        : item));
+      setKnowledge(add);
+      setArchivedKnowledge(add);
+    } finally {
+      setMutating(false);
+    }
+  }, []);
+
   /** 採点結果を確認済みにした後、全件を読み直さずに手元の記録へ反映する。 */
   const markConfirmed = useCallback((ids: number[], confirmedAt = new Date().toISOString()) => {
     const targets = new Set(ids);
@@ -112,6 +127,6 @@ export function useKnowledgeData() {
 
   return {
     knowledge, archivedKnowledge, quizLog, loading, error, mutating,
-    reload, createKnowledge, updateKnowledge, removeAutoTag, markConfirmed,
+    reload, createKnowledge, updateKnowledge, removeAutoTag, restoreAutoTag, markConfirmed,
   };
 }

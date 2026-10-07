@@ -4,7 +4,7 @@ import type {
   ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
   SpeakingPracticeStart, SpeakingPracticeType,
-  EmbeddingBatchSummary, QuestionMaterials, RelatedItem, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType,
+  EmbeddingBatchSummary, NoteTopic, QuestionMaterials, RelatedItem, ThemeNote, ThemeOrigin, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType,
 } from "../types";
 
 interface PageEnvelope {
@@ -449,6 +449,59 @@ export function parseQuestionMaterials(value: unknown): QuestionMaterials {
       };
     }),
     note: optionalString(value, "note", entity),
+  };
+}
+
+const NOTE_KIND_VALUES = new Set<NoteTopic["kind"]>(["question", "theme"]);
+const THEME_ORIGIN_VALUES = new Set<ThemeOrigin>(["own_tag", "auto_tag", "tagged_knowledge", "nearby"]);
+
+export function parseNoteTopics(value: unknown): NoteTopic[] {
+  const entity = "ノートの一覧";
+  if (!isRecord(value) || !Array.isArray(value.items)) return fail(entity);
+  return value.items.map((item) => {
+    if (!isRecord(item)) return fail(entity);
+    const kind = stringValue(item, "kind", entity);
+    if (!NOTE_KIND_VALUES.has(kind as NoteTopic["kind"])) return fail(entity, "kind");
+    if (typeof item.materials_ready !== "boolean") return fail(entity, "materials_ready");
+    return {
+      kind: kind as NoteTopic["kind"],
+      key: stringValue(item, "key", entity),
+      title: stringValue(item, "title", entity),
+      guiding_question: optionalString(item, "guiding_question", entity),
+      knowledge_count: numberValue(item, "knowledge_count", entity),
+      insight_count: numberValue(item, "insight_count", entity),
+      journal_count: numberValue(item, "journal_count", entity),
+      materials_ready: item.materials_ready,
+    };
+  });
+}
+
+export function parseThemeNote(value: unknown): ThemeNote {
+  const entity = "テーマのノート";
+  if (!isRecord(value) || !Array.isArray(value.materials)) return fail(entity);
+  const excluded = parseQuestionMaterials({ materials: [], excluded: value.excluded, note: null }).excluded;
+  return {
+    tag: stringValue(value, "tag", entity),
+    materials: value.materials.map((item) => {
+      if (!isRecord(item)) return fail(entity);
+      const origin = stringValue(item, "origin", entity);
+      if (!THEME_ORIGIN_VALUES.has(origin as ThemeOrigin)) return fail(entity, "origin");
+      if (item.similarity !== null && (typeof item.similarity !== "number" || !Number.isFinite(item.similarity))) {
+        return fail(entity, "similarity");
+      }
+      return {
+        source_type: semanticSourceType(item, entity),
+        source_id: stringValue(item, "source_id", entity),
+        title: stringValue(item, "title", entity),
+        body: stringValue(item, "body", entity),
+        meta: optionalString(item, "meta", entity),
+        knowledge_id: optionalString(item, "knowledge_id", entity),
+        entry_date: optionalString(item, "entry_date", entity),
+        similarity: item.similarity,
+        origin: origin as ThemeOrigin,
+      };
+    }),
+    excluded,
   };
 }
 

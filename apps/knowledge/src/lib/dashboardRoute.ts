@@ -1,4 +1,4 @@
-export type OrganizeTab = "questions" | "insights" | "tags";
+export type OrganizeTab = "questions" | "insights" | "tags" | "notes";
 
 export type DashboardRoute =
   | { kind: "dashboard" }
@@ -6,7 +6,8 @@ export type DashboardRoute =
   | { kind: "speaking" }
   | { kind: "log" }
   | { kind: "search" }
-  | { kind: "organize"; tab: OrganizeTab; questionId: number | null }
+  /** ノートタブ（#96）では questionId か theme（自動タグの語彙）のどちらかで開くノートを指す。 */
+  | { kind: "organize"; tab: OrganizeTab; questionId: number | null; theme?: string | null }
   | { kind: "knowledge"; knowledgeId: string }
   | { kind: "invalid-knowledge" };
 
@@ -35,10 +36,20 @@ export function parseDashboardRoute(value: string | URL): DashboardRoute {
   if (view === "organize") {
     const tab = url.searchParams.get("tab");
     const question = url.searchParams.get("question") ?? "";
+    const questionId = /^[1-9]\d{0,15}$/.test(question) ? Number(question) : null;
+    if (tab === "notes") {
+      const theme = url.searchParams.get("theme")?.trim() ?? "";
+      return {
+        kind: "organize",
+        tab,
+        questionId,
+        theme: questionId === null && theme && theme.length <= 40 ? theme : null,
+      };
+    }
     return {
       kind: "organize",
       tab: tab === "insights" || tab === "tags" ? tab : "questions",
-      questionId: /^[1-9]\d{0,15}$/.test(question) ? Number(question) : null,
+      questionId,
     };
   }
   const knowledgeId = url.searchParams.get("knowledge");
@@ -55,6 +66,7 @@ export function dashboardRoutePath(value: string | URL, route: DashboardRoute): 
   url.searchParams.delete("knowledge");
   url.searchParams.delete("tab");
   url.searchParams.delete("question");
+  url.searchParams.delete("theme");
   if (route.kind === "quiz") {
     url.searchParams.set("view", "quiz");
     if (route.mode === "daily") url.searchParams.set("mode", "daily");
@@ -66,6 +78,7 @@ export function dashboardRoutePath(value: string | URL, route: DashboardRoute): 
     url.searchParams.set("view", "organize");
     if (route.tab !== "questions") url.searchParams.set("tab", route.tab);
     if (route.questionId !== null) url.searchParams.set("question", String(route.questionId));
+    else if (route.tab === "notes" && route.theme) url.searchParams.set("theme", route.theme);
   }
   if (route.kind === "knowledge") url.searchParams.set("knowledge", route.knowledgeId);
   return `${url.pathname}${url.search}${url.hash}`;

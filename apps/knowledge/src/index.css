@@ -416,7 +416,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .insights-view { max-width: 900px; }
 .organize-view { max-width: 1080px; display: grid; gap: 12px; }
 .organize-guide p { margin: 0 0 8px; color: #526079; font-size: 13px; line-height: 1.6; }
-.organize-guide dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; }
+.organize-guide dl { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 0; }
 .organize-guide dl div { padding: 8px 10px; border-radius: 10px; background: #f7f6fa; }
 .organize-guide dt { color: #554479; font-size: 12px; font-weight: 700; }
 .organize-guide dd { margin: 3px 0 0; color: #64748b; font-size: 12px; line-height: 1.5; }
@@ -933,9 +933,23 @@ body.quiz-open { padding-bottom: 0; }
 .question-materials-excluded li span { flex: none; color: #71829d; font-size: 11px; font-weight: 700; }
 .question-materials-excluded li p { flex: 1; min-width: 0; margin: 0; color: #64748b; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .question-materials-excluded li button { flex: none; min-height: 30px; font-size: 12px; }
+.notes-picker-heading { margin-top: 18px !important; }
+.note-sheet { display: grid; gap: 16px; }
+.note-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; padding-bottom: 14px; border-bottom: 1px solid #edf0f4; }
+.note-head h2 { margin: 2px 0 0; font-size: 20px; line-height: 1.4; overflow-wrap: anywhere; }
+.note-kind { color: #66558c; font-size: 11px; font-weight: 800; letter-spacing: .04em; }
+.note-question { margin: 6px 0 0; color: #334155; font-size: 14px; line-height: 1.6; }
+.note-counts { margin: 6px 0 0; color: #71829d; font-size: 12px; }
+.note-review { flex: none; min-height: 40px; white-space: nowrap; }
+.note-section h3 { margin: 0 0 8px; color: #554479; font-size: 14px; }
+.note-section h3 span { margin-left: 4px; color: #94a3b8; font-weight: 400; }
+.note-reason { color: #8a7aa8 !important; font-size: 11px !important; font-weight: 700; }
+.note-section .muted { margin: 0; font-size: 13px; }
 @media (max-width: 560px) {
   .question-material { flex-direction: column; gap: 8px; }
   .question-material-actions { align-self: flex-end; }
+  .note-head { flex-direction: column; }
+  .note-review { width: 100%; }
 }
 
 /* 答え合わせ画面の「関連」（#97） */

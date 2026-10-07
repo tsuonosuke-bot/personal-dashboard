@@ -2,7 +2,7 @@ import type {
   DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizLog,
   PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary, ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
-  SpeakingPracticeWrite, EmbeddingBatchSummary, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType, QuestionMaterials, RelatedItem,
+  SpeakingPracticeWrite, EmbeddingBatchSummary, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType, QuestionMaterials, RelatedItem, NoteTopic, ThemeNote,
 } from "../types";
 import {
   parseDailyReviewStatus,
@@ -26,6 +26,8 @@ import {
   parseSemanticIndexStatus,
   parseSemanticSearchResults,
   parseQuestionMaterials,
+  parseNoteTopics,
+  parseThemeNote,
   parseRelatedItems,
   parseAutoTag,
   type AutoTag,
@@ -284,6 +286,30 @@ export async function changeQuestionMaterial(
   });
 }
 
+/** ノートの一覧（#96）。すべての問いとテーマを件数つきで受け取る。 */
+export async function getNoteTopics(): Promise<NoteTopic[]> {
+  return parseNoteTopics(await requestJson("/api/notes", { method: "GET" }));
+}
+
+/** テーマのノート。そのテーマに集まったナレッジ・示唆・日記と、外したもの。 */
+export async function getThemeNote(tag: string): Promise<ThemeNote> {
+  return parseThemeNote(await requestJson(`/api/notes/theme?${new URLSearchParams({ tag })}`, { method: "GET" }));
+}
+
+/** 示唆・日記をテーマから外す（exclude）、外したものを戻す（restore）。ナレッジは自動タグを外す。 */
+export async function changeThemeMaterial(
+  tag: string,
+  action: "exclude" | "restore",
+  sourceType: "insight" | "journal",
+  sourceId: string,
+): Promise<void> {
+  await requestJson("/api/notes/theme", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Dashboard-Action": "knowledge-note" },
+    body: JSON.stringify({ tag, action, source_type: sourceType, source_id: sourceId }),
+  });
+}
+
 export function getInsightGroups(): Promise<InsightGroup[]> {
   return getAllPages("/api/insight-groups", parseInsightGroup);
 }
@@ -451,8 +477,14 @@ export async function getReviewQueueStatus(): Promise<ReviewQueueStatus> {
 }
 
 /** 期限が来た出題待ちの問題を、今の優先度順に受け取る。カテゴリ指定が空なら全カテゴリ。 */
-export async function serveReviewQuestions(limit: number, categories: string[] = []): Promise<ReviewQuestion[]> {
-  return parseReviewQuestions(await postReviewQueue("/api/review-queue/serve", { limit, categories }));
+export async function serveReviewQuestions(
+  limit: number,
+  categories: string[] = [],
+  knowledgeIds?: string[],
+): Promise<ReviewQuestion[]> {
+  // knowledgeIds はノートの復習（#96）。渡したナレッジの問題だけを同じ順で受け取る。
+  const body = knowledgeIds ? { limit, categories, knowledge_ids: knowledgeIds } : { limit, categories };
+  return parseReviewQuestions(await postReviewQueue("/api/review-queue/serve", body));
 }
 
 export async function submitReviewAnswer(id: number, answer: string): Promise<ReviewAnswerResult> {

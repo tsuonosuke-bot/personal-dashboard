@@ -5,6 +5,8 @@ import { allTagNames } from "../lib/knowledge";
 import type { Knowledge } from "../types";
 import { InsightGroupsPanel } from "./InsightGroupsPanel";
 import { InsightListPanel } from "./InsightListPanel";
+import { NotesPanel, type NoteSelection } from "./NotesPanel";
+import type { ReviewScope } from "./ReviewView";
 import { TagGroupsPanel } from "./TagGroupsPanel";
 
 interface Props {
@@ -21,20 +23,29 @@ interface Props {
   onTabChange: (tab: OrganizeTab) => void;
   onOpenKnowledge: (item: Knowledge) => void;
   onExit: () => void;
+  /** ノートタブ（#96）で開いているノート。 */
+  noteSelection: NoteSelection | null;
+  onNoteSelect: (selection: NoteSelection | null) => void;
+  onReviewNote: (scope: ReviewScope) => void;
+  onRemoveAutoTag: (knowledgeId: string, tag: string) => Promise<void>;
+  onRestoreAutoTag: (knowledgeId: string, tag: string) => Promise<void>;
 }
 
 const TABS: { tab: OrganizeTab; label: string }[] = [
   { tab: "questions", label: "問い" },
   { tab: "insights", label: "示唆" },
   { tab: "tags", label: "タグ" },
+  { tab: "notes", label: "ノート" },
 ];
 
 /** ナレッジ→示唆→問いを整理する画面。問い・示唆・タグを1ページのタブで切り替える。 */
 export function OrganizeView({
   tab, questionId, allKnowledge, activeKnowledge, insightStore, groupStore, loading, error,
-  onTabChange, onOpenKnowledge, onExit,
+  onTabChange, onOpenKnowledge, onExit, noteSelection, onNoteSelect, onReviewNote, onRemoveAutoTag, onRestoreAutoTag,
 }: Props) {
-  const counts: Record<OrganizeTab, number> = {
+  // ノートは問いとテーマの数。テーマの数はノートの一覧を読むまで分からないので出さない。
+  const counts: Record<OrganizeTab, number | null> = {
+    notes: null,
     questions: groupStore.groups.length,
     insights: insightStore.insights.length,
     tags: new Set(activeKnowledge.flatMap((item) => allTagNames(item))).size,
@@ -53,17 +64,31 @@ export function OrganizeView({
             <div><dt>カテゴリ</dt><dd>分野。1つのナレッジに1つ（英語・ビジネスなど）</dd></div>
             <div><dt>タグ</dt><dd>分野の中の小分類や出典。複数付けられる（#単語・#読書など）</dd></div>
             <div><dt>問い</dt><dd>分野をまたいで示唆を束ねる「何を判断したいか」</dd></div>
+            <div><dt>ノート</dt><dd>問いやテーマ（自動タグ）ごとに、ナレッジ・示唆・日記をまとめて読む</dd></div>
           </dl>
         </section>
 
         <div className="organize-tabs card" role="group" aria-label="表示する内容">
           {TABS.map((item) => (
             <button key={item.tab} type="button" aria-pressed={tab === item.tab} onClick={() => onTabChange(item.tab)}>
-              {item.label} <span>{counts[item.tab]}</span>
+              {item.label} {counts[item.tab] !== null && <span>{counts[item.tab]}</span>}
             </button>
           ))}
         </div>
 
+        {tab === "notes" && (
+          <NotesPanel
+            knowledge={allKnowledge}
+            insights={insightStore.insights}
+            groupStore={groupStore}
+            selection={noteSelection}
+            onSelect={onNoteSelect}
+            onOpenKnowledge={onOpenKnowledge}
+            onReview={onReviewNote}
+            onRemoveAutoTag={onRemoveAutoTag}
+            onRestoreAutoTag={onRestoreAutoTag}
+          />
+        )}
         {tab === "questions" && (
           <InsightGroupsPanel
             key={questionId ?? "none"}
