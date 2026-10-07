@@ -1561,6 +1561,27 @@
 :root[data-theme="dark"] .question-materials-excluded li p {
   color: #9ea9b9;
 }
+:root[data-theme="dark"] .note-head {
+  border-bottom: 1px solid #4f555d;
+}
+:root[data-theme="dark"] .note-kind {
+  color: #a89cc3;
+}
+:root[data-theme="dark"] .note-question {
+  color: #bac5d6;
+}
+:root[data-theme="dark"] .note-counts {
+  color: #929fb4;
+}
+:root[data-theme="dark"] .note-section h3 {
+  color: #b2a6cd;
+}
+:root[data-theme="dark"] .note-section h3 span {
+  color: #7c8ea8;
+}
+:root[data-theme="dark"] .note-reason {
+  color: #9789b2 !important;
+}
 :root[data-theme="dark"] .related-knowledge {
   border-top: 1px solid #4f555d;
 }

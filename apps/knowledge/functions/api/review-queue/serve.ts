@@ -12,9 +12,14 @@ interface FunctionContext {
   env: SupabaseEnv;
 }
 
+/** ノートの復習（#96）で絞り込めるナレッジの数。テーマのノートは多くても30件ほど。 */
+export const MAX_SERVE_KNOWLEDGE_IDS = 200;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /**
  * 期限が来た「出題待ち」の問題を、今の優先度順に返す。正解の選択肢は返さない。
  * 出しただけの問題は回答されるまで出題待ちのまま残る。
+ * `knowledge_ids` を渡すと、そのナレッジの問題だけを同じ順で返す（ノートの復習）。予定は変えない。
  */
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
   if (context.request.method !== "POST") return methodNotAllowed("POST");
@@ -38,12 +43,26 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     return jsonResponse({ error: "categoriesは登録済みカテゴリ名の配列で指定してください。" }, 400);
   }
 
+  const knowledgeIds = body.knowledge_ids;
+  if (knowledgeIds !== undefined && (
+    !Array.isArray(knowledgeIds) || knowledgeIds.length === 0 || knowledgeIds.length > MAX_SERVE_KNOWLEDGE_IDS
+    || !knowledgeIds.every((id) => typeof id === "string" && UUID_PATTERN.test(id))
+  )) {
+    return jsonResponse({ error: `knowledge_idsは1〜${MAX_SERVE_KNOWLEDGE_IDS}件のナレッジIDの配列で指定してください。` }, 400);
+  }
+
   let rows: unknown;
   try {
-    rows = await callRpc(context.env, "serve_review_queue", {
-      p_limit: limit,
-      p_categories: categories.length > 0 ? categories : null,
-    });
+    rows = knowledgeIds === undefined
+      ? await callRpc(context.env, "serve_review_queue", {
+        p_limit: limit,
+        p_categories: categories.length > 0 ? categories : null,
+      })
+      : await callRpc(context.env, "serve_review_queue_filtered", {
+        p_limit: limit,
+        p_categories: categories.length > 0 ? categories : null,
+        p_knowledge_ids: (knowledgeIds as string[]).map((id) => id.toLowerCase()),
+      });
   } catch {
     return jsonResponse({ error: "出題できる問題を取得できませんでした。" }, 502);
   }

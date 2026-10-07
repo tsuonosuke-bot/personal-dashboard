@@ -25,8 +25,9 @@ const SERVE_BATCH = 30;
 /**
  * キューの上から順に解き続ける。回答は1問ごとにすぐ送るので、いつ終えても答えた分は残る。
  * 飛ばした問題は出題待ちのまま残り、この回では二度と出さず、次の復習でまた出る。
+ * knowledgeIds を渡すと、そのナレッジの問題だけを出す（ノートの復習、#96）。
  */
-export function useReviewSession(onAnswered?: () => void | Promise<void>) {
+export function useReviewSession(onAnswered?: () => void | Promise<void>, knowledgeIds?: string[]) {
   const [stage, setStage] = useState<ReviewStage>("setup");
   const [questions, setQuestions] = useState<ReviewQuestion[]>([]);
   const [index, setIndex] = useState(0);
@@ -39,13 +40,13 @@ export function useReviewSession(onAnswered?: () => void | Promise<void>) {
   const seen = useRef(new Set<number>());
 
   const loadNext = useCallback(async (): Promise<boolean> => {
-    const served = await serveReviewQuestions(SERVE_BATCH);
+    const served = await serveReviewQuestions(SERVE_BATCH, [], knowledgeIds);
     const fresh = served.filter((question) => !seen.current.has(question.id));
     if (fresh.length === 0) return false;
     setQuestions(fresh);
     setIndex(0);
     return true;
-  }, []);
+  }, [knowledgeIds]);
 
   const finish = useCallback((ranOut: boolean) => {
     setExhausted(ranOut);

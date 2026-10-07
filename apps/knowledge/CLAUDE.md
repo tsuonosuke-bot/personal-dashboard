@@ -151,7 +151,7 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 
 ### 整理ページ（問い・示唆・タグ）
 
-- `?view=organize&tab=questions|insights|tags&question=<id>` の1ページで、問い・すべての示唆・タグをタブで切り替える。
+- `?view=organize&tab=questions|insights|tags|notes&question=<id>` の1ページで、問い・すべての示唆・タグ・ノートをタブで切り替える。
   旧URLの `?view=insights` は問いタブ、`?view=tags` はタグタブで開く
 - 画面上でカテゴリ＝分野、タグ＝分野の中の小分類や出典、問い＝分野をまたいで示唆を束ねるもの、と使い分けを示す
 - 問いの状態（`useInsightGroups`）はAppで1つだけ持ち、整理ページ・ナレッジ詳細・採点結果で共有する
@@ -162,6 +162,23 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - AIまとめ（`/api/insights/analyze`）は各テーマに `guiding_question`（問い文の下書き、欠ければ空文字）を返す。
   テーマごとの「この問いとして保存」で、テーマ名と問い文を直してから問いを作り、根拠の示唆をまとめて入れる。
   まとめ結果そのものは保存しない
+
+### ノート（問い・テーマ別、#96）
+
+- 整理ページの「ノート」タブ（`NotesPanel`、`?view=organize&tab=notes&question=<id>` または `&theme=<タグ>`）。
+  左に問いとテーマの一覧（件数つき、`GET /api/notes` → `list_note_topics`）、右に選んだノート
+- テーマ＝自動タグの語彙（`knowledge_tag_vocabulary`、46個）。名前はタグそのもので、AIに名前を付けさせない。
+  テーマのノートは `theme_material_keys` が決める: そのタグを自分で付けた・自動で付いた（外していない）現役のナレッジ全部、
+  そのナレッジの示唆全部、タグの位置（`centroid`）に近い示唆・日記を種類ごとに8件まで（近さ0.65以上、`THEME_MIN_SIMILARITY`）。
+  一覧の件数と1つのノートは同じ関数から出すので食い違わない
+- 外す: テーマの示唆・日記は `theme_material_exclusions` に残り、そのテーマには二度と出ない（`POST /api/notes/theme`、
+  ヘッダー `X-Dashboard-Action: knowledge-note`）。テーマのナレッジは自動タグを外して抜く（`/api/auto-tags`）。
+  自分で付けたタグのナレッジは外せない（編集画面でタグを消す）。外したもの（外した自動タグを含む、`list_theme_exclusions`）から戻せる
+- 問いのノートは問いの材料（#95）と自分で入れた示唆をそのまま使う。外すのも問いの材料と同じ
+- 「このノートを復習」はノートのナレッジのIDを `POST /api/review-queue/serve` の `knowledge_ids`（1〜200件）で渡し、
+  `serve_review_queue_filtered` が期限が来て問題ができているものだけを同じ順で返す。予定は前倒ししない。
+  `serve_review_queue(integer, text[])` は knowledge-quiz スキルが引数の形を確かめるので、ID無しで呼ぶ薄い入口として残す。
+  復習を終えると（「← ノートへ戻る」）そのノートへ戻る。URLには絞り込みを残さない（再読み込みすると通常の復習）
 
 ### 意味検索（`semantic_embeddings`、#45）
 
@@ -211,7 +228,7 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `GET /api/review-queue/status`: 出題待ち・採点待ち・採点エラー・未確認・生成を保留中（`generation_held`）の件数、
   上限到達、直近のバッチ結果
 - `GET /api/review-queue/generation-holds`: 問題を作れず保留中のカード（タイトル・理由・最後の問題文・次の挑戦時刻）
-- `POST /api/review-queue/serve`: 期限が来た出題待ちの問題を優先度順に返す（`limit`、`categories`）。正解は返さない
+- `POST /api/review-queue/serve`: 期限が来た出題待ちの問題を優先度順に返す（`limit`、`categories`、ノートの復習なら `knowledge_ids`）。正解は返さない
 - `POST /api/review-queue/answer`: 回答を受け付け、想定解を返す。四択と無回答はAIを呼ばずにその場で記録して結果も返し、
   それ以外は採点待ち
 - `POST /api/review-queue/retry`: 採点エラーの回答を採点待ちへ戻す
@@ -223,6 +240,7 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
   再学習分だけを続けて生成する（`after_grade`）
 - `POST /api/semantic-search`: 検索語（500文字以内）・種類・件数（1〜50、既定20）を受け取り、検索語だけをVoyageへ送って
   `search_semantic` の結果を返す。検索語をURLやログに残さないようPOSTにし、同一オリジンと `X-Dashboard-Action: semantic-search` を要求する
+- `GET /api/notes`: 問いとテーマの一覧と件数。`GET/POST /api/notes/theme`: テーマのノートと、示唆・日記を外す・戻す
 - `GET /api/semantic-search/status`: 種類ごとの対象数・今の文とモデルでembedding済みの数・最終更新、キーの設定有無
 - `POST /api/embedding-batch`: embeddingバッチ。pg_cronからは `X-Review-Batch-Token`、画面からは同一オリジンと
   `X-Dashboard-Action: semantic-search` で受け付ける。Voyageへは `semantic_sources()` の文を送る（日記の要約を含む）

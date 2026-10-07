@@ -112,6 +112,17 @@ matching Cloudflare Pages build.
   answers "skipped". The unused `daily_journal.embedding*` columns are kept and
   commented. Service_role only.
 
+- `20261008100000_theme_notes.sql` adds notes by question and theme (issue
+  #96). A theme is a tag of the automatic-tag vocabulary. `theme_material_keys`
+  decides what a theme collects (cards with the tag set by hand or
+  automatically, every insight on them, and the insights and journal entries
+  closest to the tag's centroid), `list_theme_materials` / `list_theme_exclusions`
+  show one note, and `list_note_topics` lists every question and theme with
+  counts. `theme_material_exclusions` keeps insights and journal entries
+  removed from a theme. `serve_review_queue_filtered` takes knowledge ids for a
+  note's review; `serve_review_queue(integer, text[])` keeps its signature (the
+  knowledge-quiz skill checks it) and calls it without ids. Service_role only.
+
 - `20261007110000_auto_tags.sql` adds automatic tags (issue #93):
   `knowledge_tag_vocabulary` (46 tags with the centroid embedding of their seed
   cards, reviewed by the owner), `knowledge_auto_tags` (1-3 tags per card;

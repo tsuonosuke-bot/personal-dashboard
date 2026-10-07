@@ -7,7 +7,9 @@ test("quiz view can be opened from and closed back to the URL", async () => {
   assert.match(source, /initialRoute\.kind === "quiz"/);
   assert.match(source, /initialRoute\.kind === "quiz" \? initialRoute\.mode : "custom"/);
   assert.match(source, /replaceRoute\(open \? \{ kind: "quiz", mode \} : \{ kind: "dashboard" \}\)/);
-  assert.match(source, /onExit=\{\(\) => setQuizOpen\(false\)\}/);
+  assert.match(source, /onExit=\{exitReview\}/);
+  // ノートから始めた復習はノートへ戻り、それ以外はダッシュボードへ戻る
+  assert.match(source, /selectNote\(reviewScope\.returnTo\);[\s\S]*?setQuizOpen\(false\);/);
   assert.match(source, /onRecorded=\{reloadAfterReview\}/);
   assert.match(source, /onStart=\{\(\) => setQuizOpen\(true, "daily"\)\}/);
   assert.doesNotMatch(source, /onCustomStart/);
