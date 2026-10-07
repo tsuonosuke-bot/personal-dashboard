@@ -105,3 +105,11 @@ test("答え合わせ画面は、その知識に付いているタグを表示�
   assert.doesNotMatch(question, /\.tags|<dt>タグ/);
   assert.match(css, /\.review-feedback-tags \{ display: flex; flex-wrap: wrap;/);
 });
+
+test("復習の回答はCtrl+Enter（Macは⌘+Enter）でも提出でき、変換中や送信中は送らない", async () => {
+  const view = await readFile(new URL("../src/components/ReviewView.tsx", import.meta.url), "utf8");
+  assert.match(view, /<div className="quiz-question card" onKeyDown=\{submitOnShortcut\}>/);
+  assert.match(view, /event\.key !== "Enter" \|\| !\(event\.metaKey \|\| event\.ctrlKey\)/);
+  assert.match(view, /event\.nativeEvent\.isComposing \|\| event\.repeat \|\| busy/);
+  assert.match(view, /Ctrl\+Enter（Macは⌘\+Enter）でも回答できます/);
+});
