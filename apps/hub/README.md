@@ -159,6 +159,8 @@ Calendar予定の実施管理を有効にする場合は、`supabase/migrations/
 
 共通の接続状態画面を有効にする場合は、公開より先に `supabase/migrations/202609220005_connection_status.sql` を適用します。接続状態の確認用テーブルだけを作成し、ユーザーデータは変更しません。
 
+自分の情報（住まい・家電・デバイス・使っているサービスなど、Issue #85）は `supabase/migrations/202610080001_personal_profile.sql` の `personal_profile` に置きます。画面はなく、チャットの `skills/my-profile` スキルがSupabaseコネクタで読み書きします。スキルは `ai_visible` の行だけを出すビュー `personal_profile_for_ai` から読み、買い替え・引っ越しは `replace_personal_profile` で古い行を終えて新しい行を足します。スキルを変えたら claude.ai のスキル設定へアップロードし直します（このリポジトリが正本）。
+
 - `writing_topics`: 掘り下げたいエッセイ候補
 - `habits` / `habit_logs`: 習慣の定義と実施記録
 - `focus_items`: 継続して意識したい言葉
