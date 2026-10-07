@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { runReviewBatch } from "../lib/api";
 import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
@@ -308,8 +308,16 @@ function ReviewQuestionCard({
   onSkip: () => void;
   onReport: () => void;
 }) {
+  // Ctrl+Enter（Macは⌘+Enter）でも回答する。記述欄でも四択の選択肢でも効くようにカード全体で受ける。
+  const submitOnShortcut = (event: KeyboardEvent) => {
+    if (event.key !== "Enter" || !(event.metaKey || event.ctrlKey)) return;
+    if (event.nativeEvent.isComposing || event.repeat || busy) return;
+    event.preventDefault();
+    onSubmit();
+  };
+
   return (
-    <div className="quiz-question card">
+    <div className="quiz-question card" onKeyDown={submitOnShortcut}>
       <p className="quiz-progress">
         {number}問目
         <span className="quiz-question-format">{question.format}</span>
@@ -345,6 +353,7 @@ function ReviewQuestionCard({
       )}
       <p className="muted review-answer-hint">
         空欄のまま送ると「思い出せなかった」として記録します。スキップした問題は次の復習でまた出ます。
+        Ctrl+Enter（Macは⌘+Enter）でも回答できます。
       </p>
       <div className="quiz-question-actions">
         <button className="text-button review-report" onClick={onReport} disabled={busy}>おかしな問題を報告</button>
