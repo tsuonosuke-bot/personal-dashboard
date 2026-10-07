@@ -534,22 +534,37 @@ export default function App() {
 
       <main className="wrap">
 
-      <div className="page-tools">
-        <button className="page-tool-link" onClick={() => setLogOpen(true)}>学習ログ</button>
-        <button className="page-tool-link" onClick={() => setSearchOpen(true)}>意味で検索</button>
-        <button className="page-tool-link" onClick={() => setOrganizeOpen("questions")}>
-          問い・示唆・タグ（示唆 {insightStore.insights.length}件）
-        </button>
-        <a className="page-tool-link" href="api/export">JSON書き出し</a>
-        <a className="page-tool-link" href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
+      <nav className="page-tools" aria-label="ナレッジのページ">
         <button
-          className="archive-button"
+          className="page-tool page-tool-primary"
+          onClick={() => setOrganizeOpen("questions")}
+          aria-label={`問い・示唆・タグ（示唆 ${insightStore.insights.length}件）`}
+        >
+          <svg className="page-tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3Z" />
+          </svg>
+          <span className="page-tool-label">問い・示唆・タグ</span>
+          <span className="page-tool-count" aria-hidden="true">示唆 {insightStore.insights.length}</span>
+        </button>
+        <button className="page-tool" onClick={() => setLogOpen(true)}>学習ログ</button>
+        <button className="page-tool" onClick={() => setSearchOpen(true)}>意味で検索</button>
+        <button
+          className="page-tool"
           onClick={() => { setActionError(null); setArchiveOpen(true); }}
           disabled={loading || mutating}
+          aria-label={`アーカイブ（${archivedKnowledge.length}件）`}
         >
-          アーカイブ {archivedKnowledge.length}件
+          <span className="page-tool-label">アーカイブ</span>
+          <span className="page-tool-count" aria-hidden="true">{archivedKnowledge.length}</span>
         </button>
-      </div>
+        <details className="page-tool-more">
+          <summary className="page-tool">その他</summary>
+          <div className="page-tool-menu">
+            <a href="api/export">JSON書き出し</a>
+            <a href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
+          </div>
+        </details>
+      </nav>
 
       {loading && <div className="msg">読み込み中...</div>}
       {!loading && error && (
