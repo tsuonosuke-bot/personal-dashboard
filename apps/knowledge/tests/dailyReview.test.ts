@@ -175,6 +175,21 @@ test("復習ペースのマイグレーションは成長倍率・優先度倍�
   assert.match(sql, /c\.completed \+ c\.remaining/);
 });
 
+test("優先度の倍率は再学習の段階別時刻と四択正解後の確認にも掛ける", async () => {
+  const sql = await readFile(
+    new URL("../supabase/migrations/20261007120000_priority_relearning_steps.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(sql, /when 0 then 10\.0 \/ 60[\s\S]*when 1 then 30\.0 \/ 60[\s\S]*when 2 then 6[\s\S]*when 3 then 12[\s\S]*else 24/);
+  assert.match(sql, /v_due_hours := public\.review_relearning_step_hours\(p_quality\)\s+\* public\.review_priority_factor\(k\.priority\)/);
+  assert.match(sql, /v_due_hours := public\.review_relearning_step_hours\(null\)\s+\* public\.review_priority_factor\(k\.priority\)/);
+  // 定着間隔そのものには掛けない
+  assert.doesNotMatch(sql, /v_stability := [^;]*review_priority_factor/);
+  // 優先度だけの編集は再学習中のカードも再計算する
+  assert.doesNotMatch(sql, /and new\.relearning_stage is null/);
+  assert.match(sql, /then public\.review_relearning_step_hours\(new\.relearning_quality\)/);
+});
+
 test("使われなくなった復習の配分見直し（recovery）のDB関数を削除する", async () => {
   const sql = await readFile(new URL("../supabase/migrations/20261004110000_drop_review_recovery.sql", import.meta.url), "utf8");
   assert.match(sql, /drop function if exists public\.apply_review_recovery\(jsonb\);/);
