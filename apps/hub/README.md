@@ -194,7 +194,7 @@ PreviewとProductionの両方に、次の環境変数を設定します。
 | `SUPABASE_URL` | Required | SupabaseプロジェクトURL |
 | `SUPABASE_SECRET_KEY` | Required | Pages Functions専用のsecret key |
 | `ANTHROPIC_API_KEY` | AI整理時 | Pages Functions専用のAnthropic API key |
-| `ANTHROPIC_MODEL` | Optional | Claudeモデル名。既定は `claude-sonnet-5` |
+| `ANTHROPIC_MODEL` | Optional | Claudeモデル名。既定は `claude-sonnet-5-5` |
 | `ANTHROPIC_WORKSPACE_ID` | 条件付き | 複数workspaceに属するAPI keyで利用するworkspace ID |
 | `GOOGLE_OAUTH_CLIENT_ID` | Calendar連携時 | Google OAuth Web client ID |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | Calendar連携時 | Google OAuth Web client secret |
