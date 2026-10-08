@@ -94,12 +94,14 @@ test("AI整理はWantを再確認し、Structured Outputsで提案だけを取�
     const claude = requests[1];
     assert.equal(claude.url.href, "https://api.anthropic.com/v1/messages");
     const claudeHeaders = claude.init?.headers as Record<string, string>;
-    assert.equal(claudeHeaders.Authorization, "Bearer anthropic-test-key");
+    assert.equal(claudeHeaders["x-api-key"], "anthropic-test-key");
+    assert.equal(claudeHeaders.Authorization, undefined);
     assert.equal(claudeHeaders["anthropic-version"], "2023-06-01");
     assert.equal(claudeHeaders["anthropic-workspace-id"], "wrkspc_test");
     const claudeBody = JSON.parse(String(claude.init?.body));
-    assert.equal(claudeBody.model, "claude-sonnet-5");
-    assert.equal(claudeBody.max_tokens, 1_200);
+    assert.equal(claudeBody.model, "claude-sonnet-5-5");
+    assert.equal(claudeBody.max_tokens, 6_000);
+    assert.equal(claudeBody.output_config.effort, "low");
     assert.equal(claudeBody.output_config.format.type, "json_schema");
     assert.equal(claudeBody.output_config.format.schema.additionalProperties, false);
     assert.equal(claudeBody.output_config.format.schema.properties.summary.maxLength, undefined);

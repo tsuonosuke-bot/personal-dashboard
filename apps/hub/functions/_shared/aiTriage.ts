@@ -4,7 +4,9 @@ const MAX_REQUEST_CHARS = 8_000;
 const MAX_CONTENT_CHARS = 2_000;
 const MAX_ANSWERS_CHARS = 2_000;
 const MAX_RESPONSE_CHARS = 20_000;
-const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5";
+const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5";
+/** 思考トークンもmax_tokensに含まれる。振り分けは短い応答なので思考はeffort lowで抑え、上限には余裕を持たせる。 */
+const MAX_OUTPUT_TOKENS = 6_000;
 
 const intents = ["act", "continue", "explore", "keep", "discard"] as const;
 const destinations = ["calendar", "github", "writing", "habit", "knowledge", "focus", "journal", "archive"] as const;
@@ -300,7 +302,7 @@ export async function suggestWantRoutes(env: DashboardEnv, input: AiTriageInput)
     clarification_answers: input.answers,
   };
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${apiKey}`,
+    "x-api-key": apiKey,
     "anthropic-version": "2023-06-01",
     "Content-Type": "application/json",
   };
@@ -312,10 +314,11 @@ export async function suggestWantRoutes(env: DashboardEnv, input: AiTriageInput)
       headers,
       body: JSON.stringify({
         model,
-        max_tokens: 1_200,
+        max_tokens: MAX_OUTPUT_TOKENS,
         system: developerPrompt,
         messages: [{ role: "user", content: JSON.stringify(userPayload) }],
         output_config: {
+          effort: "low",
           format: {
             type: "json_schema",
             schema: suggestionSchema,
