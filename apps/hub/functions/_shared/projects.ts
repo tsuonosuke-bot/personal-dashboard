@@ -9,7 +9,7 @@ const MAX_ACTION_CHARS = 500;
 const MAX_WAITING_FOR_CHARS = 240;
 
 const PROJECT_SELECT = "id,title,outcome,theme,status,target_on,review_on,waiting_for,completed_at,created_at,updated_at";
-const ACTION_SELECT = "id,project_id,project_item_id,content,status,due_on,waiting_for,completed_at,created_at,updated_at";
+const ACTION_SELECT = "id,project_id,project_item_id,content,status,due_on,start_on,sort_order,waiting_for,completed_at,created_at,updated_at";
 const ITEM_SELECT = "id,project_id,source_type,source_id,source_content,treatment,created_at,updated_at";
 
 export const PROJECT_STATUSES = ["active", "waiting", "on_hold", "completed", "dropped"] as const;
@@ -41,6 +41,8 @@ interface ProjectActionRow {
   content?: unknown;
   status?: unknown;
   due_on?: unknown;
+  start_on?: unknown;
+  sort_order?: unknown;
   waiting_for?: unknown;
   completed_at?: unknown;
   created_at?: unknown;
@@ -65,6 +67,8 @@ export interface ProjectAction {
   content: string;
   status: ProjectActionStatus;
   dueOn: string | null;
+  startOn: string | null;
+  sortOrder: number | null;
   waitingFor: string | null;
   completedAt: string | null;
   createdAt: string;
@@ -162,6 +166,19 @@ export interface ProjectActionResolveInput {
   nextActionContent: string | null;
   waitingFor: string | null;
   reviewOn: string | null;
+}
+
+export const PROJECT_ACTION_OPERATIONS = ["edit", "complete", "cancel", "pin", "move_up", "move_down"] as const;
+export type ProjectActionOperation = (typeof PROJECT_ACTION_OPERATIONS)[number];
+
+export interface ProjectActionUpdateInput {
+  actionId: number;
+  originalUpdatedAt: string;
+  operation: ProjectActionOperation;
+  /** editのときだけ値を持つ。それ以外の操作ではnull。 */
+  content: string | null;
+  dueOn: string | null;
+  startOn: string | null;
 }
 
 type ValidationResult<T> =
@@ -282,6 +299,11 @@ async function projectResponseError(response: Response, source: string): Promise
     ["ACTION_CONFLICT", "PROJECT_ACTION_CONFLICT", 409],
     ["PROJECT_NOT_ACTIVE", "PROJECT_NOT_ACTIVE", 409],
     ["PROJECT_NOT_RESUMABLE", "PROJECT_NOT_RESUMABLE", 409],
+    ["ACTION_DATES_INVALID", "PROJECT_ACTION_DATES_INVALID", 400],
+    ["project_actions_start_before_due", "PROJECT_ACTION_DATES_INVALID", 400],
+    ["ACTION_CONTENT_REQUIRED", "PROJECT_ACTION_INVALID", 400],
+    ["ACTION_OPERATION_INVALID", "PROJECT_ACTION_INVALID", 400],
+    ["ACTION_MOVE_OUT_OF_RANGE", "PROJECT_ACTION_CONFLICT", 409],
     ["QUEUED_ACTION_NOT_FOUND", "PROJECT_ACTION_CONFLICT", 409],
     ["NEXT_ACTION_REQUIRED", "PROJECT_ACTION_INVALID", 400],
     ["WAITING_DETAILS_REQUIRED", "PROJECT_ACTION_INVALID", 400],
@@ -350,19 +372,26 @@ function normalizeActionRow(row: ProjectActionRow): ProjectAction {
   const projectItemId = row.project_item_id === null ? null : positiveInteger(row.project_item_id);
   const content = requiredText(row.content, MAX_ACTION_CHARS);
   const dueOn = optionalDate(row.due_on);
+  // start_on / sort_order はmigration 202610090001 より前の行・応答には無いので、欠けていればnullとして扱う。
+  const startOn = row.start_on === undefined ? null : optionalDate(row.start_on);
+  const sortOrder = row.sort_order === undefined || row.sort_order === null ? null
+    : Number.isSafeInteger(row.sort_order) ? row.sort_order as number : undefined;
   const waitingFor = optionalText(row.waiting_for, MAX_WAITING_FOR_CHARS);
   const completedAt = row.completed_at === null ? null : timestamp(row.completed_at);
   const createdAt = timestamp(row.created_at);
   const updatedAt = timestamp(row.updated_at);
   if (!id || !projectId || (row.project_item_id !== null && !projectItemId) || !content
-    || dueOn === undefined || waitingFor === undefined || !isActionStatus(row.status)
+    || dueOn === undefined || startOn === undefined || sortOrder === undefined
+    || waitingFor === undefined || !isActionStatus(row.status)
     || (row.completed_at !== null && !completedAt) || !createdAt || !updatedAt) {
     throw new DashboardError("SUPABASE_RESPONSE_INVALID", "project_actions returned invalid data.");
   }
   if ((row.status === "waiting" && !waitingFor) || (row.status === "done" && !completedAt)) {
     throw new DashboardError("SUPABASE_RESPONSE_INVALID", "project_actions returned inconsistent state.");
   }
-  return { id, projectId, projectItemId, content, status: row.status, dueOn, waitingFor, completedAt, createdAt, updatedAt };
+  return {
+    id, projectId, projectItemId, content, status: row.status, dueOn, startOn, sortOrder, waitingFor, completedAt, createdAt, updatedAt,
+  };
 }
 
 function normalizeItemRow(row: ProjectItemRow): ProjectItem {
@@ -389,6 +418,16 @@ function normalizeItemRow(row: ProjectItemRow): ProjectItem {
 }
 
 const actionOrder: Record<ProjectActionStatus, number> = { next: 0, queued: 1, waiting: 2, done: 3, cancelled: 4 };
+
+/** あとで行うActionは、画面で並べ替えた順（sort_order昇順、未設定は追加順で末尾）に並べる。 */
+function compareQueued(left: ProjectAction, right: ProjectAction): number {
+  if (left.sortOrder !== right.sortOrder) {
+    if (left.sortOrder === null) return 1;
+    if (right.sortOrder === null) return -1;
+    return left.sortOrder - right.sortOrder;
+  }
+  return left.createdAt.localeCompare(right.createdAt) || left.id - right.id;
+}
 
 export function normalizeProjects(
   projectRows: ProjectRow[],
@@ -419,6 +458,7 @@ export function normalizeProjects(
   const projects: Project[] = baseProjects.map((project) => {
     const projectActions = (actionsByProject.get(project.id) || []).sort((left, right) =>
       actionOrder[left.status] - actionOrder[right.status]
+      || (left.status === "queued" ? compareQueued(left, right) : 0)
       || right.updatedAt.localeCompare(left.updatedAt)
       || right.id - left.id);
     const projectItems = (itemsByProject.get(project.id) || []).sort((left, right) =>
@@ -460,7 +500,9 @@ export async function loadProjects(env: DashboardEnv) {
 
 export function validateProjectMutationRequest(
   request: Request,
-  expectedHeader: "project-create" | "project-update" | "project-action-create" | "project-action-resolve" | "project-source-route" | "project-item-process",
+  expectedHeader:
+    | "project-create" | "project-update" | "project-action-create" | "project-action-resolve" | "project-action-update"
+    | "project-source-route" | "project-item-process",
 ): { status: number; error: string } | null {
   let expectedOrigin: string;
   try {
@@ -662,6 +704,41 @@ export async function readProjectActionResolveInput(request: Request): Promise<V
   };
 }
 
+export async function readProjectActionUpdateInput(request: Request): Promise<ValidationResult<ProjectActionUpdateInput>> {
+  const parsed = await readJson(request);
+  if (!parsed.ok) return parsed;
+  if (!hasExactKeys(parsed.value, ["actionId", "originalUpdatedAt", "operation", "content", "dueOn", "startOn"])) {
+    return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
+  }
+  const actionId = positiveInteger(parsed.value.actionId);
+  const originalUpdatedAt = timestamp(parsed.value.originalUpdatedAt);
+  const operation = parsed.value.operation;
+  if (!actionId || !originalUpdatedAt || typeof operation !== "string"
+    || !(PROJECT_ACTION_OPERATIONS as readonly string[]).includes(operation)) {
+    return { ok: false, status: 400, error: "Actionの操作内容が正しくありません。" };
+  }
+  if (operation !== "edit") {
+    if (parsed.value.content !== null || parsed.value.dueOn !== null || parsed.value.startOn !== null) {
+      return { ok: false, status: 400, error: "内容と日付は編集するときだけ送信してください。" };
+    }
+    return {
+      ok: true,
+      value: { actionId, originalUpdatedAt, operation: operation as ProjectActionOperation, content: null, dueOn: null, startOn: null },
+    };
+  }
+  const content = requiredText(parsed.value.content, MAX_ACTION_CHARS);
+  const dueOn = optionalDate(parsed.value.dueOn);
+  const startOn = optionalDate(parsed.value.startOn);
+  if (!content) return { ok: false, status: 400, error: `Actionは1〜${MAX_ACTION_CHARS}文字で入力してください。` };
+  if (dueOn === undefined || startOn === undefined) {
+    return { ok: false, status: 400, error: "期日と着手日はYYYY-MM-DD形式で入力してください。" };
+  }
+  if (dueOn && startOn && startOn > dueOn) {
+    return { ok: false, status: 400, error: "着手日は期日より前の日付にしてください。" };
+  }
+  return { ok: true, value: { actionId, originalUpdatedAt, operation: "edit", content, dueOn, startOn } };
+}
+
 export async function createProject(env: DashboardEnv, input: ProjectCreateInput): Promise<void> {
   const connectionInfo = connection(env);
   const endpoint = new URL("/rest/v1/rpc/create_project_with_next_action", connectionInfo.url);
@@ -791,6 +868,24 @@ export async function resolveProjectAction(env: DashboardEnv, input: ProjectActi
   if (!response.ok) throw await projectResponseError(response, "resolve_project_next_action");
 }
 
+export async function updateProjectAction(env: DashboardEnv, input: ProjectActionUpdateInput): Promise<void> {
+  const connectionInfo = connection(env);
+  const endpoint = new URL("/rest/v1/rpc/update_project_action", connectionInfo.url);
+  const response = await supabaseFetch(connectionInfo, endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      p_action_id: input.actionId,
+      p_action_updated_at: input.originalUpdatedAt,
+      p_operation: input.operation,
+      p_content: input.content,
+      p_due_on: input.dueOn,
+      p_start_on: input.startOn,
+    }),
+  });
+  if (!response.ok) throw await projectResponseError(response, "update_project_action");
+}
+
 export function publicProjectError(error: unknown) {
   const code = error instanceof DashboardError ? error.code : "PROJECT_REQUEST_FAILED";
   const status = error instanceof DashboardError ? error.status : 502;
@@ -806,10 +901,11 @@ export function publicProjectError(error: unknown) {
     PROJECT_NOT_ACTIVE: "このProjectは進行中ではありません。最新状態を確認してください。",
     PROJECT_NOT_RESUMABLE: "このProjectは再開できる状態ではありません。",
     PROJECT_ACTION_INVALID: "Actionの状態変更に必要な情報が不足しています。",
+    PROJECT_ACTION_DATES_INVALID: "着手日は期日より前の日付にしてください。",
     PROJECT_SOURCE_CONFLICT: "元のInboxまたはWantは別の画面で変更されています。再読み込みしてからやり直してください。",
     PROJECT_SOURCE_ALREADY_LINKED: "このInboxまたはWantは、すでに別のProjectへ紐づいています。",
     PROJECT_SOURCE_INVALID: "Projectへ紐づけられない種類のデータです。",
-    PROJECT_NOT_OPEN: "完了・見送り済みのProjectには紐づけられません。",
+    PROJECT_NOT_OPEN: "完了・見送り済みのProjectには追加・変更できません。",
     PROJECT_ITEM_CONFLICT: "この関連アイテムは別の画面で整理されています。再読み込みしてからやり直してください。",
     PROJECT_ITEM_INVALID: "関連アイテムの整理に必要な情報が不足しています。",
     PROJECT_REQUEST_FAILED: "Projectを処理できませんでした。",

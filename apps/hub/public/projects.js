@@ -11,6 +11,8 @@ const state = {
   selectedId: null,
   editorMode: "create",
   resolveProjectId: null,
+  /** 詳細で編集フォームを開いているActionのID（#153）。 */
+  editingActionId: null,
 };
 
 const ids = [
@@ -70,6 +72,30 @@ function futureDate(days) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function todayTokyo() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo" }).format(new Date());
+}
+
+function dayDiff(from, to) {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
+/** Actionの着手日・期日を短いチップにする。期限超過・3日以内・着手日到来を色で分ける（#153）。 */
+function actionDateChips(action, today) {
+  const chips = [];
+  if (action.startOn) {
+    const ready = action.startOn <= today;
+    chips.push(`<span class="date-chip${ready ? " start-ready" : ""}">着手 ${displayDate(action.startOn)}</span>`);
+  }
+  if (action.dueOn) {
+    const days = dayDiff(today, action.dueOn);
+    const tone = days < 0 ? " overdue" : days <= 3 ? " soon" : "";
+    const note = days < 0 ? `${-days}日超過` : days === 0 ? "今日" : `あと${days}日`;
+    chips.push(`<span class="date-chip${tone}">期日 ${displayDate(action.dueOn)}（${note}）</span>`);
+  }
+  return chips.length ? `<span class="date-chips">${chips.join("")}</span>` : "";
 }
 
 function showToast(message) {
@@ -155,7 +181,7 @@ function statusBadge(project) {
 
 function actionPanel(project) {
   if (project.nextAction) {
-    return `<div class="next-action"><small>NEXT ACTION</small><strong>${escapeHtml(project.nextAction.content)}</strong></div>`;
+    return `<div class="next-action"><small>NEXT ACTION</small><strong>${escapeHtml(project.nextAction.content)}</strong>${actionDateChips(project.nextAction, todayTokyo())}</div>`;
   }
   if (project.status === "waiting") {
     return `<div class="next-action waiting"><small>WAITING</small><strong>${escapeHtml(project.waitingFor)} · ${displayDate(project.reviewOn)}再確認</strong></div>`;
@@ -385,11 +411,52 @@ function relatedItemRow(item) {
   </div>`;
 }
 
+function actionEditForm(action, cancellable) {
+  return `<form class="action-edit-form" data-action-edit="${action.id}">
+    <label class="action-edit-content"><span>内容</span><input name="content" maxlength="500" required value="${escapeHtml(action.content)}" /></label>
+    <label><span>着手日</span><input name="startOn" type="date" value="${escapeHtml(action.startOn || "")}" /></label>
+    <label><span>期日</span><input name="dueOn" type="date" value="${escapeHtml(action.dueOn || "")}" /></label>
+    <div class="action-edit-buttons">
+      ${cancellable ? `<button class="danger-link" type="button" data-action-op="cancel" data-action-id="${action.id}">このActionを取り消す</button>` : ""}
+      <button type="button" data-action-edit-close>キャンセル</button>
+      <button class="primary" type="submit">保存</button>
+    </div>
+  </form>`;
+}
+
+/** あとで行うAction1件。並べ替え・今やる・完了・編集をその場で行う（#153）。 */
+function queuedActionRow(action, index, count, project, today) {
+  const errorRow = `<p class="form-error" data-action-error="${action.id}" role="alert" hidden></p>`;
+  if (state.editingActionId === action.id) {
+    return `<div class="task-row editing" data-action-row="${action.id}">${actionEditForm(action, true)}${errorRow}</div>`;
+  }
+  const pin = project.status === "active"
+    ? `<button type="button" data-action-op="pin" data-action-id="${action.id}">今やる</button>`
+    : "";
+  return `<div class="task-row" data-action-row="${action.id}">
+    <div class="task-order">
+      <button type="button" data-action-op="move_up" data-action-id="${action.id}" aria-label="上へ移動" ${index === 0 ? "disabled" : ""}>↑</button>
+      <button type="button" data-action-op="move_down" data-action-id="${action.id}" aria-label="下へ移動" ${index === count - 1 ? "disabled" : ""}>↓</button>
+    </div>
+    <div class="task-main"><span>${escapeHtml(action.content)}</span>${actionDateChips(action, today)}</div>
+    <div class="task-buttons">
+      ${pin}
+      <button type="button" data-action-op="complete" data-action-id="${action.id}">完了</button>
+      <button type="button" data-action-edit-open="${action.id}">編集</button>
+    </div>
+    ${errorRow}
+  </div>`;
+}
+
 function renderDetail(project) {
+  const today = todayTokyo();
   const queued = project.actions.filter((action) => action.status === "queued");
   const completed = project.actions.filter((action) => action.status === "done");
-  const current = project.nextAction
-    ? `<div class="detail-next"><strong>${escapeHtml(project.nextAction.content)}</strong><button id="detailResolveButton" type="button">完了して次を決める</button></div>`
+  const next = project.nextAction;
+  const current = next && state.editingActionId === next.id
+    ? `<div class="detail-next editing" data-action-row="${next.id}">${actionEditForm(next, false)}<p class="form-error" data-action-error="${next.id}" role="alert" hidden></p></div>`
+    : next
+    ? `<div class="detail-next" data-action-row="${next.id}"><strong>${escapeHtml(next.content)}</strong>${actionDateChips(next, today)}<div class="detail-next-buttons"><button id="detailResolveButton" type="button">完了して次を決める</button><button class="quiet" type="button" data-action-edit-open="${next.id}">編集</button></div><p class="form-error" data-action-error="${next.id}" role="alert" hidden></p></div>`
     : project.status === "waiting"
       ? `<div class="detail-next"><strong>${escapeHtml(project.waitingFor)}を待っています。${displayDate(project.reviewOn)}に再確認します。</strong></div>`
       : project.status === "on_hold"
@@ -399,7 +466,7 @@ function renderDetail(project) {
     ? `<form class="inline-action-form" id="detailActionForm"><input id="detailActionInput" maxlength="500" required placeholder="${project.status === "active" ? "あとで行うAction候補" : "再開時のNext Action"}" /><button type="submit">${project.status === "active" ? "候補に追加" : "次を決めて再開"}</button></form><p class="form-error" id="detailActionError" role="alert" hidden></p>`
     : "";
   const queuedRows = queued.length
-    ? `<div class="action-list">${queued.map((action) => `<div class="action-row"><span>${escapeHtml(action.content)}</span><small>候補</small></div>`).join("")}</div>`
+    ? `<div class="action-list">${queued.map((action, index) => queuedActionRow(action, index, queued.length, project, today)).join("")}</div>`
     : '<p class="empty-detail">Action候補はありません。</p>';
   // 完了Actionは新しい順に10件ずつ表示し、古い履歴まで「さらに表示」でたどれる（#140）。
   const shownCompleted = completed.slice(0, state.completedShown);
@@ -436,6 +503,29 @@ function renderDetail(project) {
   document.getElementById("detailEditButton")?.addEventListener("click", () => openProjectEditor(project));
   document.getElementById("detailResolveButton")?.addEventListener("click", () => openResolve(project));
   document.getElementById("detailActionForm")?.addEventListener("submit", (event) => saveProjectAction(event, project.id));
+  els.detailBody.querySelectorAll("[data-action-edit-open]").forEach((button) => button.addEventListener("click", () => {
+    state.editingActionId = Number(button.dataset.actionEditOpen);
+    renderDetail(project);
+    els.detailBody.querySelector(`[data-action-edit="${state.editingActionId}"] input[name=content]`)?.focus();
+  }));
+  els.detailBody.querySelectorAll("[data-action-edit-close]").forEach((button) => button.addEventListener("click", () => {
+    state.editingActionId = null;
+    renderDetail(project);
+  }));
+  els.detailBody.querySelectorAll("[data-action-edit]").forEach((form) => form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    updateAction(project.id, Number(form.dataset.actionEdit), "edit", {
+      content: String(data.get("content") || ""),
+      startOn: String(data.get("startOn") || "") || null,
+      dueOn: String(data.get("dueOn") || "") || null,
+    });
+  }));
+  els.detailBody.querySelectorAll("[data-action-op]").forEach((button) => button.addEventListener("click", () => {
+    const operation = button.dataset.actionOp;
+    if (operation === "cancel" && !window.confirm("このActionを取り消しますか？")) return;
+    updateAction(project.id, Number(button.dataset.actionId), operation);
+  }));
   els.detailBody.querySelectorAll("[data-project-item-action]").forEach((form) => form.addEventListener("submit", (event) => {
     event.preventDefault();
     const input = form.querySelector("input");
@@ -449,6 +539,7 @@ function renderDetail(project) {
 function openDetail(project, updateRoute = true) {
   if (!project) return;
   if (state.selectedId !== project.id) state.completedShown = COMPLETED_PAGE;
+  if (state.selectedId !== project.id) state.editingActionId = null;
   state.selectedId = project.id;
   renderDetail(project);
   els.detailModal.hidden = false;
@@ -495,6 +586,47 @@ async function saveProjectAction(event, projectId) {
     setFormError(errorElement, error instanceof Error ? error.message : "Actionを保存できませんでした。");
   } finally {
     submit.disabled = false;
+  }
+}
+
+const actionToasts = {
+  edit: "Actionを保存しました。",
+  complete: "Actionを完了しました。",
+  cancel: "Actionを取り消しました。",
+  pin: "Next Actionにしました。",
+};
+
+async function updateAction(projectId, actionId, operation, fields = { content: null, dueOn: null, startOn: null }) {
+  const project = getProject(projectId);
+  const action = project?.actions.find((candidate) => candidate.id === actionId);
+  const row = els.detailBody.querySelector(`[data-action-row="${actionId}"]`);
+  const errorElement = row?.querySelector(`[data-action-error="${actionId}"]`);
+  if (!project || !action || !row) return;
+  if (operation === "edit" && fields.startOn && fields.dueOn && fields.startOn > fields.dueOn) {
+    if (errorElement) setFormError(errorElement, "着手日は期日より前の日付にしてください。");
+    return;
+  }
+  const controls = row.querySelectorAll("button, input");
+  controls.forEach((control) => { control.disabled = true; });
+  if (errorElement) setFormError(errorElement, "");
+  try {
+    const response = await fetch("/api/project-actions", {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: { Accept: "application/json", "Content-Type": "application/json", "X-Dashboard-Action": "project-action-update" },
+      body: JSON.stringify({ actionId, originalUpdatedAt: action.updatedAt, operation, ...fields }),
+    });
+    const payload = await readApiJson(response);
+    if (!response.ok) throw new Error(payload.error || "Actionを更新できませんでした。");
+    if (operation === "edit" || operation === "cancel") state.editingActionId = null;
+    setData(payload);
+    const fresh = getProject(project.id);
+    if (fresh) renderDetail(fresh);
+    if (actionToasts[operation]) showToast(actionToasts[operation]);
+  } catch (error) {
+    controls.forEach((control) => { control.disabled = false; });
+    if (errorElement) setFormError(errorElement, error instanceof Error ? error.message : "Actionを更新できませんでした。");
+    else showToast(error instanceof Error ? error.message : "Actionを更新できませんでした。");
   }
 }
 

@@ -280,6 +280,68 @@
 :root[data-theme="dark"] .related-action-form button {
   border-color: var(--accent);
 }
+:root[data-theme="dark"] .date-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+}
+:root[data-theme="dark"] .date-chip.start-ready {
+  border-color: rgba(216, 158, 50, 0.4);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .date-chip.soon {
+  border-color: rgba(216, 158, 50, 0.5);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .date-chip.overdue {
+  border-color: rgba(186, 94, 79, 0.45);
+  background: var(--attention-soft);
+  color: var(--attention);
+}
+:root[data-theme="dark"] .detail-next button.quiet {
+  border-color: var(--line);
+  color: var(--ink);
+}
+:root[data-theme="dark"] .task-row {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+:root[data-theme="dark"] .task-row.editing {
+  border-color: var(--accent);
+}
+:root[data-theme="dark"] .task-order button {
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--muted);
+}
+:root[data-theme="dark"] .task-buttons button {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .action-edit-form label {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .action-edit-buttons button {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+}
+:root[data-theme="dark"] .action-edit-buttons button.primary {
+  border-color: var(--accent);
+  background: var(--accent--light, var(--accent));
+  color: #fff;
+}
+:root[data-theme="dark"] .action-edit-buttons .danger-link {
+  border-color: transparent;
+  background: transparent;
+  color: var(--danger);
+}
 :root[data-theme="dark"] .empty-detail {
   border: 1px dashed var(--line);
   border-radius: 8px;

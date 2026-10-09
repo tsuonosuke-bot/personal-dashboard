@@ -45,8 +45,8 @@ Projectを単なる保管フォルダにせず、完了条件と現在のNext Ac
 
 ### Action
 
-- `next`: 現在着手するAction。1 Projectにつき最大1件。
-- `queued`: あとで行うAction候補。
+- `next`: 現在着手するAction（「今やる」にピン留めした1件）。1 Projectにつき最大1件。
+- `queued`: あとで行うAction候補。画面で並べ替えた順（`sort_order`）に並ぶ。
 - `waiting`: Action単位の待機。
 - `done`: 完了。
 - `cancelled`: 取り消し。
