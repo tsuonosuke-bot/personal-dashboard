@@ -5,6 +5,9 @@ const state = {
   view: "active",
   attentionOnly: false,
   search: "",
+  sort: "recommended",
+  /** 詳細で表示中の完了Actionの件数。Projectを開き直すと先頭10件に戻す。 */
+  completedShown: 10,
   selectedId: null,
   editorMode: "create",
   resolveProjectId: null,
@@ -12,7 +15,7 @@ const state = {
 
 const ids = [
   "sourceBadge", "refreshButton", "addProjectButton", "activeCount", "attentionCount", "waitingCount", "completedCount",
-  "activeTabCount", "waitingTabCount", "completedTabCount", "searchInput", "clearFilters", "resultCount",
+  "activeTabCount", "waitingTabCount", "completedTabCount", "searchInput", "sortSelect", "sortNote", "clearFilters", "resultCount",
   "loadingState", "errorState", "errorMessage", "retryButton", "projectList",
   "projectModal", "projectBackdrop", "projectClose", "projectCancel", "projectForm", "projectEditorKicker", "projectEditorTitle",
   "projectTitleInput", "projectOutcomeInput", "projectThemeInput", "projectTargetInput", "projectNextActionField",
@@ -46,6 +49,12 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function completedDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "numeric", day: "numeric" });
 }
 
 function displayDate(value) {
@@ -108,6 +117,35 @@ function projectsForView() {
   });
 }
 
+const COMPLETED_PAGE = 10;
+
+/** 並び順ごとの説明。要確認をどう扱うかを一覧の上に示す（#142）。 */
+const sortNotes = {
+  recommended: "要確認を先頭にまとめ、その中で目標日が近い順に並べています",
+  target: "目標日が近い順（未設定は最後）。要確認も日付どおりに並び、バッジで見分けます",
+  review: "再確認・見直し日が近い順（未設定は最後）。要確認も日付どおりに並び、バッジで見分けます",
+  updated: "更新が新しい順。要確認も更新日どおりに並び、バッジで見分けます",
+};
+
+function byDate(field) {
+  return (left, right) => {
+    const a = left[field];
+    const b = right[field];
+    if (a && b && a !== b) return a.localeCompare(b);
+    if (a !== b) return a ? -1 : 1;
+    if (left.needsAttention !== right.needsAttention) return left.needsAttention ? -1 : 1;
+    return right.updatedAt.localeCompare(left.updatedAt) || right.id - left.id;
+  };
+}
+
+/** APIの並び（要確認 → 目標日 → 更新）を「おすすめ」とし、ほかは日付で並べ替える。 */
+function sortProjects(projects, sort) {
+  if (sort === "target") return [...projects].sort(byDate("targetOn"));
+  if (sort === "review") return [...projects].sort(byDate("reviewOn"));
+  if (sort === "updated") return [...projects].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt) || right.id - left.id);
+  return projects;
+}
+
 function statusBadge(project) {
   if (project.needsAttention) return '<span class="badge attention">要確認</span>';
   if (project.status === "waiting" || project.status === "on_hold") return `<span class="badge waiting">${statusLabels[project.status]}</span>`;
@@ -137,6 +175,7 @@ function projectCard(project) {
   const meta = [
     project.theme ? `テーマ: ${escapeHtml(project.theme)}` : null,
     project.targetOn ? `目標 ${displayDate(project.targetOn)}` : null,
+    project.reviewOn && project.status !== "active" ? `再確認 ${displayDate(project.reviewOn)}` : null,
     queued ? `Action候補 ${queued}` : null,
     unprocessed ? `未整理 ${unprocessed}` : null,
   ].filter(Boolean).map((value) => `<span>${value}</span>`).join("");
@@ -179,7 +218,8 @@ function renderSummary() {
 
 function renderList() {
   if (!state.data) return;
-  const projects = projectsForView();
+  const projects = sortProjects(projectsForView(), state.sort);
+  els.sortNote.textContent = sortNotes[state.sort];
   els.resultCount.textContent = `${projects.length}件${state.attentionOnly ? " · 要確認のみ" : ""}`;
   els.clearFilters.hidden = !state.search && !state.attentionOnly;
   els.projectList.innerHTML = projects.length
@@ -361,6 +401,14 @@ function renderDetail(project) {
   const queuedRows = queued.length
     ? `<div class="action-list">${queued.map((action) => `<div class="action-row"><span>${escapeHtml(action.content)}</span><small>候補</small></div>`).join("")}</div>`
     : '<p class="empty-detail">Action候補はありません。</p>';
+  // 完了Actionは新しい順に10件ずつ表示し、古い履歴まで「さらに表示」でたどれる（#140）。
+  const shownCompleted = completed.slice(0, state.completedShown);
+  const remainingCompleted = completed.length - shownCompleted.length;
+  const completedRows = completed.length
+    ? `<div class="action-list">${shownCompleted.map((action) => `<div class="action-row"><span>${escapeHtml(action.content)}</span><small>${action.completedAt ? `完了 ${completedDate(action.completedAt)}` : "完了"}</small></div>`).join("")}</div>${remainingCompleted > 0
+      ? `<div class="history-more"><button type="button" data-completed-more="${COMPLETED_PAGE}">さらに${Math.min(COMPLETED_PAGE, remainingCompleted)}件表示</button><button type="button" data-completed-more="all">すべて表示（残り${remainingCompleted}件）</button></div>`
+      : ""}`
+    : '<p class="empty-detail">完了したActionはまだありません。</p>';
   const relatedRows = project.items.length
     ? `<div class="related-list">${project.items.map(relatedItemRow).join("")}</div>`
     : '<p class="empty-detail">Inbox／Wantから関連づけた項目はまだありません。</p>';
@@ -379,8 +427,12 @@ function renderDetail(project) {
     <section class="detail-section"><header><h3>現在のNext Action</h3></header>${current}</section>
     <section class="detail-section"><header><h3>あとで行うAction</h3><small>${queued.length}件</small></header>${queuedRows}${actionForm}</section>
     <section class="detail-section"><header><h3>関連するInbox／Wants</h3><small>${project.items.length}件</small></header>${relatedRows}</section>
-    <section class="detail-section"><header><h3>完了履歴</h3><small>${completed.length}件</small></header>${completed.length ? `<div class="action-list">${completed.slice(0, 10).map((action) => `<div class="action-row"><span>${escapeHtml(action.content)}</span><small>完了</small></div>`).join("")}</div>` : '<p class="empty-detail">完了したActionはまだありません。</p>'}</section>`;
+    <section class="detail-section" id="completedHistory"><header><h3>完了履歴</h3><small>${completed.length}件${completed.length > shownCompleted.length ? `中 ${shownCompleted.length}件を表示` : ""}</small></header>${completedRows}</section>`;
 
+  els.detailBody.querySelectorAll("[data-completed-more]").forEach((button) => button.addEventListener("click", () => {
+    state.completedShown = button.dataset.completedMore === "all" ? Infinity : state.completedShown + COMPLETED_PAGE;
+    renderDetail(project);
+  }));
   document.getElementById("detailEditButton")?.addEventListener("click", () => openProjectEditor(project));
   document.getElementById("detailResolveButton")?.addEventListener("click", () => openResolve(project));
   document.getElementById("detailActionForm")?.addEventListener("submit", (event) => saveProjectAction(event, project.id));
@@ -396,6 +448,7 @@ function renderDetail(project) {
 
 function openDetail(project, updateRoute = true) {
   if (!project) return;
+  if (state.selectedId !== project.id) state.completedShown = COMPLETED_PAGE;
   state.selectedId = project.id;
   renderDetail(project);
   els.detailModal.hidden = false;
@@ -561,6 +614,7 @@ els.addProjectButton.addEventListener("click", () => openProjectEditor());
 els.refreshButton.addEventListener("click", loadProjects);
 els.retryButton.addEventListener("click", loadProjects);
 els.searchInput.addEventListener("input", () => { state.search = els.searchInput.value; renderList(); });
+els.sortSelect.addEventListener("change", () => { state.sort = els.sortSelect.value; renderList(); });
 els.clearFilters.addEventListener("click", () => {
   state.search = "";
   state.attentionOnly = false;

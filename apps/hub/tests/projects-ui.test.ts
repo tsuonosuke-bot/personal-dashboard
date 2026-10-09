@@ -92,3 +92,28 @@ test("Projects release stays migration-first and has a read-only verification qu
   assert.doesNotMatch(verification, /\b(insert|update|delete|drop|alter|create|truncate)\b/i);
   assert.match(packageJson, /"predeploy:check": "npm test && npm run check && npm run build"/);
 });
+
+test("Project一覧は目標日・再確認日・更新順に並べ替えられ、要確認の扱いを並び順ごとに示す", async () => {
+  const [html, script] = await Promise.all([
+    readFile(new URL("../public/projects/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/projects.js", import.meta.url), "utf8"),
+  ]);
+  assert.match(html, /<select id="sortSelect">[\s\S]*value="recommended">おすすめ（要確認を先に）[\s\S]*value="target">目標日が近い順[\s\S]*value="review">再確認日が近い順[\s\S]*value="updated">更新が新しい順/);
+  assert.match(html, /id="sortNote"/);
+  assert.match(script, /const projects = sortProjects\(projectsForView\(\), state\.sort\)/);
+  assert.match(script, /if \(sort === "target"\) return \[\.\.\.projects\]\.sort\(byDate\("targetOn"\)\)/);
+  assert.match(script, /if \(sort === "review"\) return \[\.\.\.projects\]\.sort\(byDate\("reviewOn"\)\)/);
+  // 未設定の日付は最後、同じ日付なら要確認を先に
+  assert.match(script, /if \(a !== b\) return a \? -1 : 1;\n    if \(left\.needsAttention !== right\.needsAttention\)/);
+  assert.match(script, /要確認も日付どおりに並び、バッジで見分けます/);
+});
+
+test("Project詳細の完了履歴は10件ずつ、またはすべてを表示して古い履歴までたどれる", async () => {
+  const script = await readFile(new URL("../public/projects.js", import.meta.url), "utf8");
+  assert.doesNotMatch(script, /completed\.slice\(0, 10\)/);
+  assert.match(script, /const shownCompleted = completed\.slice\(0, state\.completedShown\)/);
+  assert.match(script, /data-completed-more="\$\{COMPLETED_PAGE\}"/);
+  assert.match(script, /data-completed-more="all">すべて表示（残り\$\{remainingCompleted\}件）/);
+  assert.match(script, /state\.completedShown = button\.dataset\.completedMore === "all" \? Infinity : state\.completedShown \+ COMPLETED_PAGE/);
+  assert.match(script, /if \(state\.selectedId !== project\.id\) state\.completedShown = COMPLETED_PAGE/);
+});
