@@ -261,6 +261,58 @@
 :root[data-theme="dark"] .refresh-button {
   color: #a4c7da;
 }
+:root[data-theme="dark"] .bulk-select {
+  accent-color: #a4c7da;
+}
+:root[data-theme="dark"] .bulk-category-row {
+  border: 1px solid #42525a;
+  border-radius: 10px;
+  background: #1d2122;
+  color: #a4c7da;
+}
+:root[data-theme="dark"] .bulk-category-row label {
+  color: #b6bec6;
+}
+:root[data-theme="dark"] .bulk-category-row select {
+  border: 1px solid #474e52;
+  border-radius: 8px;
+  background: #292929;
+  color: #d4dade;
+}
+:root[data-theme="dark"] .bulk-category-confirm {
+  border: 1px solid #42525a;
+  border-radius: 10px;
+  background: #1d2122;
+  color: #d4dade;
+}
+:root[data-theme="dark"] .bulk-category-confirm li {
+  border-radius: 7px;
+  background: #292929;
+  color: #b6bec6;
+}
+:root[data-theme="dark"] .bulk-category-more,
+:root[data-theme="dark"] .bulk-category-note {
+  color: #a0a8ae;
+}
+:root[data-theme="dark"] .bulk-category-result {
+  border-radius: 8px;
+}
+:root[data-theme="dark"] .bulk-category-result.ok {
+  border: 1px solid #41554a;
+  background: #1b221e;
+  color: #abdabe;
+}
+:root[data-theme="dark"] .bulk-category-result.warn {
+  border: 1px solid #605034;
+  background: #262118;
+  color: #f1cc94;
+}
+:root[data-theme="dark"] .bulk-category-result button {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+}
 :root[data-theme="dark"] .filter-scope-notice {
   border: 1px solid #46545c;
   border-radius: 8px;

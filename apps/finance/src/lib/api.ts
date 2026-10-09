@@ -4,6 +4,16 @@ import { readApiResponse, responseMessage } from './http'
 
 type ErrorBody = { error?: unknown }
 
+/** APIが返したエラー。409（他画面での更新）を一括処理で見分けるためにstatusを持つ。 */
+export class ApiError extends Error {
+  readonly status: number
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 function appPath(path: string): string {
   if (typeof window === 'undefined') return path
   const basePath = new URL(import.meta.env.BASE_URL, window.location.href).pathname.replace(/\/$/, '')
@@ -29,7 +39,7 @@ async function requestJson(path: string, init: RequestInit = {}): Promise<unknow
       const body = responseBody as ErrorBody
       if (typeof body.error === 'string') message = body.error
     }
-    throw new Error(message)
+    throw new ApiError(message, response.status)
   }
   return responseBody
 }
