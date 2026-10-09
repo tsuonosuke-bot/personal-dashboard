@@ -110,9 +110,15 @@ td { color: #aab2ad; font-size: 12px; font-weight: 850; }
 td.done { color: var(--accent); }
 td.off { color: #d4d9d5; }
 td.editable { padding: 2px; }
-td.editable button { width: 100%; min-width: 26px; height: 36px; padding: 0; border: 1px dashed var(--line); border-radius: 7px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+td.editable button, td.viewable button { width: 100%; min-width: 26px; height: 36px; padding: 0; border: 1px dashed var(--line); border-radius: 7px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 td.editable.done button { border-style: solid; border-color: rgba(154, 71, 39, .3); background: var(--accent-soft); }
 td.editable button:disabled { cursor: wait; opacity: .5; }
+td.viewable { padding: 2px; }
+td.viewable button { border-color: transparent; }
+.habit-copy p.habit-note { color: var(--accent); }
+.edit-button.has-note { border-color: rgba(154, 71, 39, .35); color: var(--accent); }
+td.has-note { position: relative; }
+td.has-note::before { content: ""; position: absolute; bottom: 6px; left: 50%; width: 12px; height: 2px; border-radius: 1px; background: var(--accent); transform: translateX(-50%); }
 td.late { position: relative; }
 td.late::after { content: ""; position: absolute; top: 6px; right: 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
 .manage-list { display: grid; gap: 6px; }
@@ -139,6 +145,13 @@ input, select { height: 42px; padding: 0 11px; }
 textarea { resize: vertical; padding: 10px 11px; line-height: 1.5; }
 input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(154,71,39,.12); }
 .form-error { margin: 0; padding: 9px; border-radius: 8px; background: #f7e3e1; color: #9d403a; font-size: 9px; }
+.log-sheet { width: min(420px, 100%); }
+.log-sheet-status { margin: 0; color: var(--muted); font-size: 11px; }
+.log-sheet-check { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; }
+.log-sheet-check input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+.log-sheet-check > span { margin: 0; font-size: 13px; }
+.log-sheet-note-view { margin: 0; padding: 10px 11px; border-radius: 9px; background: var(--accent-soft); font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+.log-sheet-hint { margin: 0; color: var(--muted); font-size: 10px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 3px; }
 .toast { position: fixed; z-index: 30; right: 18px; bottom: calc(18px + var(--tabbar-space, 0px)); max-width: min(360px, calc(100% - 36px)); padding: 11px 14px; border-radius: 10px; background: var(--ink); color: #fff; box-shadow: 0 10px 30px rgba(70,39,24,.2); font-size: 10px; font-weight: 750; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -160,7 +173,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
   .habit-card { min-height: 58px; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 6px; padding: 7px; }
   .check-button { width: 29px; height: 29px; }
   .habit-copy p, .source-tag { display: none; }
-  .card-actions { display: grid; gap: 3px; }
+  .card-actions { display: grid; grid-template-columns: auto auto; gap: 3px; }
+  .card-actions .record-button { grid-column: 1 / -1; }
   .record-button, .edit-button { min-height: 27px; padding: 0 7px; }
   .section-heading > small { max-width: 45%; text-align: right; }
   .modal { padding: 16px; }

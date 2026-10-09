@@ -266,7 +266,8 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] td.off {
   color: #d4d9d5;
 }
-:root[data-theme="dark"] td.editable button {
+:root[data-theme="dark"] td.editable button,
+:root[data-theme="dark"] td.viewable button {
   border: 1px dashed var(--line);
   border-radius: 7px;
   background: transparent;
@@ -276,6 +277,20 @@ html[data-theme="dark"] {
   border-style: solid;
   border-color: rgba(206, 100, 60, 0.3);
   background: var(--accent-soft);
+}
+:root[data-theme="dark"] td.viewable button {
+  border-color: transparent;
+}
+:root[data-theme="dark"] .habit-copy p.habit-note {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .edit-button.has-note {
+  border-color: rgba(206, 100, 60, 0.35);
+  color: var(--accent);
+}
+:root[data-theme="dark"] td.has-note::before {
+  border-radius: 1px;
+  background: var(--accent--light, var(--accent));
 }
 :root[data-theme="dark"] td.late::after {
   border-radius: 50%;
@@ -341,6 +356,23 @@ html[data-theme="dark"] {
   border-radius: 8px;
   background: #412926;
   color: #d5938f;
+}
+:root[data-theme="dark"] .log-sheet-status {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .log-sheet-check {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+:root[data-theme="dark"] .log-sheet-check input {
+  accent-color: var(--accent);
+}
+:root[data-theme="dark"] .log-sheet-note-view {
+  border-radius: 9px;
+  background: var(--accent-soft);
+}
+:root[data-theme="dark"] .log-sheet-hint {
+  color: var(--muted);
 }
 :root[data-theme="dark"] .toast {
   border-radius: 10px;
