@@ -261,3 +261,22 @@
   color: #fff;
   box-shadow: 0 8px 28px rgba(0,0,0,.2);
 }
+:root[data-theme="dark"] .add-guide > p {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .add-guide-steps li {
+  border: 1px solid #544d52;
+  border-radius: 10px;
+  background: #292929;
+}
+:root[data-theme="dark"] .add-guide-steps li::before {
+  border-radius: 999px;
+  background: var(--accent--light, var(--accent));
+  color: #fff;
+}
+:root[data-theme="dark"] .add-guide-steps span {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .add-guide .editor-actions a {
+  text-decoration: none;
+}

@@ -109,3 +109,12 @@ main { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding-bottom: 28
   .editor { max-height: calc(100vh - 14px); padding: 13px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
+
+.add-guide { width: min(520px, 100%); }
+.add-guide > p { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.add-guide-steps { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; counter-reset: step; }
+.add-guide-steps li { position: relative; display: grid; gap: 3px; padding: 10px 12px 10px 40px; border: 1px solid #e3dde1; border-radius: 10px; background: #fff; counter-increment: step; }
+.add-guide-steps li::before { content: counter(step); position: absolute; top: 10px; left: 12px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 999px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 800; }
+.add-guide-steps strong { font-size: 13px; }
+.add-guide-steps span { color: var(--muted); font-size: 12px; line-height: 1.55; }
+.add-guide .editor-actions a { display: inline-flex; align-items: center; text-decoration: none; }

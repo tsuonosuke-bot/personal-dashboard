@@ -57,8 +57,9 @@
         <section class="workspace">
           <div class="workspace-head">
             <div><h2 id="listTitle">Inbox</h2></div>
-            <div class="workspace-tools">
+            <div class="workspace-tools" id="workspaceTools">
               <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><span class="sr-only">検索</span><input id="searchInput" type="search" placeholder="キーワードで検索" autocomplete="off" /></label>
+              <button class="filter-chip todo-conditions-toggle" id="todoConditionsToggle" type="button" aria-expanded="false" aria-controls="statusFilter todoFilterGroup" hidden>表示条件 <b id="todoConditionsCount"></b></button>
               <select id="statusFilter" aria-label="ステータスで絞り込み"><option value="">すべてのステータス</option></select>
               <div class="pending-filter-group" id="pendingFilterGroup" aria-label="Wantsの登録待ちを表示" hidden>
                 <button class="filter-chip" id="knowledgeFilter" type="button" aria-pressed="false">Knowledge登録待ち <b id="knowledgePendingCount">—</b></button>
@@ -75,6 +76,8 @@
               </div>
             </div>
           </div>
+          <div class="active-conditions" id="todoActiveConditions" aria-label="適用中の表示条件" hidden></div>
+          <p class="route-hint" id="writingRouteHint" role="note" hidden><span><b>Writingにテーマを追加するには</b>：書きたいテーマのWant（またはInbox）を開き、振り分けで「執筆」を選びます。新しく書くときは「＋」でInboxに入れてから振り分けます。</span><button type="button" id="writingRouteHintClose" aria-label="案内を閉じる">×</button></p>
           <div class="tabs" role="tablist" aria-label="表示するデータ">
             <button class="tab active" type="button" role="tab" aria-selected="true" data-view="inbox">Inbox <span id="inboxTabCount">—</span></button>
             <button class="tab" type="button" role="tab" aria-selected="false" data-view="wants">Wants <span id="wantsTabCount">—</span></button>

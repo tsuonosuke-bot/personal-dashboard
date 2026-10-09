@@ -13,7 +13,7 @@ const els = Object.fromEntries([
   "errorMessage", "retryButton", "topicList", "editorModal", "editorBackdrop", "editorClose",
   "editorKicker", "editorTitle", "editorForm", "sourceWantLink", "titleInput", "questionInput",
   "editorStatus", "formError", "editorCancel",
-  "saveButton", "toast",
+  "saveButton", "toast", "addTopicButton", "addGuideModal", "addGuideBackdrop", "addGuideClose", "addGuideCancel",
 ].map((id) => [id, document.getElementById(id)]));
 
 function escapeHtml(value) {
@@ -105,7 +105,7 @@ function renderList() {
   });
   if (!items.length) {
     const message = state.view === "completed" ? "完了したテーマはまだありません" : "Writingのアイデアはありません";
-    els.topicList.innerHTML = `<div class="empty"><span>✎</span><h3>${message}</h3><p>IdeaでWantをWritingへ振り分けると、ここに追加されます。</p><a href="/compass/?view=wants">Ideaを開く →</a></div>`;
+    els.topicList.innerHTML = `<div class="empty"><span>✎</span><h3>${message}</h3><p>IdeaでWantやInboxを「執筆」に振り分けると、ここに追加されます。</p><a href="/compass/?view=wants&from=writing">IdeaのWantsを開く →</a></div>`;
   } else {
     els.topicList.innerHTML = items.map(cardMarkup).join("");
   }
@@ -255,5 +255,20 @@ els.editorBackdrop.addEventListener("click", () => closeEditor());
 els.editorCancel.addEventListener("click", () => closeEditor());
 els.editorForm.addEventListener("submit", saveTopic);
 window.addEventListener("popstate", () => applyRoute());
-document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !els.editorModal.hidden) closeEditor(); });
+// 「Ideaから追加」は行き先と手順を先に示してから、IdeaのWantsへ案内する（#131）。
+function setAddGuideOpen(open) {
+  els.addGuideModal.hidden = !open;
+  document.body.style.overflow = open ? "hidden" : "";
+  if (open) els.addGuideClose.focus();
+  else els.addTopicButton.focus();
+}
+els.addTopicButton.addEventListener("click", () => setAddGuideOpen(true));
+els.addGuideClose.addEventListener("click", () => setAddGuideOpen(false));
+els.addGuideCancel.addEventListener("click", () => setAddGuideOpen(false));
+els.addGuideBackdrop.addEventListener("click", () => setAddGuideOpen(false));
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!els.addGuideModal.hidden) setAddGuideOpen(false);
+  else if (!els.editorModal.hidden) closeEditor();
+});
 loadWriting();
