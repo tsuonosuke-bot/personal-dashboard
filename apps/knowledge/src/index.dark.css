@@ -1291,6 +1291,19 @@
 :root[data-theme="dark"] .today-learning-line b {
   color: #d5d2db;
 }
+:root[data-theme="dark"] .today-learning-alerts li {
+  border: 1px solid #654c32;
+  border-radius: 10px;
+  background: #262019;
+  color: #f1a48a;
+}
+:root[data-theme="dark"] .today-learning-alerts .text-button {
+  color: #f1a48a;
+  text-decoration: underline;
+}
+:root[data-theme="dark"] .today-learning-queue summary {
+  color: #a89cc3;
+}
 :root[data-theme="dark"] .today-learning-how {
   border-top: 1px solid #55515b;
 }

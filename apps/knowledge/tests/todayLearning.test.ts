@@ -133,3 +133,20 @@ test("ダッシュボードは今日の学習・講評の見直し・進み具�
   assert.match(sheet, /あなたの回答/);
   assert.match(review, /外した問題の講評を見る（\{missCount\}件）/);
 });
+
+test("今日の学習は要対応の状態とログ導線を常に出し、通常時の数字はキュー詳細に収める", async () => {
+  const panel = await readFile(new URL("../src/components/TodayLearningPanel.tsx", import.meta.url), "utf8");
+  const alertsBlock = panel.slice(panel.indexOf("const alerts"), panel.indexOf("return ("));
+  for (const condition of ["grading_errors > 0", 'last_grade?.status === "failed"', 'last_generate?.status === "failed"', "generation_held > 0", "queue_full"]) {
+    assert.ok(alertsBlock.includes(condition), condition);
+  }
+  assert.match(panel, /aria-label="対応が必要な状態"/);
+  assert.match(panel, /onClick=\{onOpenLog\}>学習ログで見る/);
+  const details = panel.slice(panel.indexOf('<details className="today-learning-queue">'), panel.indexOf("</details>"));
+  assert.match(details, /<summary>キュー詳細/);
+  for (const routine of ["採点待ち", "新規は保留", "最後の問題生成", "最後の採点"]) assert.ok(details.includes(routine), routine);
+  // 要対応の状態は折りたたみの中に入れない
+  assert.doesNotMatch(details, /採点エラー|作れず保留|上限の/);
+  // 主行動（復習を始める）は見出しの横に残す
+  assert.ok(panel.indexOf("today-learning-start") < panel.indexOf("today-learning-alerts"));
+});
