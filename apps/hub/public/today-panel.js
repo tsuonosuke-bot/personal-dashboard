@@ -159,6 +159,18 @@ function isWeekly(habit) {
   return habit.cadence === "weekly";
 }
 
+/** 昨日が対象日だった毎日・平日のHabitで、記録がないもの（#155）。Hubから昨日分をワンタップで記録できる。 */
+export function missedYesterday(payload) {
+  const today = payload?.today;
+  if (!today) return [];
+  const yesterday = addDays(today, -1);
+  return (payload.habits || []).filter((habit) => {
+    if (habit.status !== "active" || (habit.cadence !== "daily" && habit.cadence !== "weekdays")) return false;
+    const day = (habit.history || []).find((entry) => entry.date === yesterday);
+    return Boolean(day?.eligible && !day.completed);
+  });
+}
+
 export function habitGroups(payload) {
   const today = payload?.today;
   const active = (payload?.habits || []).filter((habit) => habit.status === "active");
@@ -367,6 +379,11 @@ export function renderHabitSection(section) {
     return `<p class="today-quiet">続けている習慣はまだありません。Habitsで追加できます。</p>`;
   }
   let html = "";
+  const missed = missedYesterday(payload);
+  if (missed.length) {
+    html += `<div class="today-backfill"><b>昨日の未記録 ${missed.length}件</b><div class="today-backfill-chips">${missed.map((habit) =>
+      `<button type="button" data-habit-backfill="${habit.id}" aria-label="${escapeHtml(habit.name)}を昨日の分として記録"><span aria-hidden="true">＋</span>${escapeHtml(habit.name)}</button>`).join("")}</div></div>`;
+  }
   if (groups.daily.length) {
     const ratio = Math.round((groups.dailyDone / groups.daily.length) * 100);
     html += `<div class="today-progress"><span>今日 ${groups.dailyDone}/${groups.daily.length}</span><i role="progressbar" aria-label="今日の習慣" aria-valuemin="0" aria-valuemax="${groups.daily.length}" aria-valuenow="${groups.dailyDone}"><b style="width:${ratio}%"></b></i></div>`;
@@ -604,8 +621,27 @@ export function createTodayPanel(root) {
     }
   }
 
-  async function setHabit(habit, completed) {
-    await sendJson("/api/habit-logs", "PATCH", "habit-log", { habitId: habit.id, practicedOn: state.habits.data.today, completed });
+  async function setHabit(habit, completed, practicedOn = state.habits.data.today) {
+    await sendJson("/api/habit-logs", "PATCH", "habit-log", { habitId: habit.id, practicedOn, completed });
+  }
+
+  async function backfillHabit(id, button) {
+    const habit = state.habits.data?.habits?.find((candidate) => candidate.id === id);
+    if (!habit) return;
+    const yesterday = addDays(state.habits.data.today, -1);
+    button.disabled = true;
+    try {
+      await setHabit(habit, true, yesterday);
+      await load("habits");
+      showToast(`${habit.name} を昨日の分として記録しました`, async () => {
+        await setHabit(habit, false, yesterday);
+        await load("habits");
+        return `${habit.name} の昨日の記録を取り消しました`;
+      });
+    } catch (error) {
+      button.disabled = false;
+      showToast(error instanceof Error ? error.message : "Habitを記録できませんでした。");
+    }
   }
 
   async function toggleHabit(id, button) {
@@ -810,6 +846,7 @@ export function createTodayPanel(root) {
     if (!button || button.disabled) return;
     if (button.dataset.todoComplete) void completeTodo(Number(button.dataset.todoComplete), button);
     else if (button.dataset.habitToggle) void toggleHabit(Number(button.dataset.habitToggle), button);
+    else if (button.dataset.habitBackfill) void backfillHabit(Number(button.dataset.habitBackfill), button);
     else if (button.dataset.projectTask) completeProjectTask(Number(button.dataset.projectTask), button);
     else if ("projectCancel" in button.dataset) {
       const actionId = state.resolvingActionId;

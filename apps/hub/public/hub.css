@@ -158,6 +158,12 @@ a.today-row-title:hover { text-decoration: underline; }
 .today-check:disabled { cursor: wait; }
 .today-check-spacer { width: 44px; }
 .today-project-row .today-check { --check: var(--project); }
+.today-backfill { display: grid; gap: 6px; margin: 2px 0 8px; padding: 8px 10px; border: 1px dashed var(--habit-line); border-radius: 10px; background: var(--habit-done); }
+.today-backfill b { color: var(--habit); font-size: 12px; }
+.today-backfill-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.today-backfill-chips button { min-height: 36px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 11px; border: 1px solid var(--habit-line); border-radius: 999px; background: var(--surface); color: var(--ink); cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; }
+.today-backfill-chips button span { color: var(--habit); font-weight: 900; }
+.today-backfill-chips button:disabled { cursor: wait; opacity: .55; }
 .today-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); column-gap: 12px; margin-bottom: 4px; }
 .today-chip { min-height: 52px; display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 4px; padding: 7px 0; border: 0; border-top: 1px solid var(--divider); border-radius: 0; background: none; color: var(--ink); cursor: pointer; font: inherit; text-align: left; }
 .today-chip:nth-child(-n+2) { border-top-color: transparent; }

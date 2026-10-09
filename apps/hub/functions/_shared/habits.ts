@@ -55,6 +55,8 @@ type ValidationResult<T> =
   | { ok: false; status: number; error: string };
 
 const PAGE_SIZE = 1000;
+/** 記録漏れを後から直せる日数（#155）。今日から7日前まで。 */
+export const BACKFILL_DAYS = 7;
 const MAX_REQUEST_CHARS = 8_000;
 const HABIT_SELECT = "id,source_want_id,name,purpose,cadence,status,started_on,created_at,updated_at";
 const LOG_SELECT = "id,habit_id,practiced_on,note,created_at";
@@ -164,6 +166,17 @@ export function todayInTokyo(now = new Date()): string {
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
+/** 実施日より後の日（JST）に作られた記録は「後から記録」とみなす。 */
+function loggedLate(practicedOn: string, createdAt: string | null): boolean {
+  return createdAt !== null && todayInTokyo(new Date(createdAt)) > practicedOn;
+}
+
+/** 記録・取消できる最も古い日。開始日より前と、今日から BACKFILL_DAYS 日より前は変えられない。 */
+export function editableFrom(today: string, startedOn: string): string {
+  const limit = addDays(today, -BACKFILL_DAYS);
+  return startedOn > limit ? startedOn : limit;
+}
+
 export function mondayOf(date: string): string {
   return addDays(date, -((dayOfWeek(date) + 6) % 7));
 }
@@ -207,6 +220,9 @@ export function normalizeHabits(habitRows: HabitRow[], logRows: HabitLogRow[], n
     if (id === null || cadence === null || status === null) return null;
     const habitLogs = logsByHabit.get(id) || [];
     const completedDates = new Set(habitLogs.map((log) => log.practicedOn as string));
+    const lateDates = new Set(habitLogs
+      .filter((log) => loggedLate(log.practicedOn as string, log.createdAt))
+      .map((log) => log.practicedOn as string));
     const completedToday = completedDates.has(today);
     const weeklyLog = habitLogs.find((log) => (log.practicedOn as string) >= weekStart && (log.practicedOn as string) <= today) || null;
     return {
@@ -223,10 +239,12 @@ export function normalizeHabits(habitRows: HabitRow[], logRows: HabitLogRow[], n
       completedToday,
       completedThisWeek: weeklyLog !== null,
       weeklyCompletedOn: weeklyLog?.practicedOn || null,
+      editableFrom: editableFrom(today, startedOn),
       history: dates.map((date) => ({
         date,
         eligible: isEligible(cadence, date, startedOn),
         completed: completedDates.has(date),
+        late: lateDates.has(date),
       })),
     };
   }).filter((habit) => habit !== null);
@@ -328,6 +346,7 @@ export function normalizeHabitHistory(habitRows: HabitRow[], logRows: HabitLogRo
   const today = todayInTokyo(now);
   const { from, to, dates, weeks } = habitHistoryRange(query);
   const logsByHabit = new Map<number, Set<string>>();
+  const lateByHabit = new Map<number, Set<string>>();
   for (const row of logRows) {
     const habitId = integer(row.habit_id);
     const practicedOn = plainDate(row.practiced_on);
@@ -335,6 +354,11 @@ export function normalizeHabitHistory(habitRows: HabitRow[], logRows: HabitLogRo
     const current = logsByHabit.get(habitId) ?? new Set<string>();
     current.add(practicedOn);
     logsByHabit.set(habitId, current);
+    if (loggedLate(practicedOn, isoDate(row.created_at))) {
+      const late = lateByHabit.get(habitId) ?? new Set<string>();
+      late.add(practicedOn);
+      lateByHabit.set(habitId, late);
+    }
   }
 
   const habits = habitRows.map((row) => {
@@ -344,16 +368,18 @@ export function normalizeHabitHistory(habitRows: HabitRow[], logRows: HabitLogRo
     if (id === null || cadence === null || status === null) return null;
     const startedOn = plainDate(row.started_on) || today;
     const practiced = logsByHabit.get(id) ?? new Set<string>();
+    const late = lateByHabit.get(id) ?? new Set<string>();
     const inRange = [...practiced].filter((date) => date >= from && date <= to);
     // アーカイブ済みは、期間内に記録があるときだけ出す
     if (status === "archived" && inRange.length === 0) return null;
-    const base = { id, name: text(row.name), cadence, status, startedOn };
+    // 記録・取消できるのは有効なHabitの、開始日以降かつ今日から7日前まで（#155）
+    const base = { id, name: text(row.name), cadence, status, startedOn, editableFrom: status === "active" ? editableFrom(today, startedOn) : null };
     if (cadence === "weekly") {
       const weekRows = weeks.map((monday) => {
         const sunday = addDays(monday, 6);
         const completedOn = [...practiced].filter((date) => date >= monday && date <= sunday).sort()[0] ?? null;
         const eligible = monday <= today && sunday >= startedOn;
-        return { weekStart: monday, eligible, completed: completedOn !== null, completedOn };
+        return { weekStart: monday, eligible, completed: completedOn !== null, completedOn, late: completedOn !== null && late.has(completedOn) };
       });
       const eligibleWeeks = weekRows.filter((week) => week.eligible);
       return { ...base, weeks: weekRows, days: null, done: eligibleWeeks.filter((week) => week.completed).length, target: eligibleWeeks.length, unit: "週" };
@@ -361,7 +387,7 @@ export function normalizeHabitHistory(habitRows: HabitRow[], logRows: HabitLogRo
     const dayRows = dates.map((date) => {
       const future = date > today;
       const eligible = !future && isEligible(cadence, date, startedOn);
-      return { date, eligible, future, completed: practiced.has(date) };
+      return { date, eligible, future, completed: practiced.has(date), late: late.has(date) };
     });
     const done = dayRows.filter((day) => day.completed).length;
     return {
@@ -595,8 +621,9 @@ async function findPeriodLog(
   const rows = await fetchRows(info, "habit_logs", LOG_SELECT, (endpoint) => {
     endpoint.searchParams.set("habit_id", `eq.${habitId}`);
     if (cadence === "weekly") {
+      // 過去の日付で記録するときも、同じ週の後の日の記録を見落とさないよう週全体を見る
       endpoint.searchParams.set("practiced_on", `gte.${mondayOf(practicedOn)}`);
-      endpoint.searchParams.append("practiced_on", `lte.${practicedOn}`);
+      endpoint.searchParams.append("practiced_on", `lte.${addDays(mondayOf(practicedOn), 6)}`);
     } else {
       endpoint.searchParams.set("practiced_on", `eq.${practicedOn}`);
     }
@@ -608,8 +635,10 @@ async function findPeriodLog(
 
 export async function applyHabitLog(env: DashboardEnv, input: HabitLogInput, now = new Date()) {
   const today = todayInTokyo(now);
-  if (input.practicedOn !== today) {
-    throw new DashboardError("HABIT_DATE_INVALID", "Only today's habit can be changed.", 400);
+  const target = input.practicedOn;
+  // 今日から BACKFILL_DAYS 日前までは、記録漏れを後から直せる（#155）
+  if (target > today || target < addDays(today, -BACKFILL_DAYS)) {
+    throw new DashboardError("HABIT_DATE_INVALID", "Only the last 7 days can be changed.", 400);
   }
   const info = connection(env);
   const habit = await findHabit(info, input.habitId);
@@ -618,16 +647,16 @@ export async function applyHabitLog(env: DashboardEnv, input: HabitLogInput, now
   const cadence = text(habit.cadence) as HabitCadence;
   if (!CADENCES.has(cadence)) throw new DashboardError("SUPABASE_RESPONSE_INVALID", "Habit cadence is invalid.");
   const startedOn = plainDate(habit.started_on) || today;
-  if (!isEligible(cadence, today, startedOn) && cadence !== "weekly") {
-    throw new DashboardError("HABIT_NOT_DUE", "Habit is not due today.", 409);
+  if (target < startedOn || (!isEligible(cadence, target, startedOn) && cadence !== "weekly")) {
+    throw new DashboardError("HABIT_NOT_DUE", "Habit is not due on that date.", 409);
   }
-  const periodDate = cadence === "weekly" ? mondayOf(today) : today;
+  const periodDate = cadence === "weekly" ? mondayOf(target) : target;
   const trackingKey = `${cadence === "weekly" ? "W" : "D"}:${periodDate}`;
 
   if (!input.completed) {
     const endpoint = new URL("/rest/v1/habit_logs", info.url);
     endpoint.searchParams.set("habit_id", `eq.${input.habitId}`);
-    endpoint.searchParams.set("practiced_on", `eq.${today}`);
+    endpoint.searchParams.set("practiced_on", `eq.${target}`);
     endpoint.searchParams.set("select", LOG_SELECT);
     let response: Response;
     try {
@@ -640,13 +669,13 @@ export async function applyHabitLog(env: DashboardEnv, input: HabitLogInput, now
     }
     const rows = await mutationResponse(response, "habit_logs");
     if (rows.length > 1) throw new DashboardError("SUPABASE_RESPONSE_INVALID", "habit_logs deleted an unexpected number of rows.");
-    return { habitId: input.habitId, practicedOn: today, completed: false };
+    return { habitId: input.habitId, practicedOn: target, completed: false };
   }
 
-  const existing = await findPeriodLog(info, input.habitId, cadence, today);
+  const existing = await findPeriodLog(info, input.habitId, cadence, target);
   if (existing) {
     const practicedOn = plainDate(existing.practiced_on);
-    if (practicedOn === today) return { ...existing, completed: true };
+    if (practicedOn === target) return { ...existing, completed: true };
     throw new DashboardError("HABIT_WEEK_ALREADY_COMPLETED", "Weekly habit was already completed.", 409);
   }
 
@@ -657,14 +686,14 @@ export async function applyHabitLog(env: DashboardEnv, input: HabitLogInput, now
     response = await fetch(endpoint, {
       method: "POST",
       headers: headers(info, { "Content-Type": "application/json", Prefer: "return=representation" }),
-      body: JSON.stringify({ habit_id: input.habitId, practiced_on: today, note: null, tracking_key: trackingKey }),
+      body: JSON.stringify({ habit_id: input.habitId, practiced_on: target, note: null, tracking_key: trackingKey }),
     });
   } catch {
     throw new DashboardError("SUPABASE_UNAVAILABLE", "Could not reach habit_logs.");
   }
   if (response.status === 409) {
-    const raced = await findPeriodLog(info, input.habitId, cadence, today);
-    if (raced && plainDate(raced.practiced_on) === today) return { ...raced, completed: true };
+    const raced = await findPeriodLog(info, input.habitId, cadence, target);
+    if (raced && plainDate(raced.practiced_on) === target) return { ...raced, completed: true };
     throw new DashboardError("HABIT_WEEK_ALREADY_COMPLETED", "Weekly habit was already completed.", 409);
   }
   const rows = await mutationResponse(response, "habit_logs");

@@ -28,7 +28,7 @@ export interface TodayHabit {
   completedToday: boolean;
   completedThisWeek: boolean;
   weeklyCompletedOn: string | null;
-  history: Array<{ date: string; eligible: boolean; completed: boolean }>;
+  history: Array<{ date: string; eligible: boolean; completed: boolean; late?: boolean }>;
 }
 
 export interface TodayHabitsPayload {
@@ -97,6 +97,7 @@ export function habitGroups(payload: TodayHabitsPayload): {
   weeklyDone: number;
 };
 export function habitStreak(habit: TodayHabit): number;
+export function missedYesterday(payload: TodayHabitsPayload | null): TodayHabit[];
 export function habitPressed(habit: TodayHabit): boolean;
 export function habitLocked(habit: TodayHabit, today: string): boolean;
 export function habitNote(habit: TodayHabit, today: string): string;
