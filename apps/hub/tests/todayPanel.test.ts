@@ -8,6 +8,7 @@ import {
   habitNote,
   habitStreak,
   projectRows,
+  projectTasksDueToday,
   renderHabitSection,
   renderProjectSection,
   renderTodoSection,
@@ -17,6 +18,7 @@ import {
   weekendDate,
   type TodayHabit,
   type TodayProject,
+  type TodayProjectAction,
   type TodayTodo,
 } from "../public/today-panel.js";
 
@@ -184,34 +186,82 @@ test("Habit groups count today's daily habits and this week's weekly habits", ()
   assert.doesNotMatch(html, /Habit 5|Habit 6/);
 });
 
-test("Project rows surface overdue targets, missing next actions and due reviews first", () => {
+function task(id: number, extra: Partial<TodayProjectAction> = {}): TodayProjectAction {
+  return { id, content: `Task ${id}`, status: "queued", dueOn: null, startOn: null, completedAt: null, updatedAt: "2026-09-23T00:00:00.000Z", ...extra };
+}
+
+test("着手が必要: 期限超過・今日・3日以内・着手日到来・今やるのタスクだけを、Projectをまたいで期日順に集める (#154)", () => {
   const rows = projectRows({
     projects: [
-      project(1, { targetOn: "2027-01-24" }),
-      project(2, { targetOn: "2026-10-03" }),
-      project(3, { nextAction: null, actions: [] }),
+      // 今やる（期日なし）と、期日が4日後で着手日も先の候補（出さない）
+      project(1, { actions: [project(1).nextAction!, task(11, { dueOn: "2026-10-09", startOn: "2026-10-07" })] }),
+      // 期限超過・今日が期日・3日以内・着手日到来の候補
+      project(2, {
+        targetOn: "2026-10-03",
+        actions: [
+          { ...project(2).nextAction!, dueOn: "2026-10-08" },
+          task(21, { dueOn: "2026-10-01" }),
+          task(22, { dueOn: TODAY }),
+          task(23, { startOn: "2026-10-04" }),
+          task(24),
+        ],
+      }),
+      // 未完了のActionがない → 次の一手を決める
+      project(3, { nextAction: null, actions: [task(31, { status: "done" })] }),
       project(4, { status: "waiting", reviewOn: "2026-10-05", nextAction: null, actions: [] }),
       project(5, { status: "on_hold", reviewOn: "2026-10-30", nextAction: null, actions: [] }),
-      project(6, { status: "completed" }),
-      project(7, { targetOn: "2026-10-31" }),
+      project(6, { status: "completed", actions: [task(61, { dueOn: "2026-10-01" })] }),
     ],
   }, TODAY);
-  assert.deepEqual(rows.map((row) => [row.project.id, row.attention]), [
-    [2, "overdue"], [3, "missing"], [4, "review"], [7, null], [1, null],
+  assert.deepEqual(rows.map((row) => [row.project.id, row.action?.id ?? null, row.reason]), [
+    [2, 21, "overdue"],
+    [4, null, "review"],
+    [3, null, "missing"],
+    [2, 22, "due_today"],
+    [2, 20, "due_soon"],
+    [2, 23, "started"],
+    [1, 10, "pinned"],
   ]);
+  // Next Actionを完了したときに進む候補は、自分を除いた残りの候補
+  assert.deepEqual(rows.find((row) => row.action?.id === 20)?.queued.map((action) => action.id), [21, 22, 23, 24]);
 });
 
-test("Project section offers the queued action or a new one when completing", () => {
-  const queued = { id: 99, content: "参考書購入", status: "queued" as const, completedAt: null, updatedAt: "2026-09-23T00:00:00.000Z" };
-  const data = { projects: [project(1, { targetOn: "2027-01-24", actions: [project(1).nextAction!, queued] })] };
-  const closed = renderProjectSection({ status: "ready", data, error: null }, { now: NOW });
-  assert.match(closed, /Project 1 · あと111日/);
-  assert.match(closed, /data-project-resolve="10"/);
+test("着手が必要は5件まで見せ、残りは「あとN件を表示」で開く。日付の理由と今やるをピルで示す", () => {
+  const actions = [
+    { ...project(1).nextAction!, dueOn: "2026-10-07" },
+    ...[1, 2, 3, 4, 5, 6].map((index) => task(100 + index, { dueOn: `2026-10-0${index}` })),
+  ];
+  const data = { projects: [project(1, { title: "<英語>", targetOn: "2026-10-01", actions })] };
+  const html = renderProjectSection({ status: "ready", data, error: null }, { now: NOW });
+  assert.equal((html.match(/data-project-task=/g) || []).length, 5);
+  assert.match(html, /data-project-more>あと2件を表示/);
+  assert.match(html, /期日10\/1を4日超過/);
+  assert.match(html, /今日が期日/);
+  assert.match(html, /&lt;英語&gt; · 目標日を過ぎています/);
+  const all = renderProjectSection({ status: "ready", data, error: null }, { now: NOW, showAll: true });
+  assert.equal((all.match(/data-project-task=/g) || []).length, 7);
+  assert.doesNotMatch(all, /data-project-more/);
+  assert.match(all, /期日まであと1日/);
+  assert.match(all, /期日まであと2日<\/span><span class="today-pill project">今やる/);
+
+  const started = renderProjectSection({ status: "ready", data: { projects: [project(2, { actions: [project(2).nextAction!, task(201, { startOn: TODAY })] })] }, error: null }, { now: NOW });
+  assert.match(started, /今日から着手/);
+  assert.match(started, /today-pill project">今やる/);
+});
+
+test("Next Actionの完了は、残りの候補がないときだけ次の一手を聞く", () => {
+  const lone = { projects: [project(1)] };
+  const closed = renderProjectSection({ status: "ready", data: lone, error: null }, { now: NOW });
+  assert.match(closed, /data-project-task="10" aria-label="「Next 1」を完了" aria-expanded="false"/);
   assert.doesNotMatch(closed, /today-resolver/);
-  const open = renderProjectSection({ status: "ready", data, error: null }, { resolvingActionId: 10, now: NOW });
-  assert.match(open, /data-project-continue="10" data-queued-id="99">完了して「参考書購入」へ進む/);
+  const open = renderProjectSection({ status: "ready", data: lone, error: null }, { resolvingActionId: 10, now: NOW });
   assert.match(open, /data-project-next="10"/);
   assert.match(open, /href="\/projects\/\?id=1">待ち・保留・Project完了はProjectsで/);
+  assert.doesNotMatch(open, /data-project-continue/);
+
+  const withQueue = { projects: [project(1, { actions: [project(1).nextAction!, task(99)] })] };
+  const html = renderProjectSection({ status: "ready", data: withQueue, error: null }, { now: NOW });
+  assert.match(html, /data-project-task="10" aria-label="「Next 1」を完了">/);
 });
 
 test("ToDo section offers bulk review, links rows to Idea and escapes titles", () => {
@@ -246,4 +296,11 @@ test("today's completed count adds ToDos, habits and project actions finished to
     projects: { projects: [project(1, { actions: [{ id: 5, content: "done", status: "done", completedAt: "2026-10-05T01:00:00Z", updatedAt: "2026-10-05T01:00:00Z" }] })] },
   }, NOW);
   assert.equal(count, 3);
+});
+
+test("期限超過・今日が期日のProjectタスクが残っている間は、今日の分を完了扱いにしない", () => {
+  const data = { projects: [project(1, { actions: [{ ...project(1).nextAction!, dueOn: "2026-10-08" }, task(11, { dueOn: TODAY }), task(12, { dueOn: "2026-10-06" })] })] };
+  assert.equal(projectTasksDueToday(data, TODAY), 1);
+  assert.equal(projectTasksDueToday({ projects: [project(2)] }, TODAY), 0);
+  assert.equal(projectTasksDueToday(null, TODAY), 0);
 });

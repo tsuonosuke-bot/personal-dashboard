@@ -294,6 +294,14 @@ html[data-theme="dark"] {
   background: var(--attention-soft);
   color: var(--attention);
 }
+:root[data-theme="dark"] .today-pill.soon {
+  background: var(--overdue-soft);
+  color: var(--overdue);
+}
+:root[data-theme="dark"] .today-pill.project {
+  background: var(--project-soft);
+  color: var(--project);
+}
 :root[data-theme="dark"] .today-more {
   border: 0;
   border-top: 1px solid var(--divider);

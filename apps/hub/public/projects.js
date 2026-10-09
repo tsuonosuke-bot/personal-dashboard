@@ -682,6 +682,8 @@ function openResolve(project) {
   const queued = project.actions.filter((action) => action.status === "queued");
   els.queuedActionSelect.innerHTML = '<option value="">新しく入力する</option>'
     + queued.map((action) => `<option value="${action.id}">${escapeHtml(action.content)}</option>`).join("");
+  // 候補があれば、並べ替えた先頭を次のNext Actionとして選んでおく（#154）。
+  els.queuedActionSelect.value = queued[0] ? String(queued[0].id) : "";
   els.newNextActionInput.value = "";
   els.waitingForInput.value = "";
   els.waitingReviewInput.value = futureDate(7);

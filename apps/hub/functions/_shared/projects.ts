@@ -466,7 +466,9 @@ export function normalizeProjects(
     const nextActions = projectActions.filter((action) => action.status === "next");
     if (nextActions.length > 1) throw new DashboardError("SUPABASE_RESPONSE_INVALID", "Project has multiple next actions.");
     const nextAction = nextActions[0] || null;
-    const needsAttention = (project.status === "active" && !nextAction)
+    // activeなのに未完了のActionが1件もないProjectは、次の一手を決める必要がある（#154）。
+    const hasOpenAction = projectActions.some((action) => action.status === "next" || action.status === "queued" || action.status === "waiting");
+    const needsAttention = (project.status === "active" && !hasOpenAction)
       || projectItems.some((item) => item.treatment === "unprocessed");
     return { ...project, nextAction, actions: projectActions, items: projectItems, needsAttention };
   }).sort((left, right) => {

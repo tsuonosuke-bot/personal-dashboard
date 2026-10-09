@@ -217,29 +217,70 @@ export function habitNote(habit, today) {
 
 // ---------- Project ----------
 
+/** 期日がこの日数以内のタスクは「着手が必要」に出す（#154）。 */
+export const DUE_SOON_DAYS = 3;
+/** 「着手が必要」で最初に見せる件数。残りは「あとN件を表示」で開く。 */
+export const PROJECT_PREVIEW = 5;
+const NO_DATE = "9999-12-31";
+
+function openActions(project) {
+  // APIはnextを先頭に、あとで行うActionを並べ替えた順で返す。
+  return (project.actions || []).filter((action) => action.status === "next" || action.status === "queued");
+}
+
+/** タスクを「着手が必要」に出す理由。出さないときはnull。 */
+export function taskReason(action, today) {
+  if (action.dueOn && action.dueOn < today) return "overdue";
+  if (action.dueOn === today) return "due_today";
+  if (action.dueOn && daysBetween(today, action.dueOn) <= DUE_SOON_DAYS) return "due_soon";
+  if (action.startOn && action.startOn <= today) return "started";
+  if (action.status === "next") return "pinned";
+  return null;
+}
+
+const kindOrder = { review: 0, missing: 1, task: 2 };
+
+/**
+ * Hubの「着手が必要」。Projectをまたいで、期日が近い・着手日が来た・今やるにしたタスクを期日順に集める。
+ * あわせて、未完了タスクがないactive Project（missing）と、見直し日が来た待機・保留Project（review）も出す。
+ */
 export function projectRows(payload, today) {
   const rows = [];
   for (const project of payload?.projects || []) {
     if (project.status === "active") {
-      const attention = !project.nextAction
-        ? "missing"
-        : project.targetOn && project.targetOn < today ? "overdue" : null;
-      rows.push({
-        project,
-        kind: "next",
-        attention,
-        queued: (project.actions || []).filter((action) => action.status === "queued"),
+      const open = openActions(project);
+      if (!open.length) {
+        rows.push({ project, kind: "missing", action: null, reason: "missing", key: today, position: 0, queued: [] });
+        continue;
+      }
+      open.forEach((action, position) => {
+        const reason = taskReason(action, today);
+        if (!reason) return;
+        rows.push({
+          project,
+          kind: "task",
+          action,
+          reason,
+          key: action.dueOn || NO_DATE,
+          position,
+          queued: open.filter((candidate) => candidate.status === "queued" && candidate.id !== action.id),
+        });
       });
     } else if ((project.status === "waiting" || project.status === "on_hold") && project.reviewOn && project.reviewOn <= today) {
-      rows.push({ project, kind: "review", attention: "review", queued: [] });
+      rows.push({ project, kind: "review", action: null, reason: "review", key: project.reviewOn, position: 0, queued: [] });
     }
   }
-  return rows.sort((left, right) => {
-    if (Boolean(left.attention) !== Boolean(right.attention)) return left.attention ? -1 : 1;
-    const leftTarget = left.project.targetOn || "9999-12-31";
-    const rightTarget = right.project.targetOn || "9999-12-31";
-    return leftTarget.localeCompare(rightTarget) || left.project.id - right.project.id;
-  });
+  return rows.sort((left, right) =>
+    left.key.localeCompare(right.key)
+    || kindOrder[left.kind] - kindOrder[right.kind]
+    || (left.project.targetOn || NO_DATE).localeCompare(right.project.targetOn || NO_DATE)
+    || left.project.id - right.project.id
+    || left.position - right.position);
+}
+
+/** 期限超過・今日が期日のProjectタスクの件数。残っている間は「今日の分はすべて完了」にしない。 */
+export function projectTasksDueToday(payload, today) {
+  return projectRows(payload, today).filter((row) => row.reason === "overdue" || row.reason === "due_today").length;
 }
 
 // ---------- 今日の完了数 ----------
@@ -341,57 +382,77 @@ export function renderHabitSection(section) {
   return html;
 }
 
-function projectMeta(row, today) {
-  const { project } = row;
-  const title = `<span>${escapeHtml(project.title)}</span>`;
-  if (row.kind === "review") return `${title}<span class="today-pill attention">見直し日です</span>`;
-  if (row.attention === "missing") return `<span class="today-pill attention">次の一手が未設定</span>${title}`;
-  if (row.attention === "overdue") {
-    return `${title}<span class="today-pill attention">目標日${escapeHtml(monthDay(project.targetOn))}を${daysBetween(project.targetOn, today)}日過ぎています</span>`;
+function taskPill(row, today) {
+  const { action } = row;
+  switch (row.reason) {
+    case "overdue":
+      return `<span class="today-pill attention">期日${escapeHtml(monthDay(action.dueOn))}を${daysBetween(action.dueOn, today)}日超過</span>`;
+    case "due_today":
+      return `<span class="today-pill attention">今日が期日</span>`;
+    case "due_soon":
+      return `<span class="today-pill soon">期日まであと${daysBetween(today, action.dueOn)}日</span>`;
+    case "started":
+      return `<span class="today-pill project">${action.startOn === today ? "今日から着手" : `着手日${escapeHtml(monthDay(action.startOn))}から`}</span>`;
+    default:
+      return `<span class="today-pill project">今やる</span>`;
   }
-  return project.targetOn ? `<span>${escapeHtml(project.title)} · あと${daysBetween(today, project.targetOn)}日</span>` : title;
 }
 
+function projectMeta(row, today) {
+  const { project } = row;
+  const targetPassed = project.targetOn && project.targetOn < today ? " · 目標日を過ぎています" : "";
+  const title = `<span>${escapeHtml(project.title)}${targetPassed}</span>`;
+  if (row.kind === "review") return `<span class="today-pill attention">見直し日です</span>${title}`;
+  if (row.kind === "missing") return `<span class="today-pill attention">次の一手が未設定</span>${title}`;
+  const pinned = row.action.status === "next" && row.reason !== "pinned" ? `<span class="today-pill project">今やる</span>` : "";
+  return `${taskPill(row, today)}${pinned}${title}`;
+}
+
+/** Next Actionを完了したあと、残りのタスクがないときだけ次の一手を決める（#154）。 */
 function projectResolver(row) {
-  const next = row.queued[0];
-  const id = row.project.nextAction.id;
+  const id = row.action.id;
   return `<div class="today-resolver">
-    ${next ? `<button class="today-resolver-primary" type="button" data-project-continue="${id}" data-queued-id="${next.id}">完了して「${escapeHtml(next.content)}」へ進む</button>` : ""}
     <form class="today-next-form" data-project-next="${id}">
-      <input name="content" maxlength="500" required aria-label="${escapeHtml(row.project.title)}の次の一手" placeholder="${next ? "別の次の一手を入力" : "次の一手は？"}">
+      <input name="content" maxlength="500" required aria-label="${escapeHtml(row.project.title)}の次の一手" placeholder="次の一手は？">
       <button type="submit">完了して設定</button>
     </form>
     <div class="today-resolver-foot"><button type="button" data-project-cancel>やめる</button><a href="/projects/?id=${row.project.id}">待ち・保留・Project完了はProjectsで →</a></div>
   </div>`;
 }
 
-export function renderProjectSection(section, { resolvingActionId = null, now = new Date() } = {}) {
-  const fallback = sectionState(section, "Project", "projects");
-  if (fallback) return fallback;
-  const today = todayInTokyo(now);
-  const rows = projectRows(section.data, today);
-  if (!rows.length) return `<p class="today-quiet">進行中のProjectはありません。</p>`;
-  return `<ul class="today-list today-projects">${rows.map((row) => {
-    const { project } = row;
-    const projectUrl = `/projects/?id=${project.id}`;
-    const action = row.kind === "next" ? project.nextAction : null;
-    const missing = row.kind === "next" && !action;
-    const resolving = action && action.id === resolvingActionId;
-    const check = action
-      ? `<button class="today-check${resolving ? " is-on" : ""}" type="button" data-project-resolve="${action.id}" aria-label="「${escapeHtml(action.content)}」を完了" aria-expanded="${Boolean(resolving)}">${CHECK}</button>`
-      : `<span class="today-check-spacer" aria-hidden="true"></span>`;
-    const title = action
-      ? `<a class="today-row-title" href="${projectUrl}">${escapeHtml(action.content)}</a>`
-      : `<a class="today-row-title" href="${projectUrl}">${missing ? "Projectsで次の一手を決める →" : "Projectsで状況を見直す →"}</a>`;
-    return `<li class="today-row today-project-row">
+function projectRow(row, today, resolvingActionId) {
+  const { project, action } = row;
+  const projectUrl = `/projects/?id=${project.id}`;
+  const resolving = action && action.id === resolvingActionId;
+  const check = action
+    ? `<button class="today-check${resolving ? " is-on" : ""}" type="button" data-project-task="${action.id}" aria-label="「${escapeHtml(action.content)}」を完了"${action.status === "next" && !row.queued.length ? ` aria-expanded="${Boolean(resolving)}"` : ""}>${CHECK}</button>`
+    : `<span class="today-check-spacer" aria-hidden="true"></span>`;
+  const title = action
+    ? `<a class="today-row-title" href="${projectUrl}">${escapeHtml(action.content)}</a>`
+    : `<a class="today-row-title" href="${projectUrl}">${row.kind === "missing" ? "Projectsで次の一手を決める →" : "Projectsで状況を見直す →"}</a>`;
+  const attention = ["overdue", "due_today", "missing", "review"].includes(row.reason);
+  return `<li class="today-row today-project-row">
       ${check}
-      <div class="today-next-action${row.attention ? " attention" : ""}">
+      <div class="today-next-action${attention ? " attention" : ""}">
         ${title}
         <div class="today-row-meta">${projectMeta(row, today)}</div>
         ${resolving ? projectResolver(row) : ""}
       </div>
     </li>`;
-  }).join("")}</ul>`;
+}
+
+export function renderProjectSection(section, { resolvingActionId = null, showAll = false, now = new Date() } = {}) {
+  const fallback = sectionState(section, "Project", "projects");
+  if (fallback) return fallback;
+  const today = todayInTokyo(now);
+  const rows = projectRows(section.data, today);
+  if (!rows.length) return `<p class="today-quiet">進行中のProjectはありません。</p>`;
+  const shown = showAll ? rows : rows.slice(0, PROJECT_PREVIEW);
+  let html = `<ul class="today-list today-projects">${shown.map((row) => projectRow(row, today, resolvingActionId)).join("")}</ul>`;
+  if (shown.length < rows.length) {
+    html += `<button class="today-more" type="button" data-project-more>あと${rows.length - shown.length}件を表示</button>`;
+  }
+  return html;
 }
 
 // ---------- 画面の制御 ----------
@@ -452,6 +513,7 @@ export function createTodayPanel(root) {
     projects: { status: "loading", data: null, error: null },
     compassUrl: "/compass/",
     showAllTodos: false,
+    showAllProjects: false,
     resolvingActionId: null,
     triage: null,
   };
@@ -462,7 +524,7 @@ export function createTodayPanel(root) {
     const now = new Date();
     els.todos.innerHTML = renderTodoSection(state.todos, { compassUrl: state.compassUrl, showAll: state.showAllTodos, now });
     els.habits.innerHTML = renderHabitSection(state.habits);
-    els.projects.innerHTML = renderProjectSection(state.projects, { resolvingActionId: state.resolvingActionId, now });
+    els.projects.innerHTML = renderProjectSection(state.projects, { resolvingActionId: state.resolvingActionId, showAll: state.showAllProjects, now });
     renderHeader(now);
   }
 
@@ -477,7 +539,8 @@ export function createTodayPanel(root) {
     }
     const groups = groupTodos(state.todos.data.items, now);
     const habits = habitGroups(state.habits.data);
-    const allDone = groups.overdue.length === 0 && groups.today.length === 0 && habits.dailyDone === habits.daily.length;
+    const allDone = groups.overdue.length === 0 && groups.today.length === 0 && habits.dailyDone === habits.daily.length
+      && projectTasksDueToday(state.projects.data, todayInTokyo(now)) === 0;
     els.allDone.hidden = !allDone;
     if (allDone) {
       const weeklyLeft = habits.weekly.length - habits.weeklyDone;
@@ -570,15 +633,55 @@ export function createTodayPanel(root) {
 
   function findProjectAction(actionId) {
     for (const project of state.projects.data?.projects || []) {
-      if (project.nextAction?.id === actionId) return { project, action: project.nextAction };
+      const action = (project.actions || []).find((candidate) => candidate.id === actionId);
+      if (action) return { project, action };
     }
     return null;
+  }
+
+  /** あとで行うActionはその場で完了にする。Next Actionは残りがあれば先頭の候補へ進み、なければ次の一手を聞く。 */
+  function completeProjectTask(actionId, button) {
+    const found = findProjectAction(actionId);
+    if (!found) return;
+    if (found.action.status === "queued") {
+      void completeQueuedAction(found, button);
+      return;
+    }
+    const nextQueued = (found.project.actions || []).find((action) => action.status === "queued");
+    if (nextQueued) {
+      void resolveProject(actionId, { nextActionId: nextQueued.id }, button);
+      return;
+    }
+    state.resolvingActionId = state.resolvingActionId === actionId ? null : actionId;
+    render();
+    if (state.resolvingActionId) root.querySelector(".today-resolver input")?.focus();
+  }
+
+  async function completeQueuedAction(found, button) {
+    button.disabled = true;
+    try {
+      const payload = await sendJson("/api/project-actions", "PUT", "project-action-update", {
+        actionId: found.action.id,
+        originalUpdatedAt: found.action.updatedAt,
+        operation: "complete",
+        content: null,
+        dueOn: null,
+        startOn: null,
+      });
+      state.projects = { status: "ready", data: payload, error: null };
+      render();
+      showToast(`「${found.action.content}」を完了しました`);
+    } catch (error) {
+      button.disabled = false;
+      button.focus();
+      showToast(error instanceof Error ? error.message : "Projectを更新できませんでした。");
+    }
   }
 
   async function resolveProject(actionId, { nextActionId = null, nextActionContent = null }, control) {
     const found = findProjectAction(actionId);
     if (!found) return;
-    const controls = root.querySelectorAll(".today-resolver button, .today-resolver input");
+    const controls = [...root.querySelectorAll(".today-resolver button, .today-resolver input"), control].filter(Boolean);
     controls.forEach((element) => { element.disabled = true; });
     try {
       const payload = await sendJson("/api/project-actions", "PATCH", "project-action-resolve", {
@@ -707,18 +810,15 @@ export function createTodayPanel(root) {
     if (!button || button.disabled) return;
     if (button.dataset.todoComplete) void completeTodo(Number(button.dataset.todoComplete), button);
     else if (button.dataset.habitToggle) void toggleHabit(Number(button.dataset.habitToggle), button);
-    else if (button.dataset.projectResolve) {
-      const actionId = Number(button.dataset.projectResolve);
-      state.resolvingActionId = state.resolvingActionId === actionId ? null : actionId;
-      render();
-      if (state.resolvingActionId) root.querySelector(".today-resolver button, .today-resolver input")?.focus();
-    } else if (button.dataset.projectContinue) {
-      void resolveProject(Number(button.dataset.projectContinue), { nextActionId: Number(button.dataset.queuedId) }, button);
-    } else if ("projectCancel" in button.dataset) {
+    else if (button.dataset.projectTask) completeProjectTask(Number(button.dataset.projectTask), button);
+    else if ("projectCancel" in button.dataset) {
       const actionId = state.resolvingActionId;
       state.resolvingActionId = null;
       render();
-      root.querySelector(`[data-project-resolve="${actionId}"]`)?.focus();
+      root.querySelector(`[data-project-task="${actionId}"]`)?.focus();
+    } else if ("projectMore" in button.dataset) {
+      state.showAllProjects = true;
+      render();
     } else if ("todoMore" in button.dataset) {
       state.showAllTodos = true;
       render();

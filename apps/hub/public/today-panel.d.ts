@@ -40,6 +40,8 @@ export interface TodayProjectAction {
   id: number;
   content: string;
   status: "next" | "queued" | "waiting" | "done" | "cancelled";
+  dueOn?: string | null;
+  startOn?: string | null;
   completedAt: string | null;
   updatedAt: string;
 }
@@ -98,12 +100,20 @@ export function habitStreak(habit: TodayHabit): number;
 export function habitPressed(habit: TodayHabit): boolean;
 export function habitLocked(habit: TodayHabit, today: string): boolean;
 export function habitNote(habit: TodayHabit, today: string): string;
+export const DUE_SOON_DAYS: number;
+export const PROJECT_PREVIEW: number;
+export type TodayTaskReason = "overdue" | "due_today" | "due_soon" | "started" | "pinned";
+export function taskReason(action: TodayProjectAction, today: string): TodayTaskReason | null;
 export function projectRows(payload: TodayProjectsPayload, today: string): Array<{
   project: TodayProject;
-  kind: "next" | "review";
-  attention: "missing" | "overdue" | "review" | null;
+  kind: "task" | "missing" | "review";
+  action: TodayProjectAction | null;
+  reason: TodayTaskReason | "missing" | "review";
+  key: string;
+  position: number;
   queued: TodayProjectAction[];
 }>;
+export function projectTasksDueToday(payload: TodayProjectsPayload | null, today: string): number;
 export function completedTodayCount(
   data: { todos: { items: TodayTodo[] } | null; habits: TodayHabitsPayload | null; projects: TodayProjectsPayload | null },
   now?: Date,
@@ -115,7 +125,7 @@ export function renderTodoSection(
 export function renderHabitSection(section: TodaySection<TodayHabitsPayload>): string;
 export function renderProjectSection(
   section: TodaySection<TodayProjectsPayload>,
-  options?: { resolvingActionId?: number | null; now?: Date },
+  options?: { resolvingActionId?: number | null; showAll?: boolean; now?: Date },
 ): string;
 export function createTodayPanel(root: HTMLElement): {
   load(): Promise<void[]>;
