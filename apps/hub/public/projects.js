@@ -13,6 +13,10 @@ const state = {
   resolveProjectId: null,
   /** 詳細で編集フォームを開いているActionのID（#153）。 */
   editingActionId: null,
+  /** 詳細で編集フォームを開いているマイルストンのID（#161）。 */
+  editingMilestoneId: null,
+  /** 「まとめて追加」を開いたままにするか。 */
+  bulkOpen: false,
 };
 
 const ids = [
@@ -411,11 +415,21 @@ function relatedItemRow(item) {
   </div>`;
 }
 
-function actionEditForm(action, cancellable) {
+function milestoneOptions(project, selectedId) {
+  const open = project.milestones.filter((milestone) => milestone.status === "open" || milestone.id === selectedId);
+  return `<option value="">マイルストンなし</option>${open.map((milestone) =>
+    `<option value="${milestone.id}"${milestone.id === selectedId ? " selected" : ""}>${escapeHtml(milestone.title)}</option>`).join("")}`;
+}
+
+function actionEditForm(action, cancellable, project) {
+  const milestoneField = project.milestones.length
+    ? `<label class="action-edit-content"><span>マイルストン</span><select name="milestoneId">${milestoneOptions(project, action.milestoneId)}</select></label>`
+    : "";
   return `<form class="action-edit-form" data-action-edit="${action.id}">
     <label class="action-edit-content"><span>内容</span><input name="content" maxlength="500" required value="${escapeHtml(action.content)}" /></label>
     <label><span>着手日</span><input name="startOn" type="date" value="${escapeHtml(action.startOn || "")}" /></label>
     <label><span>期日</span><input name="dueOn" type="date" value="${escapeHtml(action.dueOn || "")}" /></label>
+    ${milestoneField}
     <div class="action-edit-buttons">
       ${cancellable ? `<button class="danger-link" type="button" data-action-op="cancel" data-action-id="${action.id}">このActionを取り消す</button>` : ""}
       <button type="button" data-action-edit-close>キャンセル</button>
@@ -425,11 +439,14 @@ function actionEditForm(action, cancellable) {
 }
 
 /** あとで行うAction1件。並べ替え・今やる・完了・編集をその場で行う（#153）。 */
-function queuedActionRow(action, index, count, project, today) {
+function queuedActionRow(action, index, count, project, today, milestone = null) {
   const errorRow = `<p class="form-error" data-action-error="${action.id}" role="alert" hidden></p>`;
   if (state.editingActionId === action.id) {
-    return `<div class="task-row editing" data-action-row="${action.id}">${actionEditForm(action, true)}${errorRow}</div>`;
+    return `<div class="task-row editing" data-action-row="${action.id}">${actionEditForm(action, true, project)}${errorRow}</div>`;
   }
+  // 期日の整合は制約にせず、目安として知らせるだけ（#161）
+  const late = milestone?.dueOn && action.dueOn && action.dueOn > milestone.dueOn
+    ? '<span class="date-chip warn">マイルストンの期日より後</span>' : "";
   const pin = project.status === "active"
     ? `<button type="button" data-action-op="pin" data-action-id="${action.id}">今やる</button>`
     : "";
@@ -438,7 +455,7 @@ function queuedActionRow(action, index, count, project, today) {
       <button type="button" data-action-op="move_up" data-action-id="${action.id}" aria-label="上へ移動" ${index === 0 ? "disabled" : ""}>↑</button>
       <button type="button" data-action-op="move_down" data-action-id="${action.id}" aria-label="下へ移動" ${index === count - 1 ? "disabled" : ""}>↓</button>
     </div>
-    <div class="task-main"><span>${escapeHtml(action.content)}</span>${actionDateChips(action, today)}</div>
+    <div class="task-main"><span>${escapeHtml(action.content)}</span>${actionDateChips(action, today)}${late}</div>
     <div class="task-buttons">
       ${pin}
       <button type="button" data-action-op="complete" data-action-id="${action.id}">完了</button>
@@ -448,15 +465,87 @@ function queuedActionRow(action, index, count, project, today) {
   </div>`;
 }
 
+function milestoneEditForm(project, milestone = null) {
+  const id = milestone ? milestone.id : "new";
+  return `<form class="milestone-form" data-milestone-form="${id}">
+    <label class="milestone-form-title"><span>マイルストン</span><input name="title" maxlength="240" required value="${escapeHtml(milestone?.title || "")}" placeholder="例：教材を決めて毎日30分の習慣にする" /></label>
+    <label><span>期日（任意）</span><input name="dueOn" type="date" value="${escapeHtml(milestone?.dueOn || "")}" /></label>
+    <div class="action-edit-buttons">
+      ${milestone ? `<button class="danger-link" type="button" data-milestone-op="delete" data-milestone-id="${milestone.id}">削除（タスクは残す）</button><button type="button" data-milestone-edit-close>キャンセル</button>` : ""}
+      <button class="primary" type="submit">${milestone ? "保存" : "マイルストンを追加"}</button>
+    </div>
+    <p class="form-error" data-milestone-error="${id}" role="alert" hidden></p>
+  </form>`;
+}
+
+function milestoneDueChip(milestone, project, today) {
+  const chips = [];
+  if (milestone.dueOn) {
+    const days = dayDiff(today, milestone.dueOn);
+    const tone = milestone.status === "done" ? "" : days < 0 ? " overdue" : days <= 3 ? " soon" : "";
+    const note = milestone.status === "done" ? "" : days < 0 ? `（${-days}日超過）` : days === 0 ? "（今日）" : `（あと${days}日）`;
+    chips.push(`<span class="date-chip${tone}">期日 ${displayDate(milestone.dueOn)}${note}</span>`);
+  }
+  if (milestone.dueOn && project.targetOn && milestone.dueOn > project.targetOn) {
+    chips.push('<span class="date-chip warn">目標日より後</span>');
+  }
+  return chips.join("");
+}
+
+/** マイルストン1つ分。見出し（進捗・期日・操作）と、その下のあとで行うAction（#161）。 */
+function milestoneGroup(project, milestone, index, count, tasks, today) {
+  const editing = state.editingMilestoneId === milestone.id;
+  const done = milestone.status === "done";
+  const progress = `${milestone.done}/${milestone.total}`;
+  const head = editing
+    ? milestoneEditForm(project, milestone)
+    : `<div class="milestone-head">
+      <div class="task-order">
+        <button type="button" data-milestone-op="move_up" data-milestone-id="${milestone.id}" aria-label="マイルストンを上へ" ${index === 0 ? "disabled" : ""}>↑</button>
+        <button type="button" data-milestone-op="move_down" data-milestone-id="${milestone.id}" aria-label="マイルストンを下へ" ${index === count - 1 ? "disabled" : ""}>↓</button>
+      </div>
+      <div class="milestone-main">
+        <strong>${done ? "✓ " : ""}${escapeHtml(milestone.title)}</strong>
+        <span class="date-chips"><span class="date-chip progress">完了 ${progress}</span>${milestoneDueChip(milestone, project, today)}</span>
+      </div>
+      <div class="task-buttons">
+        <button type="button" data-milestone-op="${done ? "reopen" : "complete"}" data-milestone-id="${milestone.id}">${done ? "再開" : "達成"}</button>
+        <button type="button" data-milestone-edit-open="${milestone.id}">編集</button>
+      </div>
+      <p class="form-error" data-milestone-error="${milestone.id}" role="alert" hidden></p>
+    </div>`;
+  const rows = tasks.length
+    ? `<div class="action-list">${tasks.map((action, taskIndex) => queuedActionRow(action, taskIndex, tasks.length, project, today, milestone)).join("")}</div>`
+    : done ? "" : '<p class="empty-detail">このマイルストンのタスクはまだありません。</p>';
+  return `<div class="milestone-group${done ? " done" : ""}" data-milestone-row="${milestone.id}">${head}${rows}</div>`;
+}
+
+function bulkAddForm(project) {
+  if (project.status !== "active") return "";
+  const select = project.milestones.some((milestone) => milestone.status === "open")
+    ? `<label><span>追加先</span><select name="milestoneId">${milestoneOptions(project, null)}</select></label>`
+    : "";
+  return `<details class="bulk-add"${state.bulkOpen ? " open" : ""}>
+    <summary>まとめて追加（1行に1タスク）</summary>
+    <form class="bulk-add-form" id="bulkAddForm">
+      <label><span>タスク</span><textarea name="contents" rows="5" placeholder="教材を3冊比べる\n体験レッスンを予約する\n毎朝の30分を確保する"></textarea></label>
+      ${select}
+      <div class="action-edit-buttons"><button class="primary" type="submit">まとめて追加</button></div>
+      <p class="form-error" id="bulkAddError" role="alert" hidden></p>
+    </form>
+  </details>`;
+}
+
 function renderDetail(project) {
   const today = todayTokyo();
   const queued = project.actions.filter((action) => action.status === "queued");
   const completed = project.actions.filter((action) => action.status === "done");
   const next = project.nextAction;
+  const nextMilestone = next ? project.milestones.find((milestone) => milestone.id === next.milestoneId) : null;
   const current = next && state.editingActionId === next.id
-    ? `<div class="detail-next editing" data-action-row="${next.id}">${actionEditForm(next, false)}<p class="form-error" data-action-error="${next.id}" role="alert" hidden></p></div>`
+    ? `<div class="detail-next editing" data-action-row="${next.id}">${actionEditForm(next, false, project)}<p class="form-error" data-action-error="${next.id}" role="alert" hidden></p></div>`
     : next
-    ? `<div class="detail-next" data-action-row="${next.id}"><strong>${escapeHtml(next.content)}</strong>${actionDateChips(next, today)}<div class="detail-next-buttons"><button id="detailResolveButton" type="button">完了して次を決める</button><button class="quiet" type="button" data-action-edit-open="${next.id}">編集</button></div><p class="form-error" data-action-error="${next.id}" role="alert" hidden></p></div>`
+    ? `<div class="detail-next" data-action-row="${next.id}">${nextMilestone ? `<small class="detail-next-milestone">${escapeHtml(nextMilestone.title)}</small>` : ""}<strong>${escapeHtml(next.content)}</strong>${actionDateChips(next, today)}<div class="detail-next-buttons"><button id="detailResolveButton" type="button">完了して次を決める</button><button class="quiet" type="button" data-action-edit-open="${next.id}">編集</button></div><p class="form-error" data-action-error="${next.id}" role="alert" hidden></p></div>`
     : project.status === "waiting"
       ? `<div class="detail-next"><strong>${escapeHtml(project.waitingFor)}を待っています。${displayDate(project.reviewOn)}に再確認します。</strong></div>`
       : project.status === "on_hold"
@@ -465,9 +554,25 @@ function renderDetail(project) {
   const actionForm = project.status === "active" || project.status === "waiting" || project.status === "on_hold"
     ? `<form class="inline-action-form" id="detailActionForm"><input id="detailActionInput" maxlength="500" required placeholder="${project.status === "active" ? "あとで行うAction候補" : "再開時のNext Action"}" /><button type="submit">${project.status === "active" ? "候補に追加" : "次を決めて再開"}</button></form><p class="form-error" id="detailActionError" role="alert" hidden></p>`
     : "";
-  const queuedRows = queued.length
-    ? `<div class="action-list">${queued.map((action, index) => queuedActionRow(action, index, queued.length, project, today)).join("")}</div>`
-    : '<p class="empty-detail">Action候補はありません。</p>';
+  // マイルストンごとに、あとで行うActionをまとめる（#161）。達成済みのマイルストンは後ろに回す。
+  const ordered = [...project.milestones.filter((milestone) => milestone.status === "open"), ...project.milestones.filter((milestone) => milestone.status === "done")];
+  const knownMilestones = new Set(project.milestones.map((milestone) => milestone.id));
+  const loose = queued.filter((action) => !action.milestoneId || !knownMilestones.has(action.milestoneId));
+  const groups = ordered.map((milestone) => milestoneGroup(
+    project, milestone, project.milestones.indexOf(milestone), project.milestones.length,
+    queued.filter((action) => action.milestoneId === milestone.id), today,
+  )).join("");
+  const looseRows = loose.length
+    ? `<div class="action-list">${loose.map((action, index) => queuedActionRow(action, index, loose.length, project, today)).join("")}</div>`
+    : project.milestones.length ? "" : '<p class="empty-detail">Action候補はありません。</p>';
+  const looseGroup = project.milestones.length
+    ? (loose.length ? `<div class="milestone-group loose"><div class="milestone-head"><div class="milestone-main"><strong>マイルストンなし</strong></div></div>${looseRows}</div>` : "")
+    : looseRows;
+  const canEditMilestones = project.status !== "completed" && project.status !== "dropped";
+  const addMilestone = canEditMilestones
+    ? `<details class="milestone-add"${state.editingMilestoneId === "new" ? " open" : ""}><summary>マイルストンを追加</summary>${milestoneEditForm(project)}</details>`
+    : "";
+  const queuedRows = `${groups}${looseGroup}`;
   // 完了Actionは新しい順に10件ずつ表示し、古い履歴まで「さらに表示」でたどれる（#140）。
   const shownCompleted = completed.slice(0, state.completedShown);
   const remainingCompleted = completed.length - shownCompleted.length;
@@ -492,7 +597,7 @@ function renderDetail(project) {
     <section class="detail-summary"><p>${escapeHtml(project.outcome)}</p><div class="detail-meta">${meta}</div></section>
     <div class="detail-toolbar"><button id="detailEditButton" type="button">目標を編集</button></div>
     <section class="detail-section"><header><h3>現在のNext Action</h3></header>${current}</section>
-    <section class="detail-section"><header><h3>あとで行うAction</h3><small>${queued.length}件</small></header>${queuedRows}${actionForm}</section>
+    <section class="detail-section"><header><h3>道筋とあとで行うAction</h3><small>マイルストン${project.milestones.length}件 · 候補${queued.length}件</small></header>${queuedRows}${actionForm}${bulkAddForm(project)}${addMilestone}</section>
     <section class="detail-section"><header><h3>関連するInbox／Wants</h3><small>${project.items.length}件</small></header>${relatedRows}</section>
     <section class="detail-section" id="completedHistory"><header><h3>完了履歴</h3><small>${completed.length}件${completed.length > shownCompleted.length ? `中 ${shownCompleted.length}件を表示` : ""}</small></header>${completedRows}</section>`;
 
@@ -515,12 +620,40 @@ function renderDetail(project) {
   els.detailBody.querySelectorAll("[data-action-edit]").forEach((form) => form.addEventListener("submit", (event) => {
     event.preventDefault();
     const data = new FormData(form);
+    const action = project.actions.find((candidate) => candidate.id === Number(form.dataset.actionEdit));
     updateAction(project.id, Number(form.dataset.actionEdit), "edit", {
       content: String(data.get("content") || ""),
       startOn: String(data.get("startOn") || "") || null,
       dueOn: String(data.get("dueOn") || "") || null,
+      // マイルストンの欄がない（マイルストン未作成）ときは今の値を保つ
+      milestoneId: data.has("milestoneId") ? Number(data.get("milestoneId")) || null : action?.milestoneId ?? null,
     });
   }));
+  els.detailBody.querySelectorAll("[data-milestone-edit-open]").forEach((button) => button.addEventListener("click", () => {
+    state.editingMilestoneId = Number(button.dataset.milestoneEditOpen);
+    renderDetail(project);
+    els.detailBody.querySelector(`[data-milestone-form="${state.editingMilestoneId}"] input[name=title]`)?.focus();
+  }));
+  els.detailBody.querySelectorAll("[data-milestone-edit-close]").forEach((button) => button.addEventListener("click", () => {
+    state.editingMilestoneId = null;
+    renderDetail(project);
+  }));
+  els.detailBody.querySelectorAll("[data-milestone-form]").forEach((form) => form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const id = form.dataset.milestoneForm;
+    updateMilestone(project.id, id === "new" ? null : Number(id), id === "new" ? "create" : "edit", {
+      title: String(data.get("title") || ""),
+      dueOn: String(data.get("dueOn") || "") || null,
+    });
+  }));
+  els.detailBody.querySelectorAll("[data-milestone-op]").forEach((button) => button.addEventListener("click", () => {
+    const operation = button.dataset.milestoneOp;
+    if (operation === "delete" && !window.confirm("このマイルストンを削除しますか？タスクは「マイルストンなし」に残ります。")) return;
+    updateMilestone(project.id, Number(button.dataset.milestoneId), operation);
+  }));
+  els.detailBody.querySelector(".bulk-add")?.addEventListener("toggle", (event) => { state.bulkOpen = event.currentTarget.open; });
+  document.getElementById("bulkAddForm")?.addEventListener("submit", (event) => saveBulkActions(event, project.id));
   els.detailBody.querySelectorAll("[data-action-op]").forEach((button) => button.addEventListener("click", () => {
     const operation = button.dataset.actionOp;
     if (operation === "cancel" && !window.confirm("このActionを取り消しますか？")) return;
@@ -540,6 +673,7 @@ function openDetail(project, updateRoute = true) {
   if (!project) return;
   if (state.selectedId !== project.id) state.completedShown = COMPLETED_PAGE;
   if (state.selectedId !== project.id) state.editingActionId = null;
+  if (state.selectedId !== project.id) state.editingMilestoneId = null;
   state.selectedId = project.id;
   renderDetail(project);
   els.detailModal.hidden = false;
@@ -627,6 +761,94 @@ async function updateAction(projectId, actionId, operation, fields = { content: 
     controls.forEach((control) => { control.disabled = false; });
     if (errorElement) setFormError(errorElement, error instanceof Error ? error.message : "Actionを更新できませんでした。");
     else showToast(error instanceof Error ? error.message : "Actionを更新できませんでした。");
+  }
+}
+
+const milestoneToasts = {
+  create: "マイルストンを追加しました。",
+  edit: "マイルストンを保存しました。",
+  complete: "マイルストンを達成にしました。",
+  reopen: "マイルストンを再開しました。",
+  delete: "マイルストンを削除しました。タスクは残っています。",
+};
+
+async function updateMilestone(projectId, milestoneId, operation, fields = { title: null, dueOn: null }) {
+  const project = getProject(projectId);
+  const milestone = project?.milestones.find((candidate) => candidate.id === milestoneId) || null;
+  const key = milestoneId === null ? "new" : milestoneId;
+  const errorElement = els.detailBody.querySelector(`[data-milestone-error="${key}"]`);
+  if (!project || (milestoneId !== null && !milestone)) return;
+  const scope = els.detailBody.querySelector(milestoneId === null ? '[data-milestone-form="new"]' : `[data-milestone-row="${milestoneId}"]`);
+  const controls = scope?.querySelectorAll("button, input") || [];
+  controls.forEach((control) => { control.disabled = true; });
+  if (errorElement) setFormError(errorElement, "");
+  try {
+    const response = await fetch("/api/project-milestones", {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: { Accept: "application/json", "Content-Type": "application/json", "X-Dashboard-Action": "project-milestone-update" },
+      body: JSON.stringify({
+        projectId,
+        originalProjectUpdatedAt: project.updatedAt,
+        milestoneId,
+        originalUpdatedAt: milestone?.updatedAt ?? null,
+        operation,
+        ...fields,
+      }),
+    });
+    const payload = await readApiJson(response);
+    if (!response.ok) throw new Error(payload.error || "マイルストンを更新できませんでした。");
+    if (["create", "edit", "delete"].includes(operation)) state.editingMilestoneId = null;
+    setData(payload);
+    const fresh = getProject(project.id);
+    if (fresh) renderDetail(fresh);
+    if (milestoneToasts[operation]) showToast(milestoneToasts[operation]);
+  } catch (error) {
+    controls.forEach((control) => { control.disabled = false; });
+    const message = error instanceof Error ? error.message : "マイルストンを更新できませんでした。";
+    if (errorElement) setFormError(errorElement, message);
+    else showToast(message);
+  }
+}
+
+async function saveBulkActions(event, projectId) {
+  event.preventDefault();
+  const project = getProject(projectId);
+  const form = event.currentTarget;
+  const errorElement = form.querySelector("#bulkAddError");
+  const data = new FormData(form);
+  const contents = String(data.get("contents") || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (!project) return;
+  if (!contents.length) {
+    setFormError(errorElement, "追加するタスクを1行以上入力してください。");
+    return;
+  }
+  const submit = form.querySelector("button[type=submit]");
+  submit.disabled = true;
+  setFormError(errorElement, "");
+  try {
+    const response = await fetch("/api/project-actions", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { Accept: "application/json", "Content-Type": "application/json", "X-Dashboard-Action": "project-action-create" },
+      body: JSON.stringify({
+        operation: "addBulk",
+        projectId,
+        contents,
+        milestoneId: Number(data.get("milestoneId")) || null,
+        originalProjectUpdatedAt: project.updatedAt,
+      }),
+    });
+    const payload = await readApiJson(response);
+    if (!response.ok) throw new Error(payload.error || "タスクを追加できませんでした。");
+    state.bulkOpen = false;
+    setData(payload);
+    const fresh = getProject(project.id);
+    if (fresh) renderDetail(fresh);
+    showToast(`${contents.length}件のタスクを追加しました。`);
+  } catch (error) {
+    setFormError(errorElement, error instanceof Error ? error.message : "タスクを追加できませんでした。");
+    submit.disabled = false;
   }
 }
 

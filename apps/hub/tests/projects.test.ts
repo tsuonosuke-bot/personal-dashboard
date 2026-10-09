@@ -129,6 +129,7 @@ function tableResponse(input: RequestInfo | URL, init?: RequestInit): Response |
   if (url.pathname.endsWith("/projects")) return Response.json([projectRow()]);
   if (url.pathname.endsWith("/project_actions")) return Response.json([actionRow()]);
   if (url.pathname.endsWith("/project_items")) return Response.json([]);
+  if (url.pathname.endsWith("/project_milestones")) return Response.json([]);
   return null;
 }
 
@@ -172,7 +173,7 @@ test("Project normalization rejects multiple next actions and orphan rows", () =
   );
 });
 
-test("Project GET loads all three tables without exposing the secret", async () => {
+test("Project GET loads all four tables without exposing the secret", async () => {
   const originalFetch = globalThis.fetch;
   const requests: Array<{ url: string; headers: Record<string, string> }> = [];
   globalThis.fetch = async (input, init) => {
@@ -182,7 +183,7 @@ test("Project GET loads all three tables without exposing the secret", async () 
   try {
     const payload = await loadProjects(env);
     assert.equal(payload.projects.length, 1);
-    assert.equal(requests.length, 3);
+    assert.equal(requests.length, 4);
     for (const request of requests) {
       assert.equal(request.headers.apikey, "server-secret");
       assert.doesNotMatch(request.url, /server-secret/);

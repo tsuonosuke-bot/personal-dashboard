@@ -42,6 +42,7 @@ export interface TodayProjectAction {
   status: "next" | "queued" | "waiting" | "done" | "cancelled";
   dueOn?: string | null;
   startOn?: string | null;
+  milestoneId?: number | null;
   completedAt: string | null;
   updatedAt: string;
 }
@@ -54,6 +55,7 @@ export interface TodayProject {
   reviewOn: string | null;
   nextAction: TodayProjectAction | null;
   actions: TodayProjectAction[];
+  milestones?: Array<{ id: number; title: string }>;
 }
 
 export interface TodayProjectsPayload {
