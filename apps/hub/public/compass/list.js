@@ -218,6 +218,34 @@ function renderWantsBacklog(items) {
   els.cardList.querySelectorAll(".want-row").forEach((row) => row.addEventListener("click", () => openDrawer(Number(row.dataset.id))));
 }
 
+const TODO_SCHEDULE_LABELS = { overdue: "実施確認待ち", today: "今日", upcoming: "今後" };
+
+/** ToDoで既定から変えている条件。チップで示し、×でその条件だけ戻す（#130）。 */
+export function todoActiveConditions() {
+  if (state.view !== "todos") return [];
+  const conditions = [];
+  if (TODO_SCHEDULE_LABELS[state.metricFilter]) conditions.push({ key: "schedule", label: `予定: ${TODO_SCHEDULE_LABELS[state.metricFilter]}` });
+  else if (state.status !== defaultStatusByView.todos) conditions.push({ key: "status", label: `ステータス: ${state.status ? statusLabel(state.status) : "すべて"}` });
+  if (state.search) conditions.push({ key: "search", label: `検索: ${state.search}` });
+  return conditions;
+}
+
+// スマホでは検索とリスト／カレンダーを常設し、ステータスと予定は「表示条件」に収める。PCでは従来どおりすべて出す。
+function renderTodoConditions() {
+  const todos = state.view === "todos";
+  const conditions = todoActiveConditions();
+  const folded = conditions.filter((condition) => condition.key !== "search").length;
+  els.workspaceTools.dataset.view = state.view;
+  els.workspaceTools.dataset.conditions = state.todoConditionsOpen ? "open" : "closed";
+  els.todoConditionsToggle.hidden = !todos;
+  els.todoConditionsToggle.setAttribute("aria-expanded", String(state.todoConditionsOpen));
+  els.todoConditionsToggle.classList.toggle("active", folded > 0);
+  els.todoConditionsCount.textContent = folded ? `${folded}件適用中` : "";
+  els.todoActiveConditions.hidden = !todos || conditions.length === 0;
+  els.todoActiveConditions.innerHTML = conditions.map((condition) =>
+    `<button class="filter-chip active" type="button" data-clear-condition="${condition.key}" aria-label="${escapeHtml(condition.label)} の条件を外す">${escapeHtml(condition.label)} <span aria-hidden="true">×</span></button>`).join("");
+}
+
 export function renderList() {
   const items = currentItems();
   renderCurrentTabCount(items);
@@ -253,6 +281,7 @@ export function renderList() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+  renderTodoConditions();
   renderWantCategoryBar();
   els.cardList.classList.remove("backlog");
   if (isWantsBacklog()) {

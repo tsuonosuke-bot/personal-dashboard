@@ -284,6 +284,23 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .todo-schedule {
   color: var(--blue);
 }
+:root[data-theme="dark"] .route-hint {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #292929;
+  color: var(--muted);
+}
+:root[data-theme="dark"] .route-hint b {
+  color: var(--ink, inherit);
+}
+:root[data-theme="dark"] .route-hint button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+:root[data-theme="dark"] .todo-conditions-toggle b {
+  color: var(--accent, inherit);
+}
 :root[data-theme="dark"] .calendar-weekdays span {
   color: var(--muted);
 }

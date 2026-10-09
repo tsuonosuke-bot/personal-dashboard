@@ -39,7 +39,7 @@
             </details>
             <span class="source-badge" id="sourceBadge">接続確認中</span>
             <button class="dashboard-refresh" id="refreshButton" type="button" title="再読み込み" aria-label="データを再読み込み">↻</button>
-            <a class="dashboard-primary" href="/compass/?view=wants"><span aria-hidden="true">＋</span><span>テーマを追加</span></a>
+            <button class="dashboard-primary" id="addTopicButton" type="button" aria-haspopup="dialog" title="IdeaでWant・Inboxを「執筆」に振り分けて追加します"><span aria-hidden="true">＋</span><span>Ideaから追加</span></button>
           </div>
         </div>
       </header>
@@ -82,6 +82,19 @@
           <p class="form-error" id="formError" role="alert" hidden></p>
           <div class="editor-actions"><button id="editorCancel" type="button">キャンセル</button><button class="save-button" id="saveButton" type="submit">保存</button></div>
         </form>
+      </section>
+    </div>
+    <div class="modal" id="addGuideModal" hidden>
+      <button class="modal-backdrop" id="addGuideBackdrop" type="button" aria-label="案内を閉じる"></button>
+      <section class="editor add-guide" role="dialog" aria-modal="true" aria-labelledby="addGuideTitle">
+        <header><div><span class="eyebrow">WRITING</span><h2 id="addGuideTitle">Ideaからテーマを追加</h2></div><button class="icon-button" id="addGuideClose" type="button" aria-label="閉じる">×</button></header>
+        <p>Writingのテーマは、Ideaの項目を「執筆」に振り分けて追加します。このページから直接は作りません。</p>
+        <ol class="add-guide-steps">
+          <li><strong>Ideaで書きたいテーマの項目を開く</strong><span>WantsかInboxの項目を開きます。まだ無ければ、Ideaの「＋」でInboxに書きます。</span></li>
+          <li><strong>振り分けで「執筆」を選ぶ</strong><span>振り分け先の一覧にある「執筆（Writingで考えを育てる）」を選びます。</span></li>
+          <li><strong>このページの「アイデア」に追加される</strong><span>タイトルや書きたい論点は、追加後にここで編集できます。</span></li>
+        </ol>
+        <div class="editor-actions"><button id="addGuideCancel" type="button">閉じる</button><a class="save-button" href="/compass/?view=wants&amp;from=writing">IdeaのWantsを開く →</a></div>
       </section>
     </div>
     <div class="toast" id="toast" role="status" hidden></div>

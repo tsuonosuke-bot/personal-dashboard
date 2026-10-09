@@ -20,6 +20,8 @@ export const state = {
   bulkError: "",
   bulkRouteKeys: new Map(),
   todoLayout: "list",
+  /** スマホのToDoで、ステータスと予定の条件を開いているか（#130）。 */
+  todoConditionsOpen: false,
   calendarMonth: "",
   calendarDragId: null,
   calendarBusy: false,
@@ -28,7 +30,7 @@ export const state = {
 export const els = Object.fromEntries([
   "sourceBadge", "refreshButton",
   "inboxTabCount", "wantsTabCount", "todosTabCount", "listTitle", "searchInput",
-  "statusFilter", "pageUtilityToolbar", "pendingFilterGroup", "knowledgeFilter", "knowledgePendingCount", "githubFilter", "githubPendingCount", "todoFilterGroup", "todoLayoutGroup", "wantCategoryBar", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
+  "statusFilter", "workspaceTools", "todoConditionsToggle", "todoConditionsCount", "todoActiveConditions", "writingRouteHint", "writingRouteHintClose", "pageUtilityToolbar", "pendingFilterGroup", "knowledgeFilter", "knowledgePendingCount", "githubFilter", "githubPendingCount", "todoFilterGroup", "todoLayoutGroup", "wantCategoryBar", "resultCount", "clearFilter", "cardList", "drawerBackdrop",
   "bulkModeButton", "bulkToolbar", "bulkSelectAll", "bulkSelectionCount", "bulkStatusSelect", "bulkRevisitField", "bulkRevisitOn", "bulkApplyButton", "bulkCancelButton", "bulkError",
   "drawer", "drawerClose", "drawerKicker", "drawerTitle", "drawerBody", "dashboardSwitcher",
   "addInboxButton", "inboxModal", "inboxModalClose", "inboxCancelButton", "inboxForm",

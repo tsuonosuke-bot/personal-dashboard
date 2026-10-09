@@ -46,6 +46,22 @@ els.todoFilterGroup.querySelectorAll("[data-todo-filter]").forEach((button) => b
   const filter = button.dataset.todoFilter;
   setView("todos", state.metricFilter === filter ? defaultStatusByView.todos : filter);
 }));
+els.todoConditionsToggle.addEventListener("click", () => {
+  state.todoConditionsOpen = !state.todoConditionsOpen;
+  renderList();
+});
+els.todoActiveConditions.addEventListener("click", (event) => {
+  const key = event.target.closest("[data-clear-condition]")?.dataset.clearCondition;
+  if (key === "schedule" || key === "status") {
+    setView("todos", defaultStatusByView.todos);
+    return;
+  }
+  if (key === "search") {
+    state.search = "";
+    els.searchInput.value = "";
+    renderList();
+  }
+});
 els.todoLayoutGroup.querySelectorAll("[data-todo-layout]").forEach((button) => button.addEventListener("click", () => setTodoLayout(button.dataset.todoLayout)));
 els.refreshButton.addEventListener("click", loadDashboard);
 els.addInboxButton.addEventListener("click", () => setModalOpen(true));
@@ -80,3 +96,11 @@ loadDashboard().then(() => {
   }
 });
 if (initialParameters.get("new") === "inbox") setModalOpen(true);
+// WritingのIdeaから追加（#131）から来たときは、執筆への振り分け手順を一覧の上に出す。
+if (initialParameters.get("from") === "writing") {
+  els.writingRouteHint.hidden = false;
+  const cleaned = new URL(window.location.href);
+  cleaned.searchParams.delete("from");
+  window.history.replaceState(window.history.state, "", `${cleaned.pathname}${cleaned.search}${cleaned.hash}`);
+}
+els.writingRouteHintClose.addEventListener("click", () => { els.writingRouteHint.hidden = true; });
