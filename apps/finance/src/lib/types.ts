@@ -57,7 +57,7 @@ export type RecurringExpense = {
 }
 
 export type RecurringExpenseDraft = {
-  template_rule_id: number
+  template_rule_id: number | null
   start_date: string
   frequency: RecurringFrequency
   interval_count: number
