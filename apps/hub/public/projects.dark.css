@@ -304,6 +304,44 @@
   border-color: var(--line);
   color: var(--ink);
 }
+:root[data-theme="dark"] .milestone-group {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+:root[data-theme="dark"] .milestone-group .task-row {
+  background: var(--surface);
+}
+:root[data-theme="dark"] .date-chip.progress {
+  border-color: rgba(93, 172, 148, 0.35);
+  background: var(--done-soft);
+  color: var(--done);
+}
+:root[data-theme="dark"] .date-chip.warn {
+  border-color: rgba(132, 107, 158, 0.4);
+  background: var(--waiting-soft);
+  color: var(--waiting);
+}
+:root[data-theme="dark"] .detail-next-milestone {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .milestone-add,
+:root[data-theme="dark"] .bulk-add {
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+}
+:root[data-theme="dark"] .milestone-add > summary,
+:root[data-theme="dark"] .bulk-add > summary {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .milestone-add[open] > summary,
+:root[data-theme="dark"] .bulk-add[open] > summary {
+  border-bottom: 1px dashed var(--line);
+}
+:root[data-theme="dark"] .milestone-form label,
+:root[data-theme="dark"] .bulk-add-form label {
+  color: var(--muted);
+}
 :root[data-theme="dark"] .task-row {
   border: 1px solid var(--line);
   border-radius: 8px;

@@ -41,7 +41,7 @@ function updateRequest(body: Record<string, unknown>, header = "project-action-u
 function updateBody(overrides: Record<string, unknown> = {}) {
   return {
     actionId: 11, originalUpdatedAt: preciseTimestamp, operation: "edit",
-    content: "  教材を1冊に絞る ", dueOn: "2026-10-20", startOn: "2026-10-12", ...overrides,
+    content: "  教材を1冊に絞る ", dueOn: "2026-10-20", startOn: "2026-10-12", milestoneId: null, ...overrides,
   };
 }
 
@@ -75,7 +75,7 @@ test("Actionの編集入力は内容と日付を検証し、編集以外の操�
     ok: true,
     value: {
       actionId: 11, originalUpdatedAt: preciseTimestamp, operation: "edit",
-      content: "教材を1冊に絞る", dueOn: "2026-10-20", startOn: "2026-10-12",
+      content: "教材を1冊に絞る", dueOn: "2026-10-20", startOn: "2026-10-12", milestoneId: null,
     },
   });
   const cleared = await readProjectActionUpdateInput(updateRequest(updateBody({ dueOn: null, startOn: null })));
@@ -111,12 +111,12 @@ test("Actionの更新は1つのRPCに楽観ロック用の更新日時ごと渡�
   };
   try {
     await updateProjectAction(env, {
-      actionId: 11, originalUpdatedAt: preciseTimestamp, operation: "edit", content: "教材を決める", dueOn: "2026-10-20", startOn: null,
+      actionId: 11, originalUpdatedAt: preciseTimestamp, operation: "edit", content: "教材を決める", dueOn: "2026-10-20", startOn: null, milestoneId: null,
     });
     assert.equal(captured[0].path, "/rest/v1/rpc/update_project_action");
     assert.deepEqual(captured[0].body, {
       p_action_id: 11, p_action_updated_at: preciseTimestamp, p_operation: "edit",
-      p_content: "教材を決める", p_due_on: "2026-10-20", p_start_on: null,
+      p_content: "教材を決める", p_due_on: "2026-10-20", p_start_on: null, p_milestone_id: null,
     });
 
     const cases: Array<[string, string, number]> = [
@@ -131,7 +131,7 @@ test("Actionの更新は1つのRPCに楽観ロック用の更新日時ごと渡�
     for (const [message, code, status] of cases) {
       reject = message;
       await assert.rejects(
-        updateProjectAction(env, { actionId: 11, originalUpdatedAt: preciseTimestamp, operation: "pin", content: null, dueOn: null, startOn: null }),
+        updateProjectAction(env, { actionId: 11, originalUpdatedAt: preciseTimestamp, operation: "pin", content: null, dueOn: null, startOn: null, milestoneId: null }),
         (error: unknown) => {
           const failure = publicProjectError(error);
           assert.equal(failure.code, code, message);

@@ -14,6 +14,7 @@ const PERSONAL_TABLES = [
   "projects",
   "project_items",
   "project_actions",
+  "project_milestones",
   "scheduled_actions",
   "scheduled_action_schedule_history",
   "daily_journal",

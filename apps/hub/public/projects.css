@@ -195,6 +195,27 @@ form textarea { min-height: 70px; padding: 9px 10px; resize: vertical; line-heig
 .detail-next-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
 .detail-next button.quiet { border-color: var(--line); color: var(--ink); }
 .detail-next .form-error { margin: 6px 0 0; }
+.milestone-group { display: grid; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+.milestone-group + .milestone-group { margin-top: 6px; }
+.milestone-group.done { opacity: .75; }
+.milestone-group .task-row { background: var(--surface); }
+.milestone-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.milestone-group.loose .milestone-head { grid-template-columns: 1fr; }
+.milestone-head .form-error { grid-column: 1 / -1; margin: 0; }
+.milestone-main { min-width: 0; overflow-wrap: anywhere; }
+.milestone-main strong { font-size: 13px; }
+.date-chip.progress { border-color: rgba(57, 112, 95, .35); background: var(--done-soft); color: var(--done); }
+.date-chip.warn { border-color: rgba(108, 86, 131, .4); background: var(--waiting-soft); color: var(--waiting); }
+.detail-next-milestone { display: block; margin-bottom: 2px; color: var(--accent); font-size: 10px; font-weight: 750; }
+.milestone-add, .bulk-add { margin-top: 8px; border: 1px dashed var(--line); border-radius: 9px; }
+.milestone-add > summary, .bulk-add > summary { min-height: 40px; display: flex; align-items: center; padding: 0 11px; color: var(--accent); cursor: pointer; font-size: 11px; font-weight: 750; }
+.milestone-add[open] > summary, .bulk-add[open] > summary { border-bottom: 1px dashed var(--line); }
+.milestone-form, .bulk-add-form { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; padding: 9px; }
+.milestone-form label, .bulk-add-form label { display: grid; gap: 3px; color: var(--muted); font-size: 10px; font-weight: 750; }
+.milestone-form input, .bulk-add-form textarea, .bulk-add-form select, .action-edit-form select { min-width: 0; }
+.milestone-form-title, .bulk-add-form label, .milestone-form .action-edit-buttons, .bulk-add-form .action-edit-buttons { grid-column: 1 / -1; }
+.milestone-group > .milestone-form { padding: 0; }
+.milestone-form .form-error, .bulk-add-form .form-error { grid-column: 1 / -1; margin: 0; }
 .task-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; line-height: 1.45; }
 .task-row.editing { display: block; border-color: var(--accent); }
 .task-row .form-error { grid-column: 1 / -1; margin: 0; }

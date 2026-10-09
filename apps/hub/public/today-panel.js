@@ -418,7 +418,10 @@ function taskPill(row, today) {
 function projectMeta(row, today) {
   const { project } = row;
   const targetPassed = project.targetOn && project.targetOn < today ? " · 目標日を過ぎています" : "";
-  const title = `<span>${escapeHtml(project.title)}${targetPassed}</span>`;
+  // タスクがマイルストンに属していれば、その名前を添える（#161）
+  const milestone = row.action?.milestoneId ? (project.milestones || []).find((candidate) => candidate.id === row.action.milestoneId) : null;
+  const milestoneLabel = milestone ? ` · ${escapeHtml(milestone.title)}` : "";
+  const title = `<span>${escapeHtml(project.title)}${milestoneLabel}${targetPassed}</span>`;
   if (row.kind === "review") return `<span class="today-pill attention">見直し日です</span>${title}`;
   if (row.kind === "missing") return `<span class="today-pill attention">次の一手が未設定</span>${title}`;
   const pinned = row.action.status === "next" && row.reason !== "pinned" ? `<span class="today-pill project">今やる</span>` : "";
