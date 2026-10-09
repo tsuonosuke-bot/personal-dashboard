@@ -21,7 +21,7 @@ const state = {
 
 const ids = [
   "sourceBadge", "refreshButton", "addProjectButton", "activeCount", "attentionCount", "waitingCount", "completedCount",
-  "activeTabCount", "waitingTabCount", "completedTabCount", "searchInput", "sortSelect", "sortNote", "clearFilters", "resultCount",
+  "activeTabCount", "waitingTabCount", "completedTabCount", "reviewTabCount", "filtersBar", "resultLine", "searchInput", "sortSelect", "sortNote", "clearFilters", "resultCount",
   "loadingState", "errorState", "errorMessage", "retryButton", "projectList",
   "projectModal", "projectBackdrop", "projectClose", "projectCancel", "projectForm", "projectEditorKicker", "projectEditorTitle",
   "projectTitleInput", "projectOutcomeInput", "projectThemeInput", "projectTargetInput", "projectNextActionField",
@@ -148,6 +148,8 @@ function projectsForView() {
 }
 
 const COMPLETED_PAGE = 10;
+/** サーバーの STALE_DAYS と同じ。停滞の説明に使う。 */
+const STALE_DAYS = 14;
 
 /** 並び順ごとの説明。要確認をどう扱うかを一覧の上に示す（#142）。 */
 const sortNotes = {
@@ -176,8 +178,13 @@ function sortProjects(projects, sort) {
   return projects;
 }
 
+function staleDays(project, today = todayTokyo()) {
+  return dayDiff(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo" }).format(new Date(project.lastActivityAt)), today);
+}
+
 function statusBadge(project) {
   if (project.needsAttention) return '<span class="badge attention">要確認</span>';
+  if (project.stale) return `<span class="badge stale">停滞 ${staleDays(project)}日</span>`;
   if (project.status === "waiting" || project.status === "on_hold") return `<span class="badge waiting">${statusLabels[project.status]}</span>`;
   if (project.status === "completed" || project.status === "dropped") return `<span class="badge done">${statusLabels[project.status]}</span>`;
   return '<span class="badge">進行中</span>';
@@ -244,10 +251,96 @@ function renderSummary() {
   els.activeTabCount.textContent = summary.active;
   els.waitingTabCount.textContent = summary.waiting;
   els.completedTabCount.textContent = summary.completed;
+  els.reviewTabCount.textContent = reviewData().pending;
+}
+
+/** 月曜始まりの今週の初日（JST）。 */
+function weekStartTokyo(today) {
+  const day = new Date(`${today}T00:00:00Z`).getUTCDay();
+  const date = new Date(`${today}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - ((day + 6) % 7));
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * 週次レビュー（#162）。docs/projects-operation.md の「毎週」を1画面にまとめる。
+ * pending は見直しが必要な件数（今週の完了は含めない）。
+ */
+function reviewData() {
+  const today = todayTokyo();
+  const weekStart = weekStartTokyo(today);
+  const projects = state.data?.projects || [];
+  const open = projects.filter((project) => ["active", "waiting", "on_hold"].includes(project.status));
+  const overdue = open.flatMap((project) => project.actions
+    .filter((action) => (action.status === "next" || action.status === "queued") && action.dueOn && action.dueOn < today)
+    .map((action) => ({ project, action })))
+    .sort((left, right) => left.action.dueOn.localeCompare(right.action.dueOn));
+  const attention = projects.filter((project) => project.needsAttention);
+  const reviewDue = open.filter((project) => project.status !== "active" && project.reviewOn && project.reviewOn <= today)
+    .sort((left, right) => left.reviewOn.localeCompare(right.reviewOn));
+  const stale = projects.filter((project) => project.stale)
+    .sort((left, right) => left.lastActivityAt.localeCompare(right.lastActivityAt));
+  const doneThisWeek = projects.map((project) => ({
+    project,
+    actions: project.actions.filter((action) => action.status === "done" && action.completedAt
+      && new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo" }).format(new Date(action.completedAt)) >= weekStart),
+  })).filter((entry) => entry.actions.length).sort((left, right) => right.actions.length - left.actions.length);
+  return {
+    today, weekStart, overdue, attention, reviewDue, stale, doneThisWeek,
+    pending: overdue.length + attention.length + reviewDue.length + stale.length,
+  };
+}
+
+function reviewSection(title, note, count, rows, empty) {
+  return `<section class="review-section"><header><h3>${title}</h3><b>${count}</b><small>${note}</small></header>${count
+    ? `<div class="review-rows">${rows}</div>` : `<p class="review-empty">✓ ${empty}</p>`}</section>`;
+}
+
+function reviewRow(project, main, chips) {
+  return `<button class="review-row" type="button" data-detail="${project.id}"><span><strong>${main}</strong><small>${escapeHtml(project.title)}</small></span><span class="date-chips">${chips}</span></button>`;
+}
+
+function renderReview() {
+  const data = reviewData();
+  els.resultCount.textContent = `見直し ${data.pending}件`;
+  const attentionReason = (project) => {
+    const unprocessed = project.items.filter((item) => item.treatment === "unprocessed").length;
+    return [project.status === "active" && !project.actions.some((action) => ["next", "queued", "waiting"].includes(action.status)) ? "次の一手が未設定" : null,
+      unprocessed ? `未整理 ${unprocessed}件` : null].filter(Boolean).join(" · ");
+  };
+  const doneCount = data.doneThisWeek.reduce((total, entry) => total + entry.actions.length, 0);
+  els.projectList.innerHTML = `<div class="review-board">
+    ${reviewSection("期限超過のタスク", "期日を過ぎた未完了のタスク", data.overdue.length,
+      data.overdue.map(({ project, action }) => reviewRow(project, escapeHtml(action.content),
+        `<span class="date-chip overdue">期日 ${displayDate(action.dueOn)}（${dayDiff(action.dueOn, data.today)}日超過）</span>`)).join(""),
+      "期限を過ぎたタスクはありません")}
+    ${reviewSection("要確認", "次の一手や関連アイテムの整理が必要", data.attention.length,
+      data.attention.map((project) => reviewRow(project, `完了条件: ${escapeHtml(project.outcome)}`, `<span class="date-chip warn">${escapeHtml(attentionReason(project) || "要確認")}</span>`)).join(""),
+      "要確認のProjectはありません")}
+    ${reviewSection("再確認・見直し日", "待機・保留で日付が来たもの", data.reviewDue.length,
+      data.reviewDue.map((project) => reviewRow(project, escapeHtml(project.status === "waiting" ? `${project.waitingFor}を待っています` : "保留中"),
+        `<span class="date-chip soon">${project.status === "waiting" ? "再確認" : "見直し"} ${displayDate(project.reviewOn)}</span>`)).join(""),
+      "見直し日が来たProjectはありません")}
+    ${reviewSection("停滞", `進行中で${STALE_DAYS}日以上動きがない`, data.stale.length,
+      data.stale.map((project) => reviewRow(project, escapeHtml(project.nextAction?.content || "Next Action未設定"),
+        `<span class="date-chip stale">${staleDays(project, data.today)}日動きなし</span>`)).join(""),
+      "停滞しているProjectはありません")}
+    ${reviewSection("今週完了したタスク", `${displayDate(data.weekStart)}〜`, doneCount,
+      data.doneThisWeek.map(({ project, actions }) => `<div class="review-done"><button type="button" data-detail="${project.id}"><strong>${escapeHtml(project.title)}</strong><b>${actions.length}件</b></button><ul>${actions.map((action) => `<li>${escapeHtml(action.content)}</li>`).join("")}</ul></div>`).join(""),
+      "今週完了したタスクはまだありません")}
+  </div>`;
 }
 
 function renderList() {
   if (!state.data) return;
+  const reviewing = state.view === "review";
+  els.filtersBar.hidden = reviewing;
+  els.sortNote.hidden = reviewing;
+  if (reviewing) {
+    els.clearFilters.hidden = true;
+    renderReview();
+    return;
+  }
   const projects = sortProjects(projectsForView(), state.sort);
   els.sortNote.textContent = sortNotes[state.sort];
   els.resultCount.textContent = `${projects.length}件${state.attentionOnly ? " · 要確認のみ" : ""}`;

@@ -11,6 +11,8 @@ const MAX_WAITING_FOR_CHARS = 240;
 const PROJECT_SELECT = "id,title,outcome,theme,status,target_on,review_on,waiting_for,completed_at,created_at,updated_at";
 const ACTION_SELECT = "id,project_id,project_item_id,milestone_id,content,status,due_on,start_on,sort_order,waiting_for,completed_at,created_at,updated_at";
 const MILESTONE_SELECT = "id,project_id,title,due_on,sort_order,status,completed_at,created_at,updated_at";
+/** active Projectがこの日数動かないと「停滞」とみなす（#162）。 */
+export const STALE_DAYS = 14;
 /** 一括追加で一度に入れられるタスクの数（#161）。 */
 export const MAX_BULK_ACTIONS = 50;
 const ITEM_SELECT = "id,project_id,source_type,source_id,source_content,treatment,created_at,updated_at";
@@ -135,6 +137,10 @@ export interface Project {
   milestones: ProjectMilestone[];
   items: ProjectItem[];
   needsAttention: boolean;
+  /** Project・Action・マイルストンの更新日時のうち最も新しいもの（#162）。 */
+  lastActivityAt: string;
+  /** activeなのに STALE_DAYS 日以上動きがない（#162）。 */
+  stale: boolean;
 }
 
 export interface ProjectCreateInput {
@@ -506,12 +512,22 @@ function compareQueued(left: ProjectAction, right: ProjectAction): number {
   return left.createdAt.localeCompare(right.createdAt) || left.id - right.id;
 }
 
+function tokyoDate(value: string | Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo" }).format(typeof value === "string" ? new Date(value) : value);
+}
+
+function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+}
+
 export function normalizeProjects(
   projectRows: ProjectRow[],
   actionRows: ProjectActionRow[],
   itemRows: ProjectItemRow[],
   milestoneRows: ProjectMilestoneRow[] = [],
+  now = new Date(),
 ) {
+  const today = tokyoDate(now);
   const actions = actionRows.map(normalizeActionRow);
   const items = itemRows.map(normalizeItemRow);
   const milestones = milestoneRows.map(normalizeMilestoneRow);
@@ -561,7 +577,12 @@ export function normalizeProjects(
       || projectItems.some((item) => item.treatment === "unprocessed");
     const projectMilestones = (milestonesByProject.get(project.id) || []).sort((left, right) =>
       left.sortOrder - right.sortOrder || left.id - right.id);
-    return { ...project, nextAction, actions: projectActions, milestones: projectMilestones, items: projectItems, needsAttention };
+    const lastActivityAt = [project.updatedAt, ...projectActions.map((action) => action.updatedAt), ...projectMilestones.map((milestone) => milestone.updatedAt)]
+      .reduce((latest, value) => (Date.parse(value) > Date.parse(latest) ? value : latest));
+    const stale = project.status === "active" && daysBetween(tokyoDate(lastActivityAt), today) >= STALE_DAYS;
+    return {
+      ...project, nextAction, actions: projectActions, milestones: projectMilestones, items: projectItems, needsAttention, lastActivityAt, stale,
+    };
   }).sort((left, right) => {
     if (left.needsAttention !== right.needsAttention) return left.needsAttention ? -1 : 1;
     if (left.targetOn && right.targetOn && left.targetOn !== right.targetOn) return left.targetOn.localeCompare(right.targetOn);
@@ -574,6 +595,7 @@ export function normalizeProjects(
     summary: {
       active: projects.filter((project) => project.status === "active").length,
       needsAttention: projects.filter((project) => project.needsAttention).length,
+      stale: projects.filter((project) => project.stale).length,
       waiting: projects.filter((project) => project.status === "waiting" || project.status === "on_hold").length,
       completed: projects.filter((project) => project.status === "completed").length,
       openActions: actions.filter((action) => ["next", "queued", "waiting"].includes(action.status)).length,
@@ -582,14 +604,14 @@ export function normalizeProjects(
   };
 }
 
-export async function loadProjects(env: DashboardEnv) {
+export async function loadProjects(env: DashboardEnv, now = new Date()) {
   const [projects, actions, items, milestones] = await Promise.all([
     fetchRows(env, "projects", PROJECT_SELECT, "updated_at.desc,id.desc") as Promise<ProjectRow[]>,
     fetchRows(env, "project_actions", ACTION_SELECT, "updated_at.desc,id.desc") as Promise<ProjectActionRow[]>,
     fetchRows(env, "project_items", ITEM_SELECT, "updated_at.desc,id.desc") as Promise<ProjectItemRow[]>,
     fetchRows(env, "project_milestones", MILESTONE_SELECT, "sort_order.asc,id.asc") as Promise<ProjectMilestoneRow[]>,
   ]);
-  return normalizeProjects(projects, actions, items, milestones);
+  return normalizeProjects(projects, actions, items, milestones, now);
 }
 
 export function validateProjectMutationRequest(

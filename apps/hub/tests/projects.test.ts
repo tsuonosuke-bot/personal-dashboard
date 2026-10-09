@@ -147,6 +147,8 @@ test("Project rows combine actions and linked items and derive attention", () =>
     [projectRow(), waiting],
     [actionRow(), actionRow({ id: 12, project_id: 1, content: "テストを書く", status: "queued" })],
     [itemRow()],
+    [],
+    new Date("2026-09-23T00:00:00Z"),
   );
   assert.equal(payload.projects[0].id, 1);
   assert.equal(payload.projects[0].nextAction?.content, "3件の実例を書き出す");
@@ -155,6 +157,7 @@ test("Project rows combine actions and linked items and derive attention", () =>
   assert.deepEqual(payload.summary, {
     active: 1,
     needsAttention: 1,
+    stale: 0,
     waiting: 1,
     completed: 0,
     openActions: 2,
