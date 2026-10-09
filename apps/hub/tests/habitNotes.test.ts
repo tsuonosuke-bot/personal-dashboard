@@ -115,7 +115,7 @@ test("Habits画面は履歴のセルと今日のカードから記録シート�
     readFile(new URL("../public/habits.css", import.meta.url), "utf8"),
     readFile(new URL("../public/habits/index.html", import.meta.url), "utf8"),
   ]);
-  for (const id of ["logSheet", "logSheetCompleted", "logSheetNote", "logSheetNoteView", "logSheetSave"]) {
+  for (const id of ["logSheet", "logSheetKindField", "logSheetNote", "logSheetNoteView", "logSheetSave"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(html, /id="logSheetNote" maxlength="2000"/);
@@ -124,7 +124,7 @@ test("Habits画面は履歴のセルと今日のカードから記録シート�
   assert.doesNotMatch(script, /data-sheet-week/);
   assert.match(script, /data-note-id="\$\{habit\.id\}"/);
   assert.match(script, /7日より前の記録は見るだけです/);
-  assert.match(script, /completed: true, note \}/);
+  assert.match(script, /completed: true, kind, note \}/);
   assert.match(script, /保存すると、この日の記録とメモが消えます/);
   assert.match(css, /td\.has-note::before/);
   assert.match(css, /\.log-sheet \{/);

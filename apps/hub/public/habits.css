@@ -147,9 +147,15 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 .form-error { margin: 0; padding: 9px; border-radius: 8px; background: #f7e3e1; color: #9d403a; font-size: 9px; }
 .log-sheet { width: min(420px, 100%); }
 .log-sheet-status { margin: 0; color: var(--muted); font-size: 11px; }
-.log-sheet-check { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; }
-.log-sheet-check input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
-.log-sheet-check > span { margin: 0; font-size: 13px; }
+.log-sheet-kind { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 0; padding: 0; border: 0; }
+.log-sheet-kind legend { margin-bottom: 6px; padding: 0; font-size: 9px; font-weight: 800; }
+.log-sheet-kind label { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.log-sheet-kind label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.log-sheet-kind input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.log-sheet-kind label > span { margin: 0; font-size: 12px; font-weight: 750; }
+td.skip { color: var(--muted); }
+.habit-card.skipped { background: #f6f6f3; }
+.skip-tag { padding: 3px 6px; border-radius: 999px; background: #edf0ed; color: var(--muted); font-size: 10px; font-weight: 800; }
 .log-sheet-note-view { margin: 0; padding: 10px 11px; border-radius: 9px; background: var(--accent-soft); font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
 .log-sheet-hint { margin: 0; color: var(--muted); font-size: 10px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 3px; }

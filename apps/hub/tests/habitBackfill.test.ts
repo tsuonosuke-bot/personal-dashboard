@@ -40,7 +40,7 @@ test("今日から7日前までは記録でき、8日前と未来は拒否する
     const yesterday = await applyHabitLog(env, { habitId: 1, practicedOn: "2026-10-08", completed: true }, NOW);
     assert.equal(yesterday.completed, true);
     const insert = fake.calls.find((call) => call.method === "POST");
-    assert.deepEqual(insert?.body, { habit_id: 1, practiced_on: "2026-10-08", note: null, tracking_key: "D:2026-10-08" });
+    assert.deepEqual(insert?.body, { habit_id: 1, practiced_on: "2026-10-08", kind: "done", note: null, tracking_key: "D:2026-10-08" });
 
     await applyHabitLog(env, { habitId: 1, practicedOn: "2026-10-02", completed: true }, NOW);
     for (const practicedOn of ["2026-10-01", "2026-10-10"]) {

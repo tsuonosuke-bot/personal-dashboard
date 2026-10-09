@@ -367,6 +367,15 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .today-backfill-chips button span {
   color: var(--habit);
 }
+:root[data-theme="dark"] .today-backfill-item > button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+:root[data-theme="dark"] .today-backfill-chips button.rest {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  color: var(--muted);
+}
 :root[data-theme="dark"] .today-chip {
   border: 0;
   border-top: 1px solid var(--divider);

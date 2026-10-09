@@ -360,12 +360,31 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .log-sheet-status {
   color: var(--muted);
 }
-:root[data-theme="dark"] .log-sheet-check {
+:root[data-theme="dark"] .log-sheet-kind {
+  border: 0;
+}
+:root[data-theme="dark"] .log-sheet-kind label {
   border: 1px solid var(--line);
   border-radius: 10px;
 }
-:root[data-theme="dark"] .log-sheet-check input {
+:root[data-theme="dark"] .log-sheet-kind label:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .log-sheet-kind input {
   accent-color: var(--accent);
+}
+:root[data-theme="dark"] td.skip {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .habit-card.skipped {
+  background: #1f1f1d;
+}
+:root[data-theme="dark"] .skip-tag {
+  border-radius: 999px;
+  background: #313531;
+  color: var(--muted);
 }
 :root[data-theme="dark"] .log-sheet-note-view {
   border-radius: 9px;

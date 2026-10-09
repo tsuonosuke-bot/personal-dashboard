@@ -167,7 +167,7 @@ export function missedYesterday(payload) {
   return (payload.habits || []).filter((habit) => {
     if (habit.status !== "active" || (habit.cadence !== "daily" && habit.cadence !== "weekdays")) return false;
     const day = (habit.history || []).find((entry) => entry.date === yesterday);
-    return Boolean(day?.eligible && !day.completed);
+    return Boolean(day?.eligible && !day.completed && !day.skipped);
   });
 }
 
@@ -182,7 +182,10 @@ export function habitGroups(payload) {
     weekly,
     flexible,
     dailyDone: daily.filter((habit) => habit.completedToday).length,
+    // 今日休んだHabit・目標に届かず休んだ週のHabitは分母から外す（#164）
+    dailyTarget: daily.filter((habit) => !habit.skippedToday).length,
     weeklyDone: weekly.filter((habit) => habit.completedThisWeek).length,
+    weeklyTarget: weekly.filter((habit) => habit.completedThisWeek || !habit.skippedThisWeek).length,
   };
 }
 
@@ -190,11 +193,12 @@ export function habitGroups(payload) {
 export function habitStreak(habit) {
   const history = [...(habit.history || [])].sort((left, right) => left.date.localeCompare(right.date));
   let index = history.length - 1;
-  if (index >= 0 && !history[index].completed) index -= 1;
+  if (index >= 0 && !history[index].completed && !history[index].skipped) index -= 1;
   let streak = 0;
   for (; index >= 0; index -= 1) {
     const day = history[index];
-    if (!day.eligible) continue;
+    // 対象外の日と休んだ日（#164）は飛ばして数える。休んでも連続は切れない
+    if (!day.eligible || day.skipped) continue;
     if (!day.completed) break;
     streak += 1;
   }
@@ -211,8 +215,11 @@ export function habitNote(habit, today) {
     const target = habit.targetPerWeek || 1;
     const count = habit.weeklyCount ?? (habit.completedThisWeek ? 1 : 0);
     const progress = `今週 ${count}/${target}回${count >= target ? " 達成" : ""}`;
-    return habit.completedToday ? `${progress} · 今日 記録済み` : progress;
+    if (habit.completedToday) return `${progress} · 今日 記録済み`;
+    if (habit.skippedToday) return `${progress} · 今日は休み`;
+    return habit.skippedThisWeek && count < target ? `${progress} · 休みの週` : progress;
   }
+  if (habit.skippedToday) return "今日は休み";
   const streak = habitStreak(habit);
   const streakLabel = streak >= 7 ? "7日以上連続" : `${streak}日連続`;
   if (habit.completedToday) return streak >= 2 ? `今日 記録済み · ${streakLabel}` : "今日 記録済み";
@@ -374,7 +381,7 @@ export function lastWeekCard(payload) {
   const counted = habits.filter((habit) => habit.achieved !== null);
   const achieved = counted.filter((habit) => habit.achieved).length;
   const items = habits.map((habit) => {
-    const value = habit.target === null ? `${habit.done}${habit.unit}` : `${habit.done}/${habit.target}${habit.unit}`;
+    const value = `${habit.target === null ? `${habit.done}${habit.unit}` : `${habit.done}/${habit.target}${habit.unit}`}${habit.skipped ? ` · 休${habit.skipped}` : ""}`;
     return `<li${habit.achieved ? ' class="done"' : ""}><span>${escapeHtml(habit.name)}</span><b>${value}</b></li>`;
   }).join("");
   return `<div class="today-last-week"><b>先週の結果 · 目標達成 ${achieved}/${counted.length}</b><ul>${items}</ul></div>`;
@@ -393,15 +400,15 @@ export function renderHabitSection(section) {
   const missed = missedYesterday(payload);
   if (missed.length) {
     html += `<div class="today-backfill"><b>昨日の未記録 ${missed.length}件</b><div class="today-backfill-chips">${missed.map((habit) =>
-      `<button type="button" data-habit-backfill="${habit.id}" aria-label="${escapeHtml(habit.name)}を昨日の分として記録"><span aria-hidden="true">＋</span>${escapeHtml(habit.name)}</button>`).join("")}</div></div>`;
+      `<span class="today-backfill-item"><button type="button" data-habit-backfill="${habit.id}" aria-label="${escapeHtml(habit.name)}を昨日の分として記録"><span aria-hidden="true">＋</span>${escapeHtml(habit.name)}</button><button class="rest" type="button" data-habit-backfill-skip="${habit.id}" aria-label="${escapeHtml(habit.name)}は昨日休んだ">休んだ</button></span>`).join("")}</div></div>`;
   }
   if (groups.daily.length) {
-    const ratio = Math.round((groups.dailyDone / groups.daily.length) * 100);
-    html += `<div class="today-progress"><span>今日 ${groups.dailyDone}/${groups.daily.length}</span><i role="progressbar" aria-label="今日の習慣" aria-valuemin="0" aria-valuemax="${groups.daily.length}" aria-valuenow="${groups.dailyDone}"><b style="width:${ratio}%"></b></i></div>`;
+    const ratio = groups.dailyTarget ? Math.round((groups.dailyDone / groups.dailyTarget) * 100) : 100;
+    html += `<div class="today-progress"><span>今日 ${groups.dailyDone}/${groups.dailyTarget}</span><i role="progressbar" aria-label="今日の習慣" aria-valuemin="0" aria-valuemax="${groups.dailyTarget}" aria-valuenow="${groups.dailyDone}"><b style="width:${ratio}%"></b></i></div>`;
     html += `<div class="today-chips">${groups.daily.map((habit) => habitChip(habit, today)).join("")}</div>`;
   }
   if (groups.weekly.length) {
-    html += `<p class="today-group">今週の目標 · 達成 ${groups.weeklyDone}/${groups.weekly.length}</p>`;
+    html += `<p class="today-group">今週の目標 · 達成 ${groups.weeklyDone}/${groups.weeklyTarget}</p>`;
     html += `<div class="today-chips">${groups.weekly.map((habit) => habitChip(habit, today)).join("")}</div>`;
   }
   if (groups.flexible.length) {
@@ -573,11 +580,11 @@ export function createTodayPanel(root) {
     }
     const groups = groupTodos(state.todos.data.items, now);
     const habits = habitGroups(state.habits.data);
-    const allDone = groups.overdue.length === 0 && groups.today.length === 0 && habits.dailyDone === habits.daily.length
+    const allDone = groups.overdue.length === 0 && groups.today.length === 0 && habits.dailyDone >= habits.dailyTarget
       && projectTasksDueToday(state.projects.data, todayInTokyo(now)) === 0;
     els.allDone.hidden = !allDone;
     if (allDone) {
-      const weeklyLeft = habits.weekly.length - habits.weeklyDone;
+      const weeklyLeft = habits.weeklyTarget - habits.weeklyDone;
       els.allDone.innerHTML = `<span aria-hidden="true">✓</span><div>今日の分はすべて完了しました<small>${count}件こなしました。${weeklyLeft > 0 ? `今週の習慣はあと${weeklyLeft}つです。` : "今週の習慣も完了です。"}</small></div>`;
     }
   }
@@ -638,19 +645,19 @@ export function createTodayPanel(root) {
     }
   }
 
-  async function setHabit(habit, completed, practicedOn = state.habits.data.today) {
-    await sendJson("/api/habit-logs", "PATCH", "habit-log", { habitId: habit.id, practicedOn, completed });
+  async function setHabit(habit, completed, practicedOn = state.habits.data.today, kind = null) {
+    await sendJson("/api/habit-logs", "PATCH", "habit-log", { habitId: habit.id, practicedOn, completed, ...(kind ? { kind } : {}) });
   }
 
-  async function backfillHabit(id, button) {
+  async function backfillHabit(id, button, kind = "done") {
     const habit = state.habits.data?.habits?.find((candidate) => candidate.id === id);
     if (!habit) return;
     const yesterday = addDays(state.habits.data.today, -1);
     button.disabled = true;
     try {
-      await setHabit(habit, true, yesterday);
+      await setHabit(habit, true, yesterday, kind);
       await load("habits");
-      showToast(`${habit.name} を昨日の分として記録しました`, async () => {
+      showToast(kind === "skip" ? `${habit.name} は昨日休んだことにしました` : `${habit.name} を昨日の分として記録しました`, async () => {
         await setHabit(habit, false, yesterday);
         await load("habits");
         return `${habit.name} の昨日の記録を取り消しました`;
@@ -864,6 +871,7 @@ export function createTodayPanel(root) {
     if (button.dataset.todoComplete) void completeTodo(Number(button.dataset.todoComplete), button);
     else if (button.dataset.habitToggle) void toggleHabit(Number(button.dataset.habitToggle), button);
     else if (button.dataset.habitBackfill) void backfillHabit(Number(button.dataset.habitBackfill), button);
+    else if (button.dataset.habitBackfillSkip) void backfillHabit(Number(button.dataset.habitBackfillSkip), button, "skip");
     else if (button.dataset.projectTask) completeProjectTask(Number(button.dataset.projectTask), button);
     else if ("projectCancel" in button.dataset) {
       const actionId = state.resolvingActionId;

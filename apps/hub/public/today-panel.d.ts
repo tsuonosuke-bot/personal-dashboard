@@ -30,7 +30,9 @@ export interface TodayHabit {
   weeklyCompletedOn: string | null;
   targetPerWeek?: number;
   weeklyCount?: number;
-  history: Array<{ date: string; eligible: boolean; completed: boolean; late?: boolean }>;
+  history: Array<{ date: string; eligible: boolean; completed: boolean; skipped?: boolean; late?: boolean }>;
+  skippedToday?: boolean;
+  skippedThisWeek?: boolean;
 }
 
 export interface TodayHabitsPayload {
@@ -39,7 +41,7 @@ export interface TodayHabitsPayload {
   lastWeek?: {
     from: string;
     to: string;
-    habits: Array<{ id: number; name: string; cadence: TodayHabit["cadence"]; done: number; target: number | null; unit: string; achieved: boolean | null }>;
+    habits: Array<{ id: number; name: string; cadence: TodayHabit["cadence"]; done: number; target: number | null; unit: string; achieved: boolean | null; skipped?: number }>;
   };
 }
 
@@ -105,7 +107,9 @@ export function habitGroups(payload: TodayHabitsPayload): {
   weekly: TodayHabit[];
   flexible: TodayHabit[];
   dailyDone: number;
+  dailyTarget: number;
   weeklyDone: number;
+  weeklyTarget: number;
 };
 export function habitStreak(habit: TodayHabit): number;
 export function missedYesterday(payload: TodayHabitsPayload | null): TodayHabit[];

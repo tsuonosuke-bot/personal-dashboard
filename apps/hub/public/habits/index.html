@@ -67,7 +67,7 @@
           </section>
 
           <section class="panel history-panel" aria-labelledby="historyTitle">
-            <div class="section-heading"><div><p>HISTORY</p><h2 id="historyTitle">履歴</h2></div><small>✓ 実施（•は後から記録・下線はメモあり）· 記録なし — 対象外 · タップで記録・メモ（直近7日）</small></div>
+            <div class="section-heading"><div><p>HISTORY</p><h2 id="historyTitle">履歴</h2></div><small>✓ 実施（•は後から記録・下線はメモあり）· ／ 休んだ · 記録なし — 対象外 · タップで記録・メモ（直近7日）</small></div>
             <div class="history-controls">
               <div class="history-period" role="group" aria-label="履歴の期間">
                 <button type="button" data-history-period="week" aria-pressed="true">週</button>
@@ -111,7 +111,11 @@
         <div class="modal-head"><div><p id="logSheetDate">RECORD</p><h2 id="logSheetTitle">実施記録</h2></div><button id="logSheetClose" type="button" aria-label="閉じる">×</button></div>
         <form id="logSheetForm">
           <p class="log-sheet-status" id="logSheetStatus"></p>
-          <label class="log-sheet-check" id="logSheetCheckField"><input id="logSheetCompleted" type="checkbox" /><span>実施した</span></label>
+          <fieldset class="log-sheet-kind" id="logSheetKindField"><legend>この日は</legend>
+            <label><input type="radio" name="logKind" value="done" /><span>実施した</span></label>
+            <label><input type="radio" name="logKind" value="skip" /><span>休んだ</span></label>
+            <label><input type="radio" name="logKind" value="none" /><span>記録なし</span></label>
+          </fieldset>
           <label id="logSheetNoteField"><span>ひとことメモ</span><textarea id="logSheetNote" maxlength="2000" rows="3" placeholder="例：朝のうちに終えられた"></textarea></label>
           <p class="log-sheet-note-view" id="logSheetNoteView" hidden></p>
           <p class="log-sheet-hint" id="logSheetHint" hidden></p>
