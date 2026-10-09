@@ -9,7 +9,6 @@ import { MissedReviewSheet } from "./components/MissedReviewSheet";
 import { TodayLearningPanel } from "./components/TodayLearningPanel";
 import { ThemeSelect } from "./components/ThemeSelect";
 import { SpeakingPracticePanel } from "./components/SpeakingPracticePanel";
-import { ALL, DEFAULT_PAGE_SIZE } from "./constants";
 import { useFilteredKnowledge } from "./hooks/useFilteredKnowledge";
 import { useDailyReview } from "./hooks/useDailyReview";
 import { useKnowledgeData } from "./hooks/useKnowledgeData";
@@ -18,6 +17,7 @@ import { useInsightGroups } from "./hooks/useInsightGroups";
 import { useReviewQueueStatus } from "./hooks/useReviewQueueStatus";
 import { confirmReviewResults } from "./lib/api";
 import { dashboardRoutePath, parseDashboardRoute, type OrganizeTab } from "./lib/dashboardRoute";
+import { DEFAULT_FILTERS, listStatePath, parseListState, sameListState, type ListState } from "./lib/listState";
 import { missesToReview } from "./lib/learningSummary";
 import type { NoteSelection } from "./components/NotesPanel";
 import type { ReviewScope } from "./components/ReviewView";
@@ -66,16 +66,12 @@ export default function App() {
   const [logUnconfirmedOnly, setLogUnconfirmedOnly] = useState(false);
   const insightStore = useInsights();
   const insightGroupStore = useInsightGroups();
-  const [filters, setFilters] = useState<Filters>({
-    search: "",
-    category: ALL,
-    mastery: ALL,
-    priority: ALL,
-    review: "all",
-  });
-  const [sort, setSort] = useState<SortState>({ key: "created_at", direction: "desc" });
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  // 一覧の状態はURLが正本（#137）。初期表示・戻る・再読込・共有URLのどれでも同じ一覧を開く。
+  const [initialList] = useState(() => parseListState(window.location.href));
+  const [filters, setFilters] = useState<Filters>(initialList.filters);
+  const [sort, setSort] = useState<SortState>(initialList.sort);
+  const [page, setPage] = useState(initialList.page);
+  const [pageSize, setPageSize] = useState(initialList.pageSize);
   const [selected, setSelected] = useState<Knowledge | null>(null);
   const [formTarget, setFormTarget] = useState<Knowledge | null | undefined>(undefined);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -118,6 +114,10 @@ export default function App() {
   );
   const misses = useMemo(() => missesToReview(quizLog), [quizLog]);
 
+  const listState = useMemo<ListState>(() => ({ filters, sort, page, pageSize }), [filters, sort, page, pageSize]);
+  const listStateRef = useRef(listState);
+  useEffect(() => { listStateRef.current = listState; }, [listState]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const rows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -126,8 +126,18 @@ export default function App() {
     window.history.replaceState(null, "", dashboardRoutePath(window.location.href, route));
   }, []);
 
+  const applyListState = useCallback((next: ListState) => {
+    setFilters(next.filters);
+    setSort(next.sort);
+    setPage(next.page);
+    setPageSize(next.pageSize);
+  }, []);
+
   const applyDashboardRoute = useCallback((notify = true) => {
     const route = parseDashboardRoute(window.location.href);
+    // 戻る・進むでは、その時点のURLにある一覧条件へ戻す。
+    const urlList = parseListState(window.location.href);
+    if (!sameListState(urlList, listStateRef.current)) applyListState(urlList);
     if (route.kind === "quiz") {
       setSelected(null);
       setArchiveOpen(false);
@@ -183,7 +193,7 @@ export default function App() {
       replaceRoute({ kind: "dashboard" });
       if (notify) setNotice("指定されたナレッジを開けません。一覧を表示します。");
     }
-  }, [archivedKnowledge, error, knowledge, loading, replaceRoute]);
+  }, [applyListState, archivedKnowledge, error, knowledge, loading, replaceRoute]);
 
   useEffect(() => {
     applyDashboardRoute();
@@ -191,6 +201,19 @@ export default function App() {
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, [applyDashboardRoute]);
+
+  // 一覧の操作ごとに履歴を増やさないよう、URLは置き換える。画面やナレッジのパラメータはそのまま残る。
+  useEffect(() => {
+    const path = listStatePath(window.location.href, listState);
+    if (path !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.history.replaceState(window.history.state, "", path);
+    }
+  }, [listState]);
+
+  const clearFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    setPage(1);
+  };
 
   const updateFilters = (patch: Partial<Filters>) => {
     setFilters((prev) => ({ ...prev, ...patch }));
@@ -679,8 +702,9 @@ export default function App() {
             categories={categories}
             resultCount={filtered.length}
             onChange={updateFilters}
+            onClear={clearFilters}
           />
-          <KnowledgeTable rows={rows} sort={sort} onSort={handleSort} onOpen={openKnowledge} />
+          <KnowledgeTable rows={rows} sort={sort} onSort={handleSort} onSortChange={(next) => { setSort(next); setPage(1); }} onOpen={openKnowledge} />
           <Pagination
             page={currentPage}
             totalPages={totalPages}

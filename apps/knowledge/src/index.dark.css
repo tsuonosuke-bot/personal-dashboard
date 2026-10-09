@@ -69,6 +69,25 @@
 :root[data-theme="dark"] .count {
   color: #9ea9b9;
 }
+:root[data-theme="dark"] .filter-field > span {
+  color: #9ea9b9;
+}
+:root[data-theme="dark"] .filter-chip {
+  border: 1px solid #4d455a;
+  border-radius: 999px;
+  background: #1f1d22;
+  color: #b7adce;
+}
+:root[data-theme="dark"] .filter-chip:hover:not(:disabled) {
+  border-color: #8d7aae;
+  background: #322b3b;
+}
+:root[data-theme="dark"] .filter-clear {
+  border: 0;
+  background: transparent;
+  color: #a89cc3;
+  text-decoration: underline;
+}
 :root[data-theme="dark"] table {
   border-collapse: collapse;
 }
@@ -1623,4 +1642,26 @@
 :root[data-theme="dark"] .tag-remove:hover:not(:disabled) {
   color: #eb7a7a;
   background: transparent;
+}
+@media (max-width: 640px) {
+  :root[data-theme="dark"] .table-mobile-sort {
+    border-bottom: 1px solid #4c5461;
+    color: #9ea9b9;
+  }
+  :root[data-theme="dark"] .knowledge-table tr {
+    border-bottom: 1px solid #4c5461;
+  }
+  :root[data-theme="dark"] .knowledge-table tr:hover td {
+    background: transparent;
+  }
+  :root[data-theme="dark"] .knowledge-table td {
+    border: 0;
+  }
+  :root[data-theme="dark"] .knowledge-table td[data-label]::before {
+    color: #8a96a7;
+  }
+  :root[data-theme="dark"] .knowledge-table .cell-action button {
+    border: 1px solid #4d455a;
+    border-radius: 8px;
+  }
 }
