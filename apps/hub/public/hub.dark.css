@@ -337,6 +337,19 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .today-project-row .today-check {
   --check--light: var(--project--light, var(--project));
 }
+:root[data-theme="dark"] .today-last-week {
+  border-radius: 10px;
+  background: var(--habit-soft);
+}
+:root[data-theme="dark"] .today-last-week b {
+  color: var(--habit);
+}
+:root[data-theme="dark"] .today-last-week li {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .today-last-week li.done b {
+  color: var(--habit);
+}
 :root[data-theme="dark"] .today-backfill {
   border: 1px dashed var(--habit-line);
   border-radius: 10px;

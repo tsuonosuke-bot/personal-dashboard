@@ -28,12 +28,19 @@ export interface TodayHabit {
   completedToday: boolean;
   completedThisWeek: boolean;
   weeklyCompletedOn: string | null;
+  targetPerWeek?: number;
+  weeklyCount?: number;
   history: Array<{ date: string; eligible: boolean; completed: boolean; late?: boolean }>;
 }
 
 export interface TodayHabitsPayload {
   today: string;
   habits: TodayHabit[];
+  lastWeek?: {
+    from: string;
+    to: string;
+    habits: Array<{ id: number; name: string; cadence: TodayHabit["cadence"]; done: number; target: number | null; unit: string; achieved: boolean | null }>;
+  };
 }
 
 export interface TodayProjectAction {
@@ -103,7 +110,7 @@ export function habitGroups(payload: TodayHabitsPayload): {
 export function habitStreak(habit: TodayHabit): number;
 export function missedYesterday(payload: TodayHabitsPayload | null): TodayHabit[];
 export function habitPressed(habit: TodayHabit): boolean;
-export function habitLocked(habit: TodayHabit, today: string): boolean;
+export function lastWeekCard(payload: TodayHabitsPayload | null): string;
 export function habitNote(habit: TodayHabit, today: string): string;
 export const DUE_SOON_DAYS: number;
 export const PROJECT_PREVIEW: number;

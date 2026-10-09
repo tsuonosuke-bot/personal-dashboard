@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { DashboardError } from "../functions/_shared/dashboard.ts";
 import {
   applyHabitLog,
   mondayOf,
@@ -135,20 +134,23 @@ test("Habit更新はPostgreSQLのマイクロ秒精度を競合条件まで保�
   }
 });
 
-test("週次Habitは同じ週の2回目を拒否する", async () => {
+test("週次Habitは同じ週の別の日にも記録でき、1日1行の D: キーで書く（#163）", async () => {
   const originalFetch = globalThis.fetch;
-  let calls = 0;
-  globalThis.fetch = async () => {
-    calls += 1;
-    if (calls === 1) return Response.json([{ id: 3, name: "週次", cadence: "weekly", status: "active", started_on: "2026-09-01" }]);
-    return Response.json([{ id: 22, habit_id: 3, practiced_on: "2026-09-18" }]);
+  const calls: Array<{ method: string; url: URL; body: Record<string, unknown> | null }> = [];
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    const method = init?.method || "GET";
+    calls.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : null });
+    if (url.pathname.endsWith("/habits")) return Response.json([{ id: 3, name: "週次", cadence: "weekly", status: "active", started_on: "2026-09-01" }]);
+    if (method === "GET") return Response.json([]);
+    return Response.json([{ id: 23, habit_id: 3, practiced_on: "2026-09-20" }], { status: 201 });
   };
   try {
-    await assert.rejects(
-      () => applyHabitLog(env, { habitId: 3, practicedOn: "2026-09-20", completed: true }, new Date("2026-09-20T03:00:00Z")),
-      (error: unknown) => error instanceof DashboardError && error.code === "HABIT_WEEK_ALREADY_COMPLETED" && error.status === 409,
-    );
-    assert.equal(calls, 2);
+    const result = await applyHabitLog(env, { habitId: 3, practicedOn: "2026-09-20", completed: true }, new Date("2026-09-20T03:00:00Z"));
+    assert.equal(result.completed, true);
+    const lookup = calls.find((call) => call.method === "GET" && call.url.pathname.endsWith("/habit_logs"));
+    assert.deepEqual(lookup?.url.searchParams.getAll("practiced_on"), ["eq.2026-09-20"]);
+    assert.equal(calls.find((call) => call.method === "POST")?.body?.tracking_key, "D:2026-09-20");
   } finally {
     globalThis.fetch = originalFetch;
   }

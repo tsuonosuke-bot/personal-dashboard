@@ -179,3 +179,19 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
   .section-heading > small { max-width: 45%; text-align: right; }
   .modal { padding: 16px; }
 }
+
+/* 週N回（#163） */
+.week-progress { padding: 3px 6px; border-radius: 999px; background: #edf0ed; color: var(--muted); font-size: 10px; font-weight: 800; }
+.week-progress.done { background: var(--accent-soft); color: var(--accent); }
+td.free { color: transparent; }
+table.history-weeks td small { font-size: 9px; }
+.last-week { margin-top: 8px; padding: 9px 10px; border: 1px dashed #e8ddd6; border-radius: 10px; background: #fcf6f2; }
+.last-week-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; margin-bottom: 5px; }
+.last-week-head strong { font-size: 12px; }
+.last-week-head small { color: var(--muted); font-size: 10px; }
+.last-week ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 3px 12px; margin: 0; padding: 0; list-style: none; }
+.last-week li { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; }
+.last-week li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.last-week li.done b { color: var(--accent); }
+.last-week li.missed b { color: var(--muted); }
+.field-hint { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }

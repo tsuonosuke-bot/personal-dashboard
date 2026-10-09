@@ -115,11 +115,13 @@ test("Habits画面は履歴のセルと今日のカードから記録シート�
     readFile(new URL("../public/habits.css", import.meta.url), "utf8"),
     readFile(new URL("../public/habits/index.html", import.meta.url), "utf8"),
   ]);
-  for (const id of ["logSheet", "logSheetCompleted", "logSheetDay", "logSheetNote", "logSheetNoteView", "logSheetSave"]) {
+  for (const id of ["logSheet", "logSheetCompleted", "logSheetNote", "logSheetNoteView", "logSheetSave"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(html, /id="logSheetNote" maxlength="2000"/);
-  assert.match(script, /data-sheet-week="\$\{week\.weekStart\}"/);
+  // 毎週のHabitも日ごとのセルからシートを開く（#163）。週ごとのセルは集計だけ
+  assert.match(script, /data-sheet-date="\$\{day\.date\}"/);
+  assert.doesNotMatch(script, /data-sheet-week/);
   assert.match(script, /data-note-id="\$\{habit\.id\}"/);
   assert.match(script, /7日より前の記録は見るだけです/);
   assert.match(script, /completed: true, note \}/);

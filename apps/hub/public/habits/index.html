@@ -99,6 +99,7 @@
           <label><span>習慣名 <b>必須</b></span><input id="habitName" maxlength="240" required placeholder="例：Pomeraで書く" /></label>
           <label><span>目的・続けたい理由</span><textarea id="habitPurpose" maxlength="2000" rows="4" placeholder="空欄でも登録できます"></textarea></label>
           <label><span>頻度</span><select id="habitCadence"><option value="daily">毎日</option><option value="weekdays">平日</option><option value="weekly">毎週</option><option value="flexible">頻度を固定しない</option></select></label>
+          <label id="targetField" hidden><span>週の回数</span><select id="habitTarget"><option value="1">週1回</option><option value="2">週2回</option><option value="3">週3回</option><option value="4">週4回</option><option value="5">週5回</option><option value="6">週6回</option><option value="7">週7回</option></select><small class="field-hint">回数や頻度を変えると、過去の週も新しい目標で数え直します。</small></label>
           <label id="statusField" hidden><span>状態</span><select id="habitStatus"><option value="active">有効</option><option value="paused">休止</option><option value="archived">アーカイブ</option></select></label>
           <p class="form-error" id="formError" role="alert" hidden></p>
           <div class="form-actions"><button class="secondary-button" id="cancelButton" type="button">キャンセル</button><button class="primary-button" id="saveButton" type="submit">登録する</button></div>
@@ -111,7 +112,6 @@
         <form id="logSheetForm">
           <p class="log-sheet-status" id="logSheetStatus"></p>
           <label class="log-sheet-check" id="logSheetCheckField"><input id="logSheetCompleted" type="checkbox" /><span>実施した</span></label>
-          <label id="logSheetDayField" hidden><span>実施日</span><input id="logSheetDay" type="date" /></label>
           <label id="logSheetNoteField"><span>ひとことメモ</span><textarea id="logSheetNote" maxlength="2000" rows="3" placeholder="例：朝のうちに終えられた"></textarea></label>
           <p class="log-sheet-note-view" id="logSheetNoteView" hidden></p>
           <p class="log-sheet-hint" id="logSheetHint" hidden></p>
