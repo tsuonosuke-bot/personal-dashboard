@@ -5,7 +5,9 @@ import {
   publicProjectError,
   readProjectActionCreateInput,
   readProjectActionResolveInput,
+  readProjectActionUpdateInput,
   resolveProjectAction,
+  updateProjectAction,
   validateProjectMutationRequest,
 } from "../_shared/projects.ts";
 
@@ -49,5 +51,18 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     }
   }
 
-  return new Response("Method Not Allowed\n", { status: 405, headers: { Allow: "POST, PATCH" } });
+  if (context.request.method === "PUT") {
+    const guard = validateProjectMutationRequest(context.request, "project-action-update");
+    if (guard) return Response.json({ error: guard.error }, { status: guard.status, headers });
+    const input = await readProjectActionUpdateInput(context.request);
+    if (!input.ok) return Response.json({ error: input.error }, { status: input.status, headers });
+    try {
+      await updateProjectAction(context.env, input.value);
+      return Response.json(await loadProjects(context.env), { headers });
+    } catch (error) {
+      return failureResponse(error, input.value.operation);
+    }
+  }
+
+  return new Response("Method Not Allowed\n", { status: 405, headers: { Allow: "POST, PATCH, PUT" } });
 };
