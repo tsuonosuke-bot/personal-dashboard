@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { CategoryFilter } from './components/CategoryFilter'
 import { ExpenseFormModal } from './components/ExpenseFormModal'
+import type { BulkCategoryResult } from './components/BulkCategoryBar'
 import { ExpenseTable } from './components/ExpenseTable'
 import { RecurringExpenseModal } from './components/RecurringExpenseModal'
 import { SummaryCards } from './components/SummaryCards'
@@ -16,7 +17,7 @@ import {
   UNCLASSIFIED_CATEGORY,
   type CategoryFilterMode,
 } from './lib/finance'
-import { createRecurringExpense, getRecurringExpenses, runRecurringExpenses, setRecurringExpenseActive, updateRecurringExpense } from './lib/api'
+import { ApiError, createRecurringExpense, getRecurringExpenses, runRecurringExpenses, setRecurringExpenseActive, updateRecurringExpense } from './lib/api'
 import type { Expense, ExpenseDraft, RecurringExpense, RecurringExpenseDraft, RecurringExpenseUpdate } from './lib/types'
 import { ThemeSelect } from './components/ThemeSelect'
 
@@ -154,6 +155,35 @@ function App() {
     } catch (caught) {
       setNotice(caught instanceof Error ? caught.message : '明細を復元できませんでした。')
     }
+  }
+
+  // 未分類の明細を1件ずつ編集APIで更新する。編集前の値を条件にするので、他画面で変わった行は409で止まり上書きしない。
+  const bulkCategorize = async (targets: Expense[], category: string, hooks: { shouldStop: () => boolean; onProgress: (done: number) => void }) => {
+    const result: BulkCategoryResult = { updated: [], conflicts: [], failed: [], skipped: [] }
+    for (const [index, expense] of targets.entries()) {
+      if (hooks.shouldStop()) {
+        result.skipped.push(expense.id)
+        continue
+      }
+      const amount = Number(expense.amount)
+      try {
+        await updateExpense(expense, {
+          transaction_date: expense.transaction_date,
+          amount: Math.abs(amount),
+          title: expense.title,
+          category,
+          payer: expense.payer,
+          memo: expense.memo,
+          type: amount < 0 ? 'offset' : 'expense',
+        })
+        result.updated.push(expense.id)
+      } catch (caught) {
+        if (caught instanceof ApiError && caught.status === 409) result.conflicts.push(expense.id)
+        else result.failed.push(expense.id)
+      }
+      hooks.onProgress(index + 1)
+    }
+    return result
   }
 
   // 未分類だけを一覧・グラフに残し、明細が最も新しい月へ移動する。
@@ -442,6 +472,9 @@ function App() {
                 setEditingExpense(expense)
                 setEntryOpen(true)
               }}
+              categories={categories}
+              onBulkCategorize={demoMode ? undefined : bulkCategorize}
+              bulkBusy={mutating}
               voidedExpenses={demoMode ? undefined : voidedExpenses}
               onRestore={demoMode ? undefined : (expense) => void restoreExpense(expense)}
               restoring={mutating}

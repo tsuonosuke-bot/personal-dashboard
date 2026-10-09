@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { categoryLabel, isIncome, monthKey, monthLabel, yen } from '../lib/finance'
-import type { Expense } from '../lib/types'
+import { categoryLabel, isIncome, monthKey, monthLabel, UNCLASSIFIED_CATEGORY, yen } from '../lib/finance'
+import type { BudgetCategory, Expense } from '../lib/types'
+import { BulkCategoryBar, type BulkCategoryResult } from './BulkCategoryBar'
 
 type Props = {
   expenses: Expense[]
@@ -8,6 +9,10 @@ type Props = {
   /** 月・カテゴリ・支払者の組み合わせ。変わったらページだけ先頭に戻す（明細の条件は保持する） */
   scopeKey?: string
   onEdit?: (expense: Expense) => void
+  /** 渡すと未分類の行を複数選択してカテゴリを一括変更できる */
+  categories?: BudgetCategory[]
+  onBulkCategorize?: (targets: Expense[], category: string, hooks: { shouldStop: () => boolean; onProgress: (done: number) => void }) => Promise<BulkCategoryResult>
+  bulkBusy?: boolean
   /** 取消済みの明細（全期間）。表示中の月の分だけを復元用に出す */
   voidedExpenses?: Expense[]
   onRestore?: (expense: Expense) => void
@@ -18,7 +23,7 @@ function shortDate(value: string) {
   return value.slice(5).replace('-', '/')
 }
 
-export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth, onEdit, voidedExpenses = [], onRestore, restoring = false }: Props) {
+export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth, onEdit, categories = [], onBulkCategorize, bulkBusy = false, voidedExpenses = [], onRestore, restoring = false }: Props) {
   const pageSize = 50
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -29,6 +34,7 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
   const [sort, setSort] = useState<'newest' | 'oldest' | 'amount-desc' | 'amount-asc'>('newest')
   const [page, setPage] = useState(1)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(new Set())
   const [scopeNotice, setScopeNotice] = useState<string | null>(null)
   const [previousScope, setPreviousScope] = useState({ key: scopeKey, month: selectedMonth })
 
@@ -80,12 +86,35 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
     return right.transaction_date.localeCompare(left.transaction_date) || right.id - left.id
   }), [monthExpenses, dateFrom, dateTo, type, amountMin, amountMax, query, sort])
 
+  // 選択できるのは表示中の条件に合う未分類の行だけ。変更済み・条件外になった行は自然に選択から外れる。
+  const bulkEnabled = Boolean(onBulkCategorize)
+  const selectableRows = useMemo(() => filtered.filter((expense) => expense.category === UNCLASSIFIED_CATEGORY), [filtered])
+  const selectedRows = useMemo(() => selectableRows.filter((expense) => selectedIds.has(expense.id)), [selectableRows, selectedIds])
+  const toggleSelected = (id: number) => setSelectedIds((current) => {
+    const next = new Set(current)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
   const currentPage = Math.min(page, pageCount)
   const visibleRows = useMemo(
     () => filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize),
     [currentPage, filtered],
   )
+  const showSelect = bulkEnabled && selectableRows.length > 0
+  const pageSelectable = visibleRows.filter((expense) => expense.category === UNCLASSIFIED_CATEGORY)
+  const pageAllSelected = pageSelectable.length > 0 && pageSelectable.every((expense) => selectedIds.has(expense.id))
+  const togglePage = () => setSelectedIds((current) => {
+    const next = new Set(current)
+    for (const expense of pageSelectable) {
+      if (pageAllSelected) next.delete(expense.id)
+      else next.add(expense.id)
+    }
+    return next
+  })
+  const finishBulk = (result: BulkCategoryResult) => setSelectedIds(new Set([...result.conflicts, ...result.failed, ...result.skipped]))
 
   const updateFilter = (setter: (value: string) => void, value: string) => {
     setter(value)
@@ -161,10 +190,32 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
         </p>
       )}
 
+      {onBulkCategorize && (
+        <BulkCategoryBar
+          selected={selectedRows}
+          categories={categories}
+          disabled={bulkBusy}
+          onRun={onBulkCategorize}
+          onFinished={finishBulk}
+          onClearSelection={() => setSelectedIds(new Set())}
+        />
+      )}
       <div className="max-h-[34rem] overflow-auto rounded-xl border border-slate-200">
         <table className="w-full min-w-[760px] text-sm">
           <thead className="sticky top-0 z-10 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
+              {showSelect && (
+                <th className="w-10 px-3 py-3">
+                  <input
+                    type="checkbox"
+                    className="bulk-select"
+                    aria-label="このページの未分類をすべて選択"
+                    checked={pageAllSelected}
+                    disabled={pageSelectable.length === 0 || bulkBusy}
+                    onChange={togglePage}
+                  />
+                </th>
+              )}
               <th className="px-4 py-3">日付</th>
               <th className="px-4 py-3 text-right">金額</th>
               <th className="px-4 py-3">カテゴリ</th>
@@ -176,6 +227,20 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
           <tbody>
             {visibleRows.map((expense) => (
               <tr key={expense.id} className="border-t border-slate-100 bg-white transition hover:bg-indigo-50/40">
+                {showSelect && (
+                  <td className="w-10 px-3 py-3">
+                    {expense.category === UNCLASSIFIED_CATEGORY && (
+                      <input
+                        type="checkbox"
+                        className="bulk-select"
+                        aria-label={`${expense.transaction_date} ${expense.title}を選択`}
+                        checked={selectedIds.has(expense.id)}
+                        disabled={bulkBusy}
+                        onChange={() => toggleSelected(expense.id)}
+                      />
+                    )}
+                  </td>
+                )}
                 <td className="whitespace-nowrap px-4 py-3 text-slate-600">{expense.transaction_date}</td>
                 <td className={`whitespace-nowrap px-4 py-3 text-right font-semibold ${isIncome(expense) ? 'text-sky-700' : 'text-slate-800'}`}>
                   {yen.format(Number(expense.amount))}
