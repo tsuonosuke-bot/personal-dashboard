@@ -434,7 +434,7 @@ function App() {
               </div>
             </Suspense>
             <ExpenseTable
-              key={`${selectedMonth}:${categoryMode}:${selectedCategories.join(',')}:${selectedPayer}`}
+              scopeKey={`${selectedMonth}:${categoryMode}:${selectedCategories.join(',')}:${selectedPayer}`}
               expenses={filteredExpenses}
               selectedMonth={selectedMonth}
               onEdit={demoMode ? undefined : (expense) => {
