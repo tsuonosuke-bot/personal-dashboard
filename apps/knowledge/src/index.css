@@ -41,10 +41,19 @@ input[type="text"], input[type="date"], select, textarea {
   outline: none; font-family: inherit; background: #fff;
 }
 input:focus, select:focus, textarea:focus { border-color: #8d7aae; box-shadow: 0 0 0 3px rgba(102, 85, 140, .12); }
-.filters input[type="text"] { flex: 1; min-width: 240px; }
 .field input, .field select, .field textarea { width: 100%; }
 .field textarea { resize: vertical; line-height: 1.55; }
 .count { font-size: 12px; color: #64748b; margin-left: auto; }
+.filter-field { display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
+.filter-field > span { color: #64748b; font-size: 11px; font-weight: 650; }
+.filter-field-search { flex: 1; min-width: 240px; }
+.filter-field-search input { width: 100%; }
+.filters .count { align-self: flex-end; padding-bottom: 9px; }
+.filter-chips { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.filter-chip { min-height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid #d9d1e6; border-radius: 999px; background: #f6f3fa; color: #4f416d; font-size: 12px; }
+.filter-chip:hover:not(:disabled) { border-color: #8d7aae; background: #efe9f6; }
+.filter-clear { min-height: 32px; padding: 4px 10px; border: 0; background: transparent; color: #66558c; font-size: 12px; font-weight: 700; text-decoration: underline; }
+.table-mobile-sort { display: none; }
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th { text-align: left; color: #64748b; font-weight: 600; padding: 12px; border-bottom: 1px solid #edf1f7; white-space: nowrap; }
@@ -969,3 +978,25 @@ body.quiz-open { padding-bottom: 0; }
 .tag.tag-auto small { color: #8a7fa3; font-size: 9px; font-weight: 700; }
 .tag-remove { min-height: 0; margin-left: 2px; padding: 0 3px; border: 0; background: transparent; color: #8a7fa3; font-size: 12px; line-height: 1; cursor: pointer; }
 .tag-remove:hover:not(:disabled) { color: #b91c1c; background: transparent; }
+
+/* スマホの一覧はカード表示にし、横スクロールなしでタイトル・次回復習・詳細を同じカードに置く（#126）。 */
+@media (max-width: 640px) {
+  .filter-field { flex: 1 1 calc(50% - 6px); min-width: 0; }
+  .filter-field-search { flex-basis: 100%; }
+  .filter-field select { width: 100%; }
+  .table-card { overflow-x: visible; }
+  .table-mobile-sort { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #edf1f7; color: #64748b; font-size: 12px; font-weight: 650; }
+  .table-mobile-sort select { min-height: 40px; flex: 1; max-width: 220px; }
+  .knowledge-table thead { display: none; }
+  .knowledge-table, .knowledge-table tbody { display: block; }
+  .knowledge-table tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; padding: 14px; border-bottom: 1px solid #edf1f7; }
+  .knowledge-table tr:hover td { background: transparent; }
+  .knowledge-table td { display: flex; align-items: center; gap: 6px; padding: 0; border: 0; font-size: 13px; }
+  .knowledge-table td[data-label]::before { content: attr(data-label); color: #8b97a8; font-size: 11px; white-space: nowrap; }
+  .knowledge-table .cell-title { display: block; grid-column: 1 / -1; }
+  .knowledge-table .expl, .knowledge-table .tag-preview { max-width: 100%; }
+  .knowledge-table .cell-review { grid-column: 1 / 2; }
+  .knowledge-table .cell-action { grid-column: 2 / 3; justify-content: flex-end; }
+  .knowledge-table .cell-action button { min-height: 40px; padding: 0 14px; border: 1px solid #d9d1e6; border-radius: 8px; }
+  .knowledge-table td.msg { display: block; grid-column: 1 / -1; padding: 24px 8px; }
+}
