@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import {
+  readingChunks,
   selectSpeakingPracticeKnowledge,
   speakingPracticeCandidates,
+  speakingPracticeEmptyReason,
+  speakingPracticeGroups,
   speakingPracticeStats,
+  speechSynthesisSupported,
 } from "../src/lib/speakingPractice.ts";
 import type { Knowledge, SpeakingPracticeLog } from "../src/types.ts";
 
@@ -77,4 +82,55 @@ test("練習集計はJSTの日付で今日の記録を数える", () => {
     { ...base, id: 2, attempt_id: "123e4567-e89b-42d3-a456-426614174003", rating: "retry", practiced_at: "2026-09-20T14:30:00.000Z" },
   ], new Date("2026-09-21T01:00:00.000Z"));
   assert.deepEqual(stats, { today: 1, recent: 2, smooth: 1 });
+});
+
+test("練習の対象をカテゴリ・タグ・カードで絞り、選んだ対象だけから出題する", () => {
+  const items = [
+    knowledge({ id: "a", title: "Would you mind", category: "英語", tags: ["英語", "依頼"] }),
+    knowledge({ id: "b", title: "Let me check", category: "英語", tags: ["英語", "会議"] }),
+    knowledge({ id: "c", title: "On the same page", category: "ビジネス英語", tags: ["フレーズ"] }),
+    knowledge({ id: "d", title: "非英語カード", category: "英語", tags: ["英語"] }),
+  ];
+  const ids = (scope: Parameters<typeof selectSpeakingPracticeKnowledge>[3]) =>
+    selectSpeakingPracticeKnowledge(items, 15, () => 0.5, scope).map((item) => item.id).sort();
+  assert.deepEqual(ids({ kind: "all" }), ["a", "b", "c"]);
+  assert.deepEqual(ids({ kind: "category", category: "ビジネス英語" }), ["c"]);
+  assert.deepEqual(ids({ kind: "tag", tag: "会議" }), ["b"]);
+  assert.deepEqual(ids({ kind: "cards", ids: ["a", "c", "d"] }), ["a", "c"]);
+  // カード指定は問題数ではなく選んだ件数で始める
+  assert.equal(selectSpeakingPracticeKnowledge(items, 1, () => 0.5, { kind: "cards", ids: ["a", "b"] }).length, 2);
+  const groups = speakingPracticeGroups(speakingPracticeCandidates(items));
+  assert.deepEqual(groups.categories, [{ name: "ビジネス英語", total: 1 }, { name: "英語", total: 2 }]);
+  assert.ok(groups.tags.some((tag) => tag.name === "会議" && tag.total === 1));
+});
+
+test("対象が0件のときは始められない理由を返す", () => {
+  const candidates = speakingPracticeCandidates([knowledge({ id: "a", category: "英語", tags: ["英語"] })]);
+  assert.equal(speakingPracticeEmptyReason(candidates, { kind: "all" }), null);
+  assert.match(speakingPracticeEmptyReason(candidates, { kind: "category", category: "歴史" }) ?? "", /カテゴリ「歴史」に練習できる英語カードがありません/);
+  assert.match(speakingPracticeEmptyReason(candidates, { kind: "category", category: "" }) ?? "", /カテゴリを選んでください/);
+  assert.match(speakingPracticeEmptyReason(candidates, { kind: "tag", tag: "会議" }) ?? "", /タグ「会議」/);
+  assert.match(speakingPracticeEmptyReason(candidates, { kind: "cards", ids: [] }) ?? "", /1件以上選んでください/);
+  assert.match(speakingPracticeEmptyReason([], { kind: "all" }) ?? "", /英字タイトルを持つナレッジがありません/);
+});
+
+test("音声非対応を判定し、代わりに句読点と5語ごとの区切りを示す", () => {
+  assert.equal(speechSynthesisSupported({}), false);
+  assert.equal(speechSynthesisSupported({ speechSynthesis: {} }), false);
+  assert.equal(speechSynthesisSupported({ speechSynthesis: {}, SpeechSynthesisUtterance: function () {} }), true);
+  assert.deepEqual(readingChunks("Could you send me the updated report by Friday, if possible?"), [
+    "Could you send me the", "updated report by Friday,", "if possible?",
+  ]);
+});
+
+test("Speaking練習は設定と開始を先に置き、説明は開閉式、非対応時はお手本ボタンを無効にする", async () => {
+  const view = await readFile(new URL("../src/components/SpeakingPracticeView.tsx", import.meta.url), "utf8");
+  const setup = view.slice(view.indexOf('className="card speaking-setup"'), view.indexOf('phase === "practice"'));
+  assert.ok(setup.indexOf("練習する対象") < setup.indexOf("AIで例文を作って始める"));
+  assert.ok(setup.indexOf("AIで例文を作って始める") < setup.indexOf('className="speaking-history"'));
+  assert.ok(setup.indexOf('className="speaking-history"') < setup.indexOf("<details className=\"speaking-setup-intro\">"));
+  assert.match(view, /disabled=\{!speechSupported\}/);
+  assert.match(view, /音声の読み上げに対応していないため/);
+  assert.match(view, /utterance\.onerror/);
+  assert.doesNotMatch(view, /onClick=\{speakSample\}>🔊 お手本を聞く<\/button>/);
 });

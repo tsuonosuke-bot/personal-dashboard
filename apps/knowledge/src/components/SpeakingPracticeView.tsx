@@ -6,11 +6,18 @@ import {
   startSpeakingPractice,
 } from "../lib/api";
 import {
+  readingChunks,
   selectSpeakingPracticeKnowledge,
+  SPEAKING_MAX_ITEMS,
   speakingPracticeCandidates,
+  speakingPracticeEmptyReason,
+  speakingPracticeGroups,
+  speakingPracticePool,
   speakingPracticeStats,
+  speechSynthesisSupported,
   type SpeakingPracticeCard,
   type SpeakingPracticeMode,
+  type SpeakingPracticeScope,
 } from "../lib/speakingPractice";
 import type {
   Knowledge,
@@ -35,6 +42,13 @@ const MODE_LABELS: Record<SpeakingPracticeMode, string> = {
   read_aloud: "音読",
 };
 
+const SCOPE_LABELS: Record<SpeakingPracticeScope["kind"], string> = {
+  all: "おまかせ",
+  category: "カテゴリ",
+  tag: "タグ",
+  cards: "カードを選ぶ",
+};
+
 const RATING_LABELS: Record<SpeakingPracticeRating, string> = {
   smooth: "言えた",
   almost: "ほぼ言えた",
@@ -54,6 +68,24 @@ function generationErrorMessage(caught: unknown): string {
 
 export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Props) {
   const candidates = useMemo(() => speakingPracticeCandidates(knowledge), [knowledge]);
+  const groups = useMemo(() => speakingPracticeGroups(candidates), [candidates]);
+  const [scopeKind, setScopeKind] = useState<SpeakingPracticeScope["kind"]>("all");
+  const [scopeCategory, setScopeCategory] = useState("");
+  const [scopeTag, setScopeTag] = useState("");
+  const [scopeCards, setScopeCards] = useState<string[]>([]);
+  const [cardQuery, setCardQuery] = useState("");
+  const scope: SpeakingPracticeScope = scopeKind === "category" ? { kind: "category", category: scopeCategory }
+    : scopeKind === "tag" ? { kind: "tag", tag: scopeTag }
+      : scopeKind === "cards" ? { kind: "cards", ids: scopeCards }
+        : { kind: "all" };
+  const pool = speakingPracticePool(candidates, scope);
+  const emptyReason = speakingPracticeEmptyReason(candidates, scope);
+  const visibleCards = useMemo(() => {
+    const query = cardQuery.trim().toLowerCase();
+    return query ? candidates.filter((item) => `${item.title} ${item.category} ${item.tags.join(" ")}`.toLowerCase().includes(query)) : candidates;
+  }, [candidates, cardQuery]);
+  const speechSupported = useMemo(() => speechSynthesisSupported(window), []);
+  const [speechError, setSpeechError] = useState<string | null>(null);
   const [mode, setMode] = useState<SpeakingPracticeMode>("mixed");
   const [limit, setLimit] = useState(5);
   const [phase, setPhase] = useState<"setup" | "practice" | "complete">("setup");
@@ -89,7 +121,7 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
 
   const start = async () => {
     if (generating) return;
-    const selected = selectSpeakingPracticeKnowledge(knowledge, limit);
+    const selected = selectSpeakingPracticeKnowledge(knowledge, limit, Math.random, scope);
     if (selected.length === 0) return;
     setGenerating(true);
     setActionError(null);
@@ -126,15 +158,44 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
   };
 
   const speakSample = () => {
-    if (!current || !("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(current.target);
-    utterance.lang = "en-US";
-    utterance.rate = 0.82;
-    const voice = window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith("en"));
-    if (voice) utterance.voice = voice;
-    window.speechSynthesis.speak(utterance);
+    if (!current || !speechSupported) return;
+    setSpeechError(null);
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(current.target);
+      utterance.lang = "en-US";
+      utterance.rate = 0.82;
+      const voice = window.speechSynthesis.getVoices().find((item) => item.lang.toLowerCase().startsWith("en"));
+      if (voice) utterance.voice = voice;
+      utterance.onerror = (event) => {
+        if (event.error === "canceled" || event.error === "interrupted") return;
+        setSpeechError("お手本を再生できませんでした。下の区切りを目安に、ゆっくり読んでください。");
+      };
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      setSpeechError("お手本を再生できませんでした。下の区切りを目安に、ゆっくり読んでください。");
+    }
   };
+
+  // 音声が使えない（非対応・再生失敗）ときは、ボタンを無反応にせず理由と区切り読みを示す。
+  const sampleControls = (target: string) => (
+    <div className="speaking-sample">
+      <button
+        className="secondary-button"
+        onClick={speakSample}
+        disabled={!speechSupported}
+        aria-describedby={!speechSupported || speechError ? "speaking-sample-note" : undefined}
+      >
+        🔊 お手本を聞く
+      </button>
+      {(!speechSupported || speechError) && (
+        <div id="speaking-sample-note" className="speaking-sample-note" role="note">
+          <p>{speechError ?? "このブラウザは音声の読み上げに対応していないため、お手本を再生できません。区切りごとに、ゆっくり読んでみてください。"}</p>
+          <p className="speaking-chunks" lang="en">{readingChunks(target).map((chunk, chunkIndex) => <span key={chunkIndex}>{chunk}</span>)}</p>
+        </div>
+      )}
+    </div>
+  );
 
   const rate = async (rating: SpeakingPracticeRating) => {
     if (!current || !canRate || saving) return;
@@ -159,6 +220,7 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
         setRevealed(false);
         setAnswer("");
         setRepetitions(0);
+        setSpeechError(null);
       }
     } catch (caught) {
       setActionError(caught instanceof Error ? caught.message : "練習記録を保存できませんでした。");
@@ -184,18 +246,72 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
 
         {!loading && !error && phase === "setup" && (
           <section className="card speaking-setup">
-            <div className="speaking-setup-intro">
-              <span className="speaking-kicker">PRACTICE, NOT REVIEW</span>
-              <h2>声に出すための練習</h2>
-              <p>AIが英語ナレッジから短いビジネス例文を作ります。平易な日本語からの瞬間英作文と、実際の仕事場面に合う例文の音読を練習できます。</p>
-            </div>
+            <h2 className="speaking-setup-title">練習を始める</h2>
 
-            <div className="speaking-history" aria-label="最近の練習記録">
-              <div><strong>{stats.today}</strong><span>今日の練習</span></div>
-              <div><strong>{stats.smooth}</strong><span>今日「言えた」</span></div>
-              <div><strong>{stats.recent}</strong><span>直近7日</span></div>
-            </div>
-            {historyError && <p className="speaking-history-error">履歴のみ取得できません: {historyError}</p>}
+            <fieldset className="speaking-options">
+              <legend>練習する対象</legend>
+              <div className="speaking-choice-row" role="radiogroup" aria-label="練習する対象">
+                {(Object.keys(SCOPE_LABELS) as SpeakingPracticeScope["kind"][]).map((value) => (
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={scopeKind === value}
+                    key={value}
+                    className={scopeKind === value ? "active" : ""}
+                    onClick={() => setScopeKind(value)}
+                  >
+                    {SCOPE_LABELS[value]}
+                  </button>
+                ))}
+              </div>
+              {scopeKind === "category" && (
+                <label className="speaking-scope-field">
+                  <span>カテゴリ</span>
+                  <select value={scopeCategory} onChange={(event) => setScopeCategory(event.target.value)}>
+                    <option value="">選んでください</option>
+                    {groups.categories.map((item) => <option key={item.name} value={item.name}>{item.name}（{item.total}件）</option>)}
+                  </select>
+                </label>
+              )}
+              {scopeKind === "tag" && (
+                <label className="speaking-scope-field">
+                  <span>タグ</span>
+                  <select value={scopeTag} onChange={(event) => setScopeTag(event.target.value)}>
+                    <option value="">選んでください</option>
+                    {groups.tags.map((item) => <option key={item.name} value={item.name}>#{item.name}（{item.total}件）</option>)}
+                  </select>
+                </label>
+              )}
+              {scopeKind === "cards" && (
+                <div className="speaking-card-picker">
+                  <label className="speaking-scope-field">
+                    <span>カードを探す</span>
+                    <input type="text" value={cardQuery} onChange={(event) => setCardQuery(event.target.value)} placeholder="タイトル・カテゴリ・タグ" />
+                  </label>
+                  <p className="speaking-card-picker-count" aria-live="polite">{scopeCards.length}件を選択（最大{SPEAKING_MAX_ITEMS}件）{scopeCards.length > 0 && <button type="button" className="text-button" onClick={() => setScopeCards([])}>選択を解除</button>}</p>
+                  <ul>
+                    {visibleCards.map((item) => {
+                      const checked = scopeCards.includes(item.id);
+                      return (
+                        <li key={item.id}>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={!checked && scopeCards.length >= SPEAKING_MAX_ITEMS}
+                              onChange={() => setScopeCards((ids) => checked ? ids.filter((id) => id !== item.id) : [...ids, item.id])}
+                            />
+                            <span lang="en">{item.title}</span>
+                            <small>{item.category}</small>
+                          </label>
+                        </li>
+                      );
+                    })}
+                    {visibleCards.length === 0 && <li className="speaking-card-picker-empty">一致するカードがありません。</li>}
+                  </ul>
+                </div>
+              )}
+            </fieldset>
 
             <fieldset className="speaking-options">
               <legend>練習メニュー</legend>
@@ -213,37 +329,53 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
               </div>
             </fieldset>
 
-            <fieldset className="speaking-options">
-              <legend>問題数</legend>
-              <div className="speaking-choice-row">
-                {[5, 10, 15].map((value) => (
-                  <button
-                    type="button"
-                    key={value}
-                    className={limit === value ? "active" : ""}
-                    onClick={() => setLimit(value)}
-                  >
-                    {value}問
-                  </button>
-                ))}
-              </div>
-            </fieldset>
+            {scopeKind !== "cards" && (
+              <fieldset className="speaking-options">
+                <legend>問題数</legend>
+                <div className="speaking-choice-row">
+                  {[5, 10, 15].map((value) => (
+                    <button
+                      type="button"
+                      key={value}
+                      className={limit === value ? "active" : ""}
+                      onClick={() => setLimit(value)}
+                    >
+                      {value}問
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
 
             <div className="speaking-start-row">
-              <span>練習候補 {candidates.length}件</span>
+              <span>
+                対象 {pool.length}件
+                {scopeKind !== "cards" && pool.length > 0 && pool.length < limit && `（${pool.length}問で始めます）`}
+              </span>
               <button
                 className="primary-button"
                 onClick={() => void start()}
-                disabled={candidates.length === 0 || generating}
+                disabled={pool.length === 0 || generating}
+                aria-describedby={emptyReason ? "speaking-empty-reason" : undefined}
               >
                 {generating ? "AIが例文を作成中..." : "AIで例文を作って始める"}
               </button>
             </div>
             {generating && <p className="speaking-generation-note">ナレッジの意味を確認しています。数秒かかることがあります。</p>}
             {actionError && <div className="err compact" role="alert">{actionError}</div>}
-            {candidates.length === 0 && (
-              <div className="msg">カテゴリまたはタグが「英語」で、英字タイトルを持つナレッジがありません。</div>
-            )}
+            {emptyReason && <div id="speaking-empty-reason" className="msg speaking-empty-reason">{emptyReason}</div>}
+
+            <div className="speaking-history" aria-label="最近の練習記録">
+              <div><strong>{stats.today}</strong><span>今日の練習</span></div>
+              <div><strong>{stats.smooth}</strong><span>今日「言えた」</span></div>
+              <div><strong>{stats.recent}</strong><span>直近7日</span></div>
+            </div>
+            {historyError && <p className="speaking-history-error">履歴のみ取得できません: {historyError}</p>}
+
+            <details className="speaking-setup-intro">
+              <summary>この練習について</summary>
+              <p>AIが英語ナレッジから短いビジネス例文を作ります。平易な日本語からの瞬間英作文と、実際の仕事場面に合う例文の音読を練習できます。記録は復習とは別に残り、復習スケジュールは変わりません。</p>
+            </details>
           </section>
         )}
 
@@ -292,13 +424,13 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
                 <span>AIが作成したビジネス例文</span>
                 <strong lang="en">{current.target}</strong>
                 <p>使ったナレッジ: <span lang="en">{current.knowledge.title}</span></p>
-                <button className="secondary-button" onClick={speakSample}>🔊 お手本を聞く</button>
+                {sampleControls(current.target)}
               </div>
             )}
 
             {current.type === "read_aloud" && (
               <div className="read-aloud-controls">
-                <button className="secondary-button" onClick={speakSample}>🔊 お手本を聞く</button>
+                {sampleControls(current.target)}
                 <button
                   className="primary-button"
                   onClick={() => setRepetitions((value) => Math.min(3, value + 1))}
