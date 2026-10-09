@@ -289,3 +289,28 @@ form textarea { min-height: 70px; padding: 9px 10px; resize: vertical; line-heig
   .tabs { overflow-x: auto; }
   .tabs button { flex: 0 0 auto; }
 }
+
+/* 週次レビュー（#162） */
+.badge.stale { background: var(--waiting-soft); color: var(--waiting); }
+.date-chip.stale { border-color: rgba(108, 86, 131, .4); background: var(--waiting-soft); color: var(--waiting); }
+.review-board { display: grid; gap: 10px; }
+.review-section { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.review-section > header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
+.review-section h3 { margin: 0; font-size: 13px; }
+.review-section > header b { color: var(--accent); font-size: 13px; }
+.review-section > header small { margin-left: auto; color: var(--muted); font-size: 10px; }
+.review-rows { display: grid; gap: 5px; }
+.review-row { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); cursor: pointer; text-align: left; font: inherit; }
+.review-row > span:first-child { min-width: 0; display: grid; gap: 2px; }
+.review-row strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.review-row small { color: var(--muted); font-size: 10px; }
+.review-row .date-chips { flex: 0 0 auto; margin: 0; }
+.review-empty { margin: 0; color: var(--done); font-size: 11px; }
+.review-done { border-top: 1px solid var(--line); padding-top: 6px; }
+.review-done:first-child { border-top: 0; padding-top: 0; }
+.review-done button { width: 100%; display: flex; justify-content: space-between; gap: 8px; padding: 0; border: 0; background: none; color: var(--ink); cursor: pointer; font: inherit; font-size: 12px; text-align: left; }
+.review-done button b { color: var(--done); }
+.review-done ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+@media (max-width: 560px) {
+  .review-row { align-items: flex-start; flex-direction: column; }
+}

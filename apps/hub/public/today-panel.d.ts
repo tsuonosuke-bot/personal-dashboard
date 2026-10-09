@@ -56,6 +56,8 @@ export interface TodayProject {
   nextAction: TodayProjectAction | null;
   actions: TodayProjectAction[];
   milestones?: Array<{ id: number; title: string }>;
+  stale?: boolean;
+  lastActivityAt?: string;
 }
 
 export interface TodayProjectsPayload {

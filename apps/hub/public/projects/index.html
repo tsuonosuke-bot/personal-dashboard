@@ -60,8 +60,9 @@
             <button class="active" type="button" role="tab" aria-selected="true" data-view="active">進行中 <b id="activeTabCount">—</b></button>
             <button type="button" role="tab" aria-selected="false" data-view="waiting">待機・保留 <b id="waitingTabCount">—</b></button>
             <button type="button" role="tab" aria-selected="false" data-view="completed">完了 <b id="completedTabCount">—</b></button>
+            <button type="button" role="tab" aria-selected="false" data-view="review">週次レビュー <b id="reviewTabCount">—</b></button>
           </div>
-          <div class="filters">
+          <div class="filters" id="filtersBar">
             <label><span>検索</span><input id="searchInput" type="search" placeholder="Project・テーマ・Next Action" /></label>
             <label class="sort-field"><span>並び順</span><select id="sortSelect">
               <option value="recommended">おすすめ（要確認を先に）</option>
@@ -71,7 +72,7 @@
             </select></label>
             <button id="clearFilters" type="button" hidden>解除</button>
           </div>
-          <div class="result-line"><span id="resultCount">読み込み中</span><small id="sortNote">要確認を先頭にまとめ、その中で目標日が近い順に並べています</small></div>
+          <div class="result-line" id="resultLine"><span id="resultCount">読み込み中</span><small id="sortNote">要確認を先頭にまとめ、その中で目標日が近い順に並べています</small></div>
           <div class="state-card" id="loadingState" role="status">Projectを読み込んでいます…</div>
           <div class="state-card error" id="errorState" role="alert" hidden><strong>読み込めませんでした</strong><p id="errorMessage"></p><button id="retryButton" type="button">再試行</button></div>
           <div class="project-list" id="projectList" hidden></div>

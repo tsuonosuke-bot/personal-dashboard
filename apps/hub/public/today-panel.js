@@ -423,9 +423,12 @@ function projectMeta(row, today) {
   const milestoneLabel = milestone ? ` · ${escapeHtml(milestone.title)}` : "";
   const title = `<span>${escapeHtml(project.title)}${milestoneLabel}${targetPassed}</span>`;
   if (row.kind === "review") return `<span class="today-pill attention">見直し日です</span>${title}`;
-  if (row.kind === "missing") return `<span class="today-pill attention">次の一手が未設定</span>${title}`;
+  // 14日以上動きのないProjectには、行に「N日動きなし」を添える（#162）
+  const stale = project.stale && project.lastActivityAt
+    ? `<span class="today-pill attention">${daysBetween(todayInTokyo(new Date(project.lastActivityAt)), today)}日動きなし</span>` : "";
+  if (row.kind === "missing") return `<span class="today-pill attention">次の一手が未設定</span>${stale}${title}`;
   const pinned = row.action.status === "next" && row.reason !== "pinned" ? `<span class="today-pill project">今やる</span>` : "";
-  return `${taskPill(row, today)}${pinned}${title}`;
+  return `${taskPill(row, today)}${pinned}${stale}${title}`;
 }
 
 /** Next Actionを完了したあと、残りのタスクがないときだけ次の一手を決める（#154）。 */
