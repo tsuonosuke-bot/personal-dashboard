@@ -1,5 +1,6 @@
 export const EXPENSE_CREATE_ACTION_HEADER = 'expense-create'
 export const EXPENSE_UPDATE_ACTION_HEADER = 'expense-update'
+export const EXPENSE_VOID_ACTION_HEADER = 'expense-void'
 const MAX_REQUEST_CHARS = 8_000
 
 export type ExpenseCreateValue = {
@@ -161,4 +162,22 @@ export async function readExpenseUpdateInput(request: Request): Promise<UpdateVa
   const changes = validateExpenseFields(input)
   if (!changes.ok) return changes
   return { ok: true, value: { id: Number(input.id), changes: changes.value, original: input.original } }
+}
+
+// 取消（voided: true）と復元（voided: false）。行は消さず voided_at だけを切り替える。
+export async function readExpenseVoidInput(request: Request): Promise<{ ok: true; value: { id: number; voided: boolean } } | { ok: false; status: number; error: string }> {
+  let input: unknown
+  try {
+    const raw = await request.text()
+    if (raw.length > MAX_REQUEST_CHARS) return { ok: false, status: 413, error: 'リクエストが大きすぎます。' }
+    input = JSON.parse(raw) as unknown
+  } catch {
+    return { ok: false, status: 400, error: 'JSONの形式が正しくありません。' }
+  }
+  if (!isPlainObject(input) || Object.keys(input).some((key) => key !== 'id' && key !== 'voided')) {
+    return { ok: false, status: 400, error: '入力内容の形式が正しくありません。' }
+  }
+  if (!Number.isSafeInteger(input.id) || Number(input.id) <= 0) return { ok: false, status: 400, error: '明細IDが正しくありません。' }
+  if (typeof input.voided !== 'boolean') return { ok: false, status: 400, error: '取消・復元の指定が正しくありません。' }
+  return { ok: true, value: { id: Number(input.id), voided: input.voided } }
 }

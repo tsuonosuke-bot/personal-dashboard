@@ -42,6 +42,7 @@ export function createDemoExpenses(now = new Date()): Expense[] {
         notion_url: null,
         notion_created_at: null,
         created_at: dateKey(year, month, value.day),
+        voided_at: null,
       })
       id += 1
     }

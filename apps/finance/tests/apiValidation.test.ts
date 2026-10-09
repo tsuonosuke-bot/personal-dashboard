@@ -14,8 +14,11 @@ test('APIページ応答と家計明細を検証する', () => {
     notion_url: null,
     notion_created_at: null,
     created_at: '2026-09-13T14:40:37Z',
+    voided_at: null,
   }
   assert.deepEqual(parseExpense(expense), expense)
+  assert.equal(parseExpense({ ...expense, voided_at: '2026-10-09T01:00:00Z' }).voided_at, '2026-10-09T01:00:00Z')
+  assert.throws(() => parseExpense({ ...expense, voided_at: 1 }), /明細/)
   assert.deepEqual(parsePageEnvelope({ items: [expense], total: 2624, limit: 1000, offset: 0 }), {
     items: [expense], total: 2624, limit: 1000, offset: 0,
   })

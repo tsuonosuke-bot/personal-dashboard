@@ -15,6 +15,8 @@ export type Expense = {
   notion_url: string | null
   notion_created_at: string | null
   created_at: string
+  /** 取消日時。nullなら有効な明細 */
+  voided_at: string | null
 }
 
 export type ExpenseDraft = {

@@ -10,6 +10,7 @@ type Props = {
   expense?: Expense
   onClose: () => void
   onSave: (draft: ExpenseDraft) => void
+  onVoid?: () => void
 }
 
 function todayKey() {
@@ -17,7 +18,7 @@ function todayKey() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
 
-export function ExpenseFormModal({ categories, payers, saving, error, expense, onClose, onSave }: Props) {
+export function ExpenseFormModal({ categories, payers, saving, error, expense, onClose, onSave, onVoid }: Props) {
   const editing = Boolean(expense)
   const [type, setType] = useState<'expense' | 'income' | 'offset'>(() => {
     if (expense?.category.startsWith('80_')) return 'income'
@@ -80,6 +81,7 @@ export function ExpenseFormModal({ categories, payers, saving, error, expense, o
             <label className="entry-field full-field"><span>メモ</span><textarea rows={3} maxLength={2000} value={memo} onChange={(event) => setMemo(event.target.value)} placeholder="任意" /></label>
           </div>
           {error && <p className="entry-error" role="alert">{error}</p>}
+          {editing && onVoid && <div className="void-zone"><p>誤って登録した明細は取り消せます。集計とCSVから外れ、明細一覧の「取消済み」から復元できます。</p><button type="button" className="void-button" onClick={onVoid} disabled={saving}>この明細を取り消す</button></div>}
           <div className="entry-actions"><button type="button" className="secondary-button" onClick={onClose} disabled={saving}>キャンセル</button><button type="submit" className="primary-button" disabled={saving}>{saving ? '保存中…' : editing ? '変更を保存' : '保存する'}</button></div>
         </form>
       </section>

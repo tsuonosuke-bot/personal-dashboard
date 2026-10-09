@@ -74,6 +74,7 @@ export function parseExpense(value: unknown): Expense {
     notion_url: nullableStringValue(value, 'notion_url', entity),
     notion_created_at: nullableStringValue(value, 'notion_created_at', entity),
     created_at: stringValue(value, 'created_at', entity),
+    voided_at: value.voided_at === undefined ? null : nullableStringValue(value, 'voided_at', entity),
   }
 }
 

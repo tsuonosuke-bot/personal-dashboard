@@ -55,8 +55,9 @@ async function getAllPages<T>(path: string, parseItem: (value: unknown) => T): P
   throw new Error('データ件数が安全な取得上限を超えています。')
 }
 
+// 復元できるように取消済みも取得する。集計に使う前に voided_at で分ける。
 export function getExpenses(): Promise<Expense[]> {
-  return getAllPages('/api/expenses', parseExpense)
+  return getAllPages('/api/expenses?include_voided=1', parseExpense)
 }
 
 export function getBudgetCategories(): Promise<BudgetCategory[]> {
@@ -114,6 +115,18 @@ export async function createExpense(input: ExpenseDraft): Promise<Expense> {
       'X-Dashboard-Action': 'expense-create',
     },
     body: JSON.stringify(input),
+  })
+  return parseExpense(data)
+}
+
+export async function setExpenseVoided(id: number, voided: boolean): Promise<Expense> {
+  const data = await requestJson('/api/expenses', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Dashboard-Action': 'expense-void',
+    },
+    body: JSON.stringify({ id, voided }),
   })
   return parseExpense(data)
 }
