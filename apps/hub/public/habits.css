@@ -80,6 +80,23 @@ main { width: min(1080px, calc(100% - 24px)); margin: 0 auto; padding: 10px 0 24
 .record-button:disabled { opacity: .7; cursor: default; }
 .edit-button { border: 1px solid var(--line); background: #fff; color: var(--muted); }
 .history-wrap { overflow-x: auto; }
+.history-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.history-period { display: inline-flex; padding: 3px; border-radius: 9px; background: var(--accent-soft); }
+.history-period button { min-width: 52px; min-height: 36px; border: 0; border-radius: 7px; background: transparent; color: var(--accent); font-weight: 800; }
+.history-period button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 3px rgba(53, 42, 37, .14); }
+.history-nav { display: inline-flex; align-items: center; gap: 6px; }
+.history-nav strong { min-width: 9em; font-size: 13px; text-align: center; }
+.history-nav button { width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--accent); font-size: 18px; font-weight: 800; }
+.history-nav button:disabled { opacity: .35; cursor: default; }
+.history-status { margin: 0 0 8px; color: #a7443e; font-size: 12px; }
+.history-wrap + .history-wrap:not(:empty) { margin-top: 12px; }
+table.history-days.month { min-width: 980px; }
+table.history-days.month td, table.history-days.month thead th:not(:first-child) { width: 26px; }
+table.history-days.month tbody th, table.history-weeks tbody th { position: sticky; left: 0; z-index: 1; width: 150px; min-width: 150px; background: var(--surface); }
+thead th.today b { color: var(--accent); }
+td.future { background: repeating-linear-gradient(135deg, transparent 0 4px, rgba(0, 0, 0, .025) 4px 8px); }
+table.history-weeks td small { display: block; color: var(--muted); font-size: 8px; font-weight: 600; }
+tbody th small b { color: var(--accent); }
 table { width: 100%; min-width: 620px; border-collapse: collapse; }
 th, td { height: 42px; border-top: 1px solid #e8ebe7; text-align: center; }
 thead th { height: 40px; border-top: 0; color: var(--muted); font-size: 8px; }

@@ -270,6 +270,144 @@ export async function loadHabits(env: DashboardEnv, now = new Date()) {
   return normalizeHabits(habits as HabitRow[], logs as HabitLogRow[], now);
 }
 
+export type HabitHistoryPeriod = "week" | "month";
+
+export interface HabitHistoryQuery {
+  period: HabitHistoryPeriod;
+  /** week: その週の任意の日（月曜始まりに丸める）。month: YYYY-MM。 */
+  anchor: string;
+}
+
+/** 履歴の期間指定を読む。未指定なら今週。未来の期間と2000年より前は受け付けない。 */
+export function readHabitHistoryQuery(url: URL, now = new Date()): ValidationResult<HabitHistoryQuery> {
+  const today = todayInTokyo(now);
+  const period = url.searchParams.get("period") ?? "week";
+  const rawAnchor = url.searchParams.get("anchor");
+  if (period === "week") {
+    const anchor = rawAnchor === null ? today : plainDate(rawAnchor);
+    if (!anchor || Number.isNaN(Date.parse(`${anchor}T00:00:00Z`)) || anchor < "2000-01-01" || mondayOf(anchor) > mondayOf(today)) {
+      return { ok: false, status: 400, error: "週の指定が正しくありません。" };
+    }
+    return { ok: true, value: { period, anchor: mondayOf(anchor) } };
+  }
+  if (period === "month") {
+    const anchor = rawAnchor ?? today.slice(0, 7);
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(anchor) || anchor < "2000-01" || anchor > today.slice(0, 7)) {
+      return { ok: false, status: 400, error: "月の指定が正しくありません。" };
+    }
+    return { ok: true, value: { period, anchor } };
+  }
+  return { ok: false, status: 400, error: "期間の指定が正しくありません。" };
+}
+
+function monthEnd(month: string): string {
+  const [year, value] = month.split("-").map(Number);
+  return new Date(Date.UTC(year, value, 0)).toISOString().slice(0, 10);
+}
+
+function rangeDates(from: string, to: string): string[] {
+  const dates: string[] = [];
+  for (let date = from; date <= to; date = addDays(date, 1)) dates.push(date);
+  return dates;
+}
+
+/** 期間の日付（週は月〜日、月はその月）と、期間に重なる週（月曜日）を返す。 */
+export function habitHistoryRange(query: HabitHistoryQuery) {
+  const from = query.period === "week" ? query.anchor : `${query.anchor}-01`;
+  const to = query.period === "week" ? addDays(query.anchor, 6) : monthEnd(query.anchor);
+  const weeks: string[] = [];
+  for (let monday = mondayOf(from); monday <= to; monday = addDays(monday, 7)) weeks.push(monday);
+  return { from, to, dates: rangeDates(from, to), weeks };
+}
+
+/**
+ * 期間指定の履歴（#141）。毎日・平日は日ごと、毎週は週ごと、自由頻度は回数で集計する。
+ * 今日より後と開始日より前は対象外にし、分母に入れない。
+ */
+export function normalizeHabitHistory(habitRows: HabitRow[], logRows: HabitLogRow[], query: HabitHistoryQuery, now = new Date()) {
+  const today = todayInTokyo(now);
+  const { from, to, dates, weeks } = habitHistoryRange(query);
+  const logsByHabit = new Map<number, Set<string>>();
+  for (const row of logRows) {
+    const habitId = integer(row.habit_id);
+    const practicedOn = plainDate(row.practiced_on);
+    if (habitId === null || practicedOn === null) continue;
+    const current = logsByHabit.get(habitId) ?? new Set<string>();
+    current.add(practicedOn);
+    logsByHabit.set(habitId, current);
+  }
+
+  const habits = habitRows.map((row) => {
+    const id = integer(row.id);
+    const cadence = CADENCES.has(text(row.cadence)) ? text(row.cadence) as HabitCadence : null;
+    const status = STATUSES.has(text(row.status)) ? text(row.status) as HabitStatus : null;
+    if (id === null || cadence === null || status === null) return null;
+    const startedOn = plainDate(row.started_on) || today;
+    const practiced = logsByHabit.get(id) ?? new Set<string>();
+    const inRange = [...practiced].filter((date) => date >= from && date <= to);
+    // アーカイブ済みは、期間内に記録があるときだけ出す
+    if (status === "archived" && inRange.length === 0) return null;
+    const base = { id, name: text(row.name), cadence, status, startedOn };
+    if (cadence === "weekly") {
+      const weekRows = weeks.map((monday) => {
+        const sunday = addDays(monday, 6);
+        const completedOn = [...practiced].filter((date) => date >= monday && date <= sunday).sort()[0] ?? null;
+        const eligible = monday <= today && sunday >= startedOn;
+        return { weekStart: monday, eligible, completed: completedOn !== null, completedOn };
+      });
+      const eligibleWeeks = weekRows.filter((week) => week.eligible);
+      return { ...base, weeks: weekRows, days: null, done: eligibleWeeks.filter((week) => week.completed).length, target: eligibleWeeks.length, unit: "週" };
+    }
+    const dayRows = dates.map((date) => {
+      const future = date > today;
+      const eligible = !future && isEligible(cadence, date, startedOn);
+      return { date, eligible, future, completed: practiced.has(date) };
+    });
+    const done = dayRows.filter((day) => day.completed).length;
+    return {
+      ...base,
+      days: dayRows,
+      weeks: null,
+      done,
+      // 自由頻度は分母を持たない
+      target: cadence === "flexible" ? null : dayRows.filter((day) => day.eligible).length,
+      unit: cadence === "flexible" ? "回" : "日",
+    };
+  }).filter((habit) => habit !== null);
+
+  return {
+    period: query.period,
+    anchor: query.anchor,
+    from,
+    to,
+    today,
+    dates,
+    weeks,
+    previousAnchor: query.period === "week" ? addDays(query.anchor, -7) : addDays(`${query.anchor}-01`, -1).slice(0, 7),
+    nextAnchor: query.period === "week"
+      ? (addDays(query.anchor, 7) <= today ? addDays(query.anchor, 7) : null)
+      : (addDays(to, 1) <= today ? addDays(to, 1).slice(0, 7) : null),
+    habits,
+  };
+}
+
+export async function loadHabitHistory(env: DashboardEnv, query: HabitHistoryQuery, now = new Date()) {
+  const info = connection(env);
+  const { from, to } = habitHistoryRange(query);
+  // 毎週のHabitは期間の前後にはみ出す週の記録も要るので、最初の週の月曜から読む
+  const logFrom = mondayOf(from);
+  const logTo = addDays(mondayOf(to), 6);
+  const [habits, logs] = await Promise.all([
+    fetchRows(info, "habits", HABIT_SELECT, (endpoint) => endpoint.searchParams.set("order", "created_at.asc,id.asc")),
+    fetchRows(info, "habit_logs", LOG_SELECT, (endpoint) => {
+      endpoint.searchParams.set("practiced_on", `gte.${logFrom}`);
+      endpoint.searchParams.append("practiced_on", `lte.${logTo}`);
+      endpoint.searchParams.set("order", "practiced_on.asc,id.asc");
+    }),
+  ]);
+  return normalizeHabitHistory(habits as HabitRow[], logs as HabitLogRow[], query, now);
+}
+
 export function validateHabitMutationRequest(request: Request, action: "habit-create" | "habit-update" | "habit-log") {
   let origin: string;
   try {
