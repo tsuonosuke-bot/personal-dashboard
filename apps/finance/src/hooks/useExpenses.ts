@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
-import { createExpense as createExpenseApi, getBudgetCategories, getExpenses, updateExpense as updateExpenseApi } from '../lib/api'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createExpense as createExpenseApi, getBudgetCategories, getExpenses, setExpenseVoided, updateExpense as updateExpenseApi } from '../lib/api'
 import { createDemoExpenses, demoCategories } from '../lib/demoData'
 import type { BudgetCategory, Expense, ExpenseDraft } from '../lib/types'
 
 export function useExpenses() {
   const demoMode = import.meta.env.DEV && import.meta.env.VITE_DEMO_MODE === 'true'
-  const [expenses, setExpenses] = useState<Expense[]>([])
+  // 取消済みも含む全件。画面と集計には expenses（有効な明細）だけを渡す。
+  const [allExpenses, setExpenses] = useState<Expense[]>([])
+  const expenses = useMemo(() => allExpenses.filter((expense) => !expense.voided_at), [allExpenses])
+  const voidedExpenses = useMemo(() => allExpenses.filter((expense) => expense.voided_at), [allExpenses])
   const [categories, setCategories] = useState<BudgetCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -85,5 +88,18 @@ export function useExpenses() {
     }
   }, [demoMode])
 
-  return { expenses, categories, loading, error, lastUpdatedAt, reload, demoMode, mutating, createExpense, updateExpense }
+  const setVoided = useCallback(async (expense: Expense, voided: boolean) => {
+    if (demoMode) throw new Error('デモモードでは家計簿を更新できません。')
+    setMutating(true)
+    try {
+      const updated = await setExpenseVoided(expense.id, voided)
+      setExpenses((current) => current.map((item) => item.id === updated.id ? updated : item))
+      setLastUpdatedAt(new Date())
+      return updated
+    } finally {
+      setMutating(false)
+    }
+  }, [demoMode])
+
+  return { expenses, voidedExpenses, categories, loading, error, lastUpdatedAt, reload, demoMode, mutating, createExpense, updateExpense, setVoided }
 }

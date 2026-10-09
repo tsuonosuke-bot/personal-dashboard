@@ -6,9 +6,13 @@ type Props = {
   expenses: Expense[]
   selectedMonth: string
   onEdit?: (expense: Expense) => void
+  /** 取消済みの明細（全期間）。表示中の月の分だけを復元用に出す */
+  voidedExpenses?: Expense[]
+  onRestore?: (expense: Expense) => void
+  restoring?: boolean
 }
 
-export function ExpenseTable({ expenses, selectedMonth, onEdit }: Props) {
+export function ExpenseTable({ expenses, selectedMonth, onEdit, voidedExpenses = [], onRestore, restoring = false }: Props) {
   const pageSize = 50
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -22,6 +26,11 @@ export function ExpenseTable({ expenses, selectedMonth, onEdit }: Props) {
   const monthExpenses = useMemo(
     () => expenses.filter((expense) => monthKey(expense.transaction_date) === selectedMonth),
     [expenses, selectedMonth],
+  )
+
+  const monthVoided = useMemo(
+    () => voidedExpenses.filter((expense) => monthKey(expense.transaction_date) === selectedMonth),
+    [voidedExpenses, selectedMonth],
   )
 
   const filtered = useMemo(() => monthExpenses.filter((expense) => {
@@ -154,6 +163,23 @@ export function ExpenseTable({ expenses, selectedMonth, onEdit }: Props) {
           <div className="grid h-32 place-items-center bg-white text-sm text-slate-500">条件に一致する明細はありません</div>
         )}
       </div>
+      {onRestore && monthVoided.length > 0 && (
+        <details className="voided-expenses">
+          <summary>取消済みの明細 {monthVoided.length.toLocaleString('ja-JP')}件（{monthLabel(selectedMonth)}）</summary>
+          <p>集計・CSVには含まれません。復元すると元の明細に戻ります。</p>
+          <ul>
+            {monthVoided.map((expense) => (
+              <li key={expense.id}>
+                <span>{expense.transaction_date}</span>
+                <strong>{expense.title}</strong>
+                <span>{yen.format(Number(expense.amount))}</span>
+                <small>取消 {new Date(expense.voided_at ?? '').toLocaleString('ja-JP')}</small>
+                <button type="button" onClick={() => onRestore(expense)} disabled={restoring} aria-label={`${expense.title}を復元`}>復元</button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {filtered.length > 0 && (
         <div className="mt-4 flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>

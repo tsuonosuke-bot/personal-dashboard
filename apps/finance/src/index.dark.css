@@ -353,6 +353,49 @@
   background: #292929;
   color: #d89995;
 }
+:root[data-theme="dark"] .void-zone {
+  border: 1px solid #633e3c;
+  border-radius: 8px;
+  background: #2c2726;
+}
+:root[data-theme="dark"] .void-zone p {
+  color: #a0a8ae;
+}
+:root[data-theme="dark"] .void-button {
+  border: 1px solid #533937;
+  border-radius: 7px;
+  background: #292929;
+  color: #d89995;
+}
+:root[data-theme="dark"] .void-button:hover {
+  background: #271e1d;
+}
+:root[data-theme="dark"] .voided-expenses {
+  border: 1px solid #505456;
+  border-radius: 10px;
+  background: #212324;
+}
+:root[data-theme="dark"] .voided-expenses summary {
+  color: #b6bec6;
+}
+:root[data-theme="dark"] .voided-expenses p {
+  color: #a0a8ae;
+}
+:root[data-theme="dark"] .voided-expenses li {
+  border-radius: 7px;
+  background: #292929;
+  color: #a0a8ae;
+}
+:root[data-theme="dark"] .voided-expenses li strong {
+  color: #b6bec6;
+  text-decoration: line-through;
+}
+:root[data-theme="dark"] .voided-expenses li button {
+  border: 1px solid #4a5257;
+  border-radius: 7px;
+  background: #292929;
+  color: #a4c7da;
+}
 :root[data-theme="dark"] .recurring-body form {
   border-top: 1px solid #505456;
 }

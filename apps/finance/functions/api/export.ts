@@ -3,7 +3,7 @@ import { fetchSupabase, jsonResponse, methodNotAllowed, type SupabaseEnv } from 
 type FunctionContext = { request: Request; env: SupabaseEnv }
 const PAGE_SIZE = 1_000
 
-async function allRows(env: SupabaseEnv, table: string, select: string, order: string): Promise<Record<string, unknown>[]> {
+async function allRows(env: SupabaseEnv, table: string, select: string, order: string, filters: Record<string, string> = {}): Promise<Record<string, unknown>[]> {
   const rawUrl = env.SUPABASE_URL?.trim()
   const key = env.SUPABASE_SECRET_KEY?.trim()
   if (!rawUrl || !key) throw new Error('DB connection is not configured')
@@ -12,6 +12,7 @@ async function allRows(env: SupabaseEnv, table: string, select: string, order: s
     const endpoint = new URL(`/rest/v1/${table}`, rawUrl)
     endpoint.searchParams.set('select', select)
     endpoint.searchParams.set('order', order)
+    for (const [key, value] of Object.entries(filters)) endpoint.searchParams.set(key, value)
     endpoint.searchParams.set('limit', String(PAGE_SIZE))
     endpoint.searchParams.set('offset', String(offset))
     const response = await fetchSupabase(endpoint, { headers: { Accept: 'application/json', apikey: key } })
@@ -28,27 +29,36 @@ function csvValue(value: unknown): string {
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 
-export function financeCsv(rows: Record<string, unknown>[]): string {
+// audit: 取消済みも含む全件。取消フラグと取消日時の列を足す。
+export function financeCsv(rows: Record<string, unknown>[], audit = false): string {
   const columns: Array<[string, string]> = [
     ['日付', 'transaction_date'], ['金額', 'amount'], ['内容', 'title'], ['カテゴリ', 'category'],
     ['支払者', 'payer'], ['メモ', 'memo'], ['Notion URL', 'notion_url'], ['登録日時', 'created_at'],
   ]
+  const cells = (row: Record<string, unknown>) => {
+    const values = columns.map(([, key]) => csvValue(row[key]))
+    return audit ? [csvValue(row.id), ...values, row.voided_at ? '取消' : '', csvValue(row.voided_at)] : values
+  }
+  const labels = audit ? ['ID', ...columns.map(([label]) => label), '取消', '取消日時'] : columns.map(([label]) => label)
   return `\uFEFF${[
-    columns.map(([label]) => csvValue(label)).join(','),
-    ...rows.map((row) => columns.map(([, key]) => csvValue(row[key])).join(',')),
+    labels.map(csvValue).join(','),
+    ...rows.map((row) => cells(row).join(',')),
   ].join('\r\n')}\r\n`
 }
 
-function filename(now: Date, extension: 'csv' | 'json'): string {
-  return `finance-export-${now.toISOString().replace(/[:.]/g, '-')}.${extension}`
+function filename(now: Date, extension: 'csv' | 'json', audit = false): string {
+  return `finance-export${audit ? '-audit' : ''}-${now.toISOString().replace(/[:.]/g, '-')}.${extension}`
 }
 
 export const onRequest = async ({ request, env }: FunctionContext): Promise<Response> => {
   if (request.method !== 'GET') return methodNotAllowed('GET')
   const now = new Date()
   try {
-    const expenses = await allRows(env, 'expenses', 'id,transaction_date,amount,title,category,payer,memo,notion_url,notion_created_at,created_at', 'transaction_date.desc,id.desc')
-    const format = new URL(request.url).searchParams.get('format')
+    const url = new URL(request.url)
+    const format = url.searchParams.get('format')
+    // 通常CSVは取消済みを除く。JSON（バックアップ）と scope=all（監査用CSV）は取消済みも voided_at 付きで含める。
+    const audit = format === 'json' || url.searchParams.get('scope') === 'all'
+    const expenses = await allRows(env, 'expenses', 'id,transaction_date,amount,title,category,payer,memo,notion_url,notion_created_at,created_at,voided_at', 'transaction_date.desc,id.desc', audit ? {} : { voided_at: 'is.null' })
     if (format === 'json') {
       const [categories, recurringExpenses] = await Promise.all([
         allRows(env, 'budget_categories', 'id,name,notion_url', 'id.asc'),
@@ -58,8 +68,8 @@ export const onRequest = async ({ request, env }: FunctionContext): Promise<Resp
         headers: { 'Cache-Control': 'private, no-store', 'Content-Disposition': `attachment; filename="${filename(now, 'json')}"`, 'Content-Type': 'application/json; charset=utf-8', 'X-Content-Type-Options': 'nosniff' },
       })
     }
-    return new Response(financeCsv(expenses), {
-      headers: { 'Cache-Control': 'private, no-store', 'Content-Disposition': `attachment; filename="${filename(now, 'csv')}"`, 'Content-Type': 'text/csv; charset=utf-8', 'X-Content-Type-Options': 'nosniff' },
+    return new Response(financeCsv(expenses, audit), {
+      headers: { 'Cache-Control': 'private, no-store', 'Content-Disposition': `attachment; filename="${filename(now, 'csv', audit)}"`, 'Content-Type': 'text/csv; charset=utf-8', 'X-Content-Type-Options': 'nosniff' },
     })
   } catch (error) {
     console.error('finance export failed', error instanceof Error ? error.message : 'unknown')

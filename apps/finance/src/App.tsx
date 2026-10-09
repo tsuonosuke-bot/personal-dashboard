@@ -24,7 +24,7 @@ const MonthlyTrendChart = lazy(() => import('./components/MonthlyTrendChart').th
 const CategoryPieChart = lazy(() => import('./components/CategoryPieChart').then((module) => ({ default: module.CategoryPieChart })))
 
 function App() {
-  const { expenses, categories, loading, error, lastUpdatedAt, reload, demoMode, mutating, createExpense, updateExpense } = useExpenses()
+  const { expenses, voidedExpenses, categories, loading, error, lastUpdatedAt, reload, demoMode, mutating, createExpense, updateExpense, setVoided } = useExpenses()
   const [requestedMonth, setRequestedMonth] = useState(currentMonthKey())
   const [requestedCategories, setRequestedCategories] = useState<string[]>([])
   const [categoryMode, setCategoryMode] = useState<CategoryFilterMode>('include')
@@ -128,6 +128,31 @@ function App() {
       closeEntry()
     } catch (caught) {
       setActionError(caught instanceof Error ? caught.message : '家計簿を保存できませんでした。')
+    }
+  }
+
+  const voidExpense = async () => {
+    if (!editingExpense) return
+    const generated = /定期登録 #\d+/.test(editingExpense.memo ?? '')
+    const message = `「${editingExpense.title}」（${editingExpense.transaction_date}）を取り消しますか？\n集計とCSVから外れます。明細一覧の「取消済み」からいつでも復元できます。${generated ? '\n定期登録で作られた明細です。取り消しても同じ日の分は再生成されません。' : ''}`
+    if (!window.confirm(message)) return
+    setActionError(null)
+    try {
+      await setVoided(editingExpense, true)
+      setNotice('明細を取り消しました。明細一覧の「取消済み」から復元できます。')
+      closeEntry()
+    } catch (caught) {
+      setActionError(caught instanceof Error ? caught.message : '明細を取り消せませんでした。')
+    }
+  }
+
+  const restoreExpense = async (expense: Expense) => {
+    setActionError(null)
+    try {
+      await setVoided(expense, false)
+      setNotice(`「${expense.title}」を復元しました。`)
+    } catch (caught) {
+      setNotice(caught instanceof Error ? caught.message : '明細を復元できませんでした。')
     }
   }
 
@@ -263,6 +288,7 @@ function App() {
       <main className="app-main">
         <div className="page-tools" aria-label="データ管理">
           <a href="api/export">CSV書き出し</a>
+          <a href="api/export?scope=all" title="取消済みの明細も、取消日時つきで含めます">監査用CSV（取消含む）</a>
           <a href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
         </div>
         {!loading && !error && (
@@ -416,6 +442,9 @@ function App() {
                 setEditingExpense(expense)
                 setEntryOpen(true)
               }}
+              voidedExpenses={demoMode ? undefined : voidedExpenses}
+              onRestore={demoMode ? undefined : (expense) => void restoreExpense(expense)}
+              restoring={mutating}
             />
             <p className="text-center text-xs text-slate-400">
               {lastUpdatedAt ? `最終読み込み ${lastUpdatedAt.toLocaleString('ja-JP')}` : ''}
@@ -432,6 +461,7 @@ function App() {
           expense={editingExpense ?? undefined}
           onClose={closeEntry}
           onSave={(draft) => void saveExpense(draft)}
+          onVoid={editingExpense ? () => void voidExpense() : undefined}
         />
       )}
       {recurringOpen && (
