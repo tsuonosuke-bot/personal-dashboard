@@ -7,6 +7,7 @@ import {
   habitLocked,
   habitNote,
   habitStreak,
+  missedYesterday,
   projectRows,
   projectTasksDueToday,
   renderHabitSection,
@@ -169,7 +170,8 @@ test("Habit groups count today's daily habits and this week's weekly habits", ()
       habit(2, "daily"),
       habit(3, "weekly", { completedThisWeek: true }),
       habit(4, "weekly"),
-      habit(5, "weekdays", { eligibleToday: false }),
+      // 平日のHabitは土日（10/3・10/4）が対象外
+      habit(5, "weekdays", { eligibleToday: false, history: history([false, false, false, false, false, false, false], [true, true, true, true, false, false, true]) }),
       habit(6, "daily", { status: "paused" }),
     ],
   };
@@ -303,4 +305,30 @@ test("期限超過・今日が期日のProjectタスクが残っている間は�
   assert.equal(projectTasksDueToday(data, TODAY), 1);
   assert.equal(projectTasksDueToday({ projects: [project(2)] }, TODAY), 0);
   assert.equal(projectTasksDueToday(null, TODAY), 0);
+});
+
+test("昨日が対象日で記録のない毎日・平日のHabitを「昨日の未記録」として出し、昨日分を記録するボタンを置く (#155)", () => {
+  const yesterdayDone = history([false, false, false, false, false, true, false]);
+  const payload = {
+    today: TODAY,
+    habits: [
+      habit(1, "daily"),
+      habit(2, "daily", { history: yesterdayDone }),
+      habit(3, "weekdays"),
+      habit(4, "weekdays", { history: history([false, false, false, false, false, false, false], [true, true, true, true, false, false, true]) }),
+      habit(5, "weekly"),
+      habit(6, "flexible"),
+      habit(7, "daily", { status: "paused" }),
+      habit(8, "daily", { name: "<読書>", history: history([false, false, false, false, false, false, false], [false, false, false, false, false, false, true]) }),
+    ],
+  };
+  assert.deepEqual(missedYesterday(payload).map((item) => item.id), [1, 3]);
+  assert.deepEqual(missedYesterday(null), []);
+  const html = renderHabitSection({ status: "ready", data: payload, error: null });
+  assert.match(html, /昨日の未記録 2件/);
+  assert.match(html, /data-habit-backfill="1" aria-label="Habit 1を昨日の分として記録"/);
+  assert.match(html, /data-habit-backfill="3"/);
+  assert.doesNotMatch(html, /data-habit-backfill="(2|4|5|6|7|8)"/);
+  const none = renderHabitSection({ status: "ready", data: { today: TODAY, habits: [habit(2, "daily", { history: yesterdayDone })] }, error: null });
+  assert.doesNotMatch(none, /today-backfill/);
 });

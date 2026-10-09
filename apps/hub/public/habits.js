@@ -121,8 +121,14 @@ function renderHistory() {
   }).join("");
   const dayRows = daily.map((habit) => `<tr>${habitHeader(habit)}${habit.days.map((day) => {
     const mark = day.completed ? "✓" : day.future ? "" : day.eligible ? "·" : "—";
-    const className = day.completed ? "done" : day.future ? "future" : day.eligible ? "open" : "off";
-    const label = day.completed ? "実施済み" : day.future ? "これから" : day.eligible ? "記録なし" : "対象外";
+    const className = `${day.completed ? "done" : day.future ? "future" : day.eligible ? "open" : "off"}${day.late ? " late" : ""}`;
+    const label = `${day.completed ? "実施済み" : day.future ? "これから" : day.eligible ? "記録なし" : "対象外"}${day.late ? "（後から記録）" : ""}`;
+    // 直近7日（有効なHabitの対象日）は、記録漏れをその場で記録・取消できる（#155）
+    const editable = habit.editableFrom && day.eligible && !day.future && day.date >= habit.editableFrom;
+    if (editable) {
+      const action = day.completed ? "記録を取り消す" : "実施済みにする";
+      return `<td class="${className} editable"><button type="button" data-log-id="${habit.id}" data-log-date="${day.date}" data-completed="${day.completed}" aria-label="${escapeHtml(habit.name)} ${day.date} ${label}。タップで${action}">${mark}</button></td>`;
+    }
     return `<td class="${className}" aria-label="${day.date} ${label}">${mark}</td>`;
   }).join("")}</tr>`).join("");
   els.historyTable.innerHTML = daily.length
@@ -131,8 +137,8 @@ function renderHistory() {
   const weekHeadings = data.weeks.map((monday) => `<th scope="col"><span>週</span><b>${formatDay(monday)}〜</b></th>`).join("");
   const weekRows = weekly.map((habit) => `<tr>${habitHeader(habit)}${habit.weeks.map((week) => {
     const mark = week.completed ? `✓<small>${formatDay(week.completedOn)}</small>` : week.eligible ? "·" : "—";
-    const className = week.completed ? "done" : week.eligible ? "open" : "off";
-    return `<td class="${className}" aria-label="${week.weekStart}の週 ${week.completed ? `${week.completedOn}に実施` : week.eligible ? "記録なし" : "対象外"}">${mark}</td>`;
+    const className = `${week.completed ? "done" : week.eligible ? "open" : "off"}${week.late ? " late" : ""}`;
+    return `<td class="${className}" aria-label="${week.weekStart}の週 ${week.completed ? `${week.completedOn}に実施${week.late ? "（後から記録）" : ""}` : week.eligible ? "記録なし" : "対象外"}">${mark}</td>`;
   }).join("")}</tr>`).join("");
   els.historyWeekly.innerHTML = weekly.length
     ? `<table class="history-weeks"><thead><tr><th>毎週のHabit</th>${weekHeadings}</tr></thead><tbody>${weekRows}</tbody></table>`
@@ -169,7 +175,9 @@ function renderManage(habits) {
 }
 
 function bindContentActions(root = els.habitContent) {
-  root.querySelectorAll("[data-log-id]").forEach((button) => button.addEventListener("click", () => toggleLog(Number(button.dataset.logId), button.dataset.completed !== "true", button)));
+  root.querySelectorAll("[data-log-id]").forEach((button) => button.addEventListener("click", () => toggleLog(
+    Number(button.dataset.logId), button.dataset.completed !== "true", button, button.dataset.logDate || state.data.today,
+  )));
   root.querySelectorAll("[data-edit-id]").forEach((button) => button.addEventListener("click", () => {
     const habit = state.data.habits.find((item) => item.id === Number(button.dataset.editId));
     if (habit) openModal(habit);
@@ -213,17 +221,18 @@ async function load() {
   }
 }
 
-async function toggleLog(id, completed, button) {
+async function toggleLog(id, completed, button, practicedOn = state.data.today) {
   button.disabled = true;
   try {
     const response = await fetch("/api/habit-logs", {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "X-Dashboard-Action": "habit-log" },
-      body: JSON.stringify({ habitId: id, practicedOn: state.data.today, completed }),
+      body: JSON.stringify({ habitId: id, practicedOn, completed }),
     });
     const payload = await readApiJson(response);
     if (!response.ok) throw new Error(errorMessage(payload, "実施記録を更新できませんでした。"));
-    showToast(completed ? "実施済みとして記録しました。" : "今日の記録を取り消しました。");
+    const day = practicedOn === state.data.today ? "今日" : formatDay(practicedOn);
+    showToast(completed ? `${day}の分を実施済みとして記録しました。` : `${day}の記録を取り消しました。`);
     await load();
   } catch (error) {
     showToast(error instanceof Error ? error.message : "実施記録を更新できませんでした。");

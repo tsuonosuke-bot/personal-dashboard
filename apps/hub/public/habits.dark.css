@@ -266,6 +266,21 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] td.off {
   color: #d4d9d5;
 }
+:root[data-theme="dark"] td.editable button {
+  border: 1px dashed var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+}
+:root[data-theme="dark"] td.editable.done button {
+  border-style: solid;
+  border-color: rgba(206, 100, 60, 0.3);
+  background: var(--accent-soft);
+}
+:root[data-theme="dark"] td.late::after {
+  border-radius: 50%;
+  background: var(--accent--light, var(--accent));
+}
 :root[data-theme="dark"] .manage-list > button {
   border: 1px solid #51554f;
   border-radius: 9px;

@@ -109,6 +109,12 @@ tbody th small { display: block; margin-top: 3px; color: var(--muted); font-size
 td { color: #aab2ad; font-size: 12px; font-weight: 850; }
 td.done { color: var(--accent); }
 td.off { color: #d4d9d5; }
+td.editable { padding: 2px; }
+td.editable button { width: 100%; min-width: 26px; height: 36px; padding: 0; border: 1px dashed var(--line); border-radius: 7px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+td.editable.done button { border-style: solid; border-color: rgba(154, 71, 39, .3); background: var(--accent-soft); }
+td.editable button:disabled { cursor: wait; opacity: .5; }
+td.late { position: relative; }
+td.late::after { content: ""; position: absolute; top: 6px; right: 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
 .manage-list { display: grid; gap: 6px; }
 .manage-list > button { min-height: 48px; display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; padding: 7px 9px; border: 1px solid #e3e6e2; border-radius: 9px; background: #fff; text-align: left; }
 .manage-list span b, .manage-list span small { display: block; }

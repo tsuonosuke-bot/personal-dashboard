@@ -337,6 +337,23 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .today-project-row .today-check {
   --check--light: var(--project--light, var(--project));
 }
+:root[data-theme="dark"] .today-backfill {
+  border: 1px dashed var(--habit-line);
+  border-radius: 10px;
+  background: var(--habit-done);
+}
+:root[data-theme="dark"] .today-backfill b {
+  color: var(--habit);
+}
+:root[data-theme="dark"] .today-backfill-chips button {
+  border: 1px solid var(--habit-line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+}
+:root[data-theme="dark"] .today-backfill-chips button span {
+  color: var(--habit);
+}
 :root[data-theme="dark"] .today-chip {
   border: 0;
   border-top: 1px solid var(--divider);
