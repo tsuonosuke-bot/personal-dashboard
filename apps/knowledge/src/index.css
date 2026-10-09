@@ -760,7 +760,12 @@ button:disabled { opacity: 0.4; cursor: default; }
 .today-learning-line { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 12px 0 0; color: #6f6a78; font-size: 12px; line-height: 1.6; }
 .today-learning-line b { color: #27242d; font-weight: 650; }
 .today-learning-line .text-button { margin-left: 4px; font-size: 12px; }
-.today-learning .review-queue-full { margin: 10px 0 0; }
+.today-learning-alerts { display: grid; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
+.today-learning-alerts li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; padding: 9px 12px; border: 1px solid #f3cfa8; border-radius: 10px; background: #fff7ed; color: #9a3412; font-size: 12px; line-height: 1.6; }
+.today-learning-alerts .text-button { min-height: 32px; color: #9a3412; font-size: 12px; font-weight: 700; text-decoration: underline; }
+.today-learning-queue { margin-top: 10px; }
+.today-learning-queue summary { min-height: 32px; display: flex; align-items: center; color: #66558c; font-size: 12px; font-weight: 700; cursor: pointer; }
+.today-learning-queue .today-learning-line { margin-top: 4px; }
 .today-learning-how { margin-top: 8px; padding-top: 8px; border-top: 1px solid #efedf2; }
 .today-learning-how summary { min-height: 32px; display: flex; align-items: center; color: #66558c; font-size: 12px; font-weight: 700; cursor: pointer; }
 .today-learning-how p { margin: 4px 0 0; color: #6f6a78; font-size: 12px; line-height: 1.7; }

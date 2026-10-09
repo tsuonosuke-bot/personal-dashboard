@@ -43,6 +43,28 @@ export function TodayLearningPanel({
   const breakdown = status ? categoryBreakdown(status.remaining_by_category) : [];
   const nextRetry = clockTime(status?.next_retry_at);
   const lastGenerated = clockTime(queueStatus?.last_generate?.at);
+  const lastGraded = clockTime(queueStatus?.last_grade?.at);
+  // 対応が必要な状態は折りたたまずに常に出す。通常時の数字は「キュー詳細」に収める（#133）。
+  const alerts: { key: string; text: string; log: boolean }[] = [];
+  if (queueStatus && queueStatus.grading_errors > 0) {
+    alerts.push({ key: "grading-errors", text: `採点エラー ${queueStatus.grading_errors}件: 3回採点に失敗した回答があります。`, log: true });
+  }
+  if (queueStatus?.last_grade?.status === "failed") {
+    alerts.push({ key: "grade-failed", text: `直近の自動採点が失敗しました${lastGraded ? `（${lastGraded}）` : ""}。`, log: true });
+  }
+  if (queueStatus?.last_generate?.status === "failed") {
+    alerts.push({ key: "generate-failed", text: `直近の問題生成が失敗しました${lastGenerated ? `（${lastGenerated}）` : ""}。${queueStatus.last_generate.note ?? ""}`, log: true });
+  }
+  if (queueStatus && queueStatus.generation_held > 0) {
+    alerts.push({ key: "generation-held", text: `問題を作れず保留 ${queueStatus.generation_held}件`, log: true });
+  }
+  if (queueStatus?.queue_full) {
+    alerts.push({
+      key: "queue-full",
+      text: `出題待ちの問題が上限の${queueStatus.queue_limit}件に達しているため、新しい問題の追加を止めています。問題を解いて件数が減ると、追加を再開します。`,
+      log: false,
+    });
+  }
 
   return (
     <section className="card today-learning" aria-labelledby="today-learning-heading">
@@ -86,26 +108,33 @@ export function TodayLearningPanel({
         </div>
       </div>
 
-      {(status || queueStatus) && (
-        <p className="today-learning-line">
-          {breakdown.length > 0 && (
-            <span>内訳: {breakdown.map((item, index) => (
-              <span key={item.label}>{index > 0 && "・"}{index === 0 ? <b>{item.label} {item.count}</b> : `${item.label} ${item.count}`}</span>
-            ))}</span>
-          )}
-          {queueStatus && <span>採点待ち {queueStatus.waiting_grading}件{queueStatus.grading_errors > 0 && `（採点エラー ${queueStatus.grading_errors}件）`}</span>}
-          {status && status.new_held > 0 && <span>新規は保留 {status.new_held}件（1日{status.new_limit}件まで）</span>}
-          {queueStatus && queueStatus.generation_held > 0 && (
-            <span>問題を作れず保留 {queueStatus.generation_held}件 <button className="text-button" onClick={onOpenLog}>学習ログで見る</button></span>
-          )}
-          {lastGenerated && <span>最後の問題生成 {lastGenerated}{queueStatus?.last_generate?.added != null && `（${queueStatus.last_generate.added}問）`}</span>}
-        </p>
+      {alerts.length > 0 && (
+        <ul className="today-learning-alerts" aria-label="対応が必要な状態">
+          {alerts.map((alert) => (
+            <li key={alert.key} role={alert.key === "queue-full" ? "status" : "alert"}>
+              <span>{alert.text}</span>
+              {alert.log && <button className="text-button" onClick={onOpenLog}>学習ログで見る</button>}
+            </li>
+          ))}
+        </ul>
       )}
-      {queueStatus?.queue_full && (
-        <p className="review-queue-full" role="status">
-          出題待ちの問題が上限の{queueStatus.queue_limit}件に達しているため、新しい問題の追加を止めています。
-          問題を解いて件数が減ると、追加を再開します。
-        </p>
+
+      {(status || queueStatus) && (
+        <details className="today-learning-queue">
+          <summary>キュー詳細{queueStatus ? `（採点待ち ${queueStatus.waiting_grading}件・出題待ち ${queueStatus.ready_total}件）` : ""}</summary>
+          <p className="today-learning-line">
+            {breakdown.length > 0 && (
+              <span>内訳: {breakdown.map((item, index) => (
+                <span key={item.label}>{index > 0 && "・"}{index === 0 ? <b>{item.label} {item.count}</b> : `${item.label} ${item.count}`}</span>
+              ))}</span>
+            )}
+            {queueStatus && <span>採点待ち {queueStatus.waiting_grading}件</span>}
+            {queueStatus && <span>出題待ち {queueStatus.ready_total}件（上限 {queueStatus.queue_limit}件）</span>}
+            {status && status.new_held > 0 && <span>新規は保留 {status.new_held}件（1日{status.new_limit}件まで）</span>}
+            {lastGenerated && <span>最後の問題生成 {lastGenerated}{queueStatus?.last_generate?.added != null && `（${queueStatus.last_generate.added}問）`}</span>}
+            {lastGraded && <span>最後の採点 {lastGraded}</span>}
+          </p>
+        </details>
       )}
 
       {status && (
