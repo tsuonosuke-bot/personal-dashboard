@@ -261,6 +261,18 @@
 :root[data-theme="dark"] .refresh-button {
   color: #a4c7da;
 }
+:root[data-theme="dark"] .filter-scope-notice {
+  border: 1px solid #46545c;
+  border-radius: 8px;
+  background: #1d2122;
+  color: #a4c7da;
+}
+:root[data-theme="dark"] .filter-scope-notice button {
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #a4c7da;
+}
 :root[data-theme="dark"] .save-notice {
   border: 1px solid #40534b;
   border-radius: 9px;
@@ -465,6 +477,16 @@
     border-color: #694ebb;
     background: #44317f;
     color: #fff;
+  }
+  :root[data-theme="dark"] .category-filter-footer button {
+    border: 1px solid #4a5257;
+    background: #292929;
+  }
+  :root[data-theme="dark"] .filter-details-toggle {
+    border: 1px solid #4a5257;
+    border-radius: 8px;
+    background: #292929;
+    color: #a4c7da;
   }
 }
 :root[data-theme="dark"] .tabbar-item.hub {

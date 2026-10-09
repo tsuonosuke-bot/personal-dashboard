@@ -122,7 +122,7 @@ select {
 .category-options input { width: 16px; height: 16px; margin: 0; accent-color: #315f78; }
 .category-filter-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; padding: 9px 3px 0; border-top: 1px solid #e7ebed; color: #7a878d; font-size: 10px; }
 .category-filter-actions { display: flex; align-items: center; gap: 2px; }
-.category-filter-footer button { min-height: 28px; padding: 3px 6px; border: 0; border-radius: 6px; background: transparent; color: #315f78; font-size: 11px; font-weight: 700; cursor: pointer; }
+.category-filter-footer button { min-height: 44px; padding: 6px 12px; border: 0; border-radius: 6px; background: transparent; color: #315f78; font-size: 11px; font-weight: 700; cursor: pointer; }
 .category-filter-footer button:hover:not(:disabled) { background: #eef4f6; }
 .category-filter-footer button:disabled { cursor: default; opacity: .4; }
 
@@ -251,6 +251,10 @@ select {
 .transaction-filters { display: grid; grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(130px, 1fr)); gap: 9px; margin-bottom: 18px; }
 .filter-search { grid-column: span 2; }
 .filter-reset:disabled { cursor: default; opacity: .45; }
+.transaction-filter-details { display: contents; }
+.filter-details-toggle { display: none; }
+.filter-scope-notice { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: -8px 0 14px; padding: 8px 10px; border: 1px solid #d7e3ea; border-radius: 8px; background: #f3f8fa; color: #315f78; font-size: 12px; }
+.filter-scope-notice button { min-width: 32px; min-height: 32px; flex: 0 0 auto; border: 0; border-radius: 6px; background: transparent; color: #315f78; font-size: 16px; cursor: pointer; }
 .save-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; padding: 11px 14px; border: 1px solid #b9d8ca; border-radius: 9px; background: #edf7f2; color: #276046; font-size: 13px; }
 .save-notice button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 18px; }
 .modal-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 18px; background: rgba(25, 34, 39, .48); backdrop-filter: blur(3px); }
@@ -352,8 +356,14 @@ select {
   .category-filter { min-width: 100%; }
   .category-filter-popover { position: fixed; top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: calc(100vh - 20px); }
   .category-options { max-height: min(45vh, 300px); }
+  .category-filter-footer { flex-direction: column; align-items: stretch; gap: 6px; }
+  .category-filter-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .category-filter-footer button { border: 1px solid #d9e0e4; background: #fff; font-size: 13px; }
   .transaction-filters { grid-template-columns: 1fr; }
   .filter-search { grid-column: auto; }
+  .filter-details-toggle { min-height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border: 1px solid #d9e0e4; border-radius: 8px; background: #fff; color: #315f78; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .transaction-filter-details { display: grid; gap: 9px; }
+  .transaction-filter-details[data-open="false"] { display: none; }
   .entry-grid { grid-template-columns: 1fr; }
   .entry-grid .full-field { grid-column: auto; }
   .entry-modal-head, .entry-modal form { padding-inline: 16px; }

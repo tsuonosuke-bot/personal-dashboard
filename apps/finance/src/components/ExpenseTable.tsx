@@ -5,6 +5,8 @@ import type { Expense } from '../lib/types'
 type Props = {
   expenses: Expense[]
   selectedMonth: string
+  /** 月・カテゴリ・支払者の組み合わせ。変わったらページだけ先頭に戻す（明細の条件は保持する） */
+  scopeKey?: string
   onEdit?: (expense: Expense) => void
   /** 取消済みの明細（全期間）。表示中の月の分だけを復元用に出す */
   voidedExpenses?: Expense[]
@@ -12,7 +14,11 @@ type Props = {
   restoring?: boolean
 }
 
-export function ExpenseTable({ expenses, selectedMonth, onEdit, voidedExpenses = [], onRestore, restoring = false }: Props) {
+function shortDate(value: string) {
+  return value.slice(5).replace('-', '/')
+}
+
+export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth, onEdit, voidedExpenses = [], onRestore, restoring = false }: Props) {
   const pageSize = 50
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -22,6 +28,27 @@ export function ExpenseTable({ expenses, selectedMonth, onEdit, voidedExpenses =
   const [amountMax, setAmountMax] = useState('')
   const [sort, setSort] = useState<'newest' | 'oldest' | 'amount-desc' | 'amount-asc'>('newest')
   const [page, setPage] = useState(1)
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [scopeNotice, setScopeNotice] = useState<string | null>(null)
+  const [previousScope, setPreviousScope] = useState({ key: scopeKey, month: selectedMonth })
+
+  // 集計条件が変わったら、検索・種別・金額・並び順は残し、表示月の外を指す期間だけを外す。
+  if (previousScope.key !== scopeKey || previousScope.month !== selectedMonth) {
+    setPreviousScope({ key: scopeKey, month: selectedMonth })
+    setPage(1)
+    if (previousScope.month !== selectedMonth) {
+      const fromOutside = Boolean(dateFrom) && monthKey(dateFrom) !== selectedMonth
+      const toOutside = Boolean(dateTo) && monthKey(dateTo) !== selectedMonth
+      if (fromOutside || toOutside) {
+        const label = `${dateFrom ? shortDate(dateFrom) : ''}〜${dateTo ? shortDate(dateTo) : ''}`
+        if (fromOutside) setDateFrom('')
+        if (toOutside) setDateTo('')
+        setScopeNotice(`表示月を${monthLabel(selectedMonth)}に変えたため、月の外を指していた期間（${label}）を解除しました。`)
+      } else {
+        setScopeNotice(null)
+      }
+    }
+  }
 
   const monthExpenses = useMemo(
     () => expenses.filter((expense) => monthKey(expense.transaction_date) === selectedMonth),
@@ -66,6 +93,7 @@ export function ExpenseTable({ expenses, selectedMonth, onEdit, voidedExpenses =
   }
 
   const clearFilters = () => {
+    setScopeNotice(null)
     setDateFrom('')
     setDateTo('')
     setQuery('')
@@ -77,6 +105,8 @@ export function ExpenseTable({ expenses, selectedMonth, onEdit, voidedExpenses =
   }
 
   const hasFilters = Boolean(dateFrom || dateTo || query || type !== 'all' || amountMin || amountMax || sort !== 'newest')
+  // スマホで折りたたむ詳細条件（検索以外）のうち、既定から変えているものの数
+  const activeDetailCount = [dateFrom, dateTo, type !== 'all', amountMin, amountMax, sort !== 'newest'].filter(Boolean).length
 
   return (
     <section className="panel">
@@ -101,6 +131,16 @@ export function ExpenseTable({ expenses, selectedMonth, onEdit, voidedExpenses =
           value={query}
           onChange={(event) => updateFilter(setQuery, event.target.value)}
         />
+        <button
+          type="button"
+          className="filter-details-toggle"
+          aria-expanded={detailsOpen}
+          aria-controls="transaction-filter-details"
+          onClick={() => setDetailsOpen((open) => !open)}
+        >
+          <span>詳細条件{activeDetailCount > 0 ? `（${activeDetailCount}件適用中）` : ''}</span><span aria-hidden="true">{detailsOpen ? '▲' : '▼'}</span>
+        </button>
+        <div id="transaction-filter-details" className="transaction-filter-details" data-open={detailsOpen}>
         <input type="date" aria-label="開始日" className="filter-control" value={dateFrom} onChange={(event) => updateFilter(setDateFrom, event.target.value)} />
         <input type="date" aria-label="終了日" className="filter-control" value={dateTo} onChange={(event) => updateFilter(setDateTo, event.target.value)} />
         <select className="filter-control" aria-label="収支種別" value={type} onChange={(event) => { setType(event.target.value as typeof type); setPage(1) }}>
@@ -112,7 +152,14 @@ export function ExpenseTable({ expenses, selectedMonth, onEdit, voidedExpenses =
           <option value="newest">新しい順</option><option value="oldest">古い順</option><option value="amount-desc">金額が高い順</option><option value="amount-asc">金額が低い順</option>
         </select>
         <button type="button" className="filter-reset" onClick={clearFilters} disabled={!hasFilters}>条件をクリア</button>
+        </div>
       </div>
+      {scopeNotice && (
+        <p className="filter-scope-notice" role="status">
+          <span>{scopeNotice}</span>
+          <button type="button" aria-label="お知らせを閉じる" onClick={() => setScopeNotice(null)}>×</button>
+        </p>
+      )}
 
       <div className="max-h-[34rem] overflow-auto rounded-xl border border-slate-200">
         <table className="w-full min-w-[760px] text-sm">
