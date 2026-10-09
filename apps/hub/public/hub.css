@@ -146,6 +146,8 @@ a.today-row-title:hover { text-decoration: underline; }
 .today-pill.today { background: var(--blue-soft); color: var(--blue); }
 .today-pill.upcoming { background: var(--green-soft); color: var(--green); }
 .today-pill.attention { background: var(--attention-soft); color: var(--attention); }
+.today-pill.soon { background: var(--overdue-soft); color: var(--overdue); }
+.today-pill.project { background: var(--project-soft); color: var(--project); }
 .today-more { width: 100%; min-height: 44px; border: 0; border-top: 1px solid var(--divider); background: none; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 700; }
 .today-more:hover { color: var(--ink); }
 .today-check { --check: var(--green); width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }

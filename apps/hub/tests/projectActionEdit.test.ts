@@ -219,3 +219,14 @@ test("Project詳細で、あとで行うActionを並べ替え・今やる・完�
   assert.match(css, /\.date-chip\.overdue/);
   assert.match(css, /\.task-row \{/);
 });
+
+test("要確認は「activeなのに未完了のActionが1件もない」Project（#154）", () => {
+  const onlyQueued = normalizeProjects([projectRow()], [actionRow({ status: "queued" })], []);
+  assert.equal(onlyQueued.projects[0].needsAttention, false);
+  const onlyDone = normalizeProjects([projectRow()], [actionRow({ status: "done", completed_at: preciseTimestamp })], []);
+  assert.equal(onlyDone.projects[0].needsAttention, true);
+  const waitingProject = normalizeProjects(
+    [projectRow({ status: "waiting", waiting_for: "返信", review_on: "2026-10-20" })], [], [],
+  );
+  assert.equal(waitingProject.projects[0].needsAttention, false);
+});
