@@ -6,6 +6,8 @@ const state = {
   saving: false,
   /** 履歴の期間（#141）。anchorがnullなら今週・今月。 */
   history: { period: "week", anchor: null, data: null, loading: false },
+  /** 記録シートで開いている記録（#156）。 */
+  sheet: null,
 };
 
 const ids = [
@@ -13,6 +15,9 @@ const ids = [
   "loadingState", "errorState", "errorMessage", "retryButton", "habitContent", "todayList", "weekLabel", "weeklyList",
   "historyTable", "historyWeekly", "historyPrev", "historyNext", "historyLabel", "historyStatus", "manageList", "habitModal", "modalTitle", "modalClose", "habitForm", "habitName", "habitPurpose",
   "habitCadence", "statusField", "habitStatus", "formError", "cancelButton", "saveButton", "toast",
+  "logSheet", "logSheetDate", "logSheetTitle", "logSheetClose", "logSheetForm", "logSheetStatus", "logSheetCheckField", "logSheetCompleted",
+  "logSheetDayField", "logSheetDay", "logSheetNoteField", "logSheetNote", "logSheetNoteView", "logSheetHint", "logSheetError",
+  "logSheetCancel", "logSheetSave",
 ];
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
 
@@ -64,12 +69,14 @@ function habitCard(habit, scope) {
   const completed = scope === "weekly" ? habit.completedThisWeek : habit.completedToday;
   const label = completed ? (weeklyDoneBeforeToday ? "今週完了" : "取り消す") : scope === "weekly" ? "今週できた" : "できた";
   const disabled = weeklyDoneBeforeToday ? "disabled" : "";
-  const purpose = habit.purpose ? `<p>${escapeHtml(habit.purpose)}</p>` : "";
+  const noteDate = scope === "weekly" ? habit.weeklyCompletedOn : state.data.today;
+  const note = (habit.history || []).find((day) => day.date === noteDate)?.note || null;
+  const purpose = note ? `<p class="habit-note">メモ: ${escapeHtml(note)}</p>` : habit.purpose ? `<p>${escapeHtml(habit.purpose)}</p>` : "";
   const source = habit.sourceWantId ? `<span class="source-tag">Want #${habit.sourceWantId}</span>` : "";
   return `<article class="habit-card ${completed ? "completed" : ""}">
     <button class="check-button" type="button" data-log-id="${habit.id}" data-completed="${completed}" ${disabled} aria-label="${escapeHtml(habit.name)}を${completed ? "未実施に戻す" : "実施済みにする"}">${completed ? "✓" : "○"}</button>
     <div class="habit-copy"><div><h3>${escapeHtml(habit.name)}</h3><span class="cadence-tag">${escapeHtml(cadenceLabels[habit.cadence])}</span>${source}</div>${purpose}</div>
-    <div class="card-actions"><button class="record-button" type="button" data-log-id="${habit.id}" data-completed="${completed}" ${disabled}>${label}</button><button class="edit-button" type="button" data-edit-id="${habit.id}" aria-label="${escapeHtml(habit.name)}を編集">編集</button></div>
+    <div class="card-actions"><button class="record-button" type="button" data-log-id="${habit.id}" data-completed="${completed}" ${disabled}>${label}</button><button class="edit-button${note ? " has-note" : ""}" type="button" data-note-id="${habit.id}" aria-label="${escapeHtml(habit.name)}のメモ${note ? "（あり）" : ""}">メモ</button><button class="edit-button" type="button" data-edit-id="${habit.id}" aria-label="${escapeHtml(habit.name)}を編集">編集</button></div>
   </article>`;
 }
 
@@ -121,13 +128,12 @@ function renderHistory() {
   }).join("");
   const dayRows = daily.map((habit) => `<tr>${habitHeader(habit)}${habit.days.map((day) => {
     const mark = day.completed ? "✓" : day.future ? "" : day.eligible ? "·" : "—";
-    const className = `${day.completed ? "done" : day.future ? "future" : day.eligible ? "open" : "off"}${day.late ? " late" : ""}`;
-    const label = `${day.completed ? "実施済み" : day.future ? "これから" : day.eligible ? "記録なし" : "対象外"}${day.late ? "（後から記録）" : ""}`;
-    // 直近7日（有効なHabitの対象日）は、記録漏れをその場で記録・取消できる（#155）
-    const editable = habit.editableFrom && day.eligible && !day.future && day.date >= habit.editableFrom;
-    if (editable) {
-      const action = day.completed ? "記録を取り消す" : "実施済みにする";
-      return `<td class="${className} editable"><button type="button" data-log-id="${habit.id}" data-log-date="${day.date}" data-completed="${day.completed}" aria-label="${escapeHtml(habit.name)} ${day.date} ${label}。タップで${action}">${mark}</button></td>`;
+    const className = `${day.completed ? "done" : day.future ? "future" : day.eligible ? "open" : "off"}${day.late ? " late" : ""}${day.note ? " has-note" : ""}`;
+    const label = `${day.completed ? "実施済み" : day.future ? "これから" : day.eligible ? "記録なし" : "対象外"}${day.late ? "（後から記録）" : ""}${day.note ? "・メモあり" : ""}`;
+    // 直近7日の対象日と、実施済みの日は、シートで記録・メモを開ける（#155, #156）
+    const editable = editableDate(habit.editableFrom, day.date) && day.eligible;
+    if (editable || day.completed) {
+      return `<td class="${className}${editable ? " editable" : " viewable"}"><button type="button" data-sheet-habit="${habit.id}" data-sheet-date="${day.date}" aria-label="${escapeHtml(habit.name)} ${day.date} ${label}。タップで${editable ? "記録・メモ" : "メモを見る"}">${mark}</button></td>`;
     }
     return `<td class="${className}" aria-label="${day.date} ${label}">${mark}</td>`;
   }).join("")}</tr>`).join("");
@@ -137,14 +143,137 @@ function renderHistory() {
   const weekHeadings = data.weeks.map((monday) => `<th scope="col"><span>週</span><b>${formatDay(monday)}〜</b></th>`).join("");
   const weekRows = weekly.map((habit) => `<tr>${habitHeader(habit)}${habit.weeks.map((week) => {
     const mark = week.completed ? `✓<small>${formatDay(week.completedOn)}</small>` : week.eligible ? "·" : "—";
-    const className = `${week.completed ? "done" : week.eligible ? "open" : "off"}${week.late ? " late" : ""}`;
-    return `<td class="${className}" aria-label="${week.weekStart}の週 ${week.completed ? `${week.completedOn}に実施${week.late ? "（後から記録）" : ""}` : week.eligible ? "記録なし" : "対象外"}">${mark}</td>`;
+    const className = `${week.completed ? "done" : week.eligible ? "open" : "off"}${week.late ? " late" : ""}${week.note ? " has-note" : ""}`;
+    const label = `${week.weekStart}の週 ${week.completed ? `${week.completedOn}に実施${week.late ? "（後から記録）" : ""}${week.note ? "・メモあり" : ""}` : week.eligible ? "記録なし" : "対象外"}`;
+    const range = weekRange(habit.editableFrom, week.weekStart);
+    const editable = week.eligible && (week.completed ? editableDate(habit.editableFrom, week.completedOn) : range !== null);
+    if (editable || week.completed) {
+      return `<td class="${className}${editable ? " editable" : " viewable"}"><button type="button" data-sheet-habit="${habit.id}" data-sheet-week="${week.weekStart}" aria-label="${escapeHtml(habit.name)} ${label}。タップで${editable ? "記録・メモ" : "メモを見る"}">${mark}</button></td>`;
+    }
+    return `<td class="${className}" aria-label="${label}">${mark}</td>`;
   }).join("")}</tr>`).join("");
   els.historyWeekly.innerHTML = weekly.length
     ? `<table class="history-weeks"><thead><tr><th>毎週のHabit</th>${weekHeadings}</tr></thead><tbody>${weekRows}</tbody></table>`
     : "";
   bindContentActions(els.historyTable);
   bindContentActions(els.historyWeekly);
+  [els.historyTable, els.historyWeekly].forEach((root) => root.querySelectorAll("[data-sheet-habit]").forEach((button) => button.addEventListener("click", () => {
+    const habit = state.history.data?.habits.find((item) => item.id === Number(button.dataset.sheetHabit));
+    if (!habit) return;
+    if (button.dataset.sheetWeek) {
+      const week = habit.weeks.find((item) => item.weekStart === button.dataset.sheetWeek);
+      if (week) openLogSheet({ habit, weekStart: week.weekStart, date: week.completedOn, completed: week.completed, note: week.note });
+    } else {
+      const day = habit.days.find((item) => item.date === button.dataset.sheetDate);
+      if (day) openLogSheet({ habit, weekStart: null, date: day.date, completed: day.completed, note: day.note });
+    }
+  })));
+}
+
+function addDays(date, amount) {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + amount);
+  return value.toISOString().slice(0, 10);
+}
+
+/** 記録・取消できる日か（有効なHabitの、editableFrom〜今日）。 */
+function editableDate(editableFrom, date) {
+  return Boolean(editableFrom && date && date >= editableFrom && date <= state.data.today);
+}
+
+/** 毎週のHabitで、その週のうち記録できる日の範囲。なければnull。 */
+function weekRange(editableFrom, weekStart) {
+  if (!editableFrom) return null;
+  const from = weekStart > editableFrom ? weekStart : editableFrom;
+  const sunday = addDays(weekStart, 6);
+  const to = sunday < state.data.today ? sunday : state.data.today;
+  return from <= to ? { from, to } : null;
+}
+
+function updateLogSheetFields() {
+  const sheet = state.sheet;
+  const checked = els.logSheetCompleted.checked;
+  els.logSheetNote.disabled = !checked;
+  els.logSheetDay.disabled = !checked;
+  els.logSheetHint.hidden = !(sheet.completed && !checked);
+  els.logSheetHint.textContent = sheet.note ? "保存すると、この日の記録とメモが消えます。" : "保存すると、この日の記録が消えます。";
+}
+
+/** 記録シート（#156）。直近7日なら実施・取消とメモを保存でき、それより前は見るだけ。 */
+function openLogSheet({ habit, weekStart, date, completed, note }) {
+  const weekly = weekStart !== null;
+  const range = weekly && !completed ? weekRange(habit.editableFrom, weekStart) : null;
+  const editable = weekly && !completed ? range !== null : editableDate(habit.editableFrom, date);
+  state.sheet = { habitId: habit.id, weekly, weekStart, date, completed, note: note || null, editable, range };
+  els.logSheetTitle.textContent = habit.name;
+  els.logSheetDate.textContent = weekly ? `${formatDay(weekStart)}〜${formatDay(addDays(weekStart, 6))}の週` : formatDay(date, true);
+  const status = completed ? (weekly ? `${formatDay(date)}に実施` : "実施済み") : "記録なし";
+  els.logSheetStatus.textContent = editable ? status : `${status} · 7日より前の記録は見るだけです`;
+  els.logSheetCheckField.hidden = !editable;
+  // 未記録の日を開いたときも「実施した」にチェックした状態から始める（記録するために開くことが多い）
+  els.logSheetCompleted.checked = true;
+  els.logSheetDayField.hidden = !(editable && range);
+  if (range) {
+    els.logSheetDay.min = range.from;
+    els.logSheetDay.max = range.to;
+    els.logSheetDay.value = range.to;
+  }
+  els.logSheetNoteField.hidden = !editable;
+  els.logSheetNote.value = note || "";
+  els.logSheetNoteView.hidden = editable;
+  els.logSheetNoteView.textContent = note || "メモはありません";
+  els.logSheetSave.hidden = !editable;
+  els.logSheetError.hidden = true;
+  if (editable) updateLogSheetFields();
+  else els.logSheetHint.hidden = true;
+  els.logSheet.hidden = false;
+  (editable ? els.logSheetNote : els.logSheetCancel).focus();
+}
+
+function closeLogSheet() {
+  if (state.saving) return;
+  els.logSheet.hidden = true;
+  state.sheet = null;
+}
+
+async function saveLogSheet(event) {
+  event.preventDefault();
+  const sheet = state.sheet;
+  if (!sheet?.editable || state.saving) return;
+  const checked = els.logSheetCompleted.checked;
+  const practicedOn = sheet.range ? els.logSheetDay.value : sheet.date;
+  if (sheet.range && (!practicedOn || practicedOn < sheet.range.from || practicedOn > sheet.range.to)) {
+    els.logSheetError.textContent = `実施日は${formatDay(sheet.range.from)}〜${formatDay(sheet.range.to)}から選んでください。`;
+    els.logSheetError.hidden = false;
+    return;
+  }
+  const note = els.logSheetNote.value.trim() || null;
+  if (!checked && !sheet.completed) { closeLogSheet(); return; }
+  if (checked && sheet.completed && note === sheet.note) { closeLogSheet(); return; }
+  const body = checked ? { habitId: sheet.habitId, practicedOn, completed: true, note } : { habitId: sheet.habitId, practicedOn, completed: false };
+  state.saving = true;
+  els.logSheetSave.disabled = true;
+  els.logSheetError.hidden = true;
+  try {
+    const response = await fetch("/api/habit-logs", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "X-Dashboard-Action": "habit-log" },
+      body: JSON.stringify(body),
+    });
+    const payload = await readApiJson(response);
+    if (!response.ok) throw new Error(errorMessage(payload, "実施記録を保存できませんでした。"));
+    state.saving = false;
+    closeLogSheet();
+    const day = practicedOn === state.data.today ? "今日" : formatDay(practicedOn);
+    showToast(!checked ? `${day}の記録を取り消しました。` : sheet.completed ? "メモを保存しました。" : `${day}の分を記録しました。`);
+    await load();
+  } catch (error) {
+    els.logSheetError.textContent = error instanceof Error ? error.message : "実施記録を保存できませんでした。";
+    els.logSheetError.hidden = false;
+  } finally {
+    state.saving = false;
+    els.logSheetSave.disabled = false;
+  }
 }
 
 async function loadHistory() {
@@ -178,6 +307,20 @@ function bindContentActions(root = els.habitContent) {
   root.querySelectorAll("[data-log-id]").forEach((button) => button.addEventListener("click", () => toggleLog(
     Number(button.dataset.logId), button.dataset.completed !== "true", button, button.dataset.logDate || state.data.today,
   )));
+  root.querySelectorAll("[data-note-id]").forEach((button) => button.addEventListener("click", () => {
+    const habit = state.data.habits.find((item) => item.id === Number(button.dataset.noteId));
+    if (!habit) return;
+    const weekly = habit.cadence === "weekly";
+    const date = weekly ? habit.weeklyCompletedOn : state.data.today;
+    const note = (habit.history || []).find((day) => day.date === date)?.note || null;
+    openLogSheet({
+      habit,
+      weekStart: weekly ? state.data.weekStart : null,
+      date,
+      completed: weekly ? habit.completedThisWeek : habit.completedToday,
+      note,
+    });
+  }));
   root.querySelectorAll("[data-edit-id]").forEach((button) => button.addEventListener("click", () => {
     const habit = state.data.habits.find((item) => item.id === Number(button.dataset.editId));
     if (habit) openModal(habit);
@@ -312,11 +455,20 @@ els.historyNext.addEventListener("click", () => {
   state.history.anchor = state.history.data.nextAnchor;
   void loadHistory();
 });
+els.logSheetForm.addEventListener("submit", saveLogSheet);
+els.logSheetCompleted.addEventListener("change", updateLogSheetFields);
+els.logSheetClose.addEventListener("click", closeLogSheet);
+els.logSheetCancel.addEventListener("click", closeLogSheet);
+els.logSheet.addEventListener("click", (event) => { if (event.target === els.logSheet) closeLogSheet(); });
 els.modalClose.addEventListener("click", closeModal);
 els.cancelButton.addEventListener("click", closeModal);
 els.habitModal.addEventListener("click", (event) => { if (event.target === els.habitModal) closeModal(); });
 els.refreshButton.addEventListener("click", load);
 els.retryButton.addEventListener("click", load);
-document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !els.habitModal.hidden) closeModal(); });
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!els.logSheet.hidden) closeLogSheet();
+  else if (!els.habitModal.hidden) closeModal();
+});
 
 load();

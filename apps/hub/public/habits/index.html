@@ -67,7 +67,7 @@
           </section>
 
           <section class="panel history-panel" aria-labelledby="historyTitle">
-            <div class="section-heading"><div><p>HISTORY</p><h2 id="historyTitle">履歴</h2></div><small>✓ 実施（•は後から記録）· 記録なし — 対象外 · 直近7日はタップで記録・取消</small></div>
+            <div class="section-heading"><div><p>HISTORY</p><h2 id="historyTitle">履歴</h2></div><small>✓ 実施（•は後から記録・下線はメモあり）· 記録なし — 対象外 · タップで記録・メモ（直近7日）</small></div>
             <div class="history-controls">
               <div class="history-period" role="group" aria-label="履歴の期間">
                 <button type="button" data-history-period="week" aria-pressed="true">週</button>
@@ -102,6 +102,21 @@
           <label id="statusField" hidden><span>状態</span><select id="habitStatus"><option value="active">有効</option><option value="paused">休止</option><option value="archived">アーカイブ</option></select></label>
           <p class="form-error" id="formError" role="alert" hidden></p>
           <div class="form-actions"><button class="secondary-button" id="cancelButton" type="button">キャンセル</button><button class="primary-button" id="saveButton" type="submit">登録する</button></div>
+        </form>
+      </section>
+    </div>
+    <div class="modal-backdrop" id="logSheet" hidden>
+      <section class="modal log-sheet" role="dialog" aria-modal="true" aria-labelledby="logSheetTitle">
+        <div class="modal-head"><div><p id="logSheetDate">RECORD</p><h2 id="logSheetTitle">実施記録</h2></div><button id="logSheetClose" type="button" aria-label="閉じる">×</button></div>
+        <form id="logSheetForm">
+          <p class="log-sheet-status" id="logSheetStatus"></p>
+          <label class="log-sheet-check" id="logSheetCheckField"><input id="logSheetCompleted" type="checkbox" /><span>実施した</span></label>
+          <label id="logSheetDayField" hidden><span>実施日</span><input id="logSheetDay" type="date" /></label>
+          <label id="logSheetNoteField"><span>ひとことメモ</span><textarea id="logSheetNote" maxlength="2000" rows="3" placeholder="例：朝のうちに終えられた"></textarea></label>
+          <p class="log-sheet-note-view" id="logSheetNoteView" hidden></p>
+          <p class="log-sheet-hint" id="logSheetHint" hidden></p>
+          <p class="form-error" id="logSheetError" role="alert" hidden></p>
+          <div class="form-actions"><button class="secondary-button" id="logSheetCancel" type="button">閉じる</button><button class="primary-button" id="logSheetSave" type="submit">保存する</button></div>
         </form>
       </section>
     </div>

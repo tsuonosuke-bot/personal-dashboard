@@ -148,17 +148,16 @@ test("実施日より後の日に作った記録を「後から記録」とし�
   assert.equal(paused.editableFrom, null);
 });
 
-test("Habits画面の履歴は、直近7日のセルをタップで記録・取消でき、後から記録に印を付ける", async () => {
+test("Habits画面の履歴は、直近7日のセルから記録シートを開き、後から記録に印を付ける", async () => {
   const [script, css, html] = await Promise.all([
     readFile(new URL("../public/habits.js", import.meta.url), "utf8"),
     readFile(new URL("../public/habits.css", import.meta.url), "utf8"),
     readFile(new URL("../public/habits/index.html", import.meta.url), "utf8"),
   ]);
-  assert.match(script, /day\.date >= habit\.editableFrom/);
-  assert.match(script, /data-log-date="\$\{day\.date\}"/);
-  assert.match(script, /body: JSON\.stringify\(\{ habitId: id, practicedOn, completed \}\)/);
+  assert.match(script, /date >= editableFrom && date <= state\.data\.today/);
+  assert.match(script, /data-sheet-date="\$\{day\.date\}"/);
   assert.match(script, /（後から記録）/);
   assert.match(css, /td\.late::after/);
   assert.match(css, /td\.editable button/);
-  assert.match(html, /直近7日はタップで記録・取消/);
+  assert.match(html, /タップで記録・メモ（直近7日）/);
 });
