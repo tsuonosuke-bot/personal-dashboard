@@ -15,6 +15,7 @@ interface HabitRow {
   cadence?: unknown;
   status?: unknown;
   started_on?: unknown;
+  target_per_week?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
 }
@@ -36,6 +37,8 @@ export interface HabitCreateInput {
   name: string;
   purpose: string | null;
   cadence: HabitCadence;
+  /** 毎週のHabitの週あたりの目標回数（#163）。毎週以外は1。 */
+  targetPerWeek: number;
 }
 
 export interface HabitUpdateInput extends HabitCreateInput {
@@ -62,7 +65,8 @@ const PAGE_SIZE = 1000;
 /** 記録漏れを後から直せる日数（#155）。今日から7日前まで。 */
 export const BACKFILL_DAYS = 7;
 const MAX_REQUEST_CHARS = 8_000;
-const HABIT_SELECT = "id,source_want_id,name,purpose,cadence,status,started_on,created_at,updated_at";
+const HABIT_SELECT = "id,source_want_id,name,purpose,cadence,status,started_on,target_per_week,created_at,updated_at";
+export const MAX_TARGET_PER_WEEK = 7;
 const LOG_SELECT = "id,habit_id,practiced_on,note,created_at";
 const CADENCES = new Set<string>(HABIT_CADENCES);
 const STATUSES = new Set<string>(HABIT_STATUSES);
@@ -198,6 +202,11 @@ function isEligible(cadence: HabitCadence, date: string, startedOn: string): boo
   return cadence !== "weekly";
 }
 
+function targetOf(row: HabitRow): number {
+  const value = Number(row.target_per_week);
+  return Number.isSafeInteger(value) && value >= 1 && value <= MAX_TARGET_PER_WEEK ? value : 1;
+}
+
 export function normalizeHabits(habitRows: HabitRow[], logRows: HabitLogRow[], now = new Date()) {
   const today = todayInTokyo(now);
   const weekStart = mondayOf(today);
@@ -229,7 +238,9 @@ export function normalizeHabits(habitRows: HabitRow[], logRows: HabitLogRow[], n
       .filter((log) => loggedLate(log.practicedOn as string, log.createdAt))
       .map((log) => log.practicedOn as string));
     const completedToday = completedDates.has(today);
-    const weeklyLog = habitLogs.find((log) => (log.practicedOn as string) >= weekStart && (log.practicedOn as string) <= today) || null;
+    const targetPerWeek = cadence === "weekly" ? targetOf(row) : 1;
+    // 今週（月曜〜今日）に記録した日。毎週のHabitは回数が目標に届いたら今週分を達成とみなす（#163）
+    const weekDates = [...completedDates].filter((date) => date >= weekStart && date <= today).sort();
     return {
       id,
       sourceWantId: integer(row.source_want_id),
@@ -242,8 +253,11 @@ export function normalizeHabits(habitRows: HabitRow[], logRows: HabitLogRow[], n
       updatedAt: isoDate(row.updated_at),
       eligibleToday: isEligible(cadence, today, startedOn),
       completedToday,
-      completedThisWeek: weeklyLog !== null,
-      weeklyCompletedOn: weeklyLog?.practicedOn || null,
+      targetPerWeek,
+      weeklyCount: weekDates.length,
+      weeklyDates: weekDates,
+      completedThisWeek: weekDates.length >= targetPerWeek,
+      weeklyCompletedOn: weekDates[0] || null,
       editableFrom: editableFrom(today, startedOn),
       history: dates.map((date) => ({
         date,
@@ -256,6 +270,7 @@ export function normalizeHabits(habitRows: HabitRow[], logRows: HabitLogRow[], n
   }).filter((habit) => habit !== null);
 
   const active = habits.filter((habit) => habit.status === "active");
+  const lastWeek = lastWeekSummary(active, logsByHabit, weekStart);
   const dueToday = active.filter((habit) =>
     habit.cadence === "weekly"
       ? !habit.completedThisWeek && today >= habit.startedOn
@@ -275,14 +290,45 @@ export function normalizeHabits(habitRows: HabitRow[], logRows: HabitLogRow[], n
       completedToday,
       remainingToday: dueToday.length,
     },
+    lastWeek,
     habits,
   };
+}
+
+/**
+ * 先週（月〜日）の結果（#163）。毎日・平日は対象日のうち実施した日数、毎週は回数と目標、自由は回数。
+ * 先週の途中から始めたHabitは、開始日以降だけを数える。先週より後に始めたHabitは含めない。
+ */
+function lastWeekSummary(
+  active: Array<{ id: number; name: string; cadence: HabitCadence; startedOn: string; targetPerWeek: number }>,
+  logsByHabit: Map<number, Array<{ practicedOn: string | null }>>,
+  weekStart: string,
+) {
+  const from = addDays(weekStart, -7);
+  const to = addDays(weekStart, -1);
+  const days = Array.from({ length: 7 }, (_, index) => addDays(from, index));
+  const habits = active.filter((habit) => habit.startedOn <= to).map((habit) => {
+    const done = new Set((logsByHabit.get(habit.id) || [])
+      .map((log) => log.practicedOn as string)
+      .filter((date) => date >= from && date <= to && date >= habit.startedOn));
+    if (habit.cadence === "weekly") {
+      return { id: habit.id, name: habit.name, cadence: habit.cadence, done: done.size, target: habit.targetPerWeek, unit: "回", achieved: done.size >= habit.targetPerWeek };
+    }
+    if (habit.cadence === "flexible") {
+      return { id: habit.id, name: habit.name, cadence: habit.cadence, done: done.size, target: null, unit: "回", achieved: null };
+    }
+    const eligible = days.filter((date) => isEligible(habit.cadence, date, habit.startedOn));
+    const count = eligible.filter((date) => done.has(date)).length;
+    return { id: habit.id, name: habit.name, cadence: habit.cadence, done: count, target: eligible.length, unit: "日", achieved: count >= eligible.length };
+  });
+  return { from, to, habits };
 }
 
 export async function loadHabits(env: DashboardEnv, now = new Date()) {
   const info = connection(env);
   const today = todayInTokyo(now);
-  const from = addDays(today, -6) < mondayOf(today) ? addDays(today, -6) : mondayOf(today);
+  // 直近7日と今週に加え、先週の結果（#163）のため先週の月曜から読む
+  const from = addDays(mondayOf(today), -7);
   const [habits, logs] = await Promise.all([
     fetchRows(info, "habits", HABIT_SELECT, (endpoint) => endpoint.searchParams.set("order", "created_at.asc,id.asc")),
     fetchRows(info, "habit_logs", LOG_SELECT, (endpoint) => {
@@ -388,26 +434,50 @@ export function normalizeHabitHistory(habitRows: HabitRow[], logRows: HabitLogRo
     if (status === "archived" && inRange.length === 0) return null;
     // 記録・取消できるのは有効なHabitの、開始日以降かつ今日から7日前まで（#155）
     const base = { id, name: text(row.name), cadence, status, startedOn, editableFrom: status === "active" ? editableFrom(today, startedOn) : null };
-    if (cadence === "weekly") {
-      const weekRows = weeks.map((monday) => {
-        const sunday = addDays(monday, 6);
-        const completedOn = [...practiced].filter((date) => date >= monday && date <= sunday).sort()[0] ?? null;
-        const eligible = monday <= today && sunday >= startedOn;
-        return { weekStart: monday, eligible, completed: completedOn !== null, completedOn, late: completedOn !== null && late.has(completedOn), note: completedOn ? notes.get(completedOn) ?? null : null };
-      });
-      const eligibleWeeks = weekRows.filter((week) => week.eligible);
-      return { ...base, weeks: weekRows, days: null, done: eligibleWeeks.filter((week) => week.completed).length, target: eligibleWeeks.length, unit: "週" };
-    }
     const dayRows = dates.map((date) => {
       const future = date > today;
-      const eligible = !future && isEligible(cadence, date, startedOn);
+      // 毎週のHabitはどの日に記録してもよい（開始日以降）。日ごとの表では記録した日に印を付けるだけ（#163）
+      const eligible = !future && (cadence === "weekly" ? date >= startedOn : isEligible(cadence, date, startedOn));
       return { date, eligible, future, completed: practiced.has(date), late: late.has(date), note: notes.get(date) ?? null };
     });
+    if (cadence === "weekly") {
+      const targetPerWeek = targetOf(row);
+      const weekRows = weeks.map((monday) => {
+        const sunday = addDays(monday, 6);
+        const weekDates = [...practiced].filter((date) => date >= monday && date <= sunday).sort();
+        const completedOn = weekDates[0] ?? null;
+        const eligible = monday <= today && sunday >= startedOn;
+        return {
+          weekStart: monday,
+          eligible,
+          count: weekDates.length,
+          dates: weekDates,
+          completed: weekDates.length >= targetPerWeek,
+          completedOn,
+          late: weekDates.some((date) => late.has(date)),
+          note: weekDates.map((date) => notes.get(date)).find(Boolean) ?? null,
+        };
+      });
+      const eligibleWeeks = weekRows.filter((week) => week.eligible);
+      return {
+        ...base,
+        targetPerWeek,
+        weeks: weekRows,
+        days: dayRows,
+        // 期間内に記録した回数（日ごとの表の見出しに使う）
+        dayCount: dayRows.filter((day) => day.completed).length,
+        done: eligibleWeeks.filter((week) => week.completed).length,
+        target: eligibleWeeks.length,
+        unit: "週",
+      };
+    }
     const done = dayRows.filter((day) => day.completed).length;
     return {
       ...base,
+      targetPerWeek: 1,
       days: dayRows,
       weeks: null,
+      dayCount: done,
       done,
       // 自由頻度は分母を持たない
       target: cadence === "flexible" ? null : dayRows.filter((day) => day.eligible).length,
@@ -497,13 +567,24 @@ function validateHabitFields(value: Record<string, unknown>): ValidationResult<H
   if (typeof value.cadence !== "string" || !CADENCES.has(value.cadence)) {
     return { ok: false, status: 400, error: "頻度が正しくありません。" };
   }
-  return { ok: true, value: { name: value.name.trim(), purpose, cadence: value.cadence as HabitCadence } };
+  const rawTarget = value.targetPerWeek ?? 1;
+  if (!Number.isSafeInteger(rawTarget) || (rawTarget as number) < 1 || (rawTarget as number) > MAX_TARGET_PER_WEEK) {
+    return { ok: false, status: 400, error: `週の回数は1〜${MAX_TARGET_PER_WEEK}回で指定してください。` };
+  }
+  // 週の回数は毎週のHabitだけが使う。ほかの頻度では1にそろえる。
+  const targetPerWeek = value.cadence === "weekly" ? rawTarget as number : 1;
+  return { ok: true, value: { name: value.name.trim(), purpose, cadence: value.cadence as HabitCadence, targetPerWeek } };
+}
+
+/** targetPerWeek は省略できる（#163 より前の画面は送らない）。 */
+function withOptionalTarget(value: Record<string, unknown>, keys: string[]): string[] {
+  return "targetPerWeek" in value ? [...keys, "targetPerWeek"] : keys;
 }
 
 export async function readHabitCreateInput(request: Request): Promise<ValidationResult<HabitCreateInput>> {
   const parsed = await readJson(request);
   if (!parsed.ok) return parsed;
-  if (!hasOnlyKeys(parsed.value, ["name", "purpose", "cadence"])) {
+  if (!hasOnlyKeys(parsed.value, withOptionalTarget(parsed.value, ["name", "purpose", "cadence"]))) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
   return validateHabitFields(parsed.value);
@@ -512,7 +593,7 @@ export async function readHabitCreateInput(request: Request): Promise<Validation
 export async function readHabitUpdateInput(request: Request): Promise<ValidationResult<HabitUpdateInput>> {
   const parsed = await readJson(request);
   if (!parsed.ok) return parsed;
-  if (!hasOnlyKeys(parsed.value, ["id", "name", "purpose", "cadence", "status", "original"])) {
+  if (!hasOnlyKeys(parsed.value, withOptionalTarget(parsed.value, ["id", "name", "purpose", "cadence", "status", "original"]))) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
   const fields = validateHabitFields(parsed.value);
@@ -589,6 +670,7 @@ export async function createHabit(env: DashboardEnv, input: HabitCreateInput, no
         name: input.name,
         purpose: input.purpose,
         cadence: input.cadence,
+        target_per_week: input.targetPerWeek,
         status: "active",
         started_on: todayInTokyo(now),
         updated_at: now.toISOString(),
@@ -617,6 +699,7 @@ export async function updateHabit(env: DashboardEnv, input: HabitUpdateInput, no
         name: input.name,
         purpose: input.purpose,
         cadence: input.cadence,
+        target_per_week: input.targetPerWeek,
         status: input.status,
         updated_at: now.toISOString(),
       }),
@@ -639,22 +722,11 @@ async function findHabit(info: Connection, id: number): Promise<HabitRow | null>
   return rows[0] as HabitRow | undefined || null;
 }
 
-async function findPeriodLog(
-  info: Connection,
-  habitId: number,
-  cadence: HabitCadence,
-  practicedOn: string,
-): Promise<HabitLogRow | null> {
+/** その日の記録。毎週のHabitも1日1行なので、どの頻度でも同じ日の行だけを見る（#163）。 */
+async function findDayLog(info: Connection, habitId: number, practicedOn: string): Promise<HabitLogRow | null> {
   const rows = await fetchRows(info, "habit_logs", LOG_SELECT, (endpoint) => {
     endpoint.searchParams.set("habit_id", `eq.${habitId}`);
-    if (cadence === "weekly") {
-      // 過去の日付で記録するときも、同じ週の後の日の記録を見落とさないよう週全体を見る
-      endpoint.searchParams.set("practiced_on", `gte.${mondayOf(practicedOn)}`);
-      endpoint.searchParams.append("practiced_on", `lte.${addDays(mondayOf(practicedOn), 6)}`);
-    } else {
-      endpoint.searchParams.set("practiced_on", `eq.${practicedOn}`);
-    }
-    endpoint.searchParams.set("order", "practiced_on.asc,id.asc");
+    endpoint.searchParams.set("practiced_on", `eq.${practicedOn}`);
     endpoint.searchParams.set("limit", "1");
   });
   return rows[0] as HabitLogRow | undefined || null;
@@ -698,8 +770,7 @@ export async function applyHabitLog(env: DashboardEnv, input: HabitLogInput, now
   if (target < startedOn || (!isEligible(cadence, target, startedOn) && cadence !== "weekly")) {
     throw new DashboardError("HABIT_NOT_DUE", "Habit is not due on that date.", 409);
   }
-  const periodDate = cadence === "weekly" ? mondayOf(target) : target;
-  const trackingKey = `${cadence === "weekly" ? "W" : "D"}:${periodDate}`;
+  const trackingKey = `D:${target}`;
 
   if (!input.completed) {
     const endpoint = new URL("/rest/v1/habit_logs", info.url);
@@ -720,10 +791,8 @@ export async function applyHabitLog(env: DashboardEnv, input: HabitLogInput, now
     return { habitId: input.habitId, practicedOn: target, completed: false };
   }
 
-  const existing = await findPeriodLog(info, input.habitId, cadence, target);
+  const existing = await findDayLog(info, input.habitId, target);
   if (existing) {
-    const practicedOn = plainDate(existing.practiced_on);
-    if (practicedOn !== target) throw new DashboardError("HABIT_WEEK_ALREADY_COMPLETED", "Weekly habit was already completed.", 409);
     // 記録済みの日は、メモだけを書き換える（#156）
     if (input.note === undefined || (text(existing.note) || null) === input.note) return { ...existing, completed: true };
     return { ...await updateLogNote(info, existing, input.note), completed: true };
@@ -742,9 +811,9 @@ export async function applyHabitLog(env: DashboardEnv, input: HabitLogInput, now
     throw new DashboardError("SUPABASE_UNAVAILABLE", "Could not reach habit_logs.");
   }
   if (response.status === 409) {
-    const raced = await findPeriodLog(info, input.habitId, cadence, target);
-    if (raced && plainDate(raced.practiced_on) === target) return { ...raced, completed: true };
-    throw new DashboardError("HABIT_WEEK_ALREADY_COMPLETED", "Weekly habit was already completed.", 409);
+    const raced = await findDayLog(info, input.habitId, target);
+    if (raced) return { ...raced, completed: true };
+    throw new DashboardError("SUPABASE_REQUEST_FAILED", "habit_logs rejected the record.", 409);
   }
   const rows = await mutationResponse(response, "habit_logs");
   if (rows.length !== 1) throw new DashboardError("SUPABASE_RESPONSE_INVALID", "habit_logs created an unexpected number of rows.");

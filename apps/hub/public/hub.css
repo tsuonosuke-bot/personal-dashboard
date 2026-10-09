@@ -158,6 +158,12 @@ a.today-row-title:hover { text-decoration: underline; }
 .today-check:disabled { cursor: wait; }
 .today-check-spacer { width: 44px; }
 .today-project-row .today-check { --check: var(--project); }
+.today-last-week { display: grid; gap: 4px; margin: 2px 0 8px; padding: 8px 10px; border-radius: 10px; background: var(--habit-soft); }
+.today-last-week b { color: var(--habit); font-size: 12px; }
+.today-last-week ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 2px 10px; margin: 0; padding: 0; list-style: none; }
+.today-last-week li { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); font-size: 11px; }
+.today-last-week li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-last-week li.done b { color: var(--habit); }
 .today-backfill { display: grid; gap: 6px; margin: 2px 0 8px; padding: 8px 10px; border: 1px dashed var(--habit-line); border-radius: 10px; background: var(--habit-done); }
 .today-backfill b { color: var(--habit); font-size: 12px; }
 .today-backfill-chips { display: flex; flex-wrap: wrap; gap: 6px; }

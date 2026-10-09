@@ -93,27 +93,17 @@ test("対象日かどうかは、今日ではなく記録する日で判定す�
   }
 });
 
-test("毎週のHabitを先週の日付で記録すると先週分になり、同じ週の後の日の記録も見落とさない", async () => {
+test("毎週のHabitを先週の日付で記録すると、その日の行として書く", async () => {
   const weekly = { ...daily, cadence: "weekly" };
   const fake = fakeSupabase(weekly);
   try {
     await applyHabitLog(env, { habitId: 1, practicedOn: "2026-10-03", completed: true }, NOW);
     const lookup = fake.calls.find((call) => call.method === "GET" && call.url.pathname.endsWith("/habit_logs"));
-    assert.deepEqual(lookup?.url.searchParams.getAll("practiced_on"), ["gte.2026-09-28", "lte.2026-10-04"]);
+    assert.deepEqual(lookup?.url.searchParams.getAll("practiced_on"), ["eq.2026-10-03"]);
     const insert = fake.calls.find((call) => call.method === "POST");
-    assert.equal(insert?.body?.tracking_key, "W:2026-09-28");
+    assert.equal(insert?.body?.tracking_key, "D:2026-10-03");
   } finally {
     fake.restore();
-  }
-  // 同じ週の後の日（10/4）にすでに記録がある
-  const done = fakeSupabase(weekly, [{ id: 5, habit_id: 1, practiced_on: "2026-10-04" }]);
-  try {
-    await assert.rejects(
-      () => applyHabitLog(env, { habitId: 1, practicedOn: "2026-10-02", completed: true }, NOW),
-      (error: unknown) => error instanceof DashboardError && error.code === "HABIT_WEEK_ALREADY_COMPLETED",
-    );
-  } finally {
-    done.restore();
   }
 });
 

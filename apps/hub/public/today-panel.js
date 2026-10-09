@@ -201,19 +201,17 @@ export function habitStreak(habit) {
   return streak;
 }
 
+/** どの頻度でも、チップは今日の記録をつける・取り消す。毎週のHabitも1日1回ずつ数える（#163）。 */
 export function habitPressed(habit) {
-  return isWeekly(habit) ? Boolean(habit.completedThisWeek) : Boolean(habit.completedToday);
-}
-
-/** 週1回の習慣を今日より前に記録済みなら、Hubからは取り消せない（APIが今日の記録しか消さない）。 */
-export function habitLocked(habit, today) {
-  return isWeekly(habit) && Boolean(habit.completedThisWeek) && habit.weeklyCompletedOn !== today;
+  return Boolean(habit.completedToday);
 }
 
 export function habitNote(habit, today) {
   if (isWeekly(habit)) {
-    if (!habit.completedThisWeek) return "今週まだ";
-    return habit.weeklyCompletedOn === today ? "今週分を記録済み" : `今週分は${shortDate(habit.weeklyCompletedOn)}に記録済み`;
+    const target = habit.targetPerWeek || 1;
+    const count = habit.weeklyCount ?? (habit.completedThisWeek ? 1 : 0);
+    const progress = `今週 ${count}/${target}回${count >= target ? " 達成" : ""}`;
+    return habit.completedToday ? `${progress} · 今日 記録済み` : progress;
   }
   const streak = habitStreak(habit);
   const streakLabel = streak >= 7 ? "7日以上連続" : `${streak}日連続`;
@@ -362,11 +360,24 @@ export function renderTodoSection(section, { compassUrl = "/compass/", showAll =
 
 function habitChip(habit, today) {
   const pressed = habitPressed(habit);
-  const locked = habitLocked(habit, today);
-  return `<button class="today-chip" type="button" data-habit-toggle="${habit.id}" aria-pressed="${pressed}"${locked ? " disabled" : ""}>
+  return `<button class="today-chip" type="button" data-habit-toggle="${habit.id}" aria-pressed="${pressed}">
     <span class="today-chip-dot" aria-hidden="true">✓</span>
     <span><b>${escapeHtml(habit.name)}</b><small>${escapeHtml(habitNote(habit, today))}</small></span>
   </button>`;
+}
+
+/** 月曜だけ、先週（月〜日）の結果をHubの先頭に出す（#163）。 */
+export function lastWeekCard(payload) {
+  const today = payload?.today;
+  const habits = payload?.lastWeek?.habits || [];
+  if (!today || new Date(`${today}T00:00:00Z`).getUTCDay() !== 1 || !habits.length) return "";
+  const counted = habits.filter((habit) => habit.achieved !== null);
+  const achieved = counted.filter((habit) => habit.achieved).length;
+  const items = habits.map((habit) => {
+    const value = habit.target === null ? `${habit.done}${habit.unit}` : `${habit.done}/${habit.target}${habit.unit}`;
+    return `<li${habit.achieved ? ' class="done"' : ""}><span>${escapeHtml(habit.name)}</span><b>${value}</b></li>`;
+  }).join("");
+  return `<div class="today-last-week"><b>先週の結果 · 目標達成 ${achieved}/${counted.length}</b><ul>${items}</ul></div>`;
 }
 
 export function renderHabitSection(section) {
@@ -378,7 +389,7 @@ export function renderHabitSection(section) {
   if (!groups.daily.length && !groups.weekly.length && !groups.flexible.length) {
     return `<p class="today-quiet">続けている習慣はまだありません。Habitsで追加できます。</p>`;
   }
-  let html = "";
+  let html = lastWeekCard(payload);
   const missed = missedYesterday(payload);
   if (missed.length) {
     html += `<div class="today-backfill"><b>昨日の未記録 ${missed.length}件</b><div class="today-backfill-chips">${missed.map((habit) =>
@@ -390,7 +401,7 @@ export function renderHabitSection(section) {
     html += `<div class="today-chips">${groups.daily.map((habit) => habitChip(habit, today)).join("")}</div>`;
   }
   if (groups.weekly.length) {
-    html += `<p class="today-group">今週（週1回）· ${groups.weeklyDone}/${groups.weekly.length}</p>`;
+    html += `<p class="today-group">今週の目標 · 達成 ${groups.weeklyDone}/${groups.weekly.length}</p>`;
     html += `<div class="today-chips">${groups.weekly.map((habit) => habitChip(habit, today)).join("")}</div>`;
   }
   if (groups.flexible.length) {

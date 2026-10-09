@@ -4,7 +4,7 @@ import {
   completedTodayCount,
   groupTodos,
   habitGroups,
-  habitLocked,
+  lastWeekCard,
   habitNote,
   habitStreak,
   missedYesterday,
@@ -155,11 +155,10 @@ test("Habit notes show streaks, the last record and weekly status", () => {
     history: history([false, false, true, true, false, false, false], [true, true, true, true, false, false, true]),
   });
   assert.equal(habitStreak(weekdays), 2);
-  assert.equal(habitNote(habit(6, "weekly"), TODAY), "今週まだ");
-  const weeklyEarlier = habit(7, "weekly", { completedThisWeek: true, weeklyCompletedOn: "2026-10-05" });
-  assert.equal(habitNote(weeklyEarlier, TODAY), "今週分を記録済み");
-  assert.equal(habitLocked(habit(8, "weekly", { completedThisWeek: true, weeklyCompletedOn: "2026-10-04" }), "2026-10-06"), true);
-  assert.equal(habitLocked(weeklyEarlier, TODAY), false);
+  // 毎週のHabitは今週の回数と目標を出す（#163）
+  assert.equal(habitNote(habit(6, "weekly", { targetPerWeek: 3, weeklyCount: 0 }), TODAY), "今週 0/3回");
+  assert.equal(habitNote(habit(7, "weekly", { targetPerWeek: 3, weeklyCount: 2, completedToday: true }), TODAY), "今週 2/3回 · 今日 記録済み");
+  assert.equal(habitNote(habit(8, "weekly", { targetPerWeek: 2, weeklyCount: 2, completedThisWeek: true }), TODAY), "今週 2/2回 達成");
 });
 
 test("Habit groups count today's daily habits and this week's weekly habits", () => {
@@ -182,7 +181,7 @@ test("Habit groups count today's daily habits and this week's weekly habits", ()
   assert.equal(groups.weeklyDone, 1);
   const html = renderHabitSection({ status: "ready", data: payload, error: null });
   assert.match(html, /今日 1\/2/);
-  assert.match(html, /今週（週1回）· 1\/2/);
+  assert.match(html, /今週の目標 · 達成 1\/2/);
   assert.match(html, /data-habit-toggle="1" aria-pressed="true"/);
   assert.match(html, /data-habit-toggle="2" aria-pressed="false"/);
   assert.doesNotMatch(html, /Habit 5|Habit 6/);
@@ -331,4 +330,29 @@ test("昨日が対象日で記録のない毎日・平日のHabitを「昨日の
   assert.doesNotMatch(html, /data-habit-backfill="(2|4|5|6|7|8)"/);
   const none = renderHabitSection({ status: "ready", data: { today: TODAY, habits: [habit(2, "daily", { history: yesterdayDone })] }, error: null });
   assert.doesNotMatch(none, /today-backfill/);
+});
+
+test("毎週のHabitのチップは今日の記録をつけ・取り消し、月曜だけ先週の結果を出す (#163)", () => {
+  const weekly = habit(3, "weekly", { targetPerWeek: 3, weeklyCount: 1, completedThisWeek: false, completedToday: true });
+  const html = renderHabitSection({ status: "ready", data: { today: TODAY, habits: [weekly] }, error: null });
+  assert.match(html, /今週の目標 · 達成 0\/1/);
+  assert.match(html, /data-habit-toggle="3" aria-pressed="true">/);
+  assert.doesNotMatch(html, /disabled/);
+
+  const lastWeek = {
+    from: "2026-09-28",
+    to: "2026-10-04",
+    habits: [
+      { id: 1, name: "英語", cadence: "daily" as const, done: 7, target: 7, unit: "日", achieved: true },
+      { id: 3, name: "<掃除>", cadence: "weekly" as const, done: 2, target: 3, unit: "回", achieved: false },
+      { id: 4, name: "読書", cadence: "flexible" as const, done: 4, target: null, unit: "回", achieved: null },
+    ],
+  };
+  // 2026-10-05 は月曜
+  const monday = lastWeekCard({ today: TODAY, habits: [], lastWeek });
+  assert.match(monday, /先週の結果 · 目標達成 1\/2/);
+  assert.match(monday, /&lt;掃除&gt;<\/span><b>2\/3回/);
+  assert.match(monday, /読書<\/span><b>4回/);
+  assert.equal(lastWeekCard({ today: "2026-10-06", habits: [], lastWeek }), "");
+  assert.equal(lastWeekCard({ today: TODAY, habits: [], lastWeek: { ...lastWeek, habits: [] } }), "");
 });
