@@ -26,6 +26,11 @@ function lastRunLabel(value: string | null) {
   return Number.isNaN(date.valueOf()) ? value : date.toLocaleString('ja-JP')
 }
 
+function todayKey() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
 function entryType(rule: RecurringExpense): EntryType {
   return rule.category.startsWith('80_') ? 'income' : rule.amount < 0 ? 'offset' : 'expense'
 }
@@ -42,7 +47,8 @@ export function RecurringExpenseModal({ categories, rules, busy, error, onClose,
   const [editPayer, setEditPayer] = useState('')
   const [editMemo, setEditMemo] = useState('')
 
-  const [copying, setCopying] = useState<RecurringExpense | null>(null)
+  // template が null なら空から作る。複製時は複製元のルールを持つ。
+  const [creating, setCreating] = useState<{ template: RecurringExpense | null } | null>(null)
   const [copyStartDate, setCopyStartDate] = useState('')
   const [copyFrequency, setCopyFrequency] = useState<RecurringFrequency>('monthly')
   const [copyInterval, setCopyInterval] = useState(1)
@@ -61,7 +67,7 @@ export function RecurringExpenseModal({ categories, rules, busy, error, onClose,
   }, [busy, onClose])
 
   const beginEdit = (rule: RecurringExpense) => {
-    setCopying(null)
+    setCreating(null)
     setEditing(rule)
     setEditFrequency(rule.frequency)
     setEditInterval(rule.interval_count)
@@ -74,9 +80,24 @@ export function RecurringExpenseModal({ categories, rules, busy, error, onClose,
     setEditMemo(rule.memo ?? '')
   }
 
+  const beginNew = () => {
+    setEditing(null)
+    setCreating({ template: null })
+    setCopyStartDate(todayKey())
+    setCopyFrequency('monthly')
+    setCopyInterval(1)
+    setCopyEndDate('')
+    setCopyType('expense')
+    setCopyAmount('')
+    setCopyTitle('')
+    setCopyCategory('')
+    setCopyPayer('')
+    setCopyMemo('')
+  }
+
   const beginCopy = (rule: RecurringExpense) => {
     setEditing(null)
-    setCopying(rule)
+    setCreating({ template: rule })
     setCopyStartDate(rule.next_run_date)
     setCopyFrequency(rule.frequency)
     setCopyInterval(rule.interval_count)
@@ -96,9 +117,9 @@ export function RecurringExpenseModal({ categories, rules, busy, error, onClose,
 
   const submitNew = (event: React.FormEvent) => {
     event.preventDefault()
-    if (!copying) return
+    if (!creating) return
     void onCreate({
-      template_rule_id: copying.id,
+      template_rule_id: creating.template?.id ?? null,
       start_date: copyStartDate,
       frequency: copyFrequency,
       interval_count: copyInterval,
@@ -109,7 +130,7 @@ export function RecurringExpenseModal({ categories, rules, busy, error, onClose,
       payer: copyPayer.trim() || null,
       memo: copyMemo.trim() || null,
       type: copyType,
-    }).then((saved) => { if (saved) setCopying(null) })
+    }).then((saved) => { if (saved) setCreating(null) })
   }
 
   const submitEdit = (event: React.FormEvent) => {
@@ -148,27 +169,27 @@ export function RecurringExpenseModal({ categories, rules, busy, error, onClose,
           <div className="entry-actions"><button type="button" className="secondary-button" onClick={() => setEditing(null)} disabled={busy}>キャンセル</button><button type="submit" className="primary-button" disabled={busy}>{busy ? '保存中…' : '変更を保存'}</button></div>
         </form>}
 
-        {copying && <form onSubmit={submitNew}>
-          <div className="recurring-section-head"><div><h3>「{copying.title}」をテンプレートに追加</h3><p>内容を必要に応じて変更し、最初に明細を生成する日を指定します。</p></div><button type="button" className="text-button" onClick={() => setCopying(null)} disabled={busy}>複製を閉じる</button></div>
+        {creating && <form onSubmit={submitNew}>
+          <div className="recurring-section-head"><div><h3>{creating.template ? `「${creating.template.title}」を複製して追加` : '新しい定期登録'}</h3><p>{creating.template ? '内容を必要に応じて変更し、' : '内容・金額・頻度を入力し、'}最初に明細を生成する日を指定します。</p></div><button type="button" className="text-button" onClick={() => setCreating(null)} disabled={busy}>{creating.template ? '複製を閉じる' : '作成を閉じる'}</button></div>
           <div className="type-switch" role="group" aria-label="収支の種別"><button type="button" className={copyType === 'expense' ? 'active' : ''} onClick={() => setCopyType('expense')}>支出</button><button type="button" className={copyType === 'income' ? 'active' : ''} onClick={() => setCopyType('income')}>収入</button><button type="button" className={copyType === 'offset' ? 'active' : ''} onClick={() => setCopyType('offset')}>支出の相殺</button></div>
           <div className="entry-grid">
             <label className="entry-field"><span>開始日（初回生成日）</span><input type="date" value={copyStartDate} onChange={(event) => setCopyStartDate(event.target.value)} required /></label>
             <label className="entry-field"><span>終了日（任意）</span><input type="date" min={copyStartDate} value={copyEndDate} onChange={(event) => setCopyEndDate(event.target.value)} /></label>
             <label className="entry-field"><span>頻度</span><select value={copyFrequency} onChange={(event) => setCopyFrequency(event.target.value as RecurringFrequency)}><option value="daily">毎日</option><option value="weekly">毎週</option><option value="monthly">毎月</option></select></label>
             <label className="entry-field"><span>間隔</span><input type="number" min="1" max="365" value={copyInterval} onChange={(event) => setCopyInterval(Number(event.target.value))} required /></label>
-            <label className="entry-field"><span>金額</span><input type="number" min="1" max="1000000000" value={copyAmount} onChange={(event) => setCopyAmount(event.target.value)} required /></label>
+            <label className="entry-field"><span>金額</span><input type="number" min="1" max="1000000000" inputMode="numeric" value={copyAmount} onChange={(event) => setCopyAmount(event.target.value)} required /></label>
             <label className="entry-field"><span>カテゴリ</span><select value={selectedCopyCategory} onChange={(event) => setCopyCategory(event.target.value)} required>{visibleCopyCategories.map((item) => <option key={item.id} value={item.name}>{categoryLabel(item.name)}</option>)}</select></label>
             <label className="entry-field full-field"><span>内容</span><input type="text" maxLength={200} value={copyTitle} onChange={(event) => setCopyTitle(event.target.value)} required /></label>
             <label className="entry-field"><span>支払者</span><input type="text" maxLength={100} value={copyPayer} onChange={(event) => setCopyPayer(event.target.value)} /></label>
             <label className="entry-field full-field"><span>メモ</span><textarea rows={2} maxLength={2000} value={copyMemo} onChange={(event) => setCopyMemo(event.target.value)} /></label>
           </div>
           {error && <p className="entry-error" role="alert">{error}</p>}
-          <div className="entry-actions"><button type="button" className="secondary-button" onClick={() => setCopying(null)} disabled={busy}>キャンセル</button><button type="submit" className="primary-button" disabled={busy}>{busy ? '処理中…' : '複製して追加'}</button></div>
+          <div className="entry-actions"><button type="button" className="secondary-button" onClick={() => setCreating(null)} disabled={busy}>キャンセル</button><button type="submit" className="primary-button" disabled={busy}>{busy ? '処理中…' : creating.template ? '複製して追加' : '定期登録を作成'}</button></div>
         </form>}
 
-        {!editing && !copying && !error && <p className="recurring-empty">新しいルールは、登録中のルールにある「複製」から追加できます。</p>}
-        {error && !editing && !copying && <div className="entry-error recurring-load-error" role="alert"><span>{error}</span><button type="button" onClick={onReload} disabled={busy}>再試行</button></div>}
-        {!editing && !copying && <div className="entry-actions"><button type="button" className="secondary-button" onClick={onClose} disabled={busy}>家計簿へ戻る</button></div>}
+        {!editing && !creating && !error && <div className="recurring-section-head"><p>{rules.length === 0 ? '家賃やサブスクなど、決まった日に発生する収支を登録すると自動で明細を作ります。' : '似たルールは各行の「複製」からも追加できます。'}</p><button type="button" className="primary-button" onClick={beginNew} disabled={busy}>新しい定期登録</button></div>}
+        {error && !editing && !creating && <div className="entry-error recurring-load-error" role="alert"><span>{error}</span><button type="button" onClick={onReload} disabled={busy}>再試行</button></div>}
+        {!editing && !creating && <div className="entry-actions"><button type="button" className="secondary-button" onClick={onClose} disabled={busy}>家計簿へ戻る</button></div>}
       </div>
     </section>
   </div>

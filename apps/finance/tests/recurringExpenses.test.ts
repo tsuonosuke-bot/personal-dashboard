@@ -48,6 +48,28 @@ test('定期登録の作成は既存ルールをテンプレートにして初�
   } finally { globalThis.fetch = originalFetch }
 })
 
+test('定期登録はテンプレートなし（ルール0件）からも作成でき、不正なテンプレートIDは拒否する', async () => {
+  const originalFetch = globalThis.fetch
+  let rpcBody: Record<string, unknown> = {}
+  globalThis.fetch = async (_input, init) => {
+    rpcBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+    return Response.json([{ id: 1, template_rule_id: null }])
+  }
+  const post = (templateRuleId: unknown) => recurringRoute({ request: new Request('https://dashboard.example/api/recurring-expenses', {
+    method: 'POST',
+    headers: { Origin: 'https://dashboard.example', 'Content-Type': 'application/json', 'X-Dashboard-Action': 'recurring-create' },
+    body: JSON.stringify({ template_rule_id: templateRuleId, start_date: '2026-10-25', frequency: 'monthly', interval_count: 1, end_date: null, amount: 980, title: '動画サブスク', category: '50_通信費', payer: null, memo: null, type: 'expense' }),
+  }), env })
+  try {
+    const created = await post(null)
+    assert.equal(created.status, 201)
+    assert.equal(rpcBody.p_template_rule_id, null)
+    assert.equal(rpcBody.p_start_date, '2026-10-25')
+    assert.equal((await post(0)).status, 400)
+    assert.equal((await post('1')).status, 400)
+  } finally { globalThis.fetch = originalFetch }
+})
+
 test('再開は専用DB関数を使い、停止期間を遡及登録しない', async () => {
   const originalFetch = globalThis.fetch
   let url = ''
@@ -71,6 +93,7 @@ test('SQLは生成履歴の一意制約と月次基準日と日次Cronを持つ'
   assert.match(sql, /primary key \(rule_id, scheduled_for\)/)
   assert.match(sql, /p_day_of_month/)
   assert.match(sql, /template_rule_id/)
+  assert.match(sql, /if p_template_rule_id is not null then/)
   assert.match(sql, /alter column source_expense_id drop not null/)
   assert.match(sql, /p_start_date, p_end_date, p_start_date/)
   assert.match(sql, /materialize-recurring-expenses-jst/)
@@ -94,6 +117,9 @@ test('家計簿画面から定期登録管理画面を開き、内容を編集�
   assert.match(manager, /定期登録を管理/)
   assert.match(manager, /変更を保存/)
   assert.match(manager, /複製して追加/)
+  assert.match(manager, /新しい定期登録/)
+  assert.match(manager, /template_rule_id: creating\.template\?\.id \?\? null/)
+  assert.doesNotMatch(manager, /「複製」から追加できます。<\/p>}/)
   assert.match(manager, /開始日（初回生成日）/)
   assert.doesNotMatch(manager, /9月1日|09-01|septemberFirst/)
   assert.match(manager, /次回/)

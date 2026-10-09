@@ -23,7 +23,7 @@ create table if not exists public.recurring_expenses (
   constraint recurring_expenses_dates_valid check (end_date is null or end_date >= start_date)
 );
 
--- 旧仕様では9月1日の明細が必須かつ一意だった。既存値は監査用に残し、新規ルールは既存ルールをテンプレートにする。
+-- 旧仕様では9月1日の明細が必須かつ一意だった。既存値は監査用に残す。新規ルールは空から作るか、既存ルールを複製する。
 alter table public.recurring_expenses alter column source_expense_id drop not null;
 alter table public.recurring_expenses
   add column if not exists template_rule_id bigint references public.recurring_expenses(id) on delete set null;
@@ -83,7 +83,10 @@ begin
   if p_start_date is null or p_amount = 0 or length(btrim(p_title)) not between 1 and 200 then
     raise exception 'invalid recurring values';
   end if;
-  select * into strict template_row from public.recurring_expenses where id = p_template_rule_id;
+  -- p_template_rule_id がnullなら、複製元のない最初のルールとして作る。
+  if p_template_rule_id is not null then
+    select * into strict template_row from public.recurring_expenses where id = p_template_rule_id;
+  end if;
   if p_end_date is not null and p_end_date < p_start_date then
     raise exception 'end date precedes start date';
   end if;

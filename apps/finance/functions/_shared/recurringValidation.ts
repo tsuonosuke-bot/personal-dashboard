@@ -24,7 +24,7 @@ async function readObject(request: Request): Promise<Record<string, unknown> | R
 export async function readRecurringCreate(request: Request): Promise<Record<string, unknown> | Response> {
   const value = await readObject(request)
   if (value instanceof Response) return value
-  if (!Number.isSafeInteger(value.template_rule_id) || Number(value.template_rule_id) <= 0) return jsonResponse({ error: 'テンプレートの定期登録が正しくありません。' }, 400)
+  if (value.template_rule_id !== null && (!Number.isSafeInteger(value.template_rule_id) || Number(value.template_rule_id) <= 0)) return jsonResponse({ error: 'テンプレートの定期登録が正しくありません。' }, 400)
   if (typeof value.start_date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value.start_date)) return jsonResponse({ error: '開始日が正しくありません。' }, 400)
   if (value.frequency !== 'daily' && value.frequency !== 'weekly' && value.frequency !== 'monthly') return jsonResponse({ error: '頻度が正しくありません。' }, 400)
   if (!Number.isSafeInteger(value.interval_count) || Number(value.interval_count) < 1 || Number(value.interval_count) > 365) return jsonResponse({ error: '間隔は1〜365で指定してください。' }, 400)
