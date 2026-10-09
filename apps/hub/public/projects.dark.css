@@ -85,6 +85,18 @@
   border-bottom-color: var(--accent);
   color: var(--accent);
 }
+:root[data-theme="dark"] .filters select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface, #292929);
+  color: var(--ink);
+}
+:root[data-theme="dark"] .history-more button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent);
+}
 :root[data-theme="dark"] .filters label span,
 :root[data-theme="dark"] form label > span {
   color: var(--muted);

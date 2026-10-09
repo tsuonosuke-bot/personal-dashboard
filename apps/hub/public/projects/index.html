@@ -63,9 +63,15 @@
           </div>
           <div class="filters">
             <label><span>検索</span><input id="searchInput" type="search" placeholder="Project・テーマ・Next Action" /></label>
+            <label class="sort-field"><span>並び順</span><select id="sortSelect">
+              <option value="recommended">おすすめ（要確認を先に）</option>
+              <option value="target">目標日が近い順</option>
+              <option value="review">再確認日が近い順</option>
+              <option value="updated">更新が新しい順</option>
+            </select></label>
             <button id="clearFilters" type="button" hidden>解除</button>
           </div>
-          <div class="result-line"><span id="resultCount">読み込み中</span><small>日々はNext Action、週次にはProject全体を確認します</small></div>
+          <div class="result-line"><span id="resultCount">読み込み中</span><small id="sortNote">要確認を先頭にまとめ、その中で目標日が近い順に並べています</small></div>
           <div class="state-card" id="loadingState" role="status">Projectを読み込んでいます…</div>
           <div class="state-card error" id="errorState" role="alert" hidden><strong>読み込めませんでした</strong><p id="errorMessage"></p><button id="retryButton" type="button">再試行</button></div>
           <div class="project-list" id="projectList" hidden></div>
