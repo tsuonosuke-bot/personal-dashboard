@@ -634,9 +634,28 @@ button:disabled { opacity: 0.4; cursor: default; }
 .speaking-header .speaking-independent { justify-self: end; padding: 5px 9px; border-radius: 999px; background: #e7f4f0; letter-spacing: normal; }
 .speaking-body { width: min(720px, calc(100% - 28px)); margin: 0 auto; padding: 28px 0 72px; }
 .speaking-setup { display: grid; gap: 22px; padding: 28px; }
-.speaking-setup-intro { text-align: center; }
-.speaking-setup-intro h2 { margin: 6px 0 8px; font-size: 23px; }
-.speaking-setup-intro p { margin: 0 auto; max-width: 570px; color: #657572; font-size: 13px; line-height: 1.7; }
+.speaking-setup-title { margin: 0; font-size: 20px; text-align: center; }
+.speaking-setup-intro { padding: 10px 12px; border-radius: 10px; background: #f6faf9; }
+.speaking-setup-intro summary { color: #536460; font-size: 12px; font-weight: 700; cursor: pointer; }
+.speaking-setup-intro p { margin: 8px 0 0; color: #657572; font-size: 13px; line-height: 1.7; }
+.speaking-scope-field { display: grid; gap: 5px; margin: 12px auto 0; max-width: 420px; color: #536460; font-size: 12px; font-weight: 700; }
+.speaking-scope-field select, .speaking-scope-field input { width: 100%; min-height: 42px; font-weight: 400; }
+.speaking-card-picker { display: grid; gap: 8px; }
+.speaking-card-picker-count { margin: 0; color: #60716d; font-size: 12px; text-align: center; }
+.speaking-card-picker-count .text-button { margin-left: 8px; color: #157b6f; font-size: 12px; }
+.speaking-card-picker ul { max-height: 280px; display: grid; gap: 2px; margin: 0; padding: 4px; overflow-y: auto; border: 1px solid #dbe8e4; border-radius: 10px; list-style: none; }
+.speaking-card-picker li label { min-height: 42px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 7px; cursor: pointer; font-size: 13px; }
+.speaking-card-picker li label:hover { background: #f1f8f6; }
+.speaking-card-picker li label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speaking-card-picker li small { color: #71817f; font-size: 11px; }
+.speaking-card-picker input[type="checkbox"] { width: 18px; height: 18px; accent-color: #157b6f; }
+.speaking-card-picker-empty { padding: 14px; color: #71817f; font-size: 12px; text-align: center; }
+.speaking-empty-reason { margin-top: -12px; padding: 12px; }
+.speaking-sample { display: grid; justify-items: center; gap: 8px; }
+.speaking-sample-note { max-width: 520px; padding: 10px 12px; border: 1px solid #ecd9b0; border-radius: 10px; background: #fffaf0; color: #7a5a1c; font-size: 12px; line-height: 1.6; text-align: center; }
+.speaking-sample-note p { margin: 0; }
+.speaking-chunks { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 6px; margin-top: 6px !important; color: #153f39; font-family: Georgia, "Times New Roman", serif; font-size: 16px; }
+.speaking-chunks span + span::before { content: "/ "; color: #b9975a; }
 .speaking-history { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
 .speaking-history > div { padding: 13px; border-radius: 11px; background: #eff7f4; text-align: center; }
 .speaking-history strong, .speaking-history span { display: block; }

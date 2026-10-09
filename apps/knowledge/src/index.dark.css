@@ -1045,8 +1045,55 @@
   border-radius: 999px;
   background: #2c3b37;
 }
+:root[data-theme="dark"] .speaking-setup-intro {
+  border-radius: 10px;
+  background: #1f2322;
+}
+:root[data-theme="dark"] .speaking-setup-intro summary {
+  color: #b4c1be;
+}
 :root[data-theme="dark"] .speaking-setup-intro p {
   color: #abb7b5;
+}
+:root[data-theme="dark"] .speaking-scope-field {
+  color: #b4c1be;
+}
+:root[data-theme="dark"] .speaking-card-picker-count {
+  color: #aebab7;
+}
+:root[data-theme="dark"] .speaking-card-picker-count .text-button {
+  color: #9deee5;
+}
+:root[data-theme="dark"] .speaking-card-picker ul {
+  border: 1px solid #495955;
+  border-radius: 10px;
+}
+:root[data-theme="dark"] .speaking-card-picker li label {
+  border-radius: 7px;
+}
+:root[data-theme="dark"] .speaking-card-picker li label:hover {
+  background: #1b201f;
+}
+:root[data-theme="dark"] .speaking-card-picker li small {
+  color: #a5b0af;
+}
+:root[data-theme="dark"] .speaking-card-picker input[type="checkbox"] {
+  accent-color: #9deee5;
+}
+:root[data-theme="dark"] .speaking-card-picker-empty {
+  color: #a5b0af;
+}
+:root[data-theme="dark"] .speaking-sample-note {
+  border: 1px solid #605337;
+  border-radius: 10px;
+  background: #26221b;
+  color: #e9d09f;
+}
+:root[data-theme="dark"] .speaking-chunks {
+  color: #c2ebe5;
+}
+:root[data-theme="dark"] .speaking-chunks span + span::before {
+  color: #c7ac7c;
 }
 :root[data-theme="dark"] .speaking-history > div {
   border-radius: 11px;
