@@ -197,6 +197,45 @@ html[data-theme="dark"] {
   background: #292929;
   color: var(--muted);
 }
+:root[data-theme="dark"] .history-period {
+  border-radius: 9px;
+  background: var(--accent-soft);
+}
+:root[data-theme="dark"] .history-period button {
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--accent);
+}
+:root[data-theme="dark"] .history-period button[aria-pressed="true"] {
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(53, 42, 37, .14);
+}
+:root[data-theme="dark"] .history-nav button {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .history-status {
+  color: #d38d89;
+}
+:root[data-theme="dark"] table.history-days.month tbody th,
+:root[data-theme="dark"] table.history-weeks tbody th {
+  background: var(--surface);
+}
+:root[data-theme="dark"] thead th.today b {
+  color: var(--accent);
+}
+:root[data-theme="dark"] td.future {
+  background: repeating-linear-gradient(135deg, transparent 0 4px, rgba(0, 0, 0, .025) 4px 8px);
+}
+:root[data-theme="dark"] table.history-weeks td small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] tbody th small b {
+  color: var(--accent);
+}
 :root[data-theme="dark"] table {
   border-collapse: collapse;
 }
