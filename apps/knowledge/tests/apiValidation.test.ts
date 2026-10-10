@@ -168,6 +168,34 @@ test("固定上限で切らず、全ページのナレッジを取得する", as
   }
 });
 
+test("件数が分かれば残りのページを待たずに同時に取り、順番どおりに並べる", async () => {
+  const originalFetch = globalThis.fetch;
+  const rows = Array.from({ length: 2_500 }, (_, index) => ({ ...validKnowledge(), id: `knowledge-${index}` }));
+  const offsets: number[] = [];
+  let inFlight = 0;
+  let maxInFlight = 0;
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input), "https://dashboard.example");
+    const offset = Number(url.searchParams.get("offset"));
+    const limit = Number(url.searchParams.get("limit"));
+    offsets.push(offset);
+    inFlight += 1;
+    maxInFlight = Math.max(maxInFlight, inFlight);
+    // 後のページほど早く返して、並べ順が応答順に左右されないことを確かめる。
+    await new Promise((resolve) => setTimeout(resolve, offset === 1_000 ? 10 : 1));
+    inFlight -= 1;
+    return Response.json({ items: rows.slice(offset, offset + limit), total: rows.length, limit, offset });
+  };
+  try {
+    const result = await getKnowledge();
+    assert.deepEqual(result.map((item) => item.id), rows.map((row) => row.id));
+    assert.deepEqual(offsets, [0, 1_000, 2_000]);
+    assert.equal(maxInFlight, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("APIの診断情報を画面用エラーとして保持する", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => Response.json({

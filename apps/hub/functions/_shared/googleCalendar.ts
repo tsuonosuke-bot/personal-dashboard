@@ -453,8 +453,21 @@ export async function handleGoogleCalendarOAuthCallback(request: Request, env: D
   }
 }
 
+// アクセストークンは約1時間有効。同じisolateが続けて受けたリクエストでは使い回し、
+// 一覧のたびにGoogleのトークン発行を待たないようにする。接続し直すと鍵が変わる。
+const ACCESS_TOKEN_MARGIN_MS = 5 * 60 * 1000;
+let cachedAccessToken: { key: string; value: string; expiresAt: number } | null = null;
+
+export function forgetGoogleAccessToken(): void {
+  cachedAccessToken = null;
+}
+
 async function refreshAccessToken(env: DashboardEnv): Promise<string> {
   const refreshToken = await loadRefreshToken(env);
+  const key = `${env.GOOGLE_OAUTH_CLIENT_ID!.trim()}\n${refreshToken}`;
+  if (cachedAccessToken && cachedAccessToken.key === key && cachedAccessToken.expiresAt > Date.now()) {
+    return cachedAccessToken.value;
+  }
   const body = new URLSearchParams({
     client_id: env.GOOGLE_OAUTH_CLIENT_ID!.trim(),
     client_secret: env.GOOGLE_OAUTH_CLIENT_SECRET!.trim(),
@@ -481,6 +494,10 @@ async function refreshAccessToken(env: DashboardEnv): Promise<string> {
   if (!isPlainObject(payload) || typeof payload.access_token !== "string") {
     throw new DashboardError("GOOGLE_CALENDAR_RESPONSE_INVALID", "Google OAuth returned invalid data.");
   }
+  const lifetimeMs = typeof payload.expires_in === "number" && payload.expires_in > 0 ? payload.expires_in * 1000 : 0;
+  cachedAccessToken = lifetimeMs > ACCESS_TOKEN_MARGIN_MS
+    ? { key, value: payload.access_token, expiresAt: Date.now() + lifetimeMs - ACCESS_TOKEN_MARGIN_MS }
+    : null;
   return payload.access_token;
 }
 
@@ -582,6 +599,7 @@ async function fetchGoogleCalendarEvent(accessToken: string, targetId: string): 
     return { targetId, targetUrl: null, title: null, status: "missing", schedule: null, etag: null };
   }
   if (!response.ok) {
+    if (response.status === 401) forgetGoogleAccessToken();
     const code = response.status === 401 || response.status === 403
       ? "GOOGLE_CALENDAR_ACCESS_DENIED"
       : response.status === 429
@@ -596,14 +614,21 @@ async function fetchGoogleCalendarEvent(accessToken: string, targetId: string): 
   return snapshotFromEvent(targetId, event as GoogleEventShape);
 }
 
+/** 一覧の読み込みと並行してトークンを用意するために、先に取得だけを始められるようにする。 */
+export function googleAccessToken(env: DashboardEnv): Promise<string> {
+  if (!configured(env)) return Promise.reject(new DashboardError("GOOGLE_CALENDAR_NOT_CONFIGURED", "Google Calendar is not configured.", 503));
+  return refreshAccessToken(env);
+}
+
 export async function readGoogleCalendarEvents(
   env: DashboardEnv,
   targetIds: string[],
+  pendingAccessToken?: Promise<string>,
 ): Promise<Map<string, GoogleCalendarEventSnapshot>> {
   if (!configured(env)) throw new DashboardError("GOOGLE_CALENDAR_NOT_CONFIGURED", "Google Calendar is not configured.", 503);
   const uniqueIds = [...new Set(targetIds.filter((id) => id.trim().length > 0))];
   if (uniqueIds.length === 0) return new Map();
-  const accessToken = await refreshAccessToken(env);
+  const accessToken = await (pendingAccessToken ?? refreshAccessToken(env));
   const snapshots = await Promise.all(uniqueIds.map((id) => fetchGoogleCalendarEvent(accessToken, id)));
   return new Map(snapshots.map((snapshot) => [snapshot.targetId, snapshot]));
 }
@@ -642,6 +667,7 @@ export async function rescheduleGoogleCalendarEvent(
     throw new DashboardError("GOOGLE_CALENDAR_EVENT_CONFLICT", "Google Calendar event changed before rescheduling.", 409);
   }
   if (!response.ok) {
+    if (response.status === 401) forgetGoogleAccessToken();
     const code = response.status === 401 || response.status === 403
       ? "GOOGLE_CALENDAR_ACCESS_DENIED"
       : response.status === 429
@@ -692,6 +718,7 @@ async function readVerifiedEvent(accessToken: string, expected: ReturnType<typeo
     throw new DashboardError("GOOGLE_CALENDAR_UNAVAILABLE", "Could not verify the Google event.");
   }
   if (!response.ok) {
+    if (response.status === 401) forgetGoogleAccessToken();
     const code = response.status === 401 || response.status === 403
       ? "GOOGLE_CALENDAR_ACCESS_DENIED"
       : "GOOGLE_CALENDAR_REQUEST_FAILED";
@@ -734,6 +761,7 @@ export async function createGoogleCalendarEvent(
     throw new DashboardError("GOOGLE_CALENDAR_UNAVAILABLE", "Could not create the Google event.");
   }
   if (!response.ok && response.status !== 409) {
+    if (response.status === 401) forgetGoogleAccessToken();
     const code = response.status === 401 || response.status === 403
       ? "GOOGLE_CALENDAR_ACCESS_DENIED"
       : response.status === 429
@@ -774,6 +802,7 @@ export async function createReplacementGoogleCalendarEvent(
     throw new DashboardError("GOOGLE_CALENDAR_UNAVAILABLE", "Could not recreate the Google event.");
   }
   if (!response.ok && response.status !== 409) {
+    if (response.status === 401) forgetGoogleAccessToken();
     const code = response.status === 401 || response.status === 403
       ? "GOOGLE_CALENDAR_ACCESS_DENIED"
       : response.status === 429

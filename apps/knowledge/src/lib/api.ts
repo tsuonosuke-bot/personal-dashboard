@@ -151,16 +151,8 @@ async function getAllPages<T>(
   path: string,
   parseItem: (value: unknown) => T,
 ): Promise<T[]> {
-  const result: T[] = [];
-  let offset = 0;
-  let requestCount = 0;
-
-  while (true) {
-    requestCount++;
-    if (requestCount > MAX_PAGE_REQUESTS) {
-      throw new Error("データ件数が安全な取得上限を超えています。");
-    }
-    const separator = path.includes("?") ? "&" : "?";
+  const separator = path.includes("?") ? "&" : "?";
+  const readPage = async (offset: number) => {
     const data = await requestJson(
       `${path}${separator}limit=${API_PAGE_SIZE}&offset=${offset}`,
       { method: "GET" },
@@ -169,8 +161,38 @@ async function getAllPages<T>(
     if (page.offset !== offset || page.limit !== API_PAGE_SIZE) {
       throw new Error("APIのページ情報が要求内容と一致しません。");
     }
-    result.push(...page.items.map(parseItem));
+    return page;
+  };
 
+  const first = await readPage(0);
+  const result: T[] = first.items.map(parseItem);
+  if (first.items.length === 0) return result;
+
+  // 件数が分かっていれば、残りのページは1枚ずつ待たずにまとめて取る（quiz_logは数千件ある）。
+  if (first.total !== null && first.items.length === API_PAGE_SIZE) {
+    const offsets: number[] = [];
+    for (let offset = API_PAGE_SIZE; offset < first.total; offset += API_PAGE_SIZE) offsets.push(offset);
+    if (offsets.length + 1 > MAX_PAGE_REQUESTS) {
+      throw new Error("データ件数が安全な取得上限を超えています。");
+    }
+    const pages = await Promise.all(offsets.map(readPage));
+    for (const page of pages) result.push(...page.items.map(parseItem));
+    // 取得中に件数が増えていた場合は、続きを順に読む。
+    const lastPage = pages[pages.length - 1];
+    if (!lastPage || lastPage.items.length < API_PAGE_SIZE) return result;
+  } else if (first.total !== null && first.items.length >= first.total) {
+    return result;
+  }
+
+  let offset = result.length;
+  let requestCount = Math.ceil(offset / API_PAGE_SIZE);
+  while (true) {
+    requestCount++;
+    if (requestCount > MAX_PAGE_REQUESTS) {
+      throw new Error("データ件数が安全な取得上限を超えています。");
+    }
+    const page = await readPage(offset);
+    result.push(...page.items.map(parseItem));
     if (page.items.length === 0) break;
     offset += page.items.length;
     if (page.total !== null && offset >= page.total) break;

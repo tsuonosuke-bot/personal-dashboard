@@ -1,6 +1,7 @@
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 import {
   createReplacementGoogleCalendarEvent,
+  googleAccessToken,
   parseCalendarSchedule,
   readGoogleCalendarEvents,
   rescheduleGoogleCalendarEvent,
@@ -191,6 +192,9 @@ function safeGoogleUrl(value: unknown): string | null {
 }
 
 export async function listScheduledActions(env: DashboardEnv) {
+  // Googleのトークン取得は表の読み込みを待たずに始める。失敗は下のカレンダー取得で扱う。
+  const pendingAccessToken = googleAccessToken(env);
+  pendingAccessToken.catch(() => undefined);
   const [actionRows, routeRows, wantRows] = await Promise.all([
     fetchRows(env, "scheduled_actions", "id,source_route_id,status,current_schedule,completed_at,note,reschedule_count,last_calendar_sync_at,created_at,updated_at", "updated_at.desc,id.desc"),
     fetchRows(env, "want_routes", "id,want_id,title,detail,target_id,target_url", "created_at.desc,id.desc"),
@@ -210,7 +214,7 @@ export async function listScheduledActions(env: DashboardEnv) {
   let calendarEvents = new Map<string, GoogleCalendarEventSnapshot>();
   let calendarSync: "live" | "unavailable" = "live";
   try {
-    calendarEvents = await readGoogleCalendarEvents(env, targetIds);
+    calendarEvents = await readGoogleCalendarEvents(env, targetIds, pendingAccessToken);
   } catch {
     calendarSync = "unavailable";
   }
@@ -519,5 +523,5 @@ export async function updateScheduledAction(env: DashboardEnv, input: ScheduledA
     completed_at: nextStatus === "completed" ? new Date().toISOString() : null,
     note: input.note,
   });
-  return { id: updated.id, status: updated.status, completedAt: updated.completedAt, note: updated.note };
+  return { id: updated.id, status: updated.status, completedAt: updated.completedAt, note: updated.note, updatedAt: updated.updatedAt };
 }
