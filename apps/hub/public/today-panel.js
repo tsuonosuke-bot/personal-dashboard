@@ -589,13 +589,19 @@ export function createTodayPanel(root) {
     }
   }
 
+  // 手元で反映した変更より前に始まった読み込みの結果で、画面を巻き戻さないための番号。
+  const localEdits = { todos: 0, habits: 0, projects: 0 };
+
   async function load(key) {
     state[key] = { ...state[key], status: "loading" };
     if (!state[key].data) render();
+    const startedAt = localEdits[key];
     try {
       const data = await requestJson(SOURCES[key].url);
+      if (localEdits[key] !== startedAt) return;
       state[key] = { status: "ready", data, error: null };
     } catch (error) {
+      if (localEdits[key] !== startedAt) return;
       state[key] = { status: "error", data: state[key].data, error: error instanceof Error ? error.message : `${SOURCES[key].label}を取得できませんでした。` };
       if (state[key].data) showToast(`${SOURCES[key].label}を最新にできませんでした。`);
     }
@@ -623,19 +629,40 @@ export function createTodayPanel(root) {
     return sendJson("/api/scheduled-actions", "PATCH", "scheduled-todo-update", todoRequestBody(item, command, schedule));
   }
 
+  // 一覧の取り直しはGoogleカレンダーの照会を伴って遅いので、保存の応答をすぐ画面に反映し、
+  // 取り直しは裏で行う。
+  function applyTodoResult(id, result) {
+    const items = state.todos.data?.items;
+    if (!items || !result || typeof result.updatedAt !== "string") {
+      void load("todos");
+      return;
+    }
+    localEdits.todos += 1;
+    state.todos = {
+      ...state.todos,
+      status: "ready",
+      data: {
+        ...state.todos.data,
+        items: items.map((item) => (item.id === id
+          ? { ...item, status: result.status, completedAt: result.completedAt ?? null, note: result.note ?? null, updatedAt: result.updatedAt }
+          : item)),
+      },
+    };
+    render();
+    void load("todos");
+  }
+
   async function completeTodo(id, button) {
     const item = findTodo(id);
     if (!item) return;
     button.disabled = true;
     button.classList.add("is-on");
     try {
-      await updateTodo(item, "complete");
-      await load("todos");
+      applyTodoResult(id, await updateTodo(item, "complete"));
       showToast(`「${item.title}」を完了にしました`, async () => {
         const fresh = findTodo(id);
         if (!fresh || fresh.status !== "completed") throw new Error("ToDoの最新状態を確認できませんでした。");
-        await updateTodo(fresh, "reopen");
-        await load("todos");
+        applyTodoResult(id, await updateTodo(fresh, "reopen"));
         return "ToDoを未実施に戻しました";
       });
     } catch (error) {

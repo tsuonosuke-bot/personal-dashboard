@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { encryptGoogleCalendarRefreshToken } from "../functions/_shared/googleCalendar.ts";
+import { encryptGoogleCalendarRefreshToken, forgetGoogleAccessToken } from "../functions/_shared/googleCalendar.ts";
 import { onRequest as scheduledActionsEndpoint } from "../functions/api/scheduled-actions.ts";
 
 const env = {
@@ -286,4 +286,49 @@ test("migrationは既存Calendar振り分けをToDoへ移行し今後も自動�
   assert.match(sql, /new\.destination = 'calendar'.*new\.status = 'created'/is);
   assert.match(sql, /insert into public\.scheduled_actions[\s\S]*from public\.want_routes/is);
   assert.match(sql, /on conflict \(source_route_id\) do nothing/i);
+});
+
+test("Googleのアクセストークンは有効な間は使い回し、401で捨てて取り直す", async () => {
+  const encrypted = await encryptGoogleCalendarRefreshToken("refresh-token", env);
+  const originalFetch = globalThis.fetch;
+  let tokenRequests = 0;
+  let rejectCalendar = false;
+  globalThis.fetch = async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/scheduled_actions")) return Response.json([actionRow()]);
+    if (url.pathname.endsWith("/want_routes")) return Response.json([{ id: 41, want_id: 10, title: "調査する", detail: null, target_id: "event-1", target_url: null }]);
+    if (url.pathname.endsWith("/wants")) return Response.json([{ id: 10, content: "調査したい", source_inbox_id: 3 }]);
+    if (url.pathname.endsWith("/integration_connections")) return Response.json([{ provider: "google_calendar", encrypted_credentials: encrypted, scope: "https://www.googleapis.com/auth/calendar.events" }]);
+    if (url.hostname === "oauth2.googleapis.com") {
+      tokenRequests += 1;
+      return Response.json({ access_token: `access-token-${tokenRequests}`, expires_in: 3599 });
+    }
+    if (url.hostname === "www.googleapis.com") {
+      if (rejectCalendar) return new Response("", { status: 401 });
+      return Response.json({
+        id: "event-1",
+        etag: '"etag-1"',
+        status: "confirmed",
+        summary: "予定",
+        start: { dateTime: "2099-09-22T09:00:00+09:00" },
+        end: { dateTime: "2099-09-22T10:00:00+09:00" },
+      });
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  const list = () => scheduledActionsEndpoint({ request: new Request("https://dashboard.example/api/scheduled-actions"), env });
+  try {
+    forgetGoogleAccessToken();
+    assert.equal((await (await list()).json()).source.state, "live");
+    assert.equal((await (await list()).json()).source.state, "live");
+    assert.equal(tokenRequests, 1);
+    rejectCalendar = true;
+    assert.equal((await (await list()).json()).source.state, "unavailable");
+    rejectCalendar = false;
+    assert.equal((await (await list()).json()).source.state, "live");
+    assert.equal(tokenRequests, 2);
+  } finally {
+    forgetGoogleAccessToken();
+    globalThis.fetch = originalFetch;
+  }
 });
