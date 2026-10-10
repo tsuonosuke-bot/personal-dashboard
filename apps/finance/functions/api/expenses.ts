@@ -34,7 +34,16 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       order: 'transaction_date.desc,id.desc',
     })
     // 取消済みは既定で返さない（Hubの集計もこの既定を使う）。Finance画面だけが復元用に include_voided=1 で取得する。
-    if (new URL(context.request.url).searchParams.get('include_voided') !== '1') params.set('voided_at', 'is.null')
+    const search = new URL(context.request.url).searchParams
+    if (search.get('include_voided') !== '1') params.set('voided_at', 'is.null')
+    // Hubの集計は今月と先月しか使わないので、取引日の下限で絞れるようにする。
+    const from = search.get('from')
+    if (from !== null) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || Number.isNaN(Date.parse(`${from}T00:00:00Z`))) {
+        return jsonResponse({ error: 'fromはYYYY-MM-DD形式で指定してください。' }, 400)
+      }
+      params.set('transaction_date', `gte.${from}`)
+    }
     return fetchSupabasePage(context.env, { table: 'expenses', params }, pagination)
   }
   if (context.request.method === 'PATCH' && context.request.headers.get('X-Dashboard-Action') === EXPENSE_VOID_ACTION_HEADER) {

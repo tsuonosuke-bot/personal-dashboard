@@ -644,6 +644,13 @@ export function normalizeHub(
   };
 }
 
+/** Hubが使う支出（今月・先月の合計と最近の5件）に必要な、先月1日（JST）。全期間は取らない。 */
+export function expenseWindowStart(now: Date): string {
+  const { year, month } = jstDateParts(now);
+  const start = new Date(Date.UTC(year, month - 1, 1));
+  return `${start.getUTCFullYear()}-${String(start.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
 export async function loadHub(env: HubEnv, now = new Date()) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
@@ -655,7 +662,7 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     fetchFocusRows(env),
     fetchRows(env, { table: "projects", select: "status" }) as Promise<ProjectRow[]>,
     fetchRows(env, { table: "writing_topics", select: "status" }) as Promise<WritingRow[]>,
-    fetchDashboardRows(env, financialUrl, "/api/expenses") as Promise<ExpenseRow[]>,
+    fetchDashboardRows(env, financialUrl, `/api/expenses?from=${expenseWindowStart(now)}`) as Promise<ExpenseRow[]>,
     fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,
     fetchDashboardJson(env, knowledgeUrl, "/api/review-queue/status") as Promise<KnowledgeReviewStatus>,
     fetchDashboardJson(env, knowledgeUrl, "/api/status"),

@@ -127,3 +127,18 @@ test("safeEqual は同じ文字列だけを真にする", () => {
   assert.equal(safeEqual("abc", "abcd"), false);
   assert.equal(safeEqual("", ""), true);
 });
+
+test("認証済みならハッシュ付きの静的ファイルだけブラウザに長く保存させる", async () => {
+  const env = { DASHBOARD_PASSWORD: "long-password" };
+  const auth = basic("admin", "long-password");
+  const asset = await call(get("/assets/index-DMhBd7kz.js", auth), env);
+  assert.equal(asset.status, 200);
+  assert.equal(asset.headers.get("Cache-Control"), "private, max-age=31536000, immutable");
+  const proxied = await call(get("/knowledge/assets/BarChart-BaJEa-ND.js", auth), env);
+  assert.equal(proxied.headers.get("Cache-Control"), "private, max-age=31536000, immutable");
+  for (const path of ["/", "/index.html", "/api/items", "/app.js", "/assets/no-hash.js"]) {
+    assert.equal((await call(get(path, auth), env)).headers.get("Cache-Control"), "private, no-store", path);
+  }
+  // 認証に失敗した応答は保存させない。
+  assert.equal((await call(get("/assets/index-DMhBd7kz.js"), env)).headers.get("Cache-Control"), "private, no-store");
+});

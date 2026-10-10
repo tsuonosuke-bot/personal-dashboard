@@ -115,6 +115,26 @@ export async function attachSession(response: Response, request: Request, env: S
   return secured;
 }
 
+const PROXY_SESSION_TTL_SECONDS = 300;
+
+/**
+ * Hubのプロキシ（/knowledge/・/finance/）が、上流アプリへの1回のリクエストに付けるセッションCookie。
+ * 引き継ぎ（/auth/handoff）と同じ共有シークレットで署名するので、上流は通常のセッションとして検証する。
+ * サーバー間でだけ使い、ブラウザへは渡さない。引き継ぎの往復とnonce消費を毎回しないためのもの。
+ */
+export async function createProxySessionCookie(target: URL, env: SessionEnv): Promise<string | null> {
+  const value = secret(env);
+  if (!value) return null;
+  const payload: TokenPayload = {
+    v: 1,
+    typ: "session",
+    aud: target.host,
+    exp: Math.floor(Date.now() / 1_000) + PROXY_SESSION_TTL_SECONDS,
+    nonce: nonce(),
+  };
+  return `${COOKIE_NAME}=${await signPayload(payload, value)}`;
+}
+
 /** Hubが、遷移先アプリの `/auth/handoff` へ渡す60秒有効の引き継ぎURLを作る。 */
 export async function createHandoffUrl(target: URL, env: SessionEnv): Promise<URL | null> {
   const value = secret(env);

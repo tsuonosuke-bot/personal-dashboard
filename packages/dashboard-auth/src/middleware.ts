@@ -60,6 +60,18 @@ export function applyPrivacyHeaders(response: Response, policy: HeaderPolicy): R
   return secured;
 }
 
+// Viteが出力する、内容のハッシュを名前に含むファイル（/assets/name-XXXXXXXX.js など）。
+// 中身が変われば名前も変わるので、ログインした本人のブラウザには長く保存させてよい。
+const HASHED_ASSET = /\/assets\/[^/]+-[A-Za-z0-9_-]{8}\.(?:js|css|woff2?|png|jpe?g|svg|webp)$/;
+
+/** 認証の内側の応答のうち、ハッシュ付きの静的ファイルだけをブラウザに保存させる。 */
+export function applyAssetCache(request: Request, response: Response): Response {
+  if (request.method !== "GET" && request.method !== "HEAD") return response;
+  if (response.status !== 200 || !HASHED_ASSET.test(new URL(request.url).pathname)) return response;
+  response.headers.set("Cache-Control", "private, max-age=31536000, immutable");
+  return response;
+}
+
 /** 認証なしで公開するページ向け。検索エンジンに載せ、5分キャッシュさせる。 */
 export function applyPublicCache(response: Response): Response {
   const secured = new Response(response.body, response);
@@ -115,7 +127,7 @@ export function createAuthMiddleware<Env extends AuthEnv>(options: AuthMiddlewar
     if (authMode === "access") {
       const access = await validateAccess(request, env);
       if (!access.ok) return privacy(new Response(access.message, { status: access.status, headers: TEXT }));
-      return privacy(await next());
+      return applyAssetCache(request, privacy(await next()));
     }
     if (authMode !== "basic") {
       return privacy(new Response("AUTH_MODE is invalid.\n", { status: 503, headers: TEXT }));
@@ -123,7 +135,7 @@ export function createAuthMiddleware<Env extends AuthEnv>(options: AuthMiddlewar
 
     const handoff = await options.acceptHandoff(request, env);
     if (handoff) return privacy(handoff);
-    if (await hasValidSession(request, env)) return privacy(await next());
+    if (await hasValidSession(request, env)) return applyAssetCache(request, privacy(await next()));
     if (options.alternativeCredential?.(request, env)) return privacy(await next());
 
     const expectedPassword = env.DASHBOARD_PASSWORD;
@@ -147,6 +159,6 @@ export function createAuthMiddleware<Env extends AuthEnv>(options: AuthMiddlewar
     const passwordOk = safeEqual(decoded.slice(separator + 1), expectedPassword);
     if (!userOk || !passwordOk) return unauthorized();
 
-    return privacy(await attachSession(await next(), request, env));
+    return applyAssetCache(request, privacy(await attachSession(await next(), request, env)));
   };
 }
