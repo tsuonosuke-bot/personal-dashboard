@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { proxyDashboardRequest } from "../functions/_shared/dashboardProxy.ts";
+import { hasValidSession } from "../functions/_shared/sessionAuth.ts";
 
 test("dashboard proxy keeps the public URL local and authenticates upstream with a host-bound session", async () => {
   const originalFetch = globalThis.fetch;
@@ -8,12 +9,6 @@ test("dashboard proxy keeps the public URL local and authenticates upstream with
   globalThis.fetch = async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     calls.push({ url, init });
-    if (url.includes("/auth/handoff")) {
-      return new Response(null, {
-        status: 302,
-        headers: { Location: "/", "Set-Cookie": "personal_hub_session=upstream-token; Path=/; HttpOnly" },
-      });
-    }
     return new Response("ok", {
       status: 200,
       headers: { "Content-Type": "text/plain", "Set-Cookie": "personal_hub_session=do-not-forward; Path=/" },
@@ -33,11 +28,15 @@ test("dashboard proxy keeps the public URL local and authenticates upstream with
 
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("Set-Cookie"), null);
-    assert.equal(calls.length, 2);
-    assert.match(calls[0].url, /^https:\/\/finance\.example\/auth\/handoff\?token=/);
-    assert.equal(calls[1].url, "https://finance.example/api/expenses?limit=10");
-    const headers = new Headers(calls[1].init?.headers);
-    assert.equal(headers.get("Cookie"), "personal_hub_session=upstream-token");
+    // 引き継ぎの往復をせず、上流のホスト向けに署名したセッションを1回目のリクエストに付ける。
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "https://finance.example/api/expenses?limit=10");
+    const headers = new Headers(calls[0].init?.headers);
+    const cookie = headers.get("Cookie") || "";
+    assert.match(cookie, /^personal_hub_session=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+    const env = { SSO_SHARED_SECRET: "0123456789abcdef0123456789abcdef" };
+    assert.equal(await hasValidSession(new Request("https://finance.example/", { headers: { Cookie: cookie } }), env), true);
+    assert.equal(await hasValidSession(new Request("https://knowledge.example/", { headers: { Cookie: cookie } }), env), false);
     assert.equal(headers.get("Authorization"), null);
     assert.equal(headers.get("X-Forwarded-Host"), "hub.example");
   } finally {

@@ -33,6 +33,21 @@ test('明細の一覧は既定で取消済みを除き、Finance画面用の inc
   assert.match(urls[1], /select=[^&]*voided_at/)
 })
 
+test('明細の一覧は from で取引日の下限を絞れ、不正な日付は拒否する', async () => {
+  const urls: string[] = []
+  await withFetch((url) => { urls.push(url); return Response.json([], { headers: { 'Content-Range': '*/0' } }) }, async () => {
+    const ok = await expensesRoute({ request: new Request('https://dashboard.example/api/expenses?from=2026-09-01'), env })
+    assert.equal(ok.status, 200)
+    for (const bad of ['2026-9-1', '2026-13-40', 'x', '']) {
+      const response = await expensesRoute({ request: new Request(`https://dashboard.example/api/expenses?from=${bad}`), env })
+      assert.equal(response.status, 400, bad)
+    }
+  })
+  assert.equal(urls.length, 1)
+  assert.match(urls[0], /transaction_date=gte\.2026-09-01/)
+  assert.match(urls[0], /voided_at=is\.null/)
+})
+
 test('取消は行を消さず、有効な明細だけに取消日時を入れる。復元は取消済みだけを戻す', async () => {
   const calls: Array<{ url: string; method?: string; body: Record<string, unknown> }> = []
   await withFetch((url, init) => {

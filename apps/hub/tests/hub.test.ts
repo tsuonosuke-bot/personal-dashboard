@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { journalTargets, journalTrendRange, loadHub, normalizeHub, normalizeJournalMoment, normalizeJournalTrend } from "../functions/_shared/hub.ts";
+import { expenseWindowStart, journalTargets, journalTrendRange, loadHub, normalizeHub, normalizeJournalMoment, normalizeJournalTrend } from "../functions/_shared/hub.ts";
 import { onRequest as hubRoute } from "../functions/api/hub.ts";
 
 const now = new Date("2026-09-14T03:00:00.000Z");
@@ -328,6 +328,9 @@ test("hub route keeps the Supabase secret in server-side headers", async () => {
     assert.equal(requests.filter((entry) => entry.url.includes("/daily_journal?")).length, 4);
     assert.ok(requests.some((entry) => entry.url.includes("/projects?select=status")));
     assert.ok(requests.some((entry) => entry.url.includes("/writing_topics?select=status")));
+    // 支出は全期間ではなく、先月1日以降だけを家計簿から取る。
+    const expenseUrl = new URL(requests.find((entry) => entry.url.includes("/api/expenses"))!.url);
+    assert.match(expenseUrl.searchParams.get("from") || "", /^\d{4}-\d{2}-01$/);
     assert.ok(requests.every((entry) => !entry.url.includes("secret")));
     assert.doesNotMatch(body, /server-secret|hub-service-token/);
   } finally {
@@ -486,4 +489,11 @@ test("hub route still fails closed when every source is unavailable", async () =
   assert.equal(response.status, 503);
   const body = await response.text();
   assert.doesNotMatch(body, /SUPABASE_SECRET_KEY|HUB_SERVICE_TOKEN/);
+});
+
+test("Hubの支出の取得範囲はJSTの先月1日から", () => {
+  assert.equal(expenseWindowStart(new Date("2026-10-11T03:00:00Z")), "2026-09-01");
+  assert.equal(expenseWindowStart(new Date("2026-01-15T03:00:00Z")), "2025-12-01");
+  // UTCではまだ9月30日でも、JSTでは10月1日。
+  assert.equal(expenseWindowStart(new Date("2026-09-30T16:00:00Z")), "2026-09-01");
 });

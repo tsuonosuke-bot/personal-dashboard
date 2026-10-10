@@ -1,4 +1,4 @@
-import { createHandoffUrl, type SessionEnv } from "./sessionAuth.ts";
+import { createProxySessionCookie, type SessionEnv } from "./sessionAuth.ts";
 
 export interface DashboardProxyEnv extends SessionEnv {
   NAV_FINANCIAL_URL?: string;
@@ -33,19 +33,6 @@ function proxyPath(request: Request, target: DashboardTarget): string {
   if (pathname === prefix || pathname === `${prefix}/`) return "/";
   if (!pathname.startsWith(`${prefix}/`)) throw new Error("Dashboard proxy path is invalid.");
   return pathname.slice(prefix.length);
-}
-
-function cookiePair(setCookie: string | null): string | null {
-  const pair = setCookie?.split(";", 1)[0]?.trim() || "";
-  return /^[^=;\s]+=[^;]*$/.test(pair) ? pair : null;
-}
-
-async function upstreamSession(base: URL, env: DashboardProxyEnv): Promise<string | null> {
-  const handoff = await createHandoffUrl(base, env);
-  if (!handoff) return null;
-  const response = await fetch(handoff, { method: "GET", redirect: "manual" });
-  if (response.status < 300 || response.status >= 400) return null;
-  return cookiePair(response.headers.get("Set-Cookie"));
 }
 
 function requestHeaders(request: Request, sessionCookie: string | null, upstream: URL): Headers {
@@ -97,7 +84,8 @@ export async function proxyDashboardRequest(context: ProxyContext, target: Dashb
   const incoming = new URL(context.request.url);
   const upstream = new URL(path, base);
   upstream.search = incoming.search;
-  const sessionCookie = await upstreamSession(base, context.env);
+  // 上流へは署名済みのセッションCookieを直接付ける（引き継ぎの往復をしない）。
+  const sessionCookie = await createProxySessionCookie(base, context.env);
   const method = context.request.method;
   const response = await fetch(upstream, {
     method,
