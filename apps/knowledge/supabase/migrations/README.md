@@ -153,3 +153,8 @@ matching Cloudflare Pages build.
   `quiz_log`, so the instant multiple-choice path and the grading batch are both
   covered) and backfills existing correct results. "未確認の採点結果" then counts
   only 不正解・部分正解, which the dashboard shows as 見直す講評.
+
+- `20261011100000_new_cards_bounds_once.sql` computes today's start once in
+  `review_new_cards_remaining_today()` (a `MATERIALIZED` CTE) instead of once
+  per `quiz_log` row. Same result; `get_daily_review_status` drops from ~42 ms
+  to ~11 ms.
