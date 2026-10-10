@@ -283,6 +283,11 @@ a.dashboard-brand { text-decoration: none; }
   .dashboard-hub::after { content: "←"; font-size: 17px; }
 }
 
+/* iOS Safariは16px未満の入力欄にフォーカスすると画面を拡大し、戻らないので、タッチ端末では入力欄を16pxにそろえる */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px !important; }
+}
+
 /* tabbar:start — tabbar.js と同じく Hub・Knowledge・Finance で同一の内容。変えるときは3つとも揃える */
 .tabbar { display: none; }
 .tabbar-item.hub { --tab-accent: #202822; --tab-soft: #e8e9e5; }
