@@ -578,6 +578,12 @@ button:disabled { opacity: 0.4; cursor: default; }
 .review-feedback .review-result-body { margin-top: 12px; }
 .review-feedback .quiz-progress .badge { margin-left: 8px; }
 .review-feedback-actions { margin-top: 14px; }
+.review-answer-history { margin-top: 14px; border-top: 1px solid #edf1f6; padding-top: 10px; }
+.review-answer-history summary { cursor: pointer; color: #526079; font-size: 13px; font-weight: 700; }
+.review-answer-history summary span { color: #94a3b8; font-weight: 500; }
+.review-answer-history ol { display: grid; gap: 10px; max-height: 420px; overflow: auto; margin: 10px 0 0; padding: 0; list-style: none; }
+.review-answer-history li { padding: 10px 12px; border: 1px solid #edf1f6; border-radius: 10px; }
+.review-answer-history-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; color: #526079; font-size: 12px; }
 .review-report { color: #7a879b; font-size: 12px; }
 .quiz-question-actions .action-spacer { flex: 1; }
 .pending-answers { display: grid; gap: 8px; }

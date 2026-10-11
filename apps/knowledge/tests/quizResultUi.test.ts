@@ -113,3 +113,18 @@ test("復習の回答はCtrl+Enter（Macは⌘+Enter）でも提出でき、変�
   assert.match(view, /event\.nativeEvent\.isComposing \|\| event\.repeat \|\| busy/);
   assert.match(view, /Ctrl\+Enter（Macは⌘\+Enter）でも回答できます/);
 });
+
+test("答え合わせ画面で、そのカードの過去の回答履歴を見返せる", async () => {
+  const [view, history] = await Promise.all([
+    readFile(new URL("../src/components/ReviewView.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/components/ReviewAnswerHistory.tsx", import.meta.url), "utf8"),
+  ]);
+  // 答えを見た後（答え合わせ）にだけ出す。回答前に出すとヒントになる
+  const feedbackCard = view.slice(view.indexOf("function ReviewFeedbackCard"));
+  assert.match(feedbackCard, /<ReviewAnswerHistory quizLog=\{quizLog\} knowledgeId=\{question\.knowledge_id\} currentQueueId=\{question\.id\} \/>/);
+  assert.doesNotMatch(view.slice(view.indexOf("function ReviewQuestionCard"), view.indexOf("function ReviewFeedbackCard")), /ReviewAnswerHistory/);
+  // 既定では閉じておき、問題・回答・模範解答・講評・メモを見せる
+  assert.match(history, /<details className="review-answer-history">/);
+  assert.doesNotMatch(history, /<details[^>]*\bopen\b/);
+  for (const label of ["問題", "あなたの回答", "模範解答", "講評", "メモ"]) assert.match(history, new RegExp(`<dt>${label}</dt>`));
+});
