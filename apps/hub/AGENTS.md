@@ -8,6 +8,9 @@
 - Keep frequent actions above the fold and make touch targets practical without making cards unnecessarily tall.
 - Prefer clear hierarchy, readable contrast, and functional states over decorative copy.
 - Give each dashboard route a distinct but restrained accent color; do not reuse another route's visual identity.
+- The look follows Notion: white surfaces, thin borders, borderless header buttons, small type no smaller than 12px. Neutral colors, type sizes, radii and the popover shadow are tokens in `public/dashboard-shell.css` (`--text`, `--bg`, `--border`, …, the same names as Knowledge and Finance); page stylesheets alias `--paper`/`--ink`/`--muted`/`--line` to them. Write new neutral colors as these tokens, not hex values.
+- Each page keeps its theme color as `--page-accent` (Hub dark green, Idea green, Projects gold, Writing plum, Habits rust, Finance blue-green, Knowledge purple). Use it only for the brand mark, the primary action and small highlights; never borrow another page's color.
+- The header shows the connection badge only when something is wrong (`.source-badge.live` is hidden).
 - Check both a narrow phone viewport and desktop layout after UI changes.
 - Before reporting a deployment complete, verify the normal production URL and live data rather than relying only on deployment status.
 

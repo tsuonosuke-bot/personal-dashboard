@@ -1,15 +1,10 @@
 /* Generated from projects.css by scripts/build-dark-theme.mjs. Do not edit. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --paper: #1c1d1f;
-  --paper--light: #f2f4f6;
-  --surface: #292929;
-  --surface--light: #ffffff;
-  --ink: #cfd7df;
-  --ink--light: #202830;
-  --muted: #a7b0b7;
-  --muted--light: #66727c;
-  --line: #4b5258;
+  --paper--light: var(--bg--light, var(--bg));
+  --surface--light: var(--bg--light, var(--bg));
+  --ink--light: var(--text--light, var(--text));
+  --muted--light: var(--text-secondary--light, var(--text-secondary));
   --accent: #ecd09c;
   --accent--light: #7d5a18;
   --accent-hover: #f1d8aa;
@@ -48,12 +43,12 @@
 }
 :root[data-theme="dark"] .summary-grid button {
   border: 1px solid rgba(216, 158, 50, 0.16);
-  border-radius: 11px;
+  border-radius: var(--radius);
   background: var(--surface);
 }
 :root[data-theme="dark"] .summary-grid button:hover {
   border-color: var(--accent);
-  background: #2c2a25;
+  background: var(--bg);
 }
 :root[data-theme="dark"] .summary-grid button.attention strong {
   color: var(--attention);
@@ -62,15 +57,15 @@
   color: var(--muted);
 }
 :root[data-theme="dark"] .summary-grid small {
-  color: #979fa6;
+  color: var(--text-tertiary);
 }
 :root[data-theme="dark"] .project-board {
   border: 1px solid rgba(216, 158, 50, 0.16);
-  border-radius: 13px;
+  border-radius: var(--radius);
   background: var(--surface);
 }
 :root[data-theme="dark"] .eyebrow {
-  color: var(--accent);
+  color: var(--text-secondary);
 }
 :root[data-theme="dark"] .tabs {
   border-bottom: 1px solid var(--line);
@@ -87,13 +82,13 @@
 }
 :root[data-theme="dark"] .filters select {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface, #292929);
+  border-radius: var(--radius-sm);
+  background: var(--surface, var(--bg));
   color: var(--ink);
 }
 :root[data-theme="dark"] .history-more button {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--accent);
 }
@@ -106,8 +101,8 @@
 :root[data-theme="dark"] form select,
 :root[data-theme="dark"] form textarea {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #292929;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
   color: var(--ink);
 }
 :root[data-theme="dark"] .filters input:focus,
@@ -121,8 +116,8 @@
 :root[data-theme="dark"] .state-card button,
 :root[data-theme="dark"] .text-button {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #292929;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
 }
 :root[data-theme="dark"] .result-line {
   color: var(--muted);
@@ -132,7 +127,7 @@
 }
 :root[data-theme="dark"] .state-card {
   border: 1px dashed var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   color: var(--muted);
 }
 :root[data-theme="dark"] .state-card.error strong {
@@ -140,12 +135,12 @@
 }
 :root[data-theme="dark"] .project-card {
   border: 1px solid var(--line);
-  border-radius: 11px;
-  background: #292929;
+  border-radius: var(--radius);
+  background: var(--bg);
 }
 :root[data-theme="dark"] .project-card.needs-attention {
   border-color: rgba(186, 94, 79, 0.4);
-  background: #2b2626;
+  background: var(--bg);
 }
 :root[data-theme="dark"] .project-copy p {
   color: var(--muted);
@@ -169,7 +164,7 @@
 }
 :root[data-theme="dark"] .next-action {
   border-left: 3px solid var(--accent);
-  border-radius: 5px 9px 9px 5px;
+  border-radius: 5px var(--radius-sm) var(--radius-sm) 5px;
   background: var(--accent-soft);
 }
 :root[data-theme="dark"] .next-action.missing {
@@ -186,8 +181,8 @@
 }
 :root[data-theme="dark"] .card-actions button {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #292929;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
 }
 :root[data-theme="dark"] .card-actions .complete-action {
   border-color: var(--accent);
@@ -202,7 +197,7 @@
 }
 :root[data-theme="dark"] .editor {
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: 0 24px 70px rgba(27, 38, 47, .24);
 }
@@ -212,8 +207,8 @@
 }
 :root[data-theme="dark"] .icon-button {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #292929;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
 }
 :root[data-theme="dark"] .form-hint {
   color: var(--muted);
@@ -223,8 +218,8 @@
 }
 :root[data-theme="dark"] .editor-actions button {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #292929;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
 }
 :root[data-theme="dark"] .editor-actions .save-button {
   border-color: var(--accent);
@@ -244,19 +239,19 @@
   color: var(--muted);
 }
 :root[data-theme="dark"] .detail-next {
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: var(--accent-soft);
 }
 :root[data-theme="dark"] .detail-next button {
   border: 1px solid var(--accent);
-  border-radius: 8px;
-  background: #292929;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
   color: var(--accent);
 }
 :root[data-theme="dark"] .action-row,
 :root[data-theme="dark"] .related-row {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 :root[data-theme="dark"] .action-row small,
 :root[data-theme="dark"] .related-row small {
@@ -268,13 +263,13 @@
 }
 :root[data-theme="dark"] .related-row-unprocessed {
   border-color: rgba(186, 94, 79, 0.34);
-  background: #2b2626;
+  background: var(--bg);
 }
 :root[data-theme="dark"] .related-action-form button,
 :root[data-theme="dark"] .related-treatment-actions button {
   border: 1px solid var(--line);
-  border-radius: 7px;
-  background: #292929;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
   color: var(--accent);
 }
 :root[data-theme="dark"] .related-action-form button {
@@ -306,7 +301,7 @@
 }
 :root[data-theme="dark"] .milestone-group {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: var(--paper);
 }
 :root[data-theme="dark"] .milestone-group .task-row {
@@ -328,7 +323,7 @@
 :root[data-theme="dark"] .milestone-add,
 :root[data-theme="dark"] .bulk-add {
   border: 1px dashed var(--line);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
 }
 :root[data-theme="dark"] .milestone-add > summary,
 :root[data-theme="dark"] .bulk-add > summary {
@@ -344,7 +339,7 @@
 }
 :root[data-theme="dark"] .task-row {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 :root[data-theme="dark"] .task-row.editing {
   border-color: var(--accent);
@@ -357,7 +352,7 @@
 }
 :root[data-theme="dark"] .task-buttons button {
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--accent);
 }
@@ -366,7 +361,7 @@
 }
 :root[data-theme="dark"] .action-edit-buttons button {
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink);
 }
@@ -382,37 +377,37 @@
 }
 :root[data-theme="dark"] .empty-detail {
   border: 1px dashed var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
 }
 :root[data-theme="dark"] .inline-action-form button {
   border: 1px solid var(--accent);
-  border-radius: 8px;
-  background: #292929;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
   color: var(--accent);
 }
 :root[data-theme="dark"] .detail-toolbar button {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #292929;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
 }
 :root[data-theme="dark"] .completed-action {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--done-soft);
 }
 :root[data-theme="dark"] .resolution-options {
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
 }
 :root[data-theme="dark"] .toast {
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: #24313b;
   color: #fff;
   box-shadow: 0 12px 34px rgba(20, 27, 33, .24);
 }
 @media (max-width: 680px) {
   :root[data-theme="dark"] .editor {
-    border-radius: 15px 15px 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
 }
 :root[data-theme="dark"] .badge.stale {
@@ -426,7 +421,7 @@
 }
 :root[data-theme="dark"] .review-section {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: var(--surface);
 }
 :root[data-theme="dark"] .review-section > header b {
@@ -437,7 +432,7 @@
 }
 :root[data-theme="dark"] .review-row {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink);
 }

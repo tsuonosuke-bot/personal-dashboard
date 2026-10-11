@@ -387,7 +387,11 @@ test("Hub and personal dashboards use the requested page names and shared shell"
   assert.match(shell, /\.dashboard-switcher summary \{ width: 40px; height: 40px; min-height: 40px;/);
   assert.match(shell, /\.dashboard-hub, \.dashboard-switcher summary, \.dashboard-refresh, \.dashboard-primary \{ height: 40px; min-height: 40px; \}/);
   assert.match(shell, /--dashboard-width: 1240px/);
-  assert.match(shell, /--dashboard-header-height: 68px/);
+  // Notion風の薄いトップバー（スマホ幅は52px）
+  assert.match(shell, /--dashboard-header-height: 48px/);
+  assert.match(shell, /--dashboard-header-height: 52px/);
+  // 正常時の接続表示は出さない
+  assert.match(shell, /\.source-badge\.live \{ display: none; \}/);
 });
 
 test("Compass defaults each tab to actionable items and counts the filtered results", async () => {

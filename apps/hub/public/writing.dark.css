@@ -1,15 +1,10 @@
 /* Generated from writing.css by scripts/build-dark-theme.mjs. Do not edit. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --paper: #1f1c1d;
-  --paper--light: #f6f2f4;
-  --surface: #2a2828;
-  --surface--light: #fffdfd;
-  --ink: #dbd3d8;
-  --ink--light: #2d252a;
-  --muted: #b3abb0;
-  --muted--light: #766b71;
-  --line: #554b51;
+  --paper--light: var(--bg--light, var(--bg));
+  --surface--light: var(--bg--light, var(--bg));
+  --ink--light: var(--text--light, var(--text));
+  --muted--light: var(--text-secondary--light, var(--text-secondary));
   --accent: #d0a4be;
   --accent--light: #7a3f62;
   --accent-hover: #d8b1c8;
@@ -28,7 +23,7 @@
   --page-accent-soft--light: var(--accent-soft--light, var(--accent-soft));
 }
 :root[data-theme="dark"] body {
-  background: radial-gradient(circle at 12% 0%, #2b2629 0, transparent 32%), var(--paper);
+  background: var(--paper);
   color: var(--ink);
 }
 :root[data-theme="dark"] a {
@@ -42,7 +37,7 @@
   text-decoration: none;
 }
 :root[data-theme="dark"] .brand span {
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: var(--accent--light, var(--accent));
   color: #fff;
 }
@@ -55,18 +50,18 @@
 }
 :root[data-theme="dark"] .refresh-button {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--accent);
 }
 :root[data-theme="dark"] .eyebrow {
-  color: var(--accent);
+  color: var(--text-secondary);
 }
 :root[data-theme="dark"] .page-heading p {
   color: var(--muted);
 }
 :root[data-theme="dark"] .primary-link {
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: var(--accent--light, var(--accent));
   color: #fff;
   text-decoration: none;
@@ -76,36 +71,23 @@
 }
 :root[data-theme="dark"] .summary-grid button {
   border: 1px solid rgba(172, 94, 140, 0.14);
-  border-radius: 11px;
+  border-radius: var(--radius);
   background: var(--surface);
 }
 :root[data-theme="dark"] .summary-grid button:hover {
   border-color: var(--accent);
-  background: #2c2629;
+  background: var(--bg);
 }
 :root[data-theme="dark"] .summary-grid span {
   color: var(--muted);
 }
 :root[data-theme="dark"] .summary-grid small {
-  color: #989e99;
+  color: var(--text-tertiary);
 }
 :root[data-theme="dark"] .writing-board {
   border: 1px solid rgba(172, 94, 140, 0.14);
-  border-radius: 13px;
+  border-radius: var(--radius);
   background: var(--surface);
-}
-:root[data-theme="dark"] .source-badge {
-  border-radius: 999px;
-  background: #383831;
-  color: var(--muted);
-}
-:root[data-theme="dark"] .source-badge.live {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-:root[data-theme="dark"] .source-badge.error {
-  background: #412927;
-  color: #d6928d;
 }
 :root[data-theme="dark"] .tabs {
   border-bottom: 1px solid var(--line);
@@ -129,9 +111,9 @@
 :root[data-theme="dark"] .editor input,
 :root[data-theme="dark"] .editor select,
 :root[data-theme="dark"] .editor textarea {
-  border: 1px solid #4e504a;
-  border-radius: 8px;
-  background: #292929;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
   color: var(--ink);
 }
 :root[data-theme="dark"] .filters input:focus,
@@ -144,8 +126,8 @@
 }
 :root[data-theme="dark"] #clearFilters {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #292929;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
   color: var(--muted);
 }
 :root[data-theme="dark"] .result-line {
@@ -159,21 +141,21 @@
 }
 :root[data-theme="dark"] .state-card.error button {
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--accent--light, var(--accent));
   color: #fff;
 }
 :root[data-theme="dark"] .topic-card {
-  border: 1px solid #564c52;
-  border-radius: 11px;
-  background: #292929;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
 }
 :root[data-theme="dark"] .topic-open {
   border: 0;
   background: transparent;
 }
 :root[data-theme="dark"] .topic-open:hover {
-  background: #2c2629;
+  background: var(--bg);
 }
 :root[data-theme="dark"] .topic-status {
   border-radius: 999px;
@@ -190,11 +172,11 @@
   color: var(--muted);
 }
 :root[data-theme="dark"] .topic-updated {
-  color: #949a95;
+  color: var(--text-tertiary);
 }
 :root[data-theme="dark"] .topic-card footer {
   border-top: 1px solid #594c53;
-  background: #242224;
+  background: var(--bg-subtle);
 }
 :root[data-theme="dark"] .topic-card footer a {
   color: var(--accent);
@@ -217,17 +199,17 @@
   background: rgba(42,29,37,.56);
 }
 :root[data-theme="dark"] .editor {
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: var(--paper);
   box-shadow: 0 22px 70px rgba(55,31,45,.3);
 }
 :root[data-theme="dark"] .icon-button {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #292929;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
 }
 :root[data-theme="dark"] .editor-source {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--accent-soft);
 }
 :root[data-theme="dark"] .editor-source span {
@@ -238,14 +220,14 @@
   text-decoration: none;
 }
 :root[data-theme="dark"] .form-error {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: #412927;
   color: #d6928d;
 }
 :root[data-theme="dark"] .editor-actions button {
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #292929;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
 }
 :root[data-theme="dark"] .editor-actions .save-button {
   border-color: var(--accent);
@@ -256,7 +238,7 @@
   background: var(--accent-hover--light, var(--accent-hover));
 }
 :root[data-theme="dark"] .toast {
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: var(--ink--light, var(--ink));
   color: #fff;
   box-shadow: 0 8px 28px rgba(0,0,0,.2);
@@ -265,9 +247,9 @@
   color: var(--muted);
 }
 :root[data-theme="dark"] .add-guide-steps li {
-  border: 1px solid #544d52;
-  border-radius: 10px;
-  background: #292929;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
 }
 :root[data-theme="dark"] .add-guide-steps li::before {
   border-radius: 999px;

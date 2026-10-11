@@ -35,7 +35,7 @@ export function CategoryPieChart({ expenses, selectedMonth }: Props) {
     <section className="panel chart-panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Breakdown</p>
+          
           <h2 className="panel-title">選択月の支出内訳</h2>
         </div>
         <span className="panel-caption">{monthLabel(selectedMonth)}</span>

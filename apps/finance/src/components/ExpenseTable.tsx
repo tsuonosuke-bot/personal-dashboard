@@ -141,7 +141,7 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
     <section className="panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Transactions</p>
+          
           <h2 className="panel-title">収支明細</h2>
         </div>
         <div className="text-right">
