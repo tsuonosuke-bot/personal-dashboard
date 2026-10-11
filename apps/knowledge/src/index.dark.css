@@ -512,7 +512,7 @@
   border-radius: var(--radius-lg);
 }
 :root[data-theme="dark"] .quiz-page {
-  background: var(--bg-hover);
+  background: var(--bg);
 }
 :root[data-theme="dark"] .quiz-header {
   border-bottom: 1px solid var(--border);
@@ -783,19 +783,6 @@
 :root[data-theme="dark"] .insight-group-head a {
   color: var(--accent);
 }
-:root[data-theme="dark"] .organize-guide p {
-  color: var(--text-secondary);
-}
-:root[data-theme="dark"] .organize-guide dl div {
-  border-radius: var(--radius);
-  background: var(--bg-subtle);
-}
-:root[data-theme="dark"] .organize-guide dt {
-  color: var(--accent);
-}
-:root[data-theme="dark"] .organize-guide dd {
-  color: var(--text-secondary);
-}
 :root[data-theme="dark"] .organize-tabs button {
   border: 0;
   background: transparent;
@@ -863,12 +850,6 @@
   border-radius: var(--radius);
   background: var(--bg-hover);
   color: var(--accent);
-}
-:root[data-theme="dark"] .insight-organizer-intro p {
-  color: var(--text-secondary);
-}
-:root[data-theme="dark"] .insight-organizer-intro small {
-  color: var(--text-secondary);
 }
 :root[data-theme="dark"] .insight-group-form label {
   color: var(--text-secondary);

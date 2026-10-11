@@ -52,7 +52,6 @@ export function TagGroupsPanel({
   return (
       <div className="tag-groups-view">
         <div className="tag-groups-intro card">
-          <p>タグからナレッジを探せます。復習の予定や記録は、この画面を見ても変わりません。</p>
           <label className="tag-groups-category">
             <span>カテゴリ</span>
             <select value={category} onChange={(event) => { setCategory(event.target.value); setSelection({ kind: "all" }); setVisibleCount(PAGE_SIZE); }}>

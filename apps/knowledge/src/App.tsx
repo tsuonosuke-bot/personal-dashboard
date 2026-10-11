@@ -49,6 +49,8 @@ export default function App() {
   const [showLog, setShowLog] = useState(() => initialRoute.kind === "log");
   const [showSearch, setShowSearch] = useState(() => initialRoute.kind === "search");
   const [showHelp, setShowHelp] = useState(() => initialRoute.kind === "help");
+  /** 整理ページの「使い方」から開いたときは、その節を表示し、戻るときは整理ページへ戻す。 */
+  const [helpFrom, setHelpFrom] = useState<OrganizeState | null>(null);
   const [organize, setOrganize] = useState<OrganizeState | null>(() => (
     initialRoute.kind === "organize"
       ? { tab: initialRoute.tab, questionId: initialRoute.questionId, theme: initialRoute.theme ?? null }
@@ -295,6 +297,7 @@ export default function App() {
   };
 
   const setHelpOpen = (open: boolean) => {
+    setHelpFrom(null);
     replaceRoute(open ? { kind: "help" } : { kind: "dashboard" });
     setSelected(null);
     setShowQuiz(false);
@@ -502,6 +505,11 @@ export default function App() {
           onTabChange={(tab) => setOrganizeOpen(tab)}
           onOpenKnowledge={openKnowledge}
           onExit={() => setOrganizeOpen(null)}
+          onOpenHelp={() => {
+            const from = organize;
+            setHelpOpen(true);
+            setHelpFrom(from);
+          }}
           noteSelection={noteSelection}
           onNoteSelect={selectNote}
           onReviewNote={reviewNote}
@@ -551,7 +559,24 @@ export default function App() {
   }
 
   if (showHelp) {
-    return <HelpView newLimit={dailyReview.status?.new_limit ?? 10} onExit={() => setHelpOpen(false)} />;
+    return (
+      <HelpView
+        newLimit={dailyReview.status?.new_limit ?? 10}
+        section={helpFrom ? "help-organize" : null}
+        backLabel={helpFrom ? "整理ページへ戻る" : undefined}
+        onExit={() => {
+          if (!helpFrom) {
+            setHelpOpen(false);
+            return;
+          }
+          const back = helpFrom;
+          setHelpFrom(null);
+          setShowHelp(false);
+          replaceRoute({ kind: "organize", ...back });
+          setOrganize(back);
+        }}
+      />
+    );
   }
 
   if (showLog) {

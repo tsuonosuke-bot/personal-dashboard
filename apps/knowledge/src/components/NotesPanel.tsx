@@ -222,13 +222,6 @@ export function NotesPanel({
 
   return (
     <div className="tag-groups-view">
-      <div className="tag-groups-intro card">
-        <p>
-          問いやテーマを選ぶと、集まったナレッジ・示唆・日記を1枚のノートとして読めます。テーマは自動タグで、
-          そのタグのナレッジと、意味の近い示唆・日記が集まります。合わないものは「外す」と、そのノートには二度と出ません。
-        </p>
-      </div>
-
       {topicsError && <div className="err compact" role="alert">ノートの一覧を読み込めませんでした。{topicsError}</div>}
       <div className="tag-groups-layout">
         <nav className="tag-groups-picker card notes-picker" aria-label="ノートの一覧">
