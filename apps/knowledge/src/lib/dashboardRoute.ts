@@ -6,6 +6,7 @@ export type DashboardRoute =
   | { kind: "speaking" }
   | { kind: "log" }
   | { kind: "search" }
+  | { kind: "help" }
   /** ノートタブ（#96）では questionId か theme（自動タグの語彙）のどちらかで開くノートを指す。 */
   | { kind: "organize"; tab: OrganizeTab; questionId: number | null; theme?: string | null }
   | { kind: "knowledge"; knowledgeId: string }
@@ -29,6 +30,7 @@ export function parseDashboardRoute(value: string | URL): DashboardRoute {
   if (url.searchParams.get("view") === "speaking") return { kind: "speaking" };
   if (url.searchParams.get("view") === "log") return { kind: "log" };
   if (url.searchParams.get("view") === "search") return { kind: "search" };
+  if (url.searchParams.get("view") === "help") return { kind: "help" };
   const view = url.searchParams.get("view");
   // 旧URL（view=insights / view=tags）は統合した「整理」ページの該当タブで開く。
   if (view === "insights") return { kind: "organize", tab: "questions", questionId: null };
@@ -74,6 +76,7 @@ export function dashboardRoutePath(value: string | URL, route: DashboardRoute): 
   if (route.kind === "speaking") url.searchParams.set("view", "speaking");
   if (route.kind === "log") url.searchParams.set("view", "log");
   if (route.kind === "search") url.searchParams.set("view", "search");
+  if (route.kind === "help") url.searchParams.set("view", "help");
   if (route.kind === "organize") {
     url.searchParams.set("view", "organize");
     if (route.tab !== "questions") url.searchParams.set("tab", route.tab);

@@ -25,7 +25,7 @@ export function HistoryChart({ quizLog }: { quizLog: QuizLog[] }) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ top: 8, right: 8, bottom: 18, left: -20 }}>
-        <CartesianGrid stroke="#f1f5f9" vertical={false} />
+        <CartesianGrid stroke="#e9e9e7" vertical={false} />
         <XAxis dataKey="date" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" height={50} />
         <YAxis yAxisId="left" allowDecimals={false} tick={{ fontSize: 11 }} />
         <YAxis
@@ -39,11 +39,11 @@ export function HistoryChart({ quizLog }: { quizLog: QuizLog[] }) {
         <Legend wrapperStyle={{ fontSize: 12 }} />
         <Line
           yAxisId="left" type="monotone" dataKey="total" name="出題数"
-          stroke="#60a5fa" dot={{ r: 2 }} strokeWidth={2}
+          stroke="#2383e2" dot={{ r: 2 }} strokeWidth={2}
         />
         <Line
           yAxisId="right" type="monotone" dataKey="accuracy" name="正答率(%)"
-          stroke="#4ade80" dot={{ r: 2 }} strokeWidth={2}
+          stroke="#448361" dot={{ r: 2 }} strokeWidth={2}
         />
       </LineChart>
     </ResponsiveContainer>

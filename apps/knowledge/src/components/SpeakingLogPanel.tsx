@@ -105,7 +105,7 @@ export function SpeakingLogPanel({ knowledge, periodOptions }: Props) {
           <div className="chart-box">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={daily} margin={{ top: 8, right: 8, bottom: 0, left: -20 }} barCategoryGap="20%">
-                <CartesianGrid stroke="#f1f5f9" vertical={false} />
+                <CartesianGrid stroke="#e9e9e7" vertical={false} />
                 <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fontSize: 11 }} minTickGap={16} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                 <Tooltip

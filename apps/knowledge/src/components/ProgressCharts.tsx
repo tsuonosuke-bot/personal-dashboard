@@ -31,7 +31,6 @@ export function MemoryHoldChart({ knowledge, quizLog }: { knowledge: Knowledge[]
   return (
     <section className="card progress-card" aria-labelledby="memory-hold-title">
       <h3 id="memory-hold-title">記憶のもち</h3>
-      <p className="progress-sub">次に忘れるまでの見込み期間ごとのカード数（全{total}枚）</p>
       <div className="hold-bars" role="img" aria-describedby="memory-hold-summary">
         {buckets.map((bucket) => (
           <div className="hold-bar" key={bucket.key} {...bind(`${bucket.label}: ${bucket.count}枚（${percent(bucket.count, total)}%）`)}>
@@ -73,7 +72,6 @@ export function WeeklyAccuracyChart({ quizLog }: { quizLog: QuizLog[] }) {
   return (
     <section className="card progress-card" aria-labelledby="weekly-accuracy-title">
       <h3 id="weekly-accuracy-title">復習の正答率（週別）</h3>
-      <p className="progress-sub">2回目以降の出題だけ。新しく覚える分は含めない</p>
       <div className="accuracy-bars" role="img" aria-describedby="weekly-accuracy-summary">
         <div className="accuracy-axis" aria-hidden="true">
           <div style={{ bottom: "100%" }}><span>100%</span></div>

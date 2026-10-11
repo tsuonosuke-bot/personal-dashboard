@@ -40,6 +40,7 @@ function historySummary(quizLog: QuizLog[]): string {
 
 /**
  * 学習の進み具合は「どれだけ覚えていられるか」（記憶のもち・復習の正答率）と日別の履歴で見る。
+ * 各グラフの定義の説明はヘルプページに置く。
  * 毎日見る必要のない登録数・カテゴリ・習熟度のグラフは折りたたみ、開いたときだけ描く。
  */
 export function DashboardCharts({ knowledge, registrationKnowledge, quizLog }: Props) {
@@ -48,7 +49,6 @@ export function DashboardCharts({ knowledge, registrationKnowledge, quizLog }: P
     <>
       <div className="progress-heading">
         <h2>学習の進み具合</h2>
-        <p>件数ではなく「どれだけ覚えていられるか」で見る</p>
       </div>
       <div className="charts">
         <MemoryHoldChart knowledge={knowledge} quizLog={quizLog} />
@@ -58,7 +58,7 @@ export function DashboardCharts({ knowledge, registrationKnowledge, quizLog }: P
         </ChartCard>
       </div>
       <details className="other-charts" onToggle={(event) => setOthersOpen(event.currentTarget.open)}>
-        <summary>その他のグラフ（登録数の推移・習熟度の推移・カテゴリ別分布・習熟度分布）</summary>
+        <summary>その他のグラフ</summary>
         {othersOpen && (
           <div className="charts">
             <RegistrationTrendChart knowledge={registrationKnowledge} />
