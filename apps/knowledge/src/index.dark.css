@@ -16,12 +16,12 @@
   --bg-active--light: #e6e6e3;
   --border: #555552;
   --border-strong: #4e4e4b;
-  --accent: #61a6ea;
-  --accent--light: #2383e2;
-  --accent-hover: #71b8f7;
-  --accent-hover--light: #0b6ec5;
-  --accent-soft: #29373d;
-  --accent-soft--light: #e7f3f8;
+  --accent: #a89cc3;
+  --accent--light: #66558c;
+  --accent-hover: #b2a6cd;
+  --accent-hover--light: #554479;
+  --accent-soft: #1b1820;
+  --accent-soft--light: #f1edf8;
   --red: #db6864;
   --red--light: #d44c47;
   --red-soft: #241718;
@@ -116,7 +116,7 @@
 :root[data-theme="dark"] select:focus,
 :root[data-theme="dark"] textarea:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(35, 131, 226, .18);
+  box-shadow: 0 0 0 3px rgba(102, 85, 140, .18);
 }
 :root[data-theme="dark"] .count {
   color: var(--text-secondary);
@@ -128,7 +128,7 @@
   border: 0;
   border-radius: var(--radius-sm);
   background: var(--accent-soft);
-  color: var(--blue);
+  color: var(--accent);
 }
 :root[data-theme="dark"] .filter-chip:hover:not(:disabled) {
   background: var(--bg-active);
@@ -223,7 +223,7 @@
   background: var(--bg-hover);
 }
 :root[data-theme="dark"] :focus-visible {
-  outline: 2px solid rgba(39, 133, 226, 0.5);
+  outline: 2px solid rgba(121, 103, 163, 0.5);
   outline-offset: 1px;
 }
 :root[data-theme="dark"] .primary-button {
@@ -387,7 +387,7 @@
 }
 :root[data-theme="dark"] .dashboard-brand-mark {
   border-radius: 4px;
-  background: var(--text--light, var(--text));
+  background: var(--accent--light, var(--accent));
   color: #fff;
 }
 :root[data-theme="dark"] .head-actions button,
@@ -420,6 +420,9 @@
 }
 :root[data-theme="dark"] .page-tool-primary {
   color: var(--text);
+}
+:root[data-theme="dark"] .page-tool-primary .page-tool-icon {
+  color: var(--accent);
 }
 :root[data-theme="dark"] .page-tool-icon {
   fill: none;
@@ -1370,7 +1373,7 @@
   background: var(--accent--light, var(--accent));
 }
 :root[data-theme="dark"] .accuracy-col.partial .accuracy-plot i {
-  background: repeating-linear-gradient(135deg, var(--accent--light, var(--accent)) 0 5px, #284057 5px 8px);
+  background: repeating-linear-gradient(135deg, var(--accent--light, var(--accent)) 0 5px, #a99cc8 5px 8px);
 }
 :root[data-theme="dark"] .accuracy-col > span {
   color: var(--text-secondary);
