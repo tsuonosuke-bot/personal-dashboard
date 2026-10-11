@@ -1,15 +1,10 @@
 /* Generated from habits.css by scripts/build-dark-theme.mjs. Do not edit. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --paper: #1e1b17;
-  --paper--light: #f7f1eb;
-  --surface: #2b2926;
-  --surface--light: #fffdfa;
-  --ink: #dcd2cd;
-  --ink--light: #352a25;
-  --muted: #b6ada8;
-  --muted--light: #7b6e67;
-  --line: #594d45;
+  --paper--light: var(--bg--light, var(--bg));
+  --surface--light: var(--bg--light, var(--bg));
+  --ink--light: var(--text--light, var(--text));
+  --muted--light: var(--text-secondary--light, var(--text-secondary));
   --accent: #e2a58e;
   --accent--light: #9a4727;
   --accent-hover: #e9b39f;
@@ -45,7 +40,7 @@ html[data-theme="dark"] {
   text-decoration: none;
 }
 :root[data-theme="dark"] .brand-mark {
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: var(--accent--light, var(--accent));
   color: #fff;
 }
@@ -75,7 +70,7 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] .icon-button {
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--accent);
 }
@@ -85,7 +80,7 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] .primary-button,
 :root[data-theme="dark"] .secondary-button {
-  border-radius: 10px;
+  border-radius: var(--radius);
 }
 :root[data-theme="dark"] .primary-button {
   border: 0;
@@ -96,22 +91,22 @@ html[data-theme="dark"] {
   background: var(--accent-hover--light, var(--accent-hover));
 }
 :root[data-theme="dark"] .topbar-add {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 :root[data-theme="dark"] .secondary-button {
   border: 1px solid var(--line);
-  background: #292929;
+  background: var(--bg);
 }
 :root[data-theme="dark"] .summary-card {
   border: 1px solid rgba(175, 119, 90, 0.13);
-  border-radius: 11px;
+  border-radius: var(--radius);
   background: rgba(43, 41, 38, 0.84);
 }
 :root[data-theme="dark"] .summary-card span {
   color: var(--muted);
 }
 :root[data-theme="dark"] .summary-card small {
-  color: #98a29b;
+  color: var(--text-tertiary);
 }
 :root[data-theme="dark"] .summary-card.accent {
   background: var(--accent-soft);
@@ -121,7 +116,7 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] .state-card {
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: var(--surface);
   color: var(--muted);
 }
@@ -135,13 +130,13 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] .error-state button {
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--accent--light, var(--accent));
   color: #fff;
 }
 :root[data-theme="dark"] .panel {
   border: 1px solid rgba(175, 119, 90, 0.13);
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: var(--surface);
 }
 :root[data-theme="dark"] .section-heading > small {
@@ -149,8 +144,8 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] .habit-card {
   border: 1px solid #5b4e46;
-  border-radius: 10px;
-  background: #292929;
+  border-radius: var(--radius);
+  background: var(--bg);
 }
 :root[data-theme="dark"] .habit-card.completed {
   background: #241f1c;
@@ -159,7 +154,7 @@ html[data-theme="dark"] {
   border: 2px solid #4a443f;
   border-radius: 50%;
   background: transparent;
-  color: #aa9d95;
+  color: var(--text-secondary);
 }
 :root[data-theme="dark"] .completed .check-button {
   border-color: var(--accent);
@@ -176,12 +171,12 @@ html[data-theme="dark"] {
   color: var(--accent);
 }
 :root[data-theme="dark"] .source-tag {
-  background: #313531;
+  background: var(--bg-hover);
   color: var(--muted);
 }
 :root[data-theme="dark"] .record-button,
 :root[data-theme="dark"] .edit-button {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 :root[data-theme="dark"] .record-button {
   border: 0;
@@ -189,21 +184,21 @@ html[data-theme="dark"] {
   color: var(--accent);
 }
 :root[data-theme="dark"] .completed .record-button {
-  background: #313531;
+  background: var(--bg-hover);
   color: var(--muted);
 }
 :root[data-theme="dark"] .edit-button {
   border: 1px solid var(--line);
-  background: #292929;
+  background: var(--bg);
   color: var(--muted);
 }
 :root[data-theme="dark"] .history-period {
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: var(--accent-soft);
 }
 :root[data-theme="dark"] .history-period button {
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--accent);
 }
@@ -213,7 +208,7 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] .history-nav button {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--accent);
 }
@@ -241,7 +236,7 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] th,
 :root[data-theme="dark"] td {
-  border-top: 1px solid #525750;
+  border-top: 1px solid var(--border);
 }
 :root[data-theme="dark"] thead th {
   border-top: 0;
@@ -258,18 +253,18 @@ html[data-theme="dark"] {
   color: var(--muted);
 }
 :root[data-theme="dark"] td {
-  color: #aab2ad;
+  color: var(--text-tertiary);
 }
 :root[data-theme="dark"] td.done {
   color: var(--accent);
 }
 :root[data-theme="dark"] td.off {
-  color: #d4d9d5;
+  color: var(--text-tertiary);
 }
 :root[data-theme="dark"] td.editable button,
 :root[data-theme="dark"] td.viewable button {
   border: 1px dashed var(--line);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: inherit;
 }
@@ -297,9 +292,9 @@ html[data-theme="dark"] {
   background: var(--accent--light, var(--accent));
 }
 :root[data-theme="dark"] .manage-list > button {
-  border: 1px solid #51554f;
-  border-radius: 9px;
-  background: #292929;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
 }
 :root[data-theme="dark"] .manage-list span small {
   color: var(--muted);
@@ -310,7 +305,7 @@ html[data-theme="dark"] {
   color: var(--pause);
 }
 :root[data-theme="dark"] .manage-list em.status-archived {
-  background: #313531;
+  background: var(--bg-hover);
   color: var(--muted);
 }
 :root[data-theme="dark"] .manage-list i {
@@ -326,7 +321,7 @@ html[data-theme="dark"] {
   background: rgba(48,32,24,.42);
 }
 :root[data-theme="dark"] .modal {
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: 0 24px 70px rgba(70,39,24,.24);
 }
@@ -342,8 +337,8 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] textarea,
 :root[data-theme="dark"] select {
   border: 1px solid #4a514b;
-  border-radius: 9px;
-  background: #292929;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
   outline: none;
 }
 :root[data-theme="dark"] input:focus,
@@ -353,7 +348,7 @@ html[data-theme="dark"] {
   box-shadow: 0 0 0 3px rgba(154,71,39,.12);
 }
 :root[data-theme="dark"] .form-error {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: #412926;
   color: #d5938f;
 }
@@ -365,7 +360,7 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] .log-sheet-kind label {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
 }
 :root[data-theme="dark"] .log-sheet-kind label:has(input:checked) {
   border-color: var(--accent);
@@ -379,37 +374,37 @@ html[data-theme="dark"] {
   color: var(--muted);
 }
 :root[data-theme="dark"] .habit-card.skipped {
-  background: #1f1f1d;
+  background: var(--bg-subtle);
 }
 :root[data-theme="dark"] .skip-tag {
   border-radius: 999px;
-  background: #313531;
+  background: var(--bg-hover);
   color: var(--muted);
 }
 :root[data-theme="dark"] .log-sheet-note-view {
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: var(--accent-soft);
 }
 :root[data-theme="dark"] .log-sheet-hint {
   color: var(--muted);
 }
 :root[data-theme="dark"] .toast {
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: var(--ink--light, var(--ink));
   color: #fff;
   box-shadow: 0 10px 30px rgba(70,39,24,.2);
 }
 @media (max-width: 620px) {
   :root[data-theme="dark"] .brand-mark {
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
   }
   :root[data-theme="dark"] .panel {
-    border-radius: 10px;
+    border-radius: var(--radius);
   }
 }
 :root[data-theme="dark"] .week-progress {
   border-radius: 999px;
-  background: #313531;
+  background: var(--bg-hover);
   color: var(--muted);
 }
 :root[data-theme="dark"] .week-progress.done {
@@ -421,7 +416,7 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] .last-week {
   border: 1px dashed #5b4e46;
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: #241f1c;
 }
 :root[data-theme="dark"] .last-week-head small {

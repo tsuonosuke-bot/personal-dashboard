@@ -151,6 +151,14 @@ Cloudflare PagesのProductionとPreviewの両方へ、上記4つの環境変数�
 5. `supabase/disable-anon-access.sql` を実行する。
 6. 本番表示を再確認し、旧anon keyからのSELECTが拒否されることを確認する。
 
+## UIの方針
+
+- 見た目はNotionを手本にする（Knowledge・Hubと共通）。白い面、薄い境界線、枠のないヘッダーのボタン、12px以上の文字
+- 灰色・角丸・影は `src/index.css` の `:root` のトークン（`--text`、`--bg`、`--border` など）を使う。Tailwindの `slate` は
+  同じ灰色に、`indigo`・`sky` はテーマカラーの濃淡に `@theme` で置き換えている
+- テーマカラーは青緑（`--accent: #315f78`）。ロゴ・主役の操作・小さな強調だけに使い、ほかのダッシュボードの色（Knowledgeの紫など）は使わない
+- 接続状態は、確認中・デモ・失敗のときだけ出す
+
 ## Dark mode
 
 `public/theme.js` (shared with the Hub) sets `<html data-theme>` from the saved
