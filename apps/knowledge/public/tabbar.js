@@ -29,6 +29,7 @@
   const MORE = [
     { id: "projects", label: "Projects", href: "/projects/", glyph: "P" },
     { id: "habits", label: "Habits", href: "/habits/", glyph: "✓" },
+    { id: "sf6", label: "SF6", href: "/sf6/", glyph: "SF" },
     { id: "writing", label: "Writing", href: "/writing/", glyph: "W" },
     { id: "status", label: "接続状態", href: "/status/", icon: "status" },
   ];

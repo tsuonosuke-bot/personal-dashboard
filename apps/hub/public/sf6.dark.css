@@ -1,0 +1,329 @@
+/* Generated from sf6.css by scripts/build-dark-theme.mjs. Do not edit. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper--light: var(--bg--light, var(--bg));
+  --surface--light: var(--bg--light, var(--bg));
+  --ink--light: var(--text--light, var(--text));
+  --muted--light: var(--text-secondary--light, var(--text-secondary));
+  --accent: #e87e93;
+  --accent--light: #b3203d;
+  --accent-hover: #ed92a4;
+  --accent-hover--light: #8f1830;
+  --accent-soft: #42262b;
+  --accent-soft--light: #f8e1e5;
+  --win: #a2dbbf;
+  --win--light: #2f7a55;
+  --win-soft: #2c3e33;
+  --win-soft--light: #e1f0e7;
+  --lose: #e87e93;
+  --lose--light: #b3203d;
+  --lose-soft: #42262b;
+  --lose-soft--light: #f8e1e5;
+  --page-accent--light: var(--accent--light, var(--accent));
+  --page-accent-soft--light: var(--accent-soft--light, var(--accent-soft));
+}
+html[data-theme="dark"] {
+  background: var(--paper);
+}
+:root[data-theme="dark"] body {
+  color: var(--ink);
+  background: var(--paper);
+}
+:root[data-theme="dark"] button,
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select {
+  color: inherit;
+}
+:root[data-theme="dark"] .tabs {
+  border-bottom: 1px solid var(--line);
+}
+:root[data-theme="dark"] .tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+}
+:root[data-theme="dark"] .tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--ink);
+}
+:root[data-theme="dark"] .tabs b {
+  color: var(--text-tertiary);
+}
+:root[data-theme="dark"] .tabs button[aria-selected="true"] b {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .state-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted);
+}
+:root[data-theme="dark"] .spinner {
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+}
+:root[data-theme="dark"] .error-state h2 {
+  color: var(--ink);
+}
+:root[data-theme="dark"] .error-state button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent--light, var(--accent));
+  color: #fff;
+}
+:root[data-theme="dark"] .segmented {
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+}
+:root[data-theme="dark"] .segmented button {
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+}
+:root[data-theme="dark"] .segmented button[aria-pressed="true"] {
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(15, 15, 15, .12);
+}
+:root[data-theme="dark"] .list-title small {
+  color: var(--text-tertiary);
+}
+:root[data-theme="dark"] .card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+:root[data-theme="dark"] .card-head h3 small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .notation {
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+}
+:root[data-theme="dark"] .memo {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .tags span {
+  border-radius: 4px;
+  background: var(--bg-hover);
+  color: var(--muted);
+}
+:root[data-theme="dark"] .meta {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .linked {
+  color: var(--text-tertiary);
+}
+:root[data-theme="dark"] .ghost-button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+}
+:root[data-theme="dark"] .ghost-button:hover {
+  background: var(--bg-hover);
+  color: var(--ink);
+}
+:root[data-theme="dark"] .accent-button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .accent-button:hover {
+  background: var(--accent--light, var(--accent));
+  color: #fff;
+}
+:root[data-theme="dark"] .icon-button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+}
+:root[data-theme="dark"] .icon-button:hover {
+  background: var(--bg-hover);
+  color: var(--ink);
+}
+:root[data-theme="dark"] .mastery-step {
+  border: 0;
+  background: none;
+}
+:root[data-theme="dark"] .mastery-step::before {
+  border-radius: 3px;
+  background: var(--bg-active);
+}
+:root[data-theme="dark"] .mastery-step.on::before {
+  background: var(--accent--light, var(--accent));
+}
+:root[data-theme="dark"] .mastery small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .note-card.pinned {
+  border-color: rgba(218, 47, 81, 0.35);
+  background: #251f20;
+}
+:root[data-theme="dark"] .note-card.resolved .note-body {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+:root[data-theme="dark"] .pin-button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--bg-active--light, var(--bg-active));
+}
+:root[data-theme="dark"] .pin-button[aria-pressed="true"] {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .pin-button:hover {
+  background: var(--bg-hover);
+}
+:root[data-theme="dark"] .drill-card.done {
+  background: var(--bg-subtle);
+}
+:root[data-theme="dark"] .log-list {
+  border-top: 1px solid var(--line);
+}
+:root[data-theme="dark"] .log-row {
+  border-bottom: 1px solid var(--line);
+}
+:root[data-theme="dark"] .log-date {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .log-copy small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .log-rate {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .stat-main {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+:root[data-theme="dark"] .stat-main span,
+:root[data-theme="dark"] .stat-main small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .stat-main strong {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .stat-table div {
+  border-bottom: 1px solid var(--line);
+}
+:root[data-theme="dark"] .stat-table span.bad {
+  color: var(--lose);
+}
+:root[data-theme="dark"] .result {
+  border-radius: 4px;
+}
+:root[data-theme="dark"] .result.win {
+  background: var(--win-soft);
+  color: var(--win);
+}
+:root[data-theme="dark"] .result.lose {
+  background: var(--lose-soft);
+  color: var(--lose);
+}
+:root[data-theme="dark"] .result.draw {
+  background: var(--bg-hover);
+  color: var(--muted);
+}
+:root[data-theme="dark"] .review b {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .review.bad b {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .fold summary {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .empty {
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+:root[data-theme="dark"] .modal-backdrop {
+  background: rgba(15, 15, 15, .4);
+}
+:root[data-theme="dark"] .modal {
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-popover);
+}
+:root[data-theme="dark"] .modal-head > button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+:root[data-theme="dark"] label > span b {
+  color: var(--accent);
+}
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  outline: none;
+}
+:root[data-theme="dark"] input:focus,
+:root[data-theme="dark"] textarea:focus,
+:root[data-theme="dark"] select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(179, 32, 61, .12);
+}
+:root[data-theme="dark"] .check-field input {
+  accent-color: var(--accent);
+}
+:root[data-theme="dark"] .radio-field {
+  border: 0;
+}
+:root[data-theme="dark"] .radio-field label {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+:root[data-theme="dark"] .radio-field label:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .form-error {
+  border-radius: var(--radius-sm);
+  background: #412926;
+  color: #d5938f;
+}
+:root[data-theme="dark"] .primary-button,
+:root[data-theme="dark"] .secondary-button,
+:root[data-theme="dark"] .danger-button {
+  border-radius: var(--radius-sm);
+}
+:root[data-theme="dark"] .primary-button {
+  border: 0;
+  background: var(--accent--light, var(--accent));
+  color: #fff;
+}
+:root[data-theme="dark"] .primary-button:hover {
+  background: var(--accent-hover--light, var(--accent-hover));
+}
+:root[data-theme="dark"] .secondary-button {
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+:root[data-theme="dark"] .danger-button {
+  border: 0;
+  background: transparent;
+  color: #d68682;
+}
+:root[data-theme="dark"] .danger-button:hover {
+  background: #412926;
+}
+:root[data-theme="dark"] .toast {
+  border-radius: var(--radius);
+  background: var(--ink--light, var(--ink));
+  color: #fff;
+  box-shadow: var(--shadow-popover);
+}

@@ -12,6 +12,7 @@ export default defineConfig({
         hub: resolve(import.meta.dirname, "public/index.html"),
         compass: resolve(import.meta.dirname, "public/compass/index.html"),
         habits: resolve(import.meta.dirname, "public/habits/index.html"),
+        sf6: resolve(import.meta.dirname, "public/sf6/index.html"),
         writing: resolve(import.meta.dirname, "public/writing/index.html"),
         projects: resolve(import.meta.dirname, "public/projects/index.html"),
         status: resolve(import.meta.dirname, "public/status/index.html"),
