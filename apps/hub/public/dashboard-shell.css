@@ -69,6 +69,7 @@ a.dashboard-brand { text-decoration: none; }
 .dashboard-brand-mark.idea { background: #2f6754; }
 .dashboard-brand-mark.writing { background: #7a3f62; font-family: Georgia, serif; }
 .dashboard-brand-mark.habits { background: #9a4727; }
+.dashboard-brand-mark.sf6 { background: #b3203d; font-size: 10px; letter-spacing: -.02em; }
 .dashboard-brand-mark svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .idea-mark-icon {
   width: 15px;
@@ -323,6 +324,7 @@ a.dashboard-brand { text-decoration: none; }
 .tabbar-item.habits { --tab-accent: #9a4727; --tab-soft: #f3ded2; }
 .tabbar-item.more { --tab-accent: #52645a; --tab-soft: #e8ebe8; }
 .tabbar-sheet-link.writing { --tab-accent: #7a3f62; --tab-soft: #f2e4ec; }
+.tabbar-sheet-link.sf6 { --tab-accent: #b3203d; --tab-soft: #f8e1e5; }
 .tabbar-sheet-link.finance { --tab-accent: #315f78; --tab-soft: #e0ebf0; }
 .tabbar-sheet-link.knowledge { --tab-accent: #66558c; --tab-soft: #ebe7f4; }
 .tabbar-sheet-link.status { --tab-accent: #52645a; --tab-soft: #e8ebe8; }

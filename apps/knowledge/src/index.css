@@ -909,6 +909,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .tabbar-item.habits { --tab-accent: #9a4727; --tab-soft: #f3ded2; }
 .tabbar-item.more { --tab-accent: #52645a; --tab-soft: #e8ebe8; }
 .tabbar-sheet-link.writing { --tab-accent: #7a3f62; --tab-soft: #f2e4ec; }
+.tabbar-sheet-link.sf6 { --tab-accent: #b3203d; --tab-soft: #f8e1e5; }
 .tabbar-sheet-link.finance { --tab-accent: #315f78; --tab-soft: #e0ebf0; }
 .tabbar-sheet-link.knowledge { --tab-accent: #66558c; --tab-soft: #ebe7f4; }
 .tabbar-sheet-link.status { --tab-accent: #52645a; --tab-soft: #e8ebe8; }

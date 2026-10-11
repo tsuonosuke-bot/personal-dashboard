@@ -442,10 +442,11 @@ test("every Hub page shares one header, the same page switcher and the phone tab
     idea: "../public/compass/index.html",
     projects: "../public/projects/index.html",
     habits: "../public/habits/index.html",
+    sf6: "../public/sf6/index.html",
     writing: "../public/writing/index.html",
     status: "../public/status/index.html",
   };
-  const links = ["Idea", "Projects", "Writing", "Habits", "Finance", "Knowledge", "接続状態"];
+  const links = ["Idea", "Projects", "Writing", "Habits", "SF6", "Finance", "Knowledge", "接続状態"];
   for (const [page, path] of Object.entries(pages)) {
     const html = await readFile(new URL(path, import.meta.url), "utf8");
     assert.match(html, /<header class="dashboard-header">/, page);
@@ -479,7 +480,7 @@ test("phone tab bar keeps Hub, Idea, Knowledge and Finance one tap away and lift
   assert.match(shell, /\.tabbar \{ display: none; \}/);
   // viewport-fit=cover がないとiOSでsafe-areaが0になり、タブバーがホームインジケーターに重なる
   assert.match(shell, /:root \{ --tabbar-bottom: max\(10px, env\(safe-area-inset-bottom\)\); --tabbar-space: calc\(64px \+ var\(--tabbar-bottom\)\); \}/);
-  for (const path of ["index.html", "compass/index.html", "projects/index.html", "habits/index.html", "writing/index.html", "status/index.html"]) {
+  for (const path of ["index.html", "compass/index.html", "projects/index.html", "habits/index.html", "sf6/index.html", "writing/index.html", "status/index.html"]) {
     const page = await readFile(new URL(`../public/${path}`, import.meta.url), "utf8");
     assert.match(page, /name="viewport" content="[^"]*viewport-fit=cover"/, path);
   }
@@ -514,6 +515,6 @@ test("Knowledge and Finance ship the same tab bar script and styles as the Hub",
   assert.match(financeHtml, /<script src="\.\/tabbar\.js" data-page="finance" data-hub="https:\/\/personal-dashboard-7md\.pages\.dev" defer><\/script>/);
   for (const app of [knowledgeApp, financeApp]) {
     const nav = app.match(/<nav aria-label="ダッシュボードを切り替え">([\s\S]*?)<\/nav>/)?.[1] || "";
-    assert.deepEqual([...nav.matchAll(/>([^<>{}]+)<\/(?:a|span)>/g)].map((match) => match[1]), ["Idea", "Projects", "Writing", "Habits", "Finance", "Knowledge", "接続状態"]);
+    assert.deepEqual([...nav.matchAll(/>([^<>{}]+)<\/(?:a|span)>/g)].map((match) => match[1]), ["Idea", "Projects", "Writing", "Habits", "SF6", "Finance", "Knowledge", "接続状態"]);
   }
 });

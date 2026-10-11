@@ -309,6 +309,7 @@ function App() {
                   <a href="https://personal-dashboard-7md.pages.dev/projects/">Projects</a>
                   <a href="https://personal-dashboard-7md.pages.dev/writing/">Writing</a>
                   <a href="https://personal-dashboard-7md.pages.dev/habits/">Habits</a>
+                  <a href="https://personal-dashboard-7md.pages.dev/sf6/">SF6</a>
                   <span aria-current="page">Finance</span>
                   <a href="https://personal-dashboard-7md.pages.dev/go/knowledge">Knowledge</a>
                   <a href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>

@@ -1446,6 +1446,10 @@
   --tab-accent: #d0a4be;
   --tab-soft: #3d2c35;
 }
+:root[data-theme="dark"] .tabbar-sheet-link.sf6 {
+  --tab-accent: #e87e93;
+  --tab-soft: #42262b;
+}
 :root[data-theme="dark"] .tabbar-sheet-link.finance {
   --tab-accent: #a4c7da;
   --tab-soft: #2c383e;

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>SF6 — Personal Dashboard</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <script src="/theme.js"></script>
+    <link rel="stylesheet" href="/sf6.css" />
+    <link rel="stylesheet" href="/sf6.dark.css" />
+    <link rel="stylesheet" href="/dashboard-shell.css" />
+    <link rel="stylesheet" href="/dashboard-shell.dark.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="dashboard-header">
+        <div class="dashboard-header-inner">
+          <div class="dashboard-brand">
+            <span class="dashboard-brand-mark sf6" aria-hidden="true">SF</span>
+            <span><h1>SF6</h1><small>コンボ・注意点・練習</small></span>
+          </div>
+          <div class="dashboard-actions">
+            <a class="dashboard-hub" href="/">← Hub</a>
+            <details class="dashboard-switcher">
+              <summary aria-label="ページを切り替える">
+                <svg class="dashboard-switcher-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="5" cy="6" r="1" /><circle cx="5" cy="12" r="1" /><circle cx="5" cy="18" r="1" />
+                  <path d="M9 6h10M9 12h10M9 18h10" />
+                </svg>
+                <span>Dashboards</span>
+              </summary>
+              <div class="dashboard-switcher-menu">
+                <nav aria-label="ダッシュボードを切り替え">
+                  <a href="/compass/">Idea</a><a href="/projects/">Projects</a><a href="/writing/">Writing</a><a href="/habits/">Habits</a><span aria-current="page">SF6</span><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a><a href="/status/">接続状態</a>
+                </nav>
+                <label class="theme-select"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label>
+              </div>
+            </details>
+            <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
+            <button class="dashboard-refresh" id="refreshButton" type="button" aria-label="データを再読み込み" title="再読み込み">↻</button>
+            <button class="dashboard-primary" id="addButton" type="button"><span aria-hidden="true">＋</span><span id="addLabel">コンボを追加</span></button>
+          </div>
+        </div>
+      </header>
+
+      <main class="dashboard-main">
+        <nav class="tabs" role="tablist" aria-label="SF6の記録">
+          <button type="button" role="tab" data-tab="combos" aria-selected="true">コンボ<b id="countCombos"></b></button>
+          <button type="button" role="tab" data-tab="notes" aria-selected="false">注意点<b id="countNotes"></b></button>
+          <button type="button" role="tab" data-tab="drills" aria-selected="false">練習<b id="countDrills"></b></button>
+          <button type="button" role="tab" data-tab="matches" aria-selected="false">振り返り<b id="countMatches"></b></button>
+        </nav>
+
+        <div class="state-card" id="loadingState" role="status"><span class="spinner"></span><p>読み込んでいます</p></div>
+        <div class="state-card error-state" id="errorState" role="alert" hidden><h2>読み込めませんでした</h2><p id="errorMessage"></p><button id="retryButton" type="button">再試行</button></div>
+
+        <section class="tab-panel" id="panel-combos" role="tabpanel" hidden>
+          <div class="filters">
+            <select id="comboCharacter" aria-label="キャラで絞り込む"></select>
+            <div class="segmented" role="group" aria-label="位置で絞り込む" id="comboPosition">
+              <button type="button" data-value="" aria-pressed="true">すべて</button>
+              <button type="button" data-value="midscreen" aria-pressed="false">中央</button>
+              <button type="button" data-value="corner" aria-pressed="false">画面端</button>
+            </div>
+          </div>
+          <div class="card-list" id="comboList"></div>
+          <details class="fold" id="comboArchiveFold"><summary>アーカイブ <span id="comboArchiveCount"></span></summary><div class="card-list" id="comboArchive"></div></details>
+        </section>
+
+        <section class="tab-panel" id="panel-notes" role="tabpanel" hidden>
+          <div class="filters">
+            <select id="noteOpponent" aria-label="相手キャラで絞り込む"></select>
+          </div>
+          <div id="noteGroups"></div>
+          <details class="fold" id="noteResolvedFold"><summary>直ったもの <span id="noteResolvedCount"></span></summary><div class="card-list" id="noteResolved"></div></details>
+        </section>
+
+        <section class="tab-panel" id="panel-drills" role="tabpanel" hidden>
+          <div class="card-list" id="drillList"></div>
+          <h2 class="list-title">最近の練習記録</h2>
+          <div class="log-list" id="logList"></div>
+          <details class="fold" id="drillDoneFold"><summary>完了したメニュー <span id="drillDoneCount"></span></summary><div class="card-list" id="drillDone"></div></details>
+        </section>
+
+        <section class="tab-panel" id="panel-matches" role="tabpanel" hidden>
+          <div class="stats" id="matchStats"></div>
+          <div class="card-list" id="matchList"></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="editModal" hidden>
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-head"><h2 id="modalTitle">追加</h2><button id="modalClose" type="button" aria-label="閉じる">×</button></div>
+        <form id="editForm" novalidate>
+          <div id="formFields"></div>
+          <p class="form-error" id="formError" role="alert" hidden></p>
+          <div class="form-actions">
+            <button class="danger-button" id="deleteButton" type="button" hidden>削除</button>
+            <button class="secondary-button" id="cancelButton" type="button">キャンセル</button>
+            <button class="primary-button" id="saveButton" type="submit">保存する</button>
+          </div>
+        </form>
+      </section>
+    </div>
+    <datalist id="characterOptions"></datalist>
+    <div class="toast" id="toast" role="status" hidden></div>
+    <script src="/sf6.js" type="module"></script>
+    <script src="/tabbar.js" data-page="sf6" defer></script>
+  </body>
+</html>

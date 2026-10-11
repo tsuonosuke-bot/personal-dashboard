@@ -50,6 +50,9 @@
 :root[data-theme="dark"] .dashboard-brand-mark.habits {
   background: #9a4727;
 }
+:root[data-theme="dark"] .dashboard-brand-mark.sf6 {
+  background: #b3203d;
+}
 :root[data-theme="dark"] .dashboard-brand-mark svg {
   fill: none;
   stroke: currentColor;
@@ -179,6 +182,10 @@
 :root[data-theme="dark"] .tabbar-sheet-link.writing {
   --tab-accent: #d0a4be;
   --tab-soft: #3d2c35;
+}
+:root[data-theme="dark"] .tabbar-sheet-link.sf6 {
+  --tab-accent: #e87e93;
+  --tab-soft: #42262b;
 }
 :root[data-theme="dark"] .tabbar-sheet-link.finance {
   --tab-accent: #a4c7da;
