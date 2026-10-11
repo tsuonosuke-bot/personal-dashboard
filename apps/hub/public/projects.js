@@ -21,7 +21,7 @@ const state = {
 
 const ids = [
   "sourceBadge", "refreshButton", "addProjectButton", "activeCount", "attentionCount", "waitingCount", "completedCount",
-  "activeTabCount", "waitingTabCount", "completedTabCount", "reviewTabCount", "filtersBar", "resultLine", "searchInput", "sortSelect", "sortNote", "clearFilters", "resultCount",
+  "activeTabCount", "waitingTabCount", "completedTabCount", "reviewTabCount", "filtersBar", "resultLine", "searchInput", "sortSelect", "clearFilters", "resultCount",
   "loadingState", "errorState", "errorMessage", "retryButton", "projectList",
   "projectModal", "projectBackdrop", "projectClose", "projectCancel", "projectForm", "projectEditorKicker", "projectEditorTitle",
   "projectTitleInput", "projectOutcomeInput", "projectThemeInput", "projectTargetInput", "projectNextActionField",
@@ -152,12 +152,6 @@ const COMPLETED_PAGE = 10;
 const STALE_DAYS = 14;
 
 /** 並び順ごとの説明。要確認をどう扱うかを一覧の上に示す（#142）。 */
-const sortNotes = {
-  recommended: "要確認を先頭にまとめ、その中で目標日が近い順に並べています",
-  target: "目標日が近い順（未設定は最後）。要確認も日付どおりに並び、バッジで見分けます",
-  review: "再確認・見直し日が近い順（未設定は最後）。要確認も日付どおりに並び、バッジで見分けます",
-  updated: "更新が新しい順。要確認も更新日どおりに並び、バッジで見分けます",
-};
 
 function byDate(field) {
   return (left, right) => {
@@ -335,14 +329,12 @@ function renderList() {
   if (!state.data) return;
   const reviewing = state.view === "review";
   els.filtersBar.hidden = reviewing;
-  els.sortNote.hidden = reviewing;
   if (reviewing) {
     els.clearFilters.hidden = true;
     renderReview();
     return;
   }
   const projects = sortProjects(projectsForView(), state.sort);
-  els.sortNote.textContent = sortNotes[state.sort];
   els.resultCount.textContent = `${projects.length}件${state.attentionOnly ? " · 要確認のみ" : ""}`;
   els.clearFilters.hidden = !state.search && !state.attentionOnly;
   els.projectList.innerHTML = projects.length

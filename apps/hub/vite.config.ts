@@ -15,6 +15,7 @@ export default defineConfig({
         writing: resolve(import.meta.dirname, "public/writing/index.html"),
         projects: resolve(import.meta.dirname, "public/projects/index.html"),
         status: resolve(import.meta.dirname, "public/status/index.html"),
+        help: resolve(import.meta.dirname, "public/help/index.html"),
         oauth: resolve(import.meta.dirname, "public/oauth/index.html"),
         oauthPrivacy: resolve(import.meta.dirname, "public/oauth/privacy/index.html"),
         oauthTerms: resolve(import.meta.dirname, "public/oauth/terms/index.html"),

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>ヘルプ — Personal Hub</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <script src="/theme.js"></script>
+    <link rel="stylesheet" href="/dashboard-shell.css" />
+    <link rel="stylesheet" href="/dashboard-shell.dark.css" />
+  </head>
+  <body>
+    <!-- 画面には数字と操作だけを出し、仕組み・定義の説明はこのページにまとめる。画面の文言を変えたらここも直す -->
+    <header class="dashboard-header">
+      <div class="dashboard-header-inner">
+        <a class="dashboard-brand" href="/" aria-label="Personal Hub ホーム">
+          <span class="dashboard-brand-mark hub" aria-hidden="true">?</span>
+          <span><h1>ヘルプ</h1></span>
+        </a>
+        <div class="dashboard-actions">
+          <a class="dashboard-hub" href="/">← Hub</a>
+          <details class="dashboard-switcher">
+            <summary aria-label="ページを切り替える">
+              <svg class="dashboard-switcher-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="5" cy="6" r="1" /><circle cx="5" cy="12" r="1" /><circle cx="5" cy="18" r="1" />
+                <path d="M9 6h10M9 12h10M9 18h10" />
+              </svg>
+              <span>Dashboards</span>
+            </summary>
+            <div class="dashboard-switcher-menu">
+              <nav aria-label="ダッシュボードを切り替え">
+                <a href="/compass/">Idea</a><a href="/projects/">Projects</a><a href="/writing/">Writing</a><a href="/habits/">Habits</a><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a><a href="/status/">接続状態</a>
+              </nav>
+              <label class="theme-select"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label>
+            </div>
+          </details>
+        </div>
+      </div>
+    </header>
+    <main class="help-body">
+      <h1>ヘルプ</h1>
+      <nav class="help-toc" aria-label="目次">
+        <a href="#hub">ホーム</a>
+        <a href="#idea">Idea</a>
+        <a href="#projects">Projects</a>
+        <a href="#writing">Writing</a>
+        <a href="#habits">Habits</a>
+      </nav>
+
+      <section id="hub" aria-labelledby="help-hub-title">
+        <h2 id="help-hub-title">ホーム</h2>
+        <p>今日やること（ToDo・Habit・着手が必要なProject）と、各ダッシュボードの件数をまとめて見るページです。</p>
+        <dl>
+          <dt>Focus</dt>
+          <dd>表示は5件までです。5件あるときに追加したFocusは「表示解除中」に入り、「管理」から表示中の1件と入れ替えられます。外したFocusも表示解除中に残ります。</dd>
+          <dt>データ管理</dt>
+          <dd>Knowledge・Financeのデータを読み取り専用で書き出せます。接続状態のページでは、各サービスへの接続と自動処理の状態を確認できます。</dd>
+        </dl>
+      </section>
+
+      <section id="idea" aria-labelledby="help-idea-title">
+        <h2 id="help-idea-title">Idea</h2>
+        <p>思いつき（Inbox）、やりたいこと（Wants）、予定（ToDo）を管理します。データはSupabaseに保存され、ToDoの予定はGoogle Calendarと同期します。</p>
+        <p>Inboxの項目は、振り分け先（ToDo・Project・執筆・Knowledgeなど）を選んで整理します。保存や外部への登録の前には、何が起きるかを画面で確認できます。</p>
+      </section>
+
+      <section id="projects" aria-labelledby="help-projects-title">
+        <h2 id="help-projects-title">Projects</h2>
+        <dl>
+          <dt>進行中</dt>
+          <dd>Next Action（次にやる1件）を決めて動かしているProjectです。Active Projectには、作成時からNext Actionを1件設定します。</dd>
+          <dt>要確認</dt>
+          <dd>次の一手が決まっていない、または整理が必要なProjectです。</dd>
+          <dt>待機・保留</dt>
+          <dd>再確認日まで待つProjectです。</dd>
+          <dt>完了</dt>
+          <dd>達成した目標です。</dd>
+        </dl>
+        <h3>並び順</h3>
+        <dl>
+          <dt>おすすめ</dt>
+          <dd>要確認を先頭にまとめ、その中で目標日が近い順に並べます。</dd>
+          <dt>目標日が近い順</dt>
+          <dd>目標日が近い順に並べ、未設定は最後にします。要確認も日付どおりに並び、バッジで見分けます。</dd>
+          <dt>再確認・見直し日が近い順</dt>
+          <dd>再確認日・見直し日が近い順に並べ、未設定は最後にします。要確認も日付どおりに並びます。</dd>
+          <dt>更新が新しい順</dt>
+          <dd>更新が新しい順に並べます。要確認も更新日どおりに並びます。</dd>
+        </dl>
+      </section>
+
+      <section id="writing" aria-labelledby="help-writing-title">
+        <h2 id="help-writing-title">Writing</h2>
+        <p>本文はPomeraで書き、このページではテーマのアイデア（これから書くテーマ）と完了（書き終えたテーマ）だけを管理します。</p>
+        <p>テーマはIdeaの項目を「執筆」に振り分けて追加します。このページから直接は作りません。手順はページの「Ideaから追加」で確認できます。</p>
+      </section>
+
+      <section id="habits" aria-labelledby="help-habits-title">
+        <h2 id="help-habits-title">Habits</h2>
+        <dl>
+          <dt>今日できた</dt>
+          <dd>今日、実施の記録をつけたHabitの数です。</dd>
+          <dt>今日・今週の残り</dt>
+          <dd>今日が対象日でまだ記録していない毎日・平日のHabitと、今週まだ目標回数に届いていない毎週のHabitの数です。休んだ日・休んだ週と、自由頻度のHabitは数えません。</dd>
+          <dt>継続中</dt>
+          <dd>有効（休止・アーカイブでない）なHabitの数です。</dd>
+        </dl>
+        <p>毎週のHabitも1日1回ずつ数えます。回数や頻度を変えると、過去の週も新しい目標で数え直します。</p>
+      </section>
+    </main>
+    <script src="/tabbar.js" data-page="hub" defer></script>
+  </body>
+</html>

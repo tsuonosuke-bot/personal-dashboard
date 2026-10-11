@@ -108,3 +108,18 @@ test('未分類の明細を件数で知らせ、タップでカテゴリ絞り�
   assert.match(app, /setCategoryMode\('include'\)/)
   assert.match(app, /setRequestedMonth\(unclassified\.months\[0\]\)/)
 })
+
+test('説明文はヘルプページにまとめ、ヘッダーの「?」から開く', async () => {
+  const [app, help, recurring] = await Promise.all([
+    readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/components/HelpView.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../src/components/RecurringExpenseModal.tsx', import.meta.url), 'utf8'),
+  ])
+  assert.match(app, /onClick=\{openHelp\} aria-label="ヘルプ"/)
+  assert.match(app, /url\.searchParams\.set\('view', 'help'\)/)
+  assert.match(app, /if \(helpOpen\) return <HelpView onExit=\{closeHelp\} \/>/)
+  assert.doesNotMatch(app, /月・カテゴリ・支払者を組み合わせて集計します/)
+  assert.match(help, /月・カテゴリ・支払者を組み合わせて集計します/)
+  assert.doesNotMatch(recurring, /毎日0:10/)
+  assert.match(help, /毎日0:10（日本時間）/)
+})

@@ -19,6 +19,7 @@ import {
 } from './lib/finance'
 import { ApiError, createRecurringExpense, getRecurringExpenses, runRecurringExpenses, setRecurringExpenseActive, updateRecurringExpense } from './lib/api'
 import type { Expense, ExpenseDraft, RecurringExpense, RecurringExpenseDraft, RecurringExpenseUpdate } from './lib/types'
+import { HelpView } from './components/HelpView'
 import { ThemeSelect } from './components/ThemeSelect'
 
 const MonthlyTrendChart = lazy(() => import('./components/MonthlyTrendChart').then((module) => ({ default: module.MonthlyTrendChart })))
@@ -35,6 +36,7 @@ function App() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [recurringOpen, setRecurringOpen] = useState(() => new URLSearchParams(window.location.search).get('view') === 'recurring')
+  const [helpOpen, setHelpOpen] = useState(() => new URLSearchParams(window.location.search).get('view') === 'help')
   const [recurringRules, setRecurringRules] = useState<RecurringExpense[]>([])
   const [recurringBusy, setRecurringBusy] = useState(false)
   const [recurringError, setRecurringError] = useState<string | null>(null)
@@ -58,7 +60,11 @@ function App() {
   // oxlint-disable-next-line react/set-state-in-effect
   useEffect(() => { void loadRecurringRules() }, [loadRecurringRules])
   useEffect(() => {
-    const syncView = () => setRecurringOpen(new URLSearchParams(window.location.search).get('view') === 'recurring')
+    const syncView = () => {
+      const view = new URLSearchParams(window.location.search).get('view')
+      setRecurringOpen(view === 'recurring')
+      setHelpOpen(view === 'help')
+    }
     window.addEventListener('popstate', syncView)
     return () => window.removeEventListener('popstate', syncView)
   }, [])
@@ -247,6 +253,22 @@ function App() {
     window.history.replaceState(null, '', url)
   }
 
+  // 説明はヘルプページにまとめ、ヘッダーの「?」から開く
+  const openHelp = () => {
+    setHelpOpen(true)
+    const url = new URL(window.location.href)
+    url.searchParams.set('view', 'help')
+    window.history.pushState(null, '', url)
+    window.scrollTo(0, 0)
+  }
+
+  const closeHelp = () => {
+    setHelpOpen(false)
+    const url = new URL(window.location.href)
+    url.searchParams.delete('view')
+    window.history.replaceState(null, '', url)
+  }
+
   const runRecurring = async () => {
     setRecurringBusy(true); setRecurringError(null)
     try {
@@ -258,6 +280,8 @@ function App() {
     } catch (caught) { setRecurringError(caught instanceof Error ? caught.message : '定期登録を実行できませんでした。') }
     finally { setRecurringBusy(false) }
   }
+
+  if (helpOpen) return <HelpView onExit={closeHelp} />
 
   return (
     <div className="app-page">
@@ -301,6 +325,7 @@ function App() {
             <button type="button" onClick={reload} disabled={loading} aria-label="再読み込み" className="refresh-button">
               <span aria-hidden="true">↻</span>
             </button>
+            <button type="button" onClick={openHelp} aria-label="ヘルプ" title="ヘルプ" className="refresh-button help-button">?</button>
             <button type="button" className="secondary-button recurring-button" onClick={openRecurring} disabled={loading || demoMode} aria-label="定期登録を管理">
               <svg className="recurring-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <rect x="3" y="4" width="18" height="17" rx="2" />
@@ -371,7 +396,6 @@ function App() {
                 <div className="filter-intro-title">
                   <p className="text-sm font-semibold text-slate-700">表示条件</p>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">月・カテゴリ・支払者を組み合わせて集計します</p>
               </div>
               <div className="filter-controls">
                 <div>

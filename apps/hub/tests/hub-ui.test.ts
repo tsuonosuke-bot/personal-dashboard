@@ -456,6 +456,8 @@ test("every Hub page shares one header, the same page switcher and the phone tab
     const nav = html.match(/<nav aria-label="ダッシュボードを切り替え">([\s\S]*?)<\/nav>/)?.[1] || "";
     assert.deepEqual([...nav.matchAll(/>([^<>]+)<\/(?:a|span)>/g)].map((match) => match[1]), links, page);
     assert.equal((nav.match(/aria-current="page"/g) || []).length, page === "hub" ? 0 : 1, page);
+    // 説明はヘルプページにまとめ、どのページのヘッダーからも開ける
+    assert.match(html, /<a class="dashboard-refresh dashboard-help" href="\/help\/[^"]*" title="ヘルプ" aria-label="ヘルプ">\?<\/a>/, page);
   }
 });
 

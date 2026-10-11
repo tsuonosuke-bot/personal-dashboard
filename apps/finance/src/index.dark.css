@@ -646,3 +646,34 @@
     color: #d4dade;
   }
 }
+:root[data-theme="dark"] .help-page {
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="dark"] .help-header {
+  background: rgba(41, 41, 41, 0.94);
+}
+:root[data-theme="dark"] .help-header .text-button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+}
+:root[data-theme="dark"] .help-header .text-button:hover {
+  background: var(--bg-hover);
+}
+:root[data-theme="dark"] .help-toc {
+  border-bottom: 1px solid var(--border);
+}
+:root[data-theme="dark"] .help-toc a {
+  border-radius: 4px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+:root[data-theme="dark"] .help-toc a:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+:root[data-theme="dark"] .help-body dd {
+  color: var(--text-secondary);
+}

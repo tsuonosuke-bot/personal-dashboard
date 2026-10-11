@@ -143,7 +143,7 @@ export function RecurringExpenseModal({ categories, rules, busy, error, onClose,
     <section className="entry-modal recurring-modal" role="dialog" aria-modal="true" aria-labelledby="recurring-title">
       <div className="entry-modal-head"><div><h2 id="recurring-title">定期登録を管理</h2></div><button type="button" className="modal-close" aria-label="家計簿へ戻る" onClick={onClose} disabled={busy}>×</button></div>
       <div className="recurring-body">
-        <div className="recurring-section-head"><div><h3>登録中のルール</h3><p>毎日0:10（日本時間）にSupabaseで自動反映します。PCの電源は不要です。</p></div><button type="button" className="secondary-button" onClick={onRun} disabled={busy}>今すぐ反映</button></div>
+        <div className="recurring-section-head"><div><h3>登録中のルール</h3></div><button type="button" className="secondary-button" onClick={onRun} disabled={busy}>今すぐ反映</button></div>
         <div className="recurring-list">
           {rules.length === 0 && !error && <p className="recurring-empty">まだ定期登録はありません。</p>}
           {rules.map((rule) => <article className="recurring-rule" key={rule.id}>
@@ -187,7 +187,7 @@ export function RecurringExpenseModal({ categories, rules, busy, error, onClose,
           <div className="entry-actions"><button type="button" className="secondary-button" onClick={() => setCreating(null)} disabled={busy}>キャンセル</button><button type="submit" className="primary-button" disabled={busy}>{busy ? '処理中…' : creating.template ? '複製して追加' : '定期登録を作成'}</button></div>
         </form>}
 
-        {!editing && !creating && !error && <div className="recurring-section-head"><p>{rules.length === 0 ? '家賃やサブスクなど、決まった日に発生する収支を登録すると自動で明細を作ります。' : '似たルールは各行の「複製」からも追加できます。'}</p><button type="button" className="primary-button" onClick={beginNew} disabled={busy}>新しい定期登録</button></div>}
+        {!editing && !creating && !error && <div className="recurring-section-head"><p>{rules.length === 0 ? '家賃やサブスクなど、決まった日に発生する収支を登録すると自動で明細を作ります。' : ''}</p><button type="button" className="primary-button" onClick={beginNew} disabled={busy}>新しい定期登録</button></div>}
         {error && !editing && !creating && <div className="entry-error recurring-load-error" role="alert"><span>{error}</span><button type="button" onClick={onReload} disabled={busy}>再試行</button></div>}
         {!editing && !creating && <div className="entry-actions"><button type="button" className="secondary-button" onClick={onClose} disabled={busy}>家計簿へ戻る</button></div>}
       </div>
