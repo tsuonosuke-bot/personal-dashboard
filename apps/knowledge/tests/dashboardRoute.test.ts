@@ -15,6 +15,8 @@ test("Knowledge route parses direct details and quiz routes", () => {
     mode: "daily",
   });
   assert.deepEqual(parseDashboardRoute("https://knowledge.example/?view=speaking"), { kind: "speaking" });
+  assert.deepEqual(parseDashboardRoute("https://knowledge.example/?view=help"), { kind: "help" });
+  assert.equal(dashboardRoutePath("https://knowledge.example/?view=log", { kind: "help" }), "/?view=help");
   assert.deepEqual(parseDashboardRoute("https://knowledge.example/?view=organize"), {
     kind: "organize", tab: "questions", questionId: null,
   });

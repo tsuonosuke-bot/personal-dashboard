@@ -8,6 +8,7 @@ import { Pagination } from "./components/Pagination";
 import { MissedReviewSheet } from "./components/MissedReviewSheet";
 import { TodayLearningPanel } from "./components/TodayLearningPanel";
 import { ThemeSelect } from "./components/ThemeSelect";
+import { HelpView } from "./components/HelpView";
 import { SpeakingPracticePanel } from "./components/SpeakingPracticePanel";
 import { useFilteredKnowledge } from "./hooks/useFilteredKnowledge";
 import { useDailyReview } from "./hooks/useDailyReview";
@@ -47,6 +48,7 @@ export default function App() {
   const [showSpeaking, setShowSpeaking] = useState(() => initialRoute.kind === "speaking");
   const [showLog, setShowLog] = useState(() => initialRoute.kind === "log");
   const [showSearch, setShowSearch] = useState(() => initialRoute.kind === "search");
+  const [showHelp, setShowHelp] = useState(() => initialRoute.kind === "help");
   const [organize, setOrganize] = useState<OrganizeState | null>(() => (
     initialRoute.kind === "organize"
       ? { tab: initialRoute.tab, questionId: initialRoute.questionId, theme: initialRoute.theme ?? null }
@@ -81,7 +83,7 @@ export default function App() {
   const [missesOpen, setMissesOpen] = useState(false);
 
   // 画面を切り替えても同じdocumentのままなので、直前の画面のスクロール位置が残る。
-  const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : showLog ? "log" : showSearch ? "search" : organize ? "organize" : "dashboard";
+  const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : showLog ? "log" : showSearch ? "search" : showHelp ? "help" : organize ? "organize" : "dashboard";
 
   // クイズ中は下部タブバーを隠す（回答・模範解答の画面を広く使う）
   useEffect(() => {
@@ -145,18 +147,20 @@ export default function App() {
       setShowSpeaking(false);
       setShowLog(false);
       setShowSearch(false);
+      setShowHelp(false);
       setOrganize(null);
       setShowQuiz(true);
       return;
     }
 
-    if (route.kind === "speaking" || route.kind === "log" || route.kind === "search" || route.kind === "organize") {
+    if (route.kind === "speaking" || route.kind === "log" || route.kind === "search" || route.kind === "help" || route.kind === "organize") {
       setSelected(null);
       setArchiveOpen(false);
       setShowQuiz(false);
       setShowSpeaking(route.kind === "speaking");
       setShowLog(route.kind === "log");
       setShowSearch(route.kind === "search");
+      setShowHelp(route.kind === "help");
       setOrganize(route.kind === "organize" ? { tab: route.tab, questionId: route.questionId, theme: route.theme ?? null } : null);
       return;
     }
@@ -165,6 +169,7 @@ export default function App() {
     setShowSpeaking(false);
     setShowLog(false);
     setShowSearch(false);
+    setShowHelp(false);
     setOrganize(null);
     if (loading || error) return;
 
@@ -248,6 +253,7 @@ export default function App() {
     setShowSpeaking(false);
     setShowLog(false);
     setShowSearch(false);
+    setShowHelp(false);
     setOrganize(null);
     setShowQuiz(open);
     void reviewQueue.refresh();
@@ -256,6 +262,7 @@ export default function App() {
   const setSpeakingOpen = (open: boolean) => {
     replaceRoute(open ? { kind: "speaking" } : { kind: "dashboard" });
     setSelected(null);
+    setShowHelp(false);
     setShowQuiz(false);
     setShowLog(false);
     setShowSearch(false);
@@ -268,6 +275,7 @@ export default function App() {
     setLogUnconfirmedOnly(open && unconfirmedOnly);
     if (!open) void reviewQueue.refresh();
     setSelected(null);
+    setShowHelp(false);
     setShowQuiz(false);
     setShowSpeaking(false);
     setShowSearch(false);
@@ -278,6 +286,7 @@ export default function App() {
   const setSearchOpen = (open: boolean) => {
     replaceRoute(open ? { kind: "search" } : { kind: "dashboard" });
     setSelected(null);
+    setShowHelp(false);
     setShowQuiz(false);
     setShowSpeaking(false);
     setShowLog(false);
@@ -285,9 +294,21 @@ export default function App() {
     setShowSearch(open);
   };
 
+  const setHelpOpen = (open: boolean) => {
+    replaceRoute(open ? { kind: "help" } : { kind: "dashboard" });
+    setSelected(null);
+    setShowQuiz(false);
+    setShowSpeaking(false);
+    setShowLog(false);
+    setShowSearch(false);
+    setOrganize(null);
+    setShowHelp(open);
+  };
+
   const setOrganizeOpen = (tab: OrganizeTab | null) => {
     replaceRoute(tab ? { kind: "organize", tab, questionId: null } : { kind: "dashboard" });
     setSelected(null);
+    setShowHelp(false);
     setShowQuiz(false);
     setShowSpeaking(false);
     setShowLog(false);
@@ -307,6 +328,7 @@ export default function App() {
     };
     replaceRoute({ kind: "organize", ...next });
     setSelected(null);
+    setShowHelp(false);
     setShowQuiz(false);
     setShowSpeaking(false);
     setShowLog(false);
@@ -377,6 +399,7 @@ export default function App() {
     replaceRoute({ kind: "dashboard" });
     setOrganize(null);
     setShowSearch(false);
+    setShowHelp(false);
     setSelected(null);
     setActionError(null);
     setFormTarget(item);
@@ -527,6 +550,10 @@ export default function App() {
     );
   }
 
+  if (showHelp) {
+    return <HelpView newLimit={dailyReview.status?.new_limit ?? 10} onExit={() => setHelpOpen(false)} />;
+  }
+
   if (showLog) {
     return (
       <Suspense fallback={<div className="msg">読み込み中...</div>}>
@@ -570,10 +597,7 @@ export default function App() {
         <div className="head">
           <div className="dashboard-brand">
             <span className="dashboard-brand-mark" aria-hidden="true">K</span>
-            <span>
-              <h1>Knowledge</h1>
-              <small>学びを整理・確認</small>
-            </span>
+            <h1>Knowledge</h1>
           </div>
           <div className="head-actions">
             <a className="hub-link" href="https://personal-dashboard-7md.pages.dev/">← Hub</a>
@@ -598,11 +622,15 @@ export default function App() {
                 <ThemeSelect />
               </div>
             </details>
-            <span className={`source-badge ${error ? "error" : loading ? "loading" : "live"}`}>
-              {error ? "取得失敗" : loading ? "接続確認中" : "SUPABASE LIVE"}
-            </span>
+            {/* 正常時は何も出さず、接続確認中と失敗のときだけ知らせる */}
+            {(error || loading) && (
+              <span className={`source-badge ${error ? "error" : "loading"}`}>
+                {error ? "取得失敗" : "接続確認中"}
+              </span>
+            )}
             <button className="refresh-button" onClick={handleReload} disabled={loading || mutating} aria-label="データを再読み込み" title="再読み込み">↻</button>
-            <button className="primary-button" onClick={openNew} disabled={loading || mutating}>＋ ナレッジを追加</button>
+            <button className="help-button" onClick={() => setHelpOpen(true)} aria-label="ヘルプ" title="ヘルプ">?</button>
+            <button className="primary-button" onClick={openNew} disabled={loading || mutating}>＋ 追加</button>
           </div>
         </div>
       </header>
@@ -697,6 +725,7 @@ export default function App() {
             />
           </Suspense>
 
+          <h2 className="section-title">ナレッジ</h2>
           <FilterBar
             filters={filters}
             categories={categories}

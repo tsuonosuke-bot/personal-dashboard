@@ -330,6 +330,15 @@ DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECT
 Secret keyはservice_roleのためRLSを迂回する。ブラウザのanon keyでは
 `record_answer` / `record_answers_batch` は書き込めない設計を変えない。
 
+## UIの方針
+
+- 見た目はNotionを手本にする。白い面、薄い境界線、枠や塗りのないボタン、主役の操作だけを青（`--accent`）で塗る
+- 色・文字サイズ・角丸・影は `src/index.css` 先頭の `:root` のトークンを使い、個別のルールに色の値を直接書かない。
+  足りないときはトークンを追加する。ダーク版は `scripts/build-dark-theme.mjs` がトークンから作る
+- 文字は12px未満にしない。スマホ幅（560px以下）ではボタンの高さを40px以上にする
+- 画面には数字と操作だけを出す。仕組み・定義・使い方の説明は `HelpView`（`?view=help`、ヘッダーの「?」）に書き、
+  画面の文言を変えたらヘルプも合わせて直す
+
 ## 構成
 
 ```text

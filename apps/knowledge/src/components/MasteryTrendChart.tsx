@@ -49,7 +49,7 @@ export function MasteryTrendChart({ reloadKey }: { reloadKey: unknown }) {
         <div className="chart-box registration-trend-box" role="img" aria-describedby="mastery-trend-summary">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={points} margin={{ top: 8, right: 8, bottom: 8, left: -20 }}>
-              <CartesianGrid stroke="#f1f5f9" vertical={false} />
+              <CartesianGrid stroke="#e9e9e7" vertical={false} />
               <XAxis
                 dataKey="label"
                 interval="preserveStartEnd"

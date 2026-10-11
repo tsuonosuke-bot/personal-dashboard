@@ -52,7 +52,7 @@ export function RegistrationTrendChart({ knowledge }: { knowledge: Knowledge[] }
         >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 8, right: 8, bottom: 8, left: -20 }}>
-              <CartesianGrid stroke="#f1f5f9" vertical={false} />
+              <CartesianGrid stroke="#e9e9e7" vertical={false} />
               <XAxis
                 dataKey="label"
                 interval="preserveStartEnd"
@@ -61,7 +61,7 @@ export function RegistrationTrendChart({ knowledge }: { knowledge: Knowledge[] }
               />
               <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
               <Tooltip formatter={(value) => [`${value}件`, "新規学習"]} />
-              <Bar dataKey="count" name="新規学習" fill="#66558c" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="count" name="新規学習" fill="#2383e2" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

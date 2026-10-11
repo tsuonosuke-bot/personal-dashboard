@@ -26,7 +26,7 @@ function clockTime(value: string | null | undefined): string | null {
 
 /**
  * 今日の学習: 今すぐ解ける問題・今日の回答・見直す講評の3つに絞って示す。
- * 出題間隔などの仕組みの説明は折りたたみに置く。
+ * 出題間隔などの仕組みの説明はヘルプページ（HelpView）に置き、ここには数字と操作だけを出す。
  */
 export function TodayLearningPanel({
   status, loading, error, queueStatus, quizLog, missCount, missWrong, missPartial, onStart, onOpenMisses, onOpenLog,
@@ -69,10 +69,7 @@ export function TodayLearningPanel({
   return (
     <section className="card today-learning" aria-labelledby="today-learning-heading">
       <div className="today-learning-head">
-        <div>
-          <span className="eyebrow">Daily review</span>
-          <h2 id="today-learning-heading">今日の学習</h2>
-        </div>
+        <h2 id="today-learning-heading">今日の学習</h2>
         <button className="primary-button today-learning-start" disabled={loading || readyDue === 0} onClick={onStart}>
           {buttonLabel}
         </button>
@@ -85,18 +82,18 @@ export function TodayLearningPanel({
         <div className="today-metric">
           <span>今すぐ解ける</span>
           <strong>{readyDue}<small>問</small></strong>
-          <em>
-            {status
-              ? <>期限超過 {status.overdue_total}・再学習 {status.retry_ready}{status.retry_waiting > 0 && `（ほか${status.retry_waiting}件が時刻待ち${nextRetry ? `、最短 ${nextRetry}頃` : ""}）`}</>
-              : "期限が来た出題待ちの問題"}
-          </em>
+          {status && (
+            <em>
+              期限超過 {status.overdue_total}・再学習 {status.retry_ready}{status.retry_waiting > 0 && `（ほか${status.retry_waiting}件が時刻待ち${nextRetry ? `、最短 ${nextRetry}頃` : ""}）`}
+            </em>
+          )}
         </div>
         <div className="today-metric">
           <span>今日の回答</span>
           <strong>
             {today.answered}<small>問{today.accuracy !== null && ` · 正答率 ${Math.round(today.accuracy * 100)}%`}</small>
           </strong>
-          <em>{today.answered > 0 ? `${today.cards}枚を復習` : "まだ回答していません"}</em>
+          {today.answered > 0 && <em>{today.cards}枚を復習</em>}
         </div>
         <div className={`today-metric${missCount > 0 ? " attention" : ""}`}>
           <span>見直す講評</span>
@@ -104,7 +101,7 @@ export function TodayLearningPanel({
             <strong>{missCount}<small>件</small></strong>
             {missCount > 0 && <button className="today-metric-action" onClick={onOpenMisses}>見直す</button>}
           </div>
-          <em>{missCount > 0 ? `不正解 ${missWrong}・部分正解 ${missPartial}（正解の講評は確認不要）` : "外した問題の講評はすべて確認済み"}</em>
+          {missCount > 0 && <em>不正解 {missWrong}・部分正解 {missPartial}</em>}
         </div>
       </div>
 
@@ -137,23 +134,6 @@ export function TodayLearningPanel({
         </details>
       )}
 
-      {status && (
-        <details className="today-learning-how">
-          <summary>出題の仕組み（間隔・新規の上限）</summary>
-          <p>
-            復習はキューの上から順に、問題がある限り解き続けられます。答えた分はその都度記録されるので、
-            途中で終えても大丈夫です。問題は30分ごとに、期限が来たナレッジの分をまとめて作ります。回答は1時間ごとに自動で採点され、
-            外した問題の講評は「見直す講評」から確認できます。
-          </p>
-          <p>
-            基準間隔: q0=10分、q1=30分、q2=6時間、q3=12時間、q4=2日以上、q5=4日以上。
-            q4・q5は保持できた期間に応じて伸び（q4は2倍、q5は2.8倍）、q0〜q3は段階別の時刻に戻ります。
-            正解・不正解を問わず、次回までの間隔には優先度の倍率（最高0.5・高1・中1.5・低2・最低3倍）がかかります。
-            未出題の新規は1日{status.new_limit}件までキューに入り、超えた分は「今すぐ」に数えず翌日以降に回します。
-            15件中、通常の期限到来が5件以上あれば再学習は最大10件です。
-          </p>
-        </details>
-      )}
     </section>
   );
 }

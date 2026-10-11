@@ -18,7 +18,7 @@ export function MasteryChart({ knowledge }: { knowledge: Knowledge[] }) {
       <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
         <XAxis dataKey="mastery" tick={{ fontSize: 12 }} />
         <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-        <Tooltip cursor={{ fill: "#f1f5f9" }} />
+        <Tooltip cursor={{ fill: "#e9e9e7" }} />
         <Bar dataKey="count" name="件数" radius={[4, 4, 0, 0]}>
           {data.map((d) => (
             <Cell key={d.mastery} fill={MASTERY_COLORS[d.mastery]} />
