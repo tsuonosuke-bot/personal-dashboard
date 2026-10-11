@@ -56,7 +56,25 @@ main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px
 .card-head h3 small { color: var(--muted); font-weight: 500; }
 .card-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
 .card-foot.end { justify-content: flex-end; }
-.notation { margin: 6px 0 0; padding: 7px 9px; border-radius: var(--radius-sm); background: var(--bg-subtle); font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* レシピ：矢印＋色付きボタンの札。Pは暖色・Kは寒色、弱→強で濃くなる */
+.notation { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 3px; margin: 6px 0 0; padding: 7px 8px; border-radius: var(--radius-sm); background: var(--bg-subtle); font-size: 13px; line-height: 1.2; }
+.cmd { display: inline-flex; align-items: center; gap: 1px; }
+.cmd-arrows { font-size: 15px; font-weight: 700; letter-spacing: -.04em; }
+.cmd-jump { padding: 1px 3px; border-radius: 3px; background: var(--bg-active); color: var(--muted); font-size: 11px; font-weight: 700; }
+.cmd-button { min-width: 30px; padding: 3px 5px; border: 1px solid transparent; border-radius: 999px; font-size: 12px; font-weight: 700; text-align: center; }
+.cmd-button.punch.light { background: #fde8d7; color: #9a3412; }
+.cmd-button.punch.medium { background: #f7b98a; color: #7c2d12; }
+.cmd-button.punch.heavy { background: #c2410c; color: #fff; }
+.cmd-button.kick.light { background: #dbe7fb; color: #1e40af; }
+.cmd-button.kick.medium { background: #9dbcf2; color: #1e3a8a; }
+.cmd-button.kick.heavy { background: #2556c4; color: #fff; }
+.cmd-button.od { border-color: #b7791f; background: #fbefd5; color: #8a5a12; }
+.cmd-link { padding: 2px 5px; border-radius: 4px; font-size: 12px; font-weight: 700; }
+.cmd-link.link { padding: 0 1px; color: var(--text-tertiary); font-size: 16px; }
+.cmd-link.cancel { background: var(--bg-active); color: var(--muted); font-weight: 600; }
+.cmd-link.drive { background: #dcefe3; color: #23663f; }
+.cmd-link.sa { background: var(--accent); color: #fff; }
+.cmd-text { color: var(--muted); font-size: 12px; }
 .memo { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; white-space: pre-wrap; }
 .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .tags span { padding: 2px 6px; border-radius: 4px; background: var(--bg-hover); color: var(--muted); font-size: 12px; }
@@ -138,6 +156,31 @@ input, textarea, select { width: 100%; border: 1px solid var(--border-strong); b
 input, select { height: 40px; padding: 0 10px; }
 textarea { resize: vertical; padding: 9px 10px; line-height: 1.5; }
 input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(179, 32, 61, .12); }
+/* レシピの入力パレット */
+.notation-field { display: grid; gap: 6px; }
+.field-label { font-size: 12px; font-weight: 600; }
+.field-label b { color: var(--accent); font-weight: 600; }
+.notation-preview .notation { min-height: 44px; margin: 0; border: 1px solid var(--border-strong); background: var(--bg); }
+.notation-empty { min-height: 44px; display: grid; place-items: center; margin: 0; border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); color: var(--text-tertiary); font-size: 12px; }
+.fragments { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.frag-label { color: var(--muted); font-size: 12px; }
+.frag { min-height: 30px; padding: 0 8px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--bg); font-size: 12px; }
+.palette { display: grid; gap: 6px; padding: 8px; border-radius: var(--radius); background: var(--bg-subtle); }
+.pal-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.pal-main { flex-wrap: nowrap; gap: 8px; }
+.pal-pad { display: grid; grid-template-columns: repeat(3, 40px); gap: 3px; }
+.pal-attacks { flex: 1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-content: start; gap: 3px; }
+.pal-key { min-width: 40px; min-height: 40px; padding: 0 8px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); font-size: 13px; font-weight: 600; touch-action: manipulation; }
+.pal-key:active { background: var(--bg-active); }
+.pal-key.dir { padding: 0; font-size: 18px; }
+.pal-key.atk { min-width: 0; padding: 0; }
+.pal-key.atk.punch { background: #fde8d7; color: #9a3412; border-color: #f3c7a6; }
+.pal-key.atk.kick { background: #dbe7fb; color: #1e40af; border-color: #b4cbf3; }
+.pal-key.motion, .pal-key.link { min-height: 34px; font-size: 12px; }
+.pal-edit { justify-content: flex-end; }
+.pal-key.edit { min-height: 34px; color: var(--muted); font-size: 12px; }
+.notation-raw summary { color: var(--muted); font-size: 12px; cursor: pointer; }
+.notation-raw textarea { margin-top: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .check-field { display: flex; align-items: center; gap: 8px; min-height: 32px; }
 .check-field input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 .check-field span { margin: 0; font-weight: 500; }

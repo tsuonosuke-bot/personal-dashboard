@@ -104,6 +104,65 @@ html[data-theme="dark"] {
   border-radius: var(--radius-sm);
   background: var(--bg-subtle);
 }
+:root[data-theme="dark"] .cmd-jump {
+  border-radius: 3px;
+  background: var(--bg-active);
+  color: var(--muted);
+}
+:root[data-theme="dark"] .cmd-button {
+  border: 1px solid transparent;
+  border-radius: 999px;
+}
+:root[data-theme="dark"] .cmd-button.punch.light {
+  background: #4c321d;
+  color: #f1a48a;
+}
+:root[data-theme="dark"] .cmd-button.punch.medium {
+  background: #5a3b23;
+  color: #f1b19c;
+}
+:root[data-theme="dark"] .cmd-button.punch.heavy {
+  background: #c2410c;
+  color: #fff;
+}
+:root[data-theme="dark"] .cmd-button.kick.light {
+  background: #212f48;
+  color: #8099e9;
+}
+:root[data-theme="dark"] .cmd-button.kick.medium {
+  background: #263754;
+  color: #96abe8;
+}
+:root[data-theme="dark"] .cmd-button.kick.heavy {
+  background: #2556c4;
+  color: #fff;
+}
+:root[data-theme="dark"] .cmd-button.od {
+  border-color: #dc952e;
+  background: #4b3d1f;
+  color: #f1cc94;
+}
+:root[data-theme="dark"] .cmd-link {
+  border-radius: 4px;
+}
+:root[data-theme="dark"] .cmd-link.link {
+  color: var(--text-tertiary);
+}
+:root[data-theme="dark"] .cmd-link.cancel {
+  background: var(--bg-active);
+  color: var(--muted);
+}
+:root[data-theme="dark"] .cmd-link.drive {
+  background: #2c4033;
+  color: #ace3c3;
+}
+:root[data-theme="dark"] .cmd-link.sa {
+  background: var(--accent--light, var(--accent));
+  color: #fff;
+}
+:root[data-theme="dark"] .cmd-text {
+  color: var(--muted);
+}
 :root[data-theme="dark"] .memo {
   color: var(--muted);
 }
@@ -275,6 +334,54 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(179, 32, 61, .12);
+}
+:root[data-theme="dark"] .field-label b {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .notation-preview .notation {
+  border: 1px solid var(--border-strong);
+  background: var(--bg);
+}
+:root[data-theme="dark"] .notation-empty {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+}
+:root[data-theme="dark"] .frag-label {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .frag {
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg);
+}
+:root[data-theme="dark"] .palette {
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+}
+:root[data-theme="dark"] .pal-key {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+:root[data-theme="dark"] .pal-key:active {
+  background: var(--bg-active);
+}
+:root[data-theme="dark"] .pal-key.atk.punch {
+  background: #4c321d;
+  color: #f1a48a;
+  border-color: #654731;
+}
+:root[data-theme="dark"] .pal-key.atk.kick {
+  background: #212f48;
+  color: #8099e9;
+  border-color: #344666;
+}
+:root[data-theme="dark"] .pal-key.edit {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .notation-raw summary {
+  color: var(--muted);
 }
 :root[data-theme="dark"] .check-field input {
   accent-color: var(--accent);

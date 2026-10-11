@@ -1,4 +1,5 @@
 import { readApiJson } from "./api-client.js";
+import { ARROWS, appendFragment, appendToken, frequentFragments, parseNotation, removeLastToken } from "./sf6-notation.js";
 
 // SF6ページ。コンボ帳・注意点・練習メニュー・対戦振り返りの4タブ。
 // 編集は1つのモーダルを使い回し、FORMS の定義から入力欄を組み立てる。
@@ -103,6 +104,76 @@ function errorMessage(payload, fallback) {
 function options(map, selected) {
   return Object.entries(map).map(([value, label]) =>
     `<option value="${escapeHtml(value)}"${value === selected ? " selected" : ""}>${escapeHtml(label)}</option>`).join("");
+}
+
+/** レシピを矢印と色付きのボタンで表示する。読めない語は文字のまま出す。 */
+function notationHtml(text) {
+  const parts = parseNotation(text).map((part) => {
+    if (part.type === "command" || part.type === "motion") {
+      const jump = part.jump ? '<span class="cmd-jump" title="ジャンプ">J</span>' : "";
+      const arrows = part.arrows.length ? `<span class="cmd-arrows">${part.arrows.map(escapeHtml).join("")}</span>` : "";
+      const button = part.type === "command"
+        ? `<span class="cmd-button ${part.limb} ${part.strength}">${escapeHtml(part.button)}</span>`
+        : "";
+      return `<span class="cmd">${jump}${arrows}${button}</span>`;
+    }
+    if (part.type === "link") return `<span class="cmd-link ${part.kind}" title="${escapeHtml(part.title)}">${escapeHtml(part.label)}</span>`;
+    return `<span class="cmd-text">${escapeHtml(part.text)}</span>`;
+  });
+  return `<div class="notation" aria-label="${escapeHtml(text)}">${parts.join("")}</div>`;
+}
+
+const PALETTE = {
+  directions: ["7", "8", "9", "4", "5", "6", "1", "2", "3"],
+  attacks: ["弱P", "中P", "強P", "PP", "弱K", "中K", "強K", "KK"],
+  motions: [["236", "波動"], ["214", "竜巻"], ["623", "昇龍"], ["41236", "半回転"], ["22", "↓↓"], ["J", "ジャンプ"]],
+  links: [">", "xx", "TC", "DR", "DI", "パリィ", "投げ", "SA1", "SA2", "SA3", "CA"],
+};
+const LINK_LABELS = { ">": "› つなぎ", xx: "キャンセル" };
+
+function paletteHtml() {
+  const key = (token, label, className = "") =>
+    `<button type="button" class="pal-key ${className}" data-token="${escapeHtml(token)}">${escapeHtml(label)}</button>`;
+  return `<div class="palette" role="group" aria-label="レシピの入力パレット">
+    <div class="pal-row pal-main">
+      <div class="pal-pad">${PALETTE.directions.map((digit) => key(digit, ARROWS[digit], "dir")).join("")}</div>
+      <div class="pal-attacks">${PALETTE.attacks.map((button) => key(button, button, `atk ${button.endsWith("P") ? "punch" : "kick"}`)).join("")}</div>
+    </div>
+    <div class="pal-row">${PALETTE.motions.map(([token, label]) => key(token, label, "motion")).join("")}</div>
+    <div class="pal-row">${PALETTE.links.map((token) => key(token, LINK_LABELS[token] || token, "link")).join("")}</div>
+    <div class="pal-row pal-edit">
+      <button type="button" class="pal-key edit" data-palette="backspace">⌫ 1つ戻す</button>
+      <button type="button" class="pal-key edit" data-palette="clear">クリア</button>
+    </div>
+  </div>`;
+}
+
+/** よく使う出だし。フォームのキャラのコンボから拾い、なければ全キャラから。 */
+function fragmentsHtml(character) {
+  const combos = state.data.combos.filter((combo) => !combo.archived);
+  const own = combos.filter((combo) => combo.character === character);
+  const fragments = frequentFragments((own.length ? own : combos).map((combo) => combo.notation));
+  if (!fragments.length) return "";
+  return `<span class="frag-label">よく使う</span>${fragments.map((fragment) =>
+    `<button type="button" class="frag" data-fragment="${escapeHtml(fragment)}">${escapeHtml(fragment)}</button>`).join("")}`;
+}
+
+function refreshNotationAssist() {
+  const input = document.getElementById("field-notation");
+  if (!input) return;
+  const preview = document.getElementById("notationPreview");
+  preview.innerHTML = input.value.trim() ? notationHtml(input.value) : '<p class="notation-empty">下のボタンを押すとここにレシピが並びます</p>';
+  const fragments = document.getElementById("notationFragments");
+  const character = document.getElementById("field-character")?.value.trim() || "";
+  fragments.innerHTML = fragmentsHtml(character);
+  fragments.hidden = !fragments.innerHTML;
+}
+
+function editNotation(change) {
+  const input = document.getElementById("field-notation");
+  if (!input) return;
+  input.value = change(input.value).slice(0, 1000);
+  refreshNotationAssist();
 }
 
 // ---------- 通信 ----------
@@ -221,7 +292,7 @@ function comboCard(combo) {
       <h3>${escapeHtml(combo.title)}</h3>
       <button type="button" class="ghost-button" data-edit="combos" data-id="${combo.id}">編集</button>
     </div>
-    <p class="notation">${escapeHtml(combo.notation)}</p>
+    ${notationHtml(combo.notation)}
     ${tags.length ? `<div class="tags">${tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</div>` : ""}
     ${combo.memo ? `<p class="memo">${escapeHtml(combo.memo)}</p>` : ""}
     <div class="card-foot">
@@ -312,7 +383,7 @@ function drillCard(drill) {
       <h3>${escapeHtml(drill.title)}</h3>
       <button type="button" class="ghost-button" data-edit="drills" data-id="${drill.id}">編集</button>
     </div>
-    ${combo ? `<p class="notation">${escapeHtml(combo.notation)}</p>` : ""}
+    ${combo ? notationHtml(combo.notation) : ""}
     ${drill.detail ? `<p class="memo">${escapeHtml(drill.detail)}</p>` : ""}
     <div class="card-foot">
       <small class="meta">${meta.map(escapeHtml).join(" · ")}</small>
@@ -387,7 +458,7 @@ const FORMS = {
     fields: [
       { key: "character", label: "キャラ", type: "character", required: true },
       { key: "title", label: "名前", type: "text", max: 120, required: true, placeholder: "例：中足ラッシュ基本" },
-      { key: "notation", label: "レシピ", type: "textarea", max: 1000, required: true, rows: 3, placeholder: "例：2中K > DR 5中P > 2強P xx 236強P" },
+      { key: "notation", label: "レシピ", type: "notation", max: 1000, required: true },
       { key: "position", label: "位置", type: "select", options: POSITIONS, half: true },
       { key: "damage", label: "ダメージ", type: "number", min: 0, max: 20000, nullable: true, half: true },
       { key: "driveCost", label: "Dゲージ", type: "select", options: { 0: "0", 1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6" }, numeric: true, half: true },
@@ -459,6 +530,16 @@ function fieldHtml(field, value, isEdit) {
       return `<input type="hidden" id="${id}" value="${escapeHtml(text)}" />`;
     case "checkbox":
       return `<label class="check-field" data-field="${field.key}"><input type="checkbox" id="${id}"${value ? " checked" : ""} /><span>${escapeHtml(field.label)}</span></label>`;
+    case "notation":
+      return `<div class="notation-field" data-field="${field.key}">
+        <span class="field-label">${escapeHtml(field.label)} <b>必須</b></span>
+        <div class="notation-preview" id="notationPreview" aria-live="polite"></div>
+        <div class="fragments" id="notationFragments" hidden></div>
+        ${paletteHtml()}
+        <details class="notation-raw"><summary>文字で直接編集</summary>
+          <textarea id="${id}" rows="2" maxlength="${field.max}" placeholder="例：2中K > DR 5中P > 2強P xx 236強P">${escapeHtml(text)}</textarea>
+        </details>
+      </div>`;
     case "textarea":
       return `<label data-field="${field.key}">${label}<textarea id="${id}" rows="${field.rows || 3}" maxlength="${field.max}" placeholder="${escapeHtml(field.placeholder || "")}">${escapeHtml(text)}</textarea></label>`;
     case "select":
@@ -519,6 +600,7 @@ function openModal(resource, item = null, preset = {}) {
   els.deleteButton.hidden = !item;
   els.saveButton.textContent = item ? "保存する" : "追加する";
   syncConditional(resource);
+  refreshNotationAssist();
   els.editModal.hidden = false;
   const first = els.formFields.querySelector("input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=date]), textarea");
   // スマホで勝手にキーボードが開かないよう、フォーカスはPC幅のときだけ
@@ -670,7 +752,22 @@ els.addButton.addEventListener("click", () => {
   if (state.tab === "combos") openModal("combos", null, state.comboCharacter ? { character: state.comboCharacter } : {});
   else openModal(state.tab);
 });
-els.formFields.addEventListener("change", () => { if (state.editing) syncConditional(state.editing.resource); });
+els.formFields.addEventListener("change", () => {
+  if (!state.editing) return;
+  syncConditional(state.editing.resource);
+  refreshNotationAssist();
+});
+els.formFields.addEventListener("input", (event) => {
+  if (event.target.id === "field-notation") refreshNotationAssist();
+});
+els.formFields.addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+  if (!button) return;
+  if (button.dataset.token) editNotation((text) => appendToken(text, button.dataset.token));
+  else if (button.dataset.fragment) editNotation((text) => appendFragment(text, button.dataset.fragment));
+  else if (button.dataset.palette === "backspace") editNotation(removeLastToken);
+  else if (button.dataset.palette === "clear") editNotation(() => "");
+});
 els.editForm.addEventListener("submit", submitModal);
 els.modalClose.addEventListener("click", closeModal);
 els.cancelButton.addEventListener("click", closeModal);
