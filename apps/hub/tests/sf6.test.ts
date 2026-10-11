@@ -85,7 +85,7 @@ test("DBの行をcamelCaseに直し、壊れた行は捨てる", () => {
   assert.equal("updatedAt" in (toSf6Item("logs", { id: 1, drill_id: 2 }) || {}), false);
 });
 
-test("GETは5つの表をまとめて返す", async () => {
+test("GETは6つの表をまとめて返す", async () => {
   const mock = withFetch((url) => {
     const table = url.pathname.split("/").pop();
     const rows = table === "sf6_combos"
@@ -97,10 +97,10 @@ test("GETは5つの表をまとめて返す", async () => {
     const response = await listRoute({ request: new Request("https://dashboard.example/api/sf6"), env });
     assert.equal(response.status, 200);
     const body = await response.json();
-    assert.deepEqual(Object.keys(body).sort(), ["combos", "drills", "logs", "matches", "notes", "source", "today"]);
+    assert.deepEqual(Object.keys(body).sort(), ["combos", "drills", "logs", "matches", "notes", "setplays", "source", "today"]);
     assert.equal(body.combos[0].mastery, 2);
     assert.deepEqual(mock.calls.map((call) => call.url.pathname).sort(), [
-      "/rest/v1/sf6_combos", "/rest/v1/sf6_drill_logs", "/rest/v1/sf6_drills", "/rest/v1/sf6_matches", "/rest/v1/sf6_notes",
+      "/rest/v1/sf6_combos", "/rest/v1/sf6_drill_logs", "/rest/v1/sf6_drills", "/rest/v1/sf6_matches", "/rest/v1/sf6_notes", "/rest/v1/sf6_setplays",
     ]);
     assert.equal(mock.calls.find((call) => call.url.pathname.endsWith("sf6_drill_logs"))?.url.searchParams.get("select")?.includes("updated_at"), false);
   } finally {

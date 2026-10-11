@@ -297,6 +297,112 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .review.bad b {
   color: var(--accent);
 }
+:root[data-theme="dark"] .conditions summary {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .conditions summary span {
+  color: var(--ink);
+}
+:root[data-theme="dark"] .condition-grid {
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+}
+:root[data-theme="dark"] .situations span {
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .end-line,
+:root[data-theme="dark"] .start-line {
+  color: var(--ink);
+}
+:root[data-theme="dark"] .start-line b {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .start-line span {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .next-setplays > span {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .next-chip {
+  border: 1px solid #405448;
+  border-radius: 999px;
+  background: #2c3b32;
+  color: #ace3c3;
+}
+:root[data-theme="dark"] .next-chip.near {
+  border-color: #5e5032;
+  background: #453b23;
+  color: #f1cc94;
+}
+:root[data-theme="dark"] .outcome {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+}
+:root[data-theme="dark"] .outcome.win {
+  border-color: #405448;
+  background: #2c3b32;
+  color: #ace3c3;
+}
+:root[data-theme="dark"] .outcome.lose {
+  border-color: #643941;
+  background: var(--lose-soft);
+  color: var(--lose);
+}
+:root[data-theme="dark"] .setplay-card.flash {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+:root[data-theme="dark"] .kind-label {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .tags .trainer-label {
+  background: none;
+  color: var(--muted);
+}
+:root[data-theme="dark"] .raise-button {
+  border: 1px solid #405448;
+  border-radius: var(--radius-sm);
+  background: #2c3b32;
+  color: #ace3c3;
+}
+:root[data-theme="dark"] .log-rate small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .field-hint {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .toggle-chip {
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg);
+}
+:root[data-theme="dark"] .toggle-chip[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .check-list {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+:root[data-theme="dark"] .check-row input {
+  accent-color: var(--accent);
+}
+:root[data-theme="dark"] .check-row small {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .pal-key.move {
+  border-color: #405448;
+  background: #2c3b32;
+  color: #ace3c3;
+}
+:root[data-theme="dark"] .cmd-link.move {
+  background: #2c3b32;
+  color: #ace3c3;
+}
 :root[data-theme="dark"] .fold summary {
   color: var(--muted);
 }
