@@ -111,8 +111,9 @@ test('家計簿画面から定期登録管理画面を開き、内容を編集�
   assert.match(app, /className="recurring-icon"/)
   assert.doesNotMatch(app, /↻ 定期登録/)
   assert.doesNotMatch(styles, /\.recurring-button::after\s*\{[^}]*↻/)
-  assert.match(styles, /\.recurring-button\s*\{[^}]*background: #f3f0ff/)
-  assert.match(styles, /@media \(max-width: 640px\)[\s\S]*\.recurring-button\s*\{[^}]*background: #59449b/)
+  // 紫はKnowledgeのテーマカラーなので使わず、ほかと同じ控えめなボタンにする
+  assert.match(app, /className="secondary-button recurring-button"/)
+  assert.doesNotMatch(styles, /#59449b|#f3f0ff/)
   assert.match(app, /view.*recurring/)
   assert.match(manager, /定期登録を管理/)
   assert.match(manager, /変更を保存/)

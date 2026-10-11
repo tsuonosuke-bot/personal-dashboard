@@ -141,7 +141,7 @@ export function RecurringExpenseModal({ categories, rules, busy, error, onClose,
 
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose() }}>
     <section className="entry-modal recurring-modal" role="dialog" aria-modal="true" aria-labelledby="recurring-title">
-      <div className="entry-modal-head"><div><p className="eyebrow">Recurring transactions</p><h2 id="recurring-title">定期登録を管理</h2></div><button type="button" className="modal-close" aria-label="家計簿へ戻る" onClick={onClose} disabled={busy}>×</button></div>
+      <div className="entry-modal-head"><div><h2 id="recurring-title">定期登録を管理</h2></div><button type="button" className="modal-close" aria-label="家計簿へ戻る" onClick={onClose} disabled={busy}>×</button></div>
       <div className="recurring-body">
         <div className="recurring-section-head"><div><h3>登録中のルール</h3><p>毎日0:10（日本時間）にSupabaseで自動反映します。PCの電源は不要です。</p></div><button type="button" className="secondary-button" onClick={onRun} disabled={busy}>今すぐ反映</button></div>
         <div className="recurring-list">

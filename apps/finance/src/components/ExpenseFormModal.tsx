@@ -63,7 +63,7 @@ export function ExpenseFormModal({ categories, payers, saving, error, expense, o
     <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose() }}>
       <section className="entry-modal" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
         <div className="entry-modal-head">
-          <div><p className="eyebrow">{editing ? 'Edit transaction' : 'New transaction'}</p><h2 id="expense-modal-title">{editing ? '家計簿を編集' : '家計簿を記録'}</h2></div>
+          <div><h2 id="expense-modal-title">{editing ? '家計簿を編集' : '家計簿を記録'}</h2></div>
           <button type="button" className="modal-close" aria-label="閉じる" onClick={onClose} disabled={saving}>×</button>
         </div>
         <form onSubmit={submit}>

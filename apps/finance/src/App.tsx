@@ -265,10 +265,7 @@ function App() {
         <div className="app-header-inner">
           <div className="dashboard-brand">
             <span className="dashboard-brand-mark" aria-hidden="true">¥</span>
-            <span>
-              <h1>Finance</h1>
-              <small>日々のお金の流れを確認・記録</small>
-            </span>
+            <h1>Finance</h1>
           </div>
           <div className="header-actions">
             <a className="hub-button" href="https://personal-dashboard-7md.pages.dev/">
@@ -295,9 +292,12 @@ function App() {
                 <ThemeSelect />
               </div>
             </details>
-            <span className={`source-badge ${error ? 'error' : loading ? 'loading' : demoMode ? 'demo' : 'live'}`}>
-              {error ? '取得失敗' : loading ? '接続確認中' : demoMode ? 'DEMO DATA' : 'SUPABASE LIVE'}
-            </span>
+            {/* 正常時は何も出さず、確認中・デモ・失敗のときだけ知らせる */}
+            {(error || loading || demoMode) && (
+              <span className={`source-badge ${error ? 'error' : loading ? 'loading' : 'demo'}`}>
+                {error ? '取得失敗' : loading ? '接続確認中' : 'DEMO DATA'}
+              </span>
+            )}
             <button type="button" onClick={reload} disabled={loading} aria-label="再読み込み" className="refresh-button">
               <span aria-hidden="true">↻</span>
             </button>
@@ -369,7 +369,6 @@ function App() {
             <section className="month-toolbar" aria-label="表示条件の選択">
               <div className="filter-intro">
                 <div className="filter-intro-title">
-                  <p className="eyebrow">Filters</p>
                   <p className="text-sm font-semibold text-slate-700">表示条件</p>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">月・カテゴリ・支払者を組み合わせて集計します</p>

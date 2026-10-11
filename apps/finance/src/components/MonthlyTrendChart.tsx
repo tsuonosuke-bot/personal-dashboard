@@ -69,7 +69,7 @@ export function MonthlyTrendChart({ expenses, selectedMonth }: Props) {
     <section className="panel chart-panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">Cash flow</p>
+          
           <h2 className="panel-title">月別収支推移</h2>
         </div>
         <div className="trend-heading-actions">
