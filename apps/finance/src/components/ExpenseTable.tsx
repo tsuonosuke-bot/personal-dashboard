@@ -278,7 +278,6 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
       {onRestore && monthVoided.length > 0 && (
         <details className="voided-expenses">
           <summary>取消済みの明細 {monthVoided.length.toLocaleString('ja-JP')}件（{monthLabel(selectedMonth)}）</summary>
-          <p>集計・CSVには含まれません。復元すると元の明細に戻ります。</p>
           <ul>
             {monthVoided.map((expense) => (
               <li key={expense.id}>

@@ -42,7 +42,7 @@
               </div>
             </details>
             <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
-            <button class="dashboard-refresh" id="refreshButton" type="button" title="再読み込み" aria-label="データを再読み込み">↻</button>
+            <button class="dashboard-refresh" id="refreshButton" type="button" title="再読み込み" aria-label="データを再読み込み">↻</button><a class="dashboard-refresh dashboard-help" href="/help/#hub" title="ヘルプ" aria-label="ヘルプ">?</a>
             <details class="quick-add-menu" id="quickAddMenu">
               <summary class="dashboard-primary"><span aria-hidden="true">＋</span><span>追加</span></summary>
               <nav aria-label="すぐに追加または開始">
@@ -165,7 +165,7 @@
         </div>
 
         <section class="data-tools" aria-label="データ管理">
-          <div><strong>データ管理</strong><small>読み取り専用の書き出しと接続確認</small></div>
+          <div><strong>データ管理</strong></div>
           <nav>
             <a href="/knowledge/api/export">Knowledge JSON</a>
             <a href="/finance/api/export">Finance CSV</a>
@@ -180,7 +180,7 @@
       <button class="focus-modal-backdrop" id="focusModalBackdrop" type="button" aria-label="Focus管理を閉じる"></button>
       <section class="focus-dialog" role="dialog" aria-modal="true" aria-labelledby="focusDialogTitle">
         <header class="focus-dialog-header">
-          <div><h2 id="focusDialogTitle">Focusを管理</h2><p>表示は5件まで。満杯のときに追加したFocusは表示解除中に入るので、表示中の1件と入れ替えられます。</p></div>
+          <div><h2 id="focusDialogTitle">Focusを管理</h2><p>表示は5件まで</p></div>
           <button class="focus-close" id="closeFocusButton" type="button" aria-label="閉じる">×</button>
         </header>
         <p class="focus-message" id="focusMessage" role="status" hidden></p>

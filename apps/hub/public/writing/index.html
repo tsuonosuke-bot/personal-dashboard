@@ -38,7 +38,7 @@
               </div>
             </details>
             <span class="source-badge" id="sourceBadge">接続確認中</span>
-            <button class="dashboard-refresh" id="refreshButton" type="button" title="再読み込み" aria-label="データを再読み込み">↻</button>
+            <button class="dashboard-refresh" id="refreshButton" type="button" title="再読み込み" aria-label="データを再読み込み">↻</button><a class="dashboard-refresh dashboard-help" href="/help/#writing" title="ヘルプ" aria-label="ヘルプ">?</a>
             <button class="dashboard-primary" id="addTopicButton" type="button" aria-haspopup="dialog" title="IdeaでWant・Inboxを「執筆」に振り分けて追加します"><span aria-hidden="true">＋</span><span>Ideaから追加</span></button>
           </div>
         </div>
@@ -46,8 +46,8 @@
 
       <main class="dashboard-main">
         <section class="summary-grid" aria-label="Writingサマリー">
-          <button type="button" data-summary-view="candidate"><span>アイデア</span><strong id="candidateCount">—</strong><small>これから書くテーマ</small></button>
-          <button type="button" data-summary-view="completed"><span>完了</span><strong id="completedCount">—</strong><small>書き終えたテーマ</small></button>
+          <button type="button" data-summary-view="candidate"><span>アイデア</span><strong id="candidateCount">—</strong></button>
+          <button type="button" data-summary-view="completed"><span>完了</span><strong id="completedCount">—</strong></button>
         </section>
 
         <section class="writing-board" aria-labelledby="boardTitle">
@@ -62,7 +62,7 @@
             <label><span>検索</span><input id="searchInput" type="search" placeholder="タイトル・論点" /></label>
             <button id="clearFilters" type="button" hidden>解除</button>
           </div>
-          <div class="result-line"><span id="resultCount">読み込み中</span><small>本文はPomeraで執筆。ここではアイデアと完了だけを管理します</small></div>
+          <div class="result-line"><span id="resultCount">読み込み中</span></div>
           <div class="state-card" id="loadingState" role="status">Writingテーマを読み込んでいます…</div>
           <div class="state-card error" id="errorState" role="alert" hidden><strong>読み込めませんでした</strong><p id="errorMessage"></p><button id="retryButton" type="button">再試行</button></div>
           <div class="topic-list" id="topicList" hidden></div>

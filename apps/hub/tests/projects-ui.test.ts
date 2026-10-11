@@ -93,19 +93,22 @@ test("Projects release stays migration-first and has a read-only verification qu
   assert.match(packageJson, /"predeploy:check": "npm test && npm run check && npm run build"/);
 });
 
-test("Project一覧は目標日・再確認日・更新順に並べ替えられ、要確認の扱いを並び順ごとに示す", async () => {
-  const [html, script] = await Promise.all([
+test("Project一覧は目標日・再確認日・更新順に並べ替えられ、要確認の扱いを並び順ごとにヘルプで示す", async () => {
+  const [html, script, help] = await Promise.all([
     readFile(new URL("../public/projects/index.html", import.meta.url), "utf8"),
     readFile(new URL("../public/projects.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/help/index.html", import.meta.url), "utf8"),
   ]);
   assert.match(html, /<select id="sortSelect">[\s\S]*value="recommended">おすすめ（要確認を先に）[\s\S]*value="target">目標日が近い順[\s\S]*value="review">再確認日が近い順[\s\S]*value="updated">更新が新しい順/);
-  assert.match(html, /id="sortNote"/);
+  // 並び順の説明は画面に出さず、ヘルプのProjectsの節に置く
+  assert.doesNotMatch(html, /id="sortNote"/);
+  assert.match(html, /href="\/help\/#projects"/);
   assert.match(script, /const projects = sortProjects\(projectsForView\(\), state\.sort\)/);
   assert.match(script, /if \(sort === "target"\) return \[\.\.\.projects\]\.sort\(byDate\("targetOn"\)\)/);
   assert.match(script, /if \(sort === "review"\) return \[\.\.\.projects\]\.sort\(byDate\("reviewOn"\)\)/);
   // 未設定の日付は最後、同じ日付なら要確認を先に
   assert.match(script, /if \(a !== b\) return a \? -1 : 1;\n    if \(left\.needsAttention !== right\.needsAttention\)/);
-  assert.match(script, /要確認も日付どおりに並び、バッジで見分けます/);
+  assert.match(help, /要確認も日付どおりに並び、バッジで見分けます/);
 });
 
 test("Project詳細の完了履歴は10件ずつ、またはすべてを表示して古い履歴までたどれる", async () => {

@@ -130,6 +130,27 @@
 :root[data-theme="dark"] .source-badge.demo i {
   background: #cb912f;
 }
+:root[data-theme="dark"] .dashboard-help {
+  text-decoration: none;
+}
+:root[data-theme="dark"] .help-body {
+  color: var(--text);
+}
+:root[data-theme="dark"] .help-toc {
+  border-bottom: 1px solid var(--border);
+}
+:root[data-theme="dark"] .help-toc a {
+  border-radius: 4px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+:root[data-theme="dark"] .help-toc a:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+:root[data-theme="dark"] .help-body dd {
+  color: var(--text-secondary);
+}
 :root[data-theme="dark"] .dashboard-primary {
   border-color: var(--page-accent, #789183);
   background: var(--page-accent--light, var(--page-accent, #52645a));

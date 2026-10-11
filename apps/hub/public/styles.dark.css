@@ -379,9 +379,6 @@ html[data-theme="dark"] {
   background: var(--green--light, var(--green));
   color: white;
 }
-:root[data-theme="dark"] footer {
-  color: var(--text-secondary);
-}
 :root[data-theme="dark"] .drawer-backdrop {
   background: rgba(20,31,25,.32);
 }

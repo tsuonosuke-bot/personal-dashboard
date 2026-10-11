@@ -38,7 +38,7 @@
               </div>
             </details>
             <span class="source-badge" id="sourceBadge">接続確認中</span>
-            <button class="dashboard-refresh" id="refreshButton" type="button" title="再読み込み" aria-label="データを再読み込み">↻</button>
+            <button class="dashboard-refresh" id="refreshButton" type="button" title="再読み込み" aria-label="データを再読み込み">↻</button><a class="dashboard-refresh dashboard-help" href="/help/#projects" title="ヘルプ" aria-label="ヘルプ">?</a>
             <button class="dashboard-primary" id="addProjectButton" type="button"><span aria-hidden="true">＋</span><span>Projectを作成</span></button>
           </div>
         </div>
@@ -46,10 +46,10 @@
 
       <main class="dashboard-main">
         <section class="summary-grid" aria-label="Projectサマリー">
-          <button type="button" data-summary-view="active"><span>進行中</span><strong id="activeCount">—</strong><small>Next Actionで動かす</small></button>
-          <button class="attention" type="button" data-summary-filter="attention"><span>要確認</span><strong id="attentionCount">—</strong><small>次の一手・整理が必要</small></button>
-          <button type="button" data-summary-view="waiting"><span>待機・保留</span><strong id="waitingCount">—</strong><small>再確認日まで待つ</small></button>
-          <button type="button" data-summary-view="completed"><span>完了</span><strong id="completedCount">—</strong><small>達成した目標</small></button>
+          <button type="button" data-summary-view="active"><span>進行中</span><strong id="activeCount">—</strong></button>
+          <button class="attention" type="button" data-summary-filter="attention"><span>要確認</span><strong id="attentionCount">—</strong></button>
+          <button type="button" data-summary-view="waiting"><span>待機・保留</span><strong id="waitingCount">—</strong></button>
+          <button type="button" data-summary-view="completed"><span>完了</span><strong id="completedCount">—</strong></button>
         </section>
 
         <section class="project-board" aria-labelledby="boardTitle">
@@ -72,7 +72,7 @@
             </select></label>
             <button id="clearFilters" type="button" hidden>解除</button>
           </div>
-          <div class="result-line" id="resultLine"><span id="resultCount">読み込み中</span><small id="sortNote">要確認を先頭にまとめ、その中で目標日が近い順に並べています</small></div>
+          <div class="result-line" id="resultLine"><span id="resultCount">読み込み中</span></div>
           <div class="state-card" id="loadingState" role="status">Projectを読み込んでいます…</div>
           <div class="state-card error" id="errorState" role="alert" hidden><strong>読み込めませんでした</strong><p id="errorMessage"></p><button id="retryButton" type="button">再試行</button></div>
           <div class="project-list" id="projectList" hidden></div>

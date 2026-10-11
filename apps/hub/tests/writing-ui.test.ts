@@ -21,7 +21,10 @@ test("Writing page manages themes separately from completed work", async () => {
   assert.doesNotMatch(html, /id="notesInput"|id="nextReviewInput"|id="draftUrlInput"/);
   assert.match(html, /id="editorStatus"/);
   assert.match(html, /id="sourceWantLink"/);
-  assert.match(html, /本文はPomeraで執筆/);
+  // Pomeraで書くことなどの説明はヘルプのWritingの節に置く
+  assert.doesNotMatch(html, /本文はPomeraで執筆/);
+  assert.match(html, /href="\/help\/#writing"/);
+  assert.match(await readFile(new URL("../public/help/index.html", import.meta.url), "utf8"), /本文はPomeraで書き/);
   assert.match(html, /id="boardTitle">アイデア/);
   assert.doesNotMatch(html, /タイトル・論点・メモ/);
   assert.match(script, /fetch\("\/api\/writing"/);

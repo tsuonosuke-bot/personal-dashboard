@@ -39,7 +39,7 @@
               </div>
             </details>
             <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
-            <button class="dashboard-refresh" id="refreshButton" type="button" aria-label="データを再読み込み" title="再読み込み">↻</button>
+            <button class="dashboard-refresh" id="refreshButton" type="button" aria-label="データを再読み込み" title="再読み込み">↻</button><a class="dashboard-refresh dashboard-help" href="/help/#habits" title="ヘルプ" aria-label="ヘルプ">?</a>
             <button class="dashboard-primary" id="addHabitButton" type="button"><span aria-hidden="true">＋</span><span>習慣を追加</span></button>
           </div>
         </div>
@@ -47,9 +47,9 @@
 
       <main class="dashboard-main">
         <section class="summary-grid" aria-label="Habitサマリー">
-          <div class="summary-card"><span>今日できた</span><strong id="completedToday">—</strong><small>実施記録</small></div>
-          <div class="summary-card accent"><span>今日・今週の残り</span><strong id="remainingToday">—</strong><small>自由頻度は除く</small></div>
-          <div class="summary-card"><span>継続中</span><strong id="activeHabits">—</strong><small>有効なHabit</small></div>
+          <div class="summary-card"><span>今日できた</span><strong id="completedToday">—</strong></div>
+          <div class="summary-card accent"><span>今日・今週の残り</span><strong id="remainingToday">—</strong></div>
+          <div class="summary-card"><span>継続中</span><strong id="activeHabits">—</strong></div>
         </section>
 
         <div class="state-card" id="loadingState" role="status"><span class="spinner"></span><p>Habitを読み込んでいます</p></div>

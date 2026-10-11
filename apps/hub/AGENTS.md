@@ -11,6 +11,7 @@
 - The look follows Notion: white surfaces, thin borders, borderless header buttons, small type no smaller than 12px. Neutral colors, type sizes, radii and the popover shadow are tokens in `public/dashboard-shell.css` (`--text`, `--bg`, `--border`, …, the same names as Knowledge and Finance); page stylesheets alias `--paper`/`--ink`/`--muted`/`--line` to them. Write new neutral colors as these tokens, not hex values.
 - Each page keeps its theme color as `--page-accent` (Hub dark green, Idea green, Projects gold, Writing plum, Habits rust, Finance blue-green, Knowledge purple). Use it only for the brand mark, the primary action and small highlights; never borrow another page's color.
 - The header shows the connection badge only when something is wrong (`.source-badge.live` is hidden).
+- Screens show numbers and actions only. Put explanations of how something works or what a number means in `public/help/index.html` (one section per page, opened from the header's `?` link at `/help/#<page>`), and update it when the screen's wording changes. Keep short notes that say what an action will do right before it happens (e.g. that saving creates a Google Calendar event), and short hints in empty states.
 - Check both a narrow phone viewport and desktop layout after UI changes.
 - Before reporting a deployment complete, verify the normal production URL and live data rather than relying only on deployment status.
 
