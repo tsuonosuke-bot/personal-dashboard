@@ -62,8 +62,7 @@ export function InsightListPanel({ knowledge, store, groupStore }: Props) {
     <div className="insights-view">
         <div className="insights-toolbar card">
           <p>
-            ナレッジごとに残した「自分にとってどう役立つか」のメモです。{store.insights.length}件・
-            {new Set(store.insights.map((item) => item.knowledge_id)).size}ナレッジ
+            {store.insights.length}件・{new Set(store.insights.map((item) => item.knowledge_id)).size}ナレッジ
           </p>
           <div className="insights-toolbar-actions">
             <input
@@ -82,7 +81,6 @@ export function InsightListPanel({ knowledge, store, groupStore }: Props) {
               {analyzing ? "まとめ中…" : "AIで共通点をまとめる"}
             </button>
           </div>
-          <small className="muted">AIに送るのは新しい順に最大300件の示唆とナレッジ名だけです。まとめ自体は保存せず、「この問いとして保存」を押したテーマだけが問いになります。</small>
         </div>
 
         {analysisError && <div className="err compact" role="alert">{analysisError}</div>}

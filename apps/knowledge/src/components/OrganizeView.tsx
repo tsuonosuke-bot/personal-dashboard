@@ -23,6 +23,8 @@ interface Props {
   onTabChange: (tab: OrganizeTab) => void;
   onOpenKnowledge: (item: Knowledge) => void;
   onExit: () => void;
+  /** 整理の考え方や各タブの使い方はヘルプページに置き、ここからその節を開く。 */
+  onOpenHelp: () => void;
   /** ノートタブ（#96）で開いているノート。 */
   noteSelection: NoteSelection | null;
   onNoteSelect: (selection: NoteSelection | null) => void;
@@ -38,10 +40,10 @@ const TABS: { tab: OrganizeTab; label: string }[] = [
   { tab: "notes", label: "ノート" },
 ];
 
-/** ナレッジ→示唆→問いを整理する画面。問い・示唆・タグを1ページのタブで切り替える。 */
+/** ナレッジ→示唆→問いを整理する画面。問い・示唆・タグを1ページのタブで切り替える。説明はヘルプページに置く。 */
 export function OrganizeView({
   tab, questionId, allKnowledge, activeKnowledge, insightStore, groupStore, loading, error,
-  onTabChange, onOpenKnowledge, onExit, noteSelection, onNoteSelect, onReviewNote, onRemoveAutoTag, onRestoreAutoTag,
+  onTabChange, onOpenKnowledge, onExit, onOpenHelp, noteSelection, onNoteSelect, onReviewNote, onRemoveAutoTag, onRestoreAutoTag,
 }: Props) {
   // ノートは問いとテーマの数。テーマの数はノートの一覧を読むまで分からないので出さない。
   const counts: Record<OrganizeTab, number | null> = {
@@ -54,20 +56,13 @@ export function OrganizeView({
   return (
     <div className="quiz-page">
       <header className="quiz-header">
-        <button className="text-button" onClick={onExit}>← ダッシュボードへ戻る</button>
+        <div className="quiz-header-row">
+          <button className="text-button" onClick={onExit}>← ダッシュボードへ戻る</button>
+          <button className="text-button" onClick={onOpenHelp}>使い方</button>
+        </div>
         <h1>問い・示唆・タグ</h1>
       </header>
       <main className="quiz-body organize-view">
-        <section className="organize-guide card" aria-label="整理の考え方">
-          <p>ナレッジから「自分にとってどう役立つか」を示唆に書き、示唆を分野をまたぐ問いで束ねます。</p>
-          <dl>
-            <div><dt>カテゴリ</dt><dd>分野。1つのナレッジに1つ（英語・ビジネスなど）</dd></div>
-            <div><dt>タグ</dt><dd>分野の中の小分類や出典。複数付けられる（#単語・#読書など）</dd></div>
-            <div><dt>問い</dt><dd>分野をまたいで示唆を束ねる「何を判断したいか」</dd></div>
-            <div><dt>ノート</dt><dd>問いやテーマ（自動タグ）ごとに、ナレッジ・示唆・日記をまとめて読む</dd></div>
-          </dl>
-        </section>
-
         <div className="organize-tabs card" role="group" aria-label="表示する内容">
           {TABS.map((item) => (
             <button key={item.tab} type="button" aria-pressed={tab === item.tab} onClick={() => onTabChange(item.tab)}>

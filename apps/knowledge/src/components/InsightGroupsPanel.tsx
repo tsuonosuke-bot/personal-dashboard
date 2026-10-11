@@ -147,12 +147,7 @@ export function InsightGroupsPanel({ knowledge, insights, store, initialGroupId 
 
   return (
     <section className="insight-organizer" aria-label="問い別の示唆グループ">
-      <div className="insight-organizer-intro card">
-        <div>
-          <h2>問いで考える</h2>
-          <p>「何を判断したいか」を問いとして立てると、意味の近い示唆・ナレッジ・日記をAIが集めます。まず自分で答えを考え、次に材料を開いて確かめます。</p>
-          <small>ここで読むだけでは、通常の復習記録や次回復習日は変わりません。</small>
-        </div>
+      <div className="insight-organizer-intro">
         <button className="primary-button" type="button" onClick={startCreate} disabled={busy || store.loading || Boolean(store.error)}>＋ 問いを作る</button>
       </div>
 
@@ -208,7 +203,7 @@ export function InsightGroupsPanel({ knowledge, insights, store, initialGroupId 
           {selected ? (
             <div className="insight-group-detail card">
               <div className="insight-group-detail-head">
-                <div><span className="eyebrow">QUESTION</span><h3>{selected.title}</h3></div>
+                <h3>{selected.title}</h3>
                 <div className="insight-group-detail-actions">
                   <button type="button" onClick={() => startEdit(selected)}>編集</button>
                   <button className="danger-button" type="button" onClick={() => void remove(selected)} disabled={busy}>削除</button>

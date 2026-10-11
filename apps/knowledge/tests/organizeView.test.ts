@@ -5,7 +5,7 @@ import test from "node:test";
 const read = (path: string) => readFile(new URL(`../src/${path}`, import.meta.url), "utf8");
 
 test("問い・示唆・タグは1つの整理ページのタブにまとめ、ダッシュボードの入口も1つにする", async () => {
-  const [app, view] = await Promise.all([read("App.tsx"), read("components/OrganizeView.tsx")]);
+  const [app, view, help] = await Promise.all([read("App.tsx"), read("components/OrganizeView.tsx"), read("components/HelpView.tsx")]);
   assert.match(app, /<OrganizeView/);
   assert.match(app, /onClick=\{\(\) => setOrganizeOpen\("questions"\)\}/);
   assert.doesNotMatch(app, /タグで探す/);
@@ -13,10 +13,14 @@ test("問い・示唆・タグは1つの整理ページのタブにまとめ、�
   assert.match(view, /<InsightGroupsPanel/);
   assert.match(view, /<InsightListPanel/);
   assert.match(view, /<TagGroupsPanel/);
-  // カテゴリ・タグ・問いの使い分けを画面上で示す
-  assert.match(view, /<dt>カテゴリ<\/dt>/);
-  assert.match(view, /<dt>タグ<\/dt>/);
-  assert.match(view, /<dt>問い<\/dt>/);
+  // カテゴリ・タグ・問いの使い分けはヘルプページに置き、整理ページの「使い方」からその節を開く
+  assert.doesNotMatch(view, /organize-guide/);
+  assert.match(view, /onClick=\{onOpenHelp\}>使い方</);
+  assert.match(help, /id="help-organize"/);
+  assert.match(help, /<dt>カテゴリ<\/dt>/);
+  assert.match(help, /<dt>タグ<\/dt>/);
+  assert.match(help, /<dt>問い<\/dt>/);
+  assert.match(app, /section=\{helpFrom \? "help-organize" : null\}/);
 });
 
 test("URLで指定した問いを開く", async () => {

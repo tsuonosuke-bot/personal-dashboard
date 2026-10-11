@@ -1,6 +1,12 @@
+import { useEffect } from "react";
+
 interface Props {
   /** 未出題の新規を1日に何件までキューへ入れるか。日次キューの状態が読めないときは既定値を出す。 */
   newLimit: number;
+  /** 開いたときに表示する節のid（整理ページの「使い方」なら help-organize）。 */
+  section?: string | null;
+  /** 戻り先の名前（「整理ページへ戻る」など）。 */
+  backLabel?: string;
   onExit: () => void;
 }
 
@@ -10,17 +16,22 @@ const SECTIONS = [
   { id: "help-progress", title: "学習の進み具合" },
   { id: "help-speaking", title: "英会話練習" },
   { id: "help-card", title: "習熟度と優先度" },
+  { id: "help-organize", title: "問い・示唆・タグ" },
 ] as const;
 
 /**
  * 画面には数字と操作だけを出し、仕組みや定義の説明はこのページにまとめる。
  * 画面の文言を変えたら、ここも合わせて直す。
  */
-export function HelpView({ newLimit, onExit }: Props) {
+export function HelpView({ newLimit, section = null, backLabel = "ダッシュボードへ戻る", onExit }: Props) {
+  useEffect(() => {
+    if (section) document.getElementById(section)?.scrollIntoView();
+  }, [section]);
+
   return (
     <div className="quiz-page help-page">
       <header className="quiz-header">
-        <button className="text-button" onClick={onExit}>← ダッシュボードへ戻る</button>
+        <button className="text-button" onClick={onExit}>← {backLabel}</button>
       </header>
       <main className="help-body">
         <h1>ヘルプ</h1>
@@ -75,6 +86,36 @@ export function HelpView({ newLimit, onExit }: Props) {
             <dt>優先度</dt>
             <dd>最高・高・中・低・最低の5段階です。同じ期限の中での出題順と、次回までの間隔の倍率に使います。</dd>
           </dl>
+        </section>
+
+        <section id="help-organize" aria-labelledby="help-organize-title">
+          <h2 id="help-organize-title">問い・示唆・タグ</h2>
+          <p>ナレッジから「自分にとってどう役立つか」を示唆に書き、示唆を分野をまたぐ問いで束ねます。</p>
+          <dl>
+            <dt>カテゴリ</dt>
+            <dd>分野です。1つのナレッジに1つ付けます（英語・ビジネスなど）。</dd>
+            <dt>タグ</dt>
+            <dd>分野の中の小分類や出典です。複数付けられます（#単語・#読書など）。</dd>
+            <dt>問い</dt>
+            <dd>分野をまたいで示唆を束ねる「何を判断したいか」です。</dd>
+            <dt>ノート</dt>
+            <dd>問いやテーマ（自動タグ）ごとに、ナレッジ・示唆・日記をまとめて読むページです。</dd>
+          </dl>
+          <p>整理ページで読んだり整理したりしても、復習の記録や次回の復習日は変わりません。</p>
+
+          <h3>問い</h3>
+          <p>「何を判断したいか」を問いとして立てると、意味の近い示唆・ナレッジ・日記をAIが集めます。まず自分で答えを考え、次に材料を開いて確かめます。</p>
+          <p>「AIが集めた材料」には、問い文に意味が近いもの（近さ0.45以上）が並びます。合わないものを「外す」と、その問いには二度と出ません。</p>
+
+          <h3>示唆</h3>
+          <p>ナレッジごとに残した「自分にとってどう役立つか」のメモです。出題や採点には使いません。</p>
+          <p>「AIで共通点をまとめる」でAIに送るのは、新しい順に最大300件の示唆とナレッジ名だけです。まとめ自体は保存せず、「この問いとして保存」を押したテーマだけが問いになります。</p>
+
+          <h3>タグ</h3>
+          <p>タグからナレッジを探せます。カテゴリで絞り込むと、そのカテゴリのナレッジだけで集計します。</p>
+
+          <h3>ノート</h3>
+          <p>問いやテーマを選ぶと、集まったナレッジ・示唆・日記を1枚のノートとして読めます。テーマは自動タグで、そのタグのナレッジと、意味の近い示唆・日記が集まります。合わないものを「外す」と、そのノートには二度と出ません。</p>
         </section>
       </main>
     </div>
