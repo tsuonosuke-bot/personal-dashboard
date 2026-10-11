@@ -6,13 +6,14 @@ import { useReviewSession, type ReviewFeedback } from "../hooks/useReviewSession
 import type { Knowledge, QuizLog, ReviewBatchSummary, ReviewQuestion, ReviewQueueStatus } from "../types";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import { ReviewResultActions, type KnowledgeUpdate } from "./ReviewLogParts";
+import { ReviewAnswerHistory } from "./ReviewAnswerHistory";
 import { ReviewQueueSummary } from "./ReviewQueueSummary";
 import { RelatedKnowledgePanel } from "./RelatedKnowledgePanel";
 import { TagChips } from "./TagChips";
 
 interface Props {
   knowledge: Knowledge[];
-  /** 答え合わせ画面から開く詳細に、そのカードの出題履歴を出す。 */
+  /** 答え合わせ画面の「過去の回答履歴」と、そこから開く詳細に、そのカードの出題履歴を出す。 */
   quizLog: QuizLog[];
   queueStatus: ReviewQueueStatus | null;
   onExit: () => void;
@@ -223,6 +224,7 @@ export function ReviewView({
             key={session.feedback.question.id}
             feedback={session.feedback}
             item={knowledgeById.get(session.feedback.question.knowledge_id)}
+            quizLog={quizLog}
             onKnowledgeUpdate={onKnowledgeUpdate}
             insightStore={insightStore}
             insightGroupStore={insightGroupStore}
@@ -369,10 +371,11 @@ function ReviewQuestionCard({
 
 /** 回答した直後の答え合わせ。四択と無回答は確定した結果、それ以外は想定解を示す。 */
 function ReviewFeedbackCard({
-  feedback, item, onKnowledgeUpdate, insightStore, insightGroupStore, onOpenDetail, onOpenKnowledgeId, onNext,
+  feedback, item, quizLog, onKnowledgeUpdate, insightStore, insightGroupStore, onOpenDetail, onOpenKnowledgeId, onNext,
 }: {
   feedback: ReviewFeedback;
   item: Knowledge | undefined;
+  quizLog: QuizLog[];
   onKnowledgeUpdate: KnowledgeUpdate;
   insightStore: InsightStore;
   insightGroupStore: InsightGroupStore;
@@ -414,6 +417,7 @@ function ReviewFeedbackCard({
         <span className="action-spacer" />
         <button className="primary-button" onClick={onNext} autoFocus>次の問題へ →</button>
       </div>
+      <ReviewAnswerHistory quizLog={quizLog} knowledgeId={question.knowledge_id} currentQueueId={question.id} />
       {/* 学習ログと同じ操作（示唆・あとで深掘り・習熟度・優先度・詳細・アーカイブ）を、ここでも済ませられる。 */}
       {item && (
         <div className="review-feedback-actions">
