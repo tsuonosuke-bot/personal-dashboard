@@ -61,7 +61,7 @@ export function RegistrationTrendChart({ knowledge }: { knowledge: Knowledge[] }
               />
               <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
               <Tooltip formatter={(value) => [`${value}件`, "新規学習"]} />
-              <Bar dataKey="count" name="新規学習" fill="#2383e2" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="count" name="新規学習" fill="#66558c" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

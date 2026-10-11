@@ -39,7 +39,7 @@ export function HistoryChart({ quizLog }: { quizLog: QuizLog[] }) {
         <Legend wrapperStyle={{ fontSize: 12 }} />
         <Line
           yAxisId="left" type="monotone" dataKey="total" name="出題数"
-          stroke="#2383e2" dot={{ r: 2 }} strokeWidth={2}
+          stroke="#66558c" dot={{ r: 2 }} strokeWidth={2}
         />
         <Line
           yAxisId="right" type="monotone" dataKey="accuracy" name="正答率(%)"

@@ -10,9 +10,10 @@
   --bg-active: #e6e6e3;
   --border: #e9e9e7;
   --border-strong: #d3d3d0;
-  --accent: #2383e2;
-  --accent-hover: #0b6ec5;
-  --accent-soft: #e7f3f8;
+  /* Knowledgeのテーマカラー（紫）。ほかのダッシュボードと見分けられるよう、主役の操作・ロゴ・グラフに使う */
+  --accent: #66558c;
+  --accent-hover: #554479;
+  --accent-soft: #f1edf8;
   --red: #d44c47;
   --red-soft: #fdebec;
   --orange: #d9730d;
@@ -84,7 +85,7 @@ input[type="text"], input[type="date"], select, textarea {
   border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 10px; font-size: var(--text-md);
   outline: none; font-family: inherit; background: var(--bg); color: var(--text);
 }
-input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(35, 131, 226, .18); }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(102, 85, 140, .18); }
 .field input, .field select, .field textarea { width: 100%; }
 .field textarea { resize: vertical; line-height: 1.55; }
 .count { font-size: 12px; color: var(--text-secondary); margin-left: auto; }
@@ -94,7 +95,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); box-sha
 .filter-field-search input { width: 100%; }
 .filters .count { align-self: flex-end; padding-bottom: 9px; }
 .filter-chips { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.filter-chip { min-height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 0; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--blue); font-size: var(--text-xs); }
+.filter-chip { min-height: 28px; display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 0; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent); font-size: var(--text-xs); }
 .filter-chip:hover:not(:disabled) { background: var(--bg-active); }
 .filter-clear { min-height: 28px; padding: 2px 8px; border: 0; background: transparent; color: var(--text-secondary); font-size: var(--text-xs); }
 .table-mobile-sort { display: none; }
@@ -133,7 +134,7 @@ button {
   transition: background-color .12s ease;
 }
 button:hover:not(:disabled) { background: var(--bg-hover); }
-:focus-visible { outline: 2px solid rgba(35, 131, 226, .5); outline-offset: 1px; }
+:focus-visible { outline: 2px solid rgba(102, 85, 140, .5); outline-offset: 1px; }
 button:disabled { opacity: 0.4; cursor: default; }
 .primary-button { color: #fff; background: var(--accent); border-color: var(--accent); font-weight: 500; }
 .primary-button:hover:not(:disabled) { background: var(--accent-hover); }
@@ -241,7 +242,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 /* ヘッダーはNotionのトップバーのように薄く、操作は枠なしのボタンにする */
 .app-header { position: sticky; top: 0; z-index: 20; background: rgba(255, 255, 255, .94); backdrop-filter: blur(10px); }
 .dashboard-brand { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }
-.dashboard-brand-mark { width: 22px; height: 22px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 4px; background: var(--text); color: #fff; font-family: Georgia, serif; font-size: 13px; font-weight: 600; }
+.dashboard-brand-mark { width: 22px; height: 22px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 4px; background: var(--accent); color: #fff; font-family: Georgia, serif; font-size: 13px; font-weight: 600; }
 .dashboard-brand h1 { margin: 0; font-size: var(--text-md); font-weight: 500; line-height: 1.2; }
 .head-actions button, .hub-link { height: 32px; min-height: 32px; border-radius: var(--radius-sm); }
 .head-actions > button:not(.primary-button) { border-color: transparent; background: transparent; color: var(--text-secondary); }
@@ -253,6 +254,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .page-tool:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
 .page-tool-count { min-width: 20px; padding: 0 6px; border-radius: 4px; background: var(--bg-hover); color: var(--text-secondary); font-size: var(--text-xs); text-align: center; }
 .page-tool-primary { margin-right: auto; color: var(--text); font-weight: 500; }
+.page-tool-primary .page-tool-icon { color: var(--accent); }
 .page-tool-icon { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .page-tool-more { position: relative; }
 .page-tool-more summary { list-style: none; }
@@ -858,7 +860,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 .accuracy-col { display: grid; justify-items: center; gap: 6px; }
 .accuracy-plot { position: relative; width: 100%; height: 140px; }
 .accuracy-plot i { position: absolute; bottom: 0; left: 50%; width: min(34px, 70%); transform: translateX(-50%); border-radius: 4px 4px 0 0; background: var(--accent); }
-.accuracy-col.partial .accuracy-plot i { background: repeating-linear-gradient(135deg, var(--accent) 0 5px, #8fc0ee 5px 8px); }
+.accuracy-col.partial .accuracy-plot i { background: repeating-linear-gradient(135deg, var(--accent) 0 5px, #a99cc8 5px 8px); }
 .accuracy-plot b { position: absolute; left: 0; right: 0; bottom: calc(var(--h, 0%) + 4px); text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
 .accuracy-col > span { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
 .accuracy-col:hover .accuracy-plot i { filter: brightness(1.15); }
