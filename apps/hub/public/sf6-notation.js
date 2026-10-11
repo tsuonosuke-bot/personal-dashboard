@@ -22,6 +22,16 @@ export const LINKS = {
   SA2: { label: "SA2", kind: "sa", title: "SA2" },
   SA3: { label: "SA3", kind: "sa", title: "SA3" },
   CA: { label: "CA", kind: "sa", title: "クリティカルアーツ" },
+  // 起き攻めの手順で使う移動・タイミングの基準
+  前ステ: { label: "前ステ", kind: "move", title: "前ステップ" },
+  バクステ: { label: "バクステ", kind: "move", title: "バックステップ" },
+  前歩き: { label: "前歩き", kind: "move", title: "前歩き" },
+  微歩き: { label: "微歩き", kind: "move", title: "少しだけ前歩き" },
+  垂直J: { label: "垂直J", kind: "move", title: "垂直ジャンプ" },
+  前J: { label: "前J", kind: "move", title: "前ジャンプ" },
+  空振り: { label: "空振り", kind: "move", title: "次の技を空振りして時間を合わせる" },
+  重ね: { label: "重ね", kind: "move", title: "次の技を起き上がりに重ねる" },
+  待ち: { label: "待ち", kind: "move", title: "何もせず待つ" },
 };
 
 function tokensOf(text) {

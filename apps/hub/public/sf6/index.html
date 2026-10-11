@@ -48,6 +48,7 @@
       <main class="dashboard-main">
         <nav class="tabs" role="tablist" aria-label="SF6の記録">
           <button type="button" role="tab" data-tab="combos" aria-selected="true">コンボ<b id="countCombos"></b></button>
+          <button type="button" role="tab" data-tab="setplays" aria-selected="false">起き攻め<b id="countSetplays"></b></button>
           <button type="button" role="tab" data-tab="notes" aria-selected="false">注意点<b id="countNotes"></b></button>
           <button type="button" role="tab" data-tab="drills" aria-selected="false">練習<b id="countDrills"></b></button>
           <button type="button" role="tab" data-tab="matches" aria-selected="false">振り返り<b id="countMatches"></b></button>
@@ -64,9 +65,27 @@
               <button type="button" data-value="midscreen" aria-pressed="false">中央</button>
               <button type="button" data-value="corner" aria-pressed="false">画面端</button>
             </div>
+            <select id="comboSituation" aria-label="状況から引く"></select>
+            <details class="conditions" id="comboConditions">
+              <summary>条件：<span id="conditionSummary">指定なし</span></summary>
+              <div class="condition-grid">
+                <label><span>残りDゲージ</span><select id="conditionDrive"></select></label>
+                <label><span>SAゲージ</span><select id="conditionSa"></select></label>
+                <label class="check-field"><input type="checkbox" id="conditionCa" /><span>CA可（体力25%以下）</span></label>
+                <label class="check-field"><input type="checkbox" id="conditionBurnout" /><span>自分がバーンアウト中</span></label>
+              </div>
+            </details>
           </div>
           <div class="card-list" id="comboList"></div>
           <details class="fold" id="comboArchiveFold"><summary>アーカイブ <span id="comboArchiveCount"></span></summary><div class="card-list" id="comboArchive"></div></details>
+        </section>
+
+        <section class="tab-panel" id="panel-setplays" role="tabpanel" hidden>
+          <div class="filters">
+            <select id="setplayCharacter" aria-label="キャラで絞り込む"></select>
+          </div>
+          <div class="card-list" id="setplayList"></div>
+          <details class="fold" id="setplayArchiveFold"><summary>アーカイブ <span id="setplayArchiveCount"></span></summary><div class="card-list" id="setplayArchive"></div></details>
         </section>
 
         <section class="tab-panel" id="panel-notes" role="tabpanel" hidden>

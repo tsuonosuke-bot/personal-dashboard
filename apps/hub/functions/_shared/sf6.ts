@@ -2,16 +2,25 @@ import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 import { todayInTokyo } from "./habits.ts";
 import { supabaseHeaders } from "./supabaseAuth.ts";
 
-// SF6ページ（コンボ帳・注意点・練習メニュー・対戦振り返り）。4種類の記録を同じ形のAPIで扱うため、
+// SF6ページ（コンボ帳・起き攻め・注意点・練習メニュー・対戦振り返り）。どの記録も同じ形のAPIで扱うため、
 // 項目の定義（FieldSpec）から入力検証・列名の変換・SELECTを組み立てる。
 
-type FieldSpec =
-  | { key: string; column: string; type: "text"; max: number; required?: boolean }
-  | { key: string; column: string; type: "int"; min: number; max: number; nullable?: boolean }
-  | { key: string; column: string; type: "enum"; values: readonly string[] }
-  | { key: string; column: string; type: "bool" }
-  | { key: string; column: string; type: "date" }
-  | { key: string; column: string; type: "ref" };
+/**
+ * optional: 送られてこなければ変えない項目（追加時はDBの既定値）。項目を増やしたあとも、
+ * 読み込み済みの古い画面からの保存が失敗しないようにするため。
+ */
+type FieldSpec = { key: string; column: string; optional?: boolean } & (
+  | { type: "text"; max: number; required?: boolean }
+  | { type: "int"; min: number; max: number; nullable?: boolean }
+  | { type: "half"; min: number; max: number }
+  | { type: "enum"; values: readonly string[]; nullable?: boolean }
+  | { type: "bool" }
+  | { type: "date" }
+  | { type: "ref" }
+  | { type: "refs"; maxItems: number }
+  | { type: "tags"; max: number; maxItems: number }
+  | { type: "outcomes"; keys: readonly string[]; values: readonly string[] }
+);
 
 interface ResourceSpec {
   table: string;
@@ -28,6 +37,17 @@ export const SF6_NOTE_CATEGORIES = ["matchup", "self", "general"] as const;
 export const SF6_DRILL_STATUSES = ["active", "done"] as const;
 export const SF6_RESULTS = ["win", "lose", "draw"] as const;
 export const SF6_MODES = ["ranked", "casual", "battle_hub", "tournament", "other"] as const;
+export const SF6_RECOVERIES = ["back_roll", "no_back_roll", "none"] as const;
+export const SF6_END_PURPOSES = ["damage", "oki", "carry"] as const;
+export const SF6_LAYERINGS = ["meaty", "safe_jump", "other"] as const;
+export const SF6_AIMS = ["strike", "throw", "shimmy"] as const;
+export const SF6_CHECKED = ["ok", "ng", "unknown"] as const;
+/** 起き攻めに対して相手が取れる行動。値は win（こちらが勝つ）/ lose / unknown。 */
+export const SF6_OPPONENT_OPTIONS = ["reversal", "backdash", "jump", "tech", "delay_tech", "parry", "drive_reversal"] as const;
+export const SF6_OUTCOMES = ["win", "lose", "unknown"] as const;
+export const SF6_GUARD_SETTINGS = ["none", "all", "random"] as const;
+export const SF6_COUNTER_SETTINGS = ["normal", "counter", "punish_counter", "random"] as const;
+export const SF6_RECOVERY_SETTINGS = ["neutral", "back", "random"] as const;
 
 const NAME_MAX = 40;
 const LONG_MAX = 2000;
@@ -43,8 +63,35 @@ export const SF6_RESOURCES = {
       { key: "notation", column: "notation", type: "text", max: 1000, required: true },
       { key: "position", column: "position", type: "enum", values: SF6_POSITIONS },
       { key: "damage", column: "damage", type: "int", min: 0, max: 20000, nullable: true },
-      { key: "driveCost", column: "drive_cost", type: "int", min: 0, max: 6 },
-      { key: "saCost", column: "sa_cost", type: "int", min: 0, max: 3 },
+      { key: "driveCost", column: "drive_cost", type: "half", min: 0, max: 6 },
+      { key: "saCost", column: "sa_cost", type: "int", min: 0, max: 4 },
+      { key: "mastery", column: "mastery", type: "int", min: 0, max: 3 },
+      { key: "memo", column: "memo", type: "text", max: LONG_MAX },
+      { key: "archived", column: "archived", type: "bool" },
+      { key: "situations", column: "situations", type: "tags", max: 60, maxItems: 12, optional: true },
+      { key: "burnoutOk", column: "burnout_ok", type: "bool", optional: true },
+      { key: "endAdvantage", column: "end_advantage", type: "int", min: -99, max: 300, nullable: true, optional: true },
+      { key: "recovery", column: "recovery", type: "enum", values: SF6_RECOVERIES, nullable: true, optional: true },
+      { key: "endPurpose", column: "end_purpose", type: "enum", values: SF6_END_PURPOSES, nullable: true, optional: true },
+    ],
+  },
+  setplays: {
+    table: "sf6_setplays",
+    editable: true,
+    order: "character.asc,created_at.asc",
+    fields: [
+      { key: "character", column: "character", type: "text", max: NAME_MAX, required: true },
+      { key: "title", column: "title", type: "text", max: 120, required: true },
+      { key: "comboIds", column: "combo_ids", type: "refs", maxItems: 20 },
+      { key: "startAdvantage", column: "start_advantage", type: "int", min: -99, max: 300 },
+      { key: "position", column: "position", type: "enum", values: SF6_POSITIONS },
+      { key: "recovery", column: "recovery", type: "enum", values: SF6_RECOVERIES },
+      { key: "notation", column: "notation", type: "text", max: 1000, required: true },
+      { key: "layering", column: "layering", type: "enum", values: SF6_LAYERINGS, nullable: true },
+      { key: "aim", column: "aim", type: "enum", values: SF6_AIMS },
+      { key: "backRollOk", column: "back_roll_ok", type: "enum", values: SF6_CHECKED },
+      { key: "outcomes", column: "outcomes", type: "outcomes", keys: SF6_OPPONENT_OPTIONS, values: SF6_OUTCOMES },
+      { key: "followComboId", column: "follow_combo_id", type: "ref" },
       { key: "mastery", column: "mastery", type: "int", min: 0, max: 3 },
       { key: "memo", column: "memo", type: "text", max: LONG_MAX },
       { key: "archived", column: "archived", type: "bool" },
@@ -74,7 +121,15 @@ export const SF6_RESOURCES = {
       { key: "detail", column: "detail", type: "text", max: LONG_MAX },
       { key: "comboId", column: "combo_id", type: "ref" },
       { key: "status", column: "status", type: "enum", values: SF6_DRILL_STATUSES },
+      { key: "setplayId", column: "setplay_id", type: "ref", optional: true },
+      { key: "guardSetting", column: "guard_setting", type: "enum", values: SF6_GUARD_SETTINGS, nullable: true, optional: true },
+      { key: "counterSetting", column: "counter_setting", type: "enum", values: SF6_COUNTER_SETTINGS, nullable: true, optional: true },
+      { key: "recoverySetting", column: "recovery_setting", type: "enum", values: SF6_RECOVERY_SETTINGS, nullable: true, optional: true },
+      { key: "reversalRecorded", column: "reversal_recorded", type: "bool", optional: true },
     ],
+    check: (value) => value.comboId != null && value.setplayId != null
+      ? "練習メニューに紐づけられるのは、コンボか起き攻めのどちらか1つです。"
+      : null,
   },
   logs: {
     table: "sf6_drill_logs",
@@ -86,11 +141,15 @@ export const SF6_RESOURCES = {
       { key: "attempts", column: "attempts", type: "int", min: 1, max: 10000, nullable: true },
       { key: "successes", column: "successes", type: "int", min: 0, max: 10000, nullable: true },
       { key: "note", column: "note", type: "text", max: LONG_MAX },
+      { key: "bestStreak", column: "best_streak", type: "int", min: 0, max: 10000, nullable: true, optional: true },
     ],
     check: (value) => {
       if (value.drillId === null) return "練習メニューを選んでください。";
       if ((value.attempts === null) !== (value.successes === null)) return "回数と成功数は両方入力するか、両方空欄にしてください。";
       if (value.attempts !== null && Number(value.successes) > Number(value.attempts)) return "成功数は回数以下にしてください。";
+      if (value.bestStreak != null && (value.successes === null || Number(value.bestStreak) > Number(value.successes))) {
+        return "連続成功は成功数以下にしてください（回数・成功数も入力してください）。";
+      }
       return null;
     },
   },
@@ -168,8 +227,30 @@ function readField(field: FieldSpec, raw: unknown): { ok: true; value: unknown }
       return Number.isSafeInteger(raw) && Number(raw) >= field.min && Number(raw) <= field.max
         ? { ok: true, value: raw }
         : { ok: false };
+    case "half":
+      return typeof raw === "number" && Number.isInteger(raw * 2) && raw >= field.min && raw <= field.max
+        ? { ok: true, value: raw }
+        : { ok: false };
     case "enum":
+      if (raw === null && field.nullable) return { ok: true, value: null };
       return typeof raw === "string" && field.values.includes(raw) ? { ok: true, value: raw } : { ok: false };
+    case "refs":
+      return Array.isArray(raw) && raw.length <= field.maxItems && raw.every(isId) && new Set(raw).size === raw.length
+        ? { ok: true, value: raw }
+        : { ok: false };
+    case "tags": {
+      if (!Array.isArray(raw) || raw.length > field.maxItems) return { ok: false };
+      const tags = raw.map((tag) => (typeof tag === "string" ? tag.trim() : ""));
+      if (tags.some((tag) => !tag || [...tag].length > field.max) || new Set(tags).size !== tags.length) return { ok: false };
+      return { ok: true, value: tags };
+    }
+    case "outcomes": {
+      if (!isPlainObject(raw)) return { ok: false };
+      const entries = Object.entries(raw);
+      return entries.every(([key, value]) => field.keys.includes(key) && typeof value === "string" && field.values.includes(value))
+        ? { ok: true, value: Object.fromEntries(entries.filter(([, value]) => value !== "unknown")) }
+        : { ok: false };
+    }
     case "bool":
       return typeof raw === "boolean" ? { ok: true, value: raw } : { ok: false };
     case "date":
@@ -184,6 +265,8 @@ const FIELD_LABELS: Record<string, string> = {
   character: "キャラ", title: "名前", notation: "レシピ", damage: "ダメージ", body: "内容",
   opponent: "相手キャラ", myCharacter: "使用キャラ", playedOn: "日付", practicedOn: "日付",
   attempts: "回数", successes: "成功数", memo: "メモ", detail: "詳細", note: "メモ", good: "良かった点", bad: "反省点",
+  situations: "状況", endAdvantage: "締め後の有利F", startAdvantage: "有利F", comboIds: "起点のコンボ", bestStreak: "連続成功",
+  driveCost: "Dゲージ",
 };
 
 /** 全項目をそろえて送る前提で、知らないキーや欠けたキーは拒否する。 */
@@ -191,7 +274,10 @@ export function validateSf6Fields(resource: Sf6Resource, body: Record<string, un
   const { fields, check } = spec(resource);
   const value: Record<string, unknown> = {};
   for (const field of fields) {
-    if (!(field.key in body)) return { ok: false, status: 400, error: INVALID };
+    if (!(field.key in body)) {
+      if (field.optional) continue;
+      return { ok: false, status: 400, error: INVALID };
+    }
     const parsed = readField(field, body[field.key]);
     if (!parsed.ok) {
       const label = FIELD_LABELS[field.key];
@@ -347,7 +433,15 @@ export function toSf6Item(resource: Sf6Resource, row: unknown): Record<string, u
     if (field.type === "text") item[field.key] = typeof raw === "string" && raw ? raw : null;
     else if (field.type === "int" || field.type === "ref") item[field.key] = Number.isSafeInteger(raw) ? raw : null;
     else if (field.type === "bool") item[field.key] = raw === true;
-    else item[field.key] = typeof raw === "string" ? raw : null;
+    // numeric列はPostgRESTの設定によって文字列で返ることがある
+    else if (field.type === "half") item[field.key] = Number.isFinite(Number(raw)) && raw !== null ? Number(raw) : 0;
+    else if (field.type === "refs") item[field.key] = Array.isArray(raw) ? raw.filter(isId) : [];
+    else if (field.type === "tags") item[field.key] = Array.isArray(raw) ? raw.filter((tag) => typeof tag === "string" && tag) : [];
+    else if (field.type === "outcomes") {
+      item[field.key] = isPlainObject(raw)
+        ? Object.fromEntries(Object.entries(raw).filter(([key, value]) => field.keys.includes(key) && field.values.includes(String(value))))
+        : {};
+    } else item[field.key] = typeof raw === "string" ? raw : null;
   }
   item.createdAt = typeof row.created_at === "string" ? row.created_at : null;
   if (spec(resource).editable) item.updatedAt = typeof row.updated_at === "string" ? row.updated_at : null;
@@ -355,7 +449,9 @@ export function toSf6Item(resource: Sf6Resource, row: unknown): Record<string, u
 }
 
 function columnsOf(resource: Sf6Resource, fields: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(spec(resource).fields.map((field) => [field.column, fields[field.key]]));
+  return Object.fromEntries(spec(resource).fields
+    .filter((field) => field.key in fields)
+    .map((field) => [field.column, fields[field.key]]));
 }
 
 export async function loadSf6(env: DashboardEnv, now = new Date()) {
