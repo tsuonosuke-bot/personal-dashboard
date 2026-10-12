@@ -1078,3 +1078,8 @@ body.quiz-open { padding-bottom: 0; }
   .help-body { padding-top: 24px; font-size: var(--text-md); }
   .help-body h1 { font-size: var(--text-2xl); }
 }
+
+/* iOSはフォーカス時にfont-sizeが16px未満の入力欄を自動拡大するため、スマホでは16px以上に揃える */
+@media (max-width: 720px) {
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px !important; }
+}
