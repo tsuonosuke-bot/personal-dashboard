@@ -1,6 +1,7 @@
 import { readApiJson } from "./api-client.js";
 import { formatAdvantage, counterText, punishCounterText, punishLevel, searchMoves, starterMove, defaultStateName } from "./sf6-frames.js";
 import { ARROWS, appendFragment, appendToken, frequentFragments, parseNotation, removeLastToken } from "./sf6-notation.js";
+import { buildFlow, exitsOf } from "./sf6-graph.js";
 import {
   bestStreakOf, defaultTitle, drillPreset, findState, leadsInto, MASTERY, OPPONENT_OPTIONS, PRESET, raiseTargets, resultOf,
   routeDrillPreset, sequencesFrom, setplaysAfter, situationUsage, sortSequences, stateFit, stateLabel, STREAK_GOAL, usableNow,
@@ -55,7 +56,8 @@ const state = {
   frames: { character: "", query: "", category: "", sort: "official", punishableOnly: false, cancelableOnly: false, open: null },
   /** キャラ名 → GET /api/sf6/moves の応答。タブやモーダルで初めて要るときに1回だけ読む。 */
   moves: new Map(),
-  /** シート：{ type: "route", path, character } / { type: "routeStart", character } / { type: "situations", character } */
+  /** シート：{ type: "route", path, character } / { type: "routeStart", character } / { type: "situations", character }
+   *  / { type: "flow", character, startSituationId, selected, picking } */
   sheet: null,
   /** モーダルで編集中の記録。{ resource, item(null=追加), values, startRefs, openNext } */
   editing: null,
@@ -832,6 +834,146 @@ function openSheet(sheet) {
   document.querySelectorAll("details.menu[open]").forEach((menu) => menu.removeAttribute("open"));
 }
 
+// ---------- フローチャート ----------
+
+const FLOW_TITLE_MAX = 11;
+
+function clip(text, max) {
+  const chars = [...text];
+  return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : text;
+}
+
+/** 矢印・出口に付ける結果の名前（相手の行動なら勝敗の印つき）。 */
+function flowLabel(exit) {
+  return `${resultLabel(exit)}${exit.outcome && exit.outcome !== "unknown" ? OUTCOME_MARKS[exit.outcome] : ""}`;
+}
+
+function openFlow() {
+  const characters = charactersIn(state.data.sequences, "character");
+  const wanted = state.sequenceCharacter || stored("sf6-character", "");
+  const { situationId } = state.conditions;
+  openSheet({
+    type: "flow",
+    character: characters.includes(wanted) ? wanted : characters[0] || "",
+    startSituationId: typeof situationId === "number" ? situationId : null,
+    selected: null,
+    picking: null,
+  });
+}
+
+function flowEdgePath(edge) {
+  const reach = edge.back ? 70 : Math.max(30, (edge.x2 - edge.x1) / 2);
+  return `M${edge.x1} ${edge.y1} C${edge.x1 + reach} ${edge.y1} ${edge.x2 - reach} ${edge.y2} ${edge.x2} ${edge.y2}`;
+}
+
+function flowSvg(flow, selected) {
+  const edges = flow.edges.map((edge) => `<g class="flow-edge${edge.fit === "near" ? " near" : ""}">
+      <path d="${flowEdgePath(edge)}" marker-end="url(#flowArrow)" />
+      <text x="${(edge.x1 + edge.x2) / 2}" y="${(edge.y1 + edge.y2) / 2 - 4}" text-anchor="middle">${escapeHtml(edge.label)}</text>
+    </g>`).join("");
+  const stubs = flow.stubs.map((stub) => {
+    const next = stub.type === "dead" ? situationText(situationsById().get(stub.situationId)) : "";
+    const text = stub.type === "unset" ? `${stub.label}：未設定` : `${stub.label} → ${next}`;
+    return `<g class="flow-stub ${stub.type}" data-flow-stub="${stub.sequenceId}|${stub.resultKind}|${stub.opponentAction || ""}" tabindex="0" role="button" aria-label="${escapeHtml(`${text}。次の状況を選ぶ`)}">
+      <path class="flow-link" d="M${stub.x1} ${stub.y1} L${stub.x2} ${stub.y2}" />
+      <rect x="${stub.x}" y="${stub.y}" width="${stub.w}" height="${stub.h}" rx="6" />
+      <text x="${stub.x + 8}" y="${stub.y + stub.h / 2 + 4}">${escapeHtml(clip(text, 14))}</text>
+      <title>${escapeHtml(text)}</title>
+    </g>`;
+  }).join("");
+  const nodes = flow.nodes.map((node) => `<g class="flow-node ${node.kind}${node.id === selected ? " selected" : ""}" data-flow-node="${node.id}" tabindex="0" role="button">
+      <rect x="${node.x}" y="${node.y}" width="${node.w}" height="${node.h}" rx="8" />
+      <text class="kind" x="${node.x + 10}" y="${node.y + 18}">${SEQUENCE_KINDS[node.kind]}${node.loop ? " ↻" : ""}</text>
+      <text class="title" x="${node.x + 10}" y="${node.y + 38}">${escapeHtml(clip(node.title, FLOW_TITLE_MAX))}</text>
+      <title>${escapeHtml(node.title)}</title>
+    </g>`).join("");
+  return `<div class="flow-scroll"><svg class="flow-svg" width="${flow.width}" height="${flow.height}" viewBox="0 0 ${flow.width} ${flow.height}" role="group" aria-label="手順のフローチャート">
+    <defs><marker id="flowArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" /></marker></defs>
+    ${edges}${stubs}${nodes}</svg></div>`;
+}
+
+function flowDetailHtml(sequence) {
+  const byId = situationsById();
+  const exits = exitsOf(sequence).map((exit) => {
+    const next = byId.get(exit.nextSituationId);
+    return `<li><b>${escapeHtml(flowLabel(exit))}</b> → ${next ? escapeHtml(situationText(next)) : '<span class="unset">未設定</span>'}</li>`;
+  }).join("");
+  return `<article class="card flow-detail">
+    <div class="card-head"><h3><span class="kind-badge">${SEQUENCE_KINDS[sequence.kind]}</span>${escapeHtml(sequence.title)}</h3>
+      <button type="button" class="ghost-button" data-edit="sequences" data-id="${sequence.id}">編集</button></div>
+    ${notationHtml(sequence.notation)}
+    <ul class="flow-exits">${exits}</ul>
+  </article>`;
+}
+
+function renderFlow() {
+  const sheet = state.sheet;
+  els.sheetTitle.textContent = "フローチャート";
+  const characters = charactersIn(state.data.sequences, "character");
+  if (!characters.includes(sheet.character)) sheet.character = characters[0] || "";
+  if (sheet.picking) {
+    renderFlowPicker();
+    return;
+  }
+  const byId = situationsById();
+  if (sheet.startSituationId !== null && !byId.has(sheet.startSituationId)) sheet.startSituationId = null;
+  const starts = state.data.situations.filter((situation) => !situation.archived
+    && (situation.kind === "trigger" ? situation.character === null || situation.character === sheet.character : situation.character === sheet.character));
+  const flow = buildFlow({
+    sequences: state.data.sequences, situations: state.data.situations, character: sheet.character,
+    startSituationId: sheet.startSituationId, resultLabel: flowLabel,
+  });
+  const selected = findSequence(sheet.selected);
+  els.sheetBody.innerHTML = `
+    <div class="flow-controls">
+      <select data-flow-character aria-label="キャラ">${options(Object.fromEntries(characters.map((name) => [name, name])), sheet.character)}</select>
+      <select data-flow-start aria-label="始点の状況"><option value="">始点：すべて</option>${situationOptionsHtml([
+        ["きっかけ", starts.filter((situation) => situation.kind === "trigger")],
+        ["局面", starts.filter((situation) => situation.kind === "state").sort(byAdvantage)],
+      ], sheet.startSituationId)}</select>
+    </div>
+    ${flow.nodes.length
+      ? `<p class="flow-note">${flow.unsetCount ? `次が未設定の出口が${flow.unsetCount}件あります。点線の枠を押すと、次の状況を選べます。` : "未設定の出口はありません。"}</p>${flowSvg(flow, selected?.id)}`
+      : empty(sheet.character ? "このキャラ・始点から辿れる手順はありません" : "手順がまだありません")}
+    ${selected && flow.nodes.some((node) => node.id === selected.id) ? flowDetailHtml(selected) : ""}`;
+}
+
+/** 出口の「次の状況」を選ぶ画面。状況ごとに、そこから始まる手順の数を出す。 */
+function renderFlowPicker() {
+  const { character, picking } = state.sheet;
+  const sequence = findSequence(picking.sequenceId);
+  const exit = { kind: picking.resultKind, opponentAction: picking.opponentAction, outcome: null };
+  const mine = state.data.sequences.filter((entry) => entry.character === character && !entry.archived);
+  const usable = state.data.situations.filter((situation) => !situation.archived
+    && (situation.kind === "trigger" ? situation.character === null || situation.character === character : situation.character === character));
+  const row = (situation) => {
+    const count = sequencesFrom(situation, mine, state.data.situations).filter((entry) => entry.fit !== "near").length;
+    return `<button type="button" class="sheet-row" data-flow-pick="${situation.id}"><span>${escapeHtml(situationText(situation))}</span><small>${count ? `${count}手順が始まる` : "続く手順なし"}</small></button>`;
+  };
+  els.sheetBody.innerHTML = `
+    <p class="flow-note"><b>${escapeHtml(sequence?.title || "")}</b> の「${escapeHtml(flowLabel(exit))}」のあと、どの状況になりますか。</p>
+    <button type="button" class="ghost-button" data-flow-cancel>← 戻る</button>
+    <h3 class="sheet-title">きっかけ</h3>${usable.filter((situation) => situation.kind === "trigger").map(row).join("") || empty("きっかけはありません")}
+    <h3 class="sheet-title">局面（${escapeHtml(character)}）</h3>${usable.filter((situation) => situation.kind === "state").sort(byAdvantage).map(row).join("") || empty("局面はまだありません。「⋯」→「状況を管理」で追加できます")}`;
+}
+
+/** 結果の次の状況を保存する（結果が無ければ足す）。 */
+async function setFlowNext(ref, situationId) {
+  const sequence = findSequence(ref.sequenceId);
+  if (!sequence) return;
+  const same = (result) => result.kind === ref.resultKind && (result.opponentAction || "") === (ref.opponentAction || "");
+  const toInput = (result, next) => (result.kind === "opponent"
+    ? { kind: "opponent", opponentAction: result.opponentAction, outcome: result.outcome, next }
+    : { kind: result.kind, next });
+  const results = sequence.results.filter((result) => !same(result)).map((result) => toInput(result, result.nextSituationId));
+  const current = sequence.results.find(same) || { kind: ref.resultKind, opponentAction: ref.opponentAction, outcome: null };
+  results.push(toInput(current, situationId));
+  if (await patch("sequences", sequence, { results }, "次の状況を設定しました") && state.sheet?.type === "flow") {
+    state.sheet.picking = null;
+    renderSheet();
+  }
+}
+
 /** 絞り込み中のキャラ・状況を引き継いだ、新しい手順の初期値。起き攻めの起点は局面だけ。 */
 function newSequencePreset(kind) {
   const { situationId } = state.conditions;
@@ -861,6 +1003,7 @@ function renderSheet() {
   if (type === "route") renderRoute();
   else if (type === "routeStart") renderRouteStart();
   else if (type === "addKind") renderAddKind();
+  else if (type === "flow") renderFlow();
   else renderSituationManager();
 }
 
@@ -1812,6 +1955,8 @@ async function onAction(event) {
     const selected = state.conditions.situationId;
     if (typeof selected === "number") openRoute([{ situationId: selected }], character);
     else openSheet({ type: "routeStart", character });
+  } else if (dataset.openFlow !== undefined) {
+    openFlow();
   } else if (dataset.addKind) {
     closeSheet();
     openModal("sequences", null, newSequencePreset(dataset.addKind));
@@ -1859,6 +2004,41 @@ els.sheetBody.addEventListener("keydown", (event) => {
     event.preventDefault();
     els.sheetBody.querySelector("[data-add-trigger]").click();
   }
+});
+els.sheetBody.addEventListener("click", (event) => {
+  if (state.sheet?.type !== "flow") return;
+  const stub = event.target.closest("[data-flow-stub]");
+  const node = event.target.closest("[data-flow-node]");
+  const pick = event.target.closest("button[data-flow-pick]");
+  if (stub) {
+    const [sequenceId, resultKind, opponentAction] = stub.dataset.flowStub.split("|");
+    state.sheet.picking = { sequenceId: Number(sequenceId), resultKind, opponentAction: opponentAction || null };
+    renderSheet();
+  } else if (node) {
+    state.sheet.selected = Number(node.dataset.flowNode);
+    renderSheet();
+  } else if (pick) setFlowNext(state.sheet.picking, Number(pick.dataset.flowPick));
+  else if (event.target.closest("[data-flow-cancel]")) {
+    state.sheet.picking = null;
+    renderSheet();
+  }
+});
+els.sheetBody.addEventListener("keydown", (event) => {
+  if (state.sheet?.type !== "flow" || (event.key !== "Enter" && event.key !== " ")) return;
+  const target = event.target.closest("[data-flow-node], [data-flow-stub]");
+  if (!target) return;
+  event.preventDefault();
+  target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+});
+els.sheetBody.addEventListener("change", (event) => {
+  if (state.sheet?.type !== "flow") return;
+  if (event.target.matches("[data-flow-character]")) {
+    state.sheet.character = event.target.value;
+    state.sheet.startSituationId = null;
+    state.sheet.selected = null;
+  } else if (event.target.matches("[data-flow-start]")) state.sheet.startSituationId = event.target.value === "" ? null : Number(event.target.value);
+  else return;
+  renderSheet();
 });
 els.sheetClose.addEventListener("click", closeSheet);
 els.sheet.addEventListener("click", (event) => { if (event.target === els.sheet) closeSheet(); });
