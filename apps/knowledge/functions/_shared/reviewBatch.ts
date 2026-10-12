@@ -115,7 +115,7 @@ async function finishRun(env: BatchEnv, runId: number, summary: BatchSummary): P
  * 定期実行（schedule）はMessage Batches API（料金が半額）でAIへ依頼する。結果は非同期に返るため、
  * ある回で送信したバッチを、次以降の回（手動実行を含む）で回収する。結果待ちのバッチに入っている
  * カード・回答は新しい依頼に重ねない（採点は claim_review_answers が採点中のまま押さえ、生成は
- * pick_review_generation_candidates が候補から除く）。画面からの手動実行・採点直後の再学習分、
+ * pick_review_generation_candidates_ahead が候補から除く）。画面からの手動実行・採点直後の再学習分、
  * 定期実行でも再学習中のカードは、待たせないよう従来どおりその場で呼ぶ。
  */
 
@@ -307,7 +307,7 @@ export async function runGenerationBatch(
         : `出題待ちの問題が上限（${queueLimit}件）に達しているため、生成しませんでした。`);
     }
 
-    const picked = await callRpc(env, "pick_review_generation_candidates", {
+    const picked = await callRpc(env, "pick_review_generation_candidates_ahead", {
       p_limit: room,
       p_relearning_only: relearningOnly,
       p_lookahead_minutes: useBatchApi ? SCHEDULED_LOOKAHEAD_MINUTES : DEFAULT_LOOKAHEAD_MINUTES,

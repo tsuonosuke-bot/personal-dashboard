@@ -166,10 +166,12 @@ matching Cloudflare Pages build.
   Message Batches API (half price) and collect the results on a later run.
   `claim_review_answers` no longer returns answers in a pending grading batch
   (younger than 25 hours) to 'answered' after 10 minutes.
-  `pick_review_generation_candidates` leaves out cards in a pending generation
-  batch before its LIMIT, counts their new cards against the daily allowance,
-  and gains `p_lookahead_minutes` (default 30; scheduled runs use 90). The old
-  two-argument function is dropped and recreated. Apply before deploying
-  the app build that uses it: that build calls `list_pending_review_ai_batches`
-  on every generation and grading run and passes `p_lookahead_minutes` to the
-  pick.
+  The new `pick_review_generation_candidates_ahead(p_limit, p_relearning_only,
+  p_lookahead_minutes)` leaves out cards in a pending generation batch before
+  its LIMIT, counts their new cards against the daily allowance, and takes the
+  look-ahead window (scheduled runs use 90 minutes).
+  `pick_review_generation_candidates` keeps its two-argument signature and
+  calls it with 30 minutes, so nothing is dropped and the previous app build
+  keeps working. Apply before deploying the app build that uses it: that build
+  calls `list_pending_review_ai_batches` on every generation and grading run
+  and picks through `pick_review_generation_candidates_ahead`.

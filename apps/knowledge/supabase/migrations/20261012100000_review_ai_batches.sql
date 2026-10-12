@@ -9,11 +9,14 @@
 -- so they are neither graded twice nor counted as another attempt. A batch older
 -- than 25 hours has expired on the API side and no longer protects its answers.
 --
--- pick_review_generation_candidates leaves out cards in a pending generation
--- batch before its LIMIT (otherwise they would fill the top of every pick until
--- collected) and counts their new cards against the daily new-card allowance.
--- It gains p_lookahead_minutes: scheduled runs look further ahead because
--- their questions arrive one run later.
+-- Candidate picking moves to pick_review_generation_candidates_ahead, which
+-- leaves out cards in a pending generation batch before its LIMIT (otherwise
+-- they would fill the top of every pick until collected), counts their new
+-- cards against the daily new-card allowance, and takes the look-ahead window:
+-- scheduled runs look further ahead because their questions arrive one run
+-- later. pick_review_generation_candidates keeps its signature and calls it
+-- with the old 30 minutes, so the app build deployed before this keeps working
+-- (nothing is removed, and no overload makes two-argument calls ambiguous).
 begin;
 
 create table if not exists public.review_ai_batches (
@@ -147,15 +150,14 @@ begin
 end
 $$;
 
--- Same as 20261004120000_review_generation_holds.sql, except that cards in a
--- pending generation batch (younger than 25 hours) count as active, and the
--- look-ahead window is a parameter (default 30 minutes as before, at most 3 hours).
-drop function if exists public.pick_review_generation_candidates(integer, boolean);
-
-create or replace function public.pick_review_generation_candidates(
-  p_limit integer default 30,
-  p_relearning_only boolean default false,
-  p_lookahead_minutes integer default 30
+-- The body of pick_review_generation_candidates in
+-- 20261004120000_review_generation_holds.sql, except that cards in a pending
+-- generation batch (younger than 25 hours) count as active, and the look-ahead
+-- window is a parameter (30 minutes before this, clamped to 0-180).
+create or replace function public.pick_review_generation_candidates_ahead(
+  p_limit integer,
+  p_relearning_only boolean,
+  p_lookahead_minutes integer
 )
 returns table(
   id uuid,
@@ -241,6 +243,30 @@ as $$
   limit greatest(0, least(coalesce(p_limit, 30), public.review_generation_batch_size()));
 $$;
 
+create or replace function public.pick_review_generation_candidates(
+  p_limit integer default 30,
+  p_relearning_only boolean default false
+)
+returns table(
+  id uuid,
+  title text,
+  explanation text,
+  category text,
+  tags text[],
+  mastery text,
+  times_asked integer,
+  pool text,
+  stability_hours numeric,
+  relearning_stage text,
+  content_version bigint
+)
+language sql
+stable
+set search_path to 'public', 'pg_temp'
+as $$
+  select * from public.pick_review_generation_candidates_ahead(p_limit, p_relearning_only, 30);
+$$;
+
 do $$
 declare
   fn text;
@@ -250,7 +276,8 @@ begin
     'public.list_pending_review_ai_batches(text)',
     'public.finish_review_ai_batch(bigint, text, text)',
     'public.claim_review_answers(integer)',
-    'public.pick_review_generation_candidates(integer, boolean, integer)'
+    'public.pick_review_generation_candidates_ahead(integer, boolean, integer)',
+    'public.pick_review_generation_candidates(integer, boolean)'
   ]
   loop
     execute format('revoke all on function %s from public, anon, authenticated', fn);

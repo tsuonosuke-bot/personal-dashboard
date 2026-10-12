@@ -176,7 +176,7 @@ test("生成対象がなければAIを呼ばない。実行中のバッチがあ
     rpc: (name) => {
       if (name === "begin_review_batch") return 8;
       if (name === "get_review_queue_status") return status();
-      if (name === "pick_review_generation_candidates") return [];
+      if (name === "pick_review_generation_candidates_ahead") return [];
       if (name === "finish_review_batch") return null;
       throw new Error(`unexpected rpc ${name}`);
     },
@@ -211,7 +211,7 @@ function generationRpc(
   return (name: string, body: Record<string, unknown>) => {
     if (name === "begin_review_batch") return 9;
     if (name === "get_review_queue_status") return status({ ready_total: 190, ...options.queueStatus });
-    if (name === "pick_review_generation_candidates") {
+    if (name === "pick_review_generation_candidates_ahead") {
       // 上限までの残り（既定10件）より多くは求めない。
       assert.equal(body.p_limit, options.limit ?? 10);
       options.picks?.push(body);
@@ -748,7 +748,7 @@ test("AIへは強制ツール呼び出しではなく構造化出力でスキー
     rpc: (name) => {
       if (name === "begin_review_batch") return 21;
       if (name === "get_review_queue_status") return status();
-      if (name === "pick_review_generation_candidates") return [candidate(K1, "選択と集中")];
+      if (name === "pick_review_generation_candidates_ahead") return [candidate(K1, "選択と集中")];
       if (name === "get_recent_quiz_notes") return [];
       if (name === "enqueue_review_questions") return 0;
       if (name === "finish_review_batch") return null;
@@ -976,12 +976,16 @@ test("結果待ちの生成バッチの件数だけ依頼を減らし、定期�
 
 test("結果待ちの生成バッチのカードは、候補選びのLIMITより前に除き、新規の枠にも数える", async () => {
   const sql = await readFile(new URL("../supabase/migrations/20261012100000_review_ai_batches.sql", import.meta.url), "utf8");
-  const pick = sql.slice(sql.indexOf("create or replace function public.pick_review_generation_candidates"));
-  assert.match(sql, /drop function if exists public\.pick_review_generation_candidates\(integer, boolean\);/);
+  const pick = sql.slice(sql.indexOf("create or replace function public.pick_review_generation_candidates_ahead"));
+  // 古い2引数の関数は消さず（前のアプリのため）、30分先読みで新しい関数を呼ぶだけにする。
+  assert.doesNotMatch(sql, /drop function/i);
+  assert.match(sql, /create or replace function public\.pick_review_generation_candidates\(\s+p_limit integer default 30,\s+p_relearning_only boolean default false\s+\)/);
+  assert.match(sql, /select \* from public\.pick_review_generation_candidates_ahead\(p_limit, p_relearning_only, 30\);/);
   assert.match(pick, /with active as \(\s+select q\.knowledge_id\s+from public\.review_queue q\s+where q\.status in \('ready', 'answered', 'grading', 'error'\)\s+union\s+select unnest\(b\.knowledge_ids\)\s+from public\.review_ai_batches b\s+where b\.kind = 'generate' and b\.status = 'pending' and b\.created_at > now\(\) - interval '25 hours'/);
   assert.match(pick, /new_in_queue as \(\s+select count\(\*\)::integer as n\s+from active a\s+join public\.knowledge k on k\.id = a\.knowledge_id\s+where k\.times_asked = 0/);
   assert.match(pick, /k\.next_review_at <= now\(\) \+ make_interval\(mins => greatest\(0, least\(coalesce\(p_lookahead_minutes, 30\), 180\)\)\)/);
-  assert.match(sql, /'public\.pick_review_generation_candidates\(integer, boolean, integer\)'/);
+  assert.match(sql, /'public\.pick_review_generation_candidates_ahead\(integer, boolean, integer\)'/);
+  assert.match(sql, /'public\.pick_review_generation_candidates\(integer, boolean\)'/);
 });
 
 test("定期実行でも再学習中のカードはバッチに回さず、その場で作る", async () => {

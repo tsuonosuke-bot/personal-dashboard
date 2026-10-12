@@ -66,7 +66,8 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
   四択は正解の選択肢）、回答を受け付けた後にだけ返して答え合わせに使う。出題（serve）では返さない
 - おかしな問題は `discard_review_question` で取り下げる（`discarded_reason = 'reported'`）。記録も予定の変更もせず、
   次の生成バッチで作り直す
-- 生成は `pick_review_generation_candidates`（期限到来または30分以内（定期実行は90分以内）、新規は1日10件の枠をキュー内と結果待ちの生成バッチの新規分も含めて数える）
+- 生成は `pick_review_generation_candidates_ahead`（期限到来または30分以内（定期実行は90分以内）、新規は1日10件の枠をキュー内と結果待ちの生成バッチの新規分も含めて数える。
+  旧名の `pick_review_generation_candidates` は引数2つのまま残し、30分でこれを呼ぶ）
   → AI → `enqueue_review_questions`（`ready` が `review_queue_limit()`＝200件に達したら追加しない）
 - AIには直近2回のメモ（`past_notes`）と、何を問うか（`focus`、`questionFocus`）を項目ごとに渡す。メモは正解でも付くため、
   直近で外し、その前は外していなかったときだけ `weak_point`（外した点を突く）にし、それ以外は `core`（本文の知識を問う）にする
@@ -97,7 +98,7 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
   回収に要るもの（`payload`: 生成は候補と過去のメモ、採点は回答とナレッジ）、`knowledge_ids`（生成の候補）、`item_ids`（採点の `review_queue.id`）
 - `register_review_ai_batch` で記録し（記録に失敗したらバッチを取り消す）、`list_pending_review_ai_batches` で結果待ちを読み、
   `finish_review_ai_batch` で閉じる（`pending` のものだけ。二重の回収を防ぐ）。閉じた行は30日で消す
-- 結果待ちの生成バッチ（25時間以内）に入っているカードは、`pick_review_generation_candidates` がLIMITの前に候補から除き、
+- 結果待ちの生成バッチ（25時間以内）に入っているカードは、`pick_review_generation_candidates_ahead` がLIMITの前に候補から除き、
   新規カードは1日の枠に数える。アプリは結果待ちの件数だけ `p_limit` を減らす。定期実行の依頼は `p_lookahead_minutes` を90分にする
   （問題が届くのが次の回以降になるため。手動などその場の生成は従来どおり30分）。採点の回答は採点中のまま押さえる
 - 回収した結果は通常の呼び出しと同じ検証を通す。条件を満たさない問題の作り直しと、採点の欠落・引用不一致の再依頼は
@@ -112,7 +113,7 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
   その場で1回だけ作り直す。それでも満たさないカードを `hold_review_generation_failures` が1行に記録する
 - 列: `knowledge_id`（PK、ナレッジ削除で連動削除）, `content_version`, `failure_count`（同じ版での連続回数）, `last_reason`,
   `last_question`（最後に不採用になった問題文）, `last_failed_at`, `retry_after`
-- `retry_after` までは `pick_review_generation_candidates` の候補にしない。待ち時間は `review_generation_backoff`:
+- `retry_after` までは `pick_review_generation_candidates_ahead` の候補にしない。待ち時間は `review_generation_backoff`:
   1回目2時間、2回目6時間、3回目以降24時間。手動の生成でも飛ばさない
 - カードを編集して `content_version` が変われば待たずに候補へ戻り、次の失敗は1回目から数える。
   `enqueue_review_questions` が問題を入れたら記録を消す
