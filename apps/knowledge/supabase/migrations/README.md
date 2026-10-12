@@ -171,4 +171,5 @@ matching Cloudflare Pages build.
   and gains `p_lookahead_minutes` (default 30; scheduled runs use 90). The old
   two-argument function is dropped and recreated. Apply before deploying
   the app build that uses it: that build calls `list_pending_review_ai_batches`
-  on every generation and scheduled grading run.
+  on every generation and grading run and passes `p_lookahead_minutes` to the
+  pick.

@@ -290,7 +290,7 @@ export async function runGenerationBatch(
     // 結果待ちのまま残ったカードは、回収されればキューに入るので、その分だけ新しく依頼する数を減らす。
     let inFlight = 0;
     for (const batch of await listPendingAiBatches(env, "generate")) {
-      if (!await collectGenerationBatch(env, batch, tally)) inFlight += batch.knowledge_ids.length;
+      if (!await collectGenerationBatch(env, batch, tally, useBatchApi)) inFlight += batch.knowledge_ids.length;
     }
 
     const status = firstRow(await callRpc(env, "get_review_queue_status", {}));
@@ -299,7 +299,8 @@ export async function runGenerationBatch(
     if (!status || !Number.isFinite(readyTotal) || !Number.isFinite(queueLimit)) {
       throw new Error("キューの件数を確認できませんでした。");
     }
-    const room = queueLimit - readyTotal - inFlight;
+    // 再学習分だけの生成（after_grade）は結果待ちに入らないカードなので、結果待ちの件数で止めない。
+    const room = queueLimit - readyTotal - (relearningOnly ? 0 : inFlight);
     if (status.queue_full === true || room <= 0) {
       return finish(inFlight > 0 && status.queue_full !== true && readyTotal < queueLimit
         ? `出題待ちの問題と結果待ちの生成（${inFlight}件）で上限（${queueLimit}件）に達するため、生成しませんでした。`
@@ -385,13 +386,22 @@ async function submitGenerationBatch(
   tally.notes.push(`${candidates.length}件の問題の生成をバッチで依頼しました（次回以降の実行で取り込みます）。`);
 }
 
-/** 終わった生成バッチを回収してキューへ入れる。まだ処理中ならfalse（候補は結果待ちのまま）。 */
-async function collectGenerationBatch(env: BatchEnv, batch: PendingAiBatch, tally: RunTally): Promise<boolean> {
+/**
+ * 終わった生成バッチを回収してキューへ入れる。まだ処理中ならfalse（候補は結果待ちのまま）。
+ * 回収したバッチの失敗で実行全体を failed にするのは定期実行だけ。手動・after_grade の実行は
+ * 自分の生成の結果で判断する（前の定期実行の失敗は、メモに残すだけにする）。
+ */
+async function collectGenerationBatch(
+  env: BatchEnv,
+  batch: PendingAiBatch,
+  tally: RunTally,
+  scheduled: boolean,
+): Promise<boolean> {
   const result = await fetchAiBatchResult(env, batch, GENERATION_CUSTOM_ID, "submit_questions", tally);
   if (!result) return false;
   const payload = readGenerationPayload(batch.payload);
   if (!payload) {
-    tally.broken = true;
+    if (scheduled) tally.broken = true;
     tally.notes.push("記録した生成バッチの対象を読み取れませんでした。");
     await finishAiBatch(env, batch.id, "failed", "記録した対象を読み取れませんでした。");
     return true;
@@ -404,7 +414,7 @@ async function collectGenerationBatch(env: BatchEnv, batch: PendingAiBatch, tall
   if (!generated.ok) {
     // 回収した回の続きで、同じカードを新しいバッチとして依頼し直す。
     const reason = `${generated.failure.stage}: ${generated.failure.reason}`;
-    tally.broken = true;
+    if (scheduled) tally.broken = true;
     tally.processed += candidates.length;
     tally.failed += candidates.length;
     tally.notes.push(reason);
