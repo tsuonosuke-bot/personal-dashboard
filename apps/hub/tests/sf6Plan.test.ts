@@ -202,6 +202,7 @@ test("SF6ページは4タブ（コンボと起き攻めは手順に統合・フ�
   assert.match(html, /id="conditionPunish"/);
   assert.match(html, /id="sheet"/);
   assert.match(html, /data-manage-situations/);
+  assert.match(html, /data-open-flow/);
   assert.doesNotMatch(script, /burnoutOk|data-note-from-match|noteFromMatch/);
   // ルートは手順で終えられる（D1）。フレームの詳細行は見えている列の数だけ広げる（M2）
   assert.match(script, /data-route-end="\$\{sequence\.id\}">この手順で終える</);

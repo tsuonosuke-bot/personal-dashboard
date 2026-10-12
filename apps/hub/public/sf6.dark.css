@@ -709,3 +709,64 @@ html[data-theme="dark"] {
     border-radius: 0;
   }
 }
+:root[data-theme="dark"] .flow-note {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .flow-scroll {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+:root[data-theme="dark"] .flow-svg marker path {
+  fill: var(--muted);
+}
+:root[data-theme="dark"] .flow-edge path {
+  fill: none;
+  stroke: var(--muted);
+}
+:root[data-theme="dark"] .flow-edge text {
+  fill: var(--muted);
+  stroke: var(--paper--light, var(--paper));
+}
+:root[data-theme="dark"] .flow-node rect {
+  fill: var(--surface--light, var(--surface));
+  stroke: var(--line);
+}
+:root[data-theme="dark"] .flow-node.combo rect {
+  stroke: var(--win);
+}
+:root[data-theme="dark"] .flow-node.setplay rect {
+  stroke: var(--accent);
+}
+:root[data-theme="dark"] .flow-node.selected rect {
+  fill: var(--bg-hover--light, var(--bg-hover));
+}
+:root[data-theme="dark"] .flow-node .kind {
+  fill: var(--muted);
+}
+:root[data-theme="dark"] .flow-node .title {
+  fill: var(--ink);
+}
+:root[data-theme="dark"] .flow-stub rect {
+  fill: var(--paper--light, var(--paper));
+  stroke: var(--muted);
+}
+:root[data-theme="dark"] .flow-stub.unset rect {
+  stroke: var(--accent);
+}
+:root[data-theme="dark"] .flow-stub text {
+  fill: var(--muted);
+}
+:root[data-theme="dark"] .flow-stub.unset text {
+  fill: var(--accent);
+}
+:root[data-theme="dark"] .flow-stub .flow-link {
+  stroke: var(--muted);
+}
+:root[data-theme="dark"] .flow-node:focus-visible rect,
+:root[data-theme="dark"] .flow-stub:focus-visible rect {
+  outline: 2px solid var(--accent);
+}
+:root[data-theme="dark"] .flow-exits .unset {
+  color: var(--accent);
+}
