@@ -187,3 +187,50 @@ test("SF6ページは5タブ（フレームあり・注意点なし）で、バ�
   assert.doesNotMatch(script, /burnoutOk|data-note-from-match|noteFromMatch/);
   assert.match(script, /const TABS = \["combos", "setplays", "frames", "drills", "matches"\]/);
 });
+
+test("ヘルプは状況・局面・ルート・フレームを説明し、注意点の説明はない", async () => {
+  const help = await readFile(new URL("../public/help/index.html", import.meta.url), "utf8");
+  const section = help.slice(help.indexOf('<section id="sf6"'), help.indexOf("</section>", help.indexOf('<section id="sf6"')));
+  for (const word of ["ルート", "局面", "きっかけ", "パニッシュカウンター", "相手が画面端", "外して削除", "相手の不利F", "発生F", "+2F", "+4F"]) {
+    assert.ok(section.includes(word), word);
+  }
+  assert.doesNotMatch(help, /注意点/);
+  assert.doesNotMatch(section, /バーンアウト中も使える/);
+});
+
+test("Phase1 migration は7つの新しい表と関数の権限を絞り、既存データをコピーする。Phase2 はガードのあとで旧表を消す", async () => {
+  const [phase1, phase2] = await Promise.all([
+    readFile(new URL("../supabase/migrations/202610120002_sf6_sequences.sql", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/migrations/202610120003_sf6_drop_legacy.sql", import.meta.url), "utf8"),
+  ]);
+  const tables = ["sf6_situations", "sf6_sequences", "sf6_sequence_starts", "sf6_sequence_results", "sf6_move_sets", "sf6_moves"];
+  for (const table of tables) {
+    assert.match(phase1, new RegExp(`create table if not exists public\\.${table} \\(`));
+    assert.match(phase1, new RegExp(`alter table public\\.${table} enable row level security;`));
+  }
+  const revoke = phase1.slice(phase1.indexOf("revoke all on table"), phase1.indexOf("from public, anon, authenticated;", phase1.indexOf("revoke all on table")));
+  const grant = phase1.slice(phase1.indexOf("grant select, insert, update, delete on table"), phase1.indexOf("to service_role;", phase1.indexOf("grant select, insert, update, delete on table")));
+  for (const table of tables) {
+    assert.ok(revoke.includes(`public.${table}`), `revoke ${table}`);
+    assert.ok(grant.includes(`public.${table}`), `grant ${table}`);
+  }
+  assert.match(phase1, /add column if not exists sequence_ids bigint\[\] not null default '\{\}'/);
+  for (const signature of ["sf6_resolve_situation(text, jsonb)", "sf6_save_sequence(bigint, timestamptz, jsonb, jsonb, jsonb)", "sf6_delete_sequence(bigint)", "sf6_copy_legacy()"]) {
+    const escaped = signature.replace(/[()[\]]/g, "\\$&");
+    assert.match(phase1, new RegExp(`revoke all on function public\\.${escaped} from public, anon, authenticated;`));
+    assert.match(phase1, new RegExp(`grant execute on function public\\.${escaped} to service_role;`));
+  }
+  assert.match(phase1, /create unique index if not exists sf6_situations_state_key/);
+  assert.match(phase1, /on conflict \(character, advantage, position, \(coalesce\(recovery, ''\)\)\) where kind = 'state'/);
+  assert.match(phase1, /select public\.sf6_copy_legacy\(\);\s*$/);
+  // 新しい保存関数は旧表の列（Phase2 で消える）を参照しない
+  const save = phase1.slice(phase1.indexOf("create or replace function public.sf6_save_sequence"), phase1.indexOf("create or replace function public.sf6_delete_sequence"));
+  assert.doesNotMatch(save, /legacy_|burnout_ok|sf6_combos|sf6_setplays/);
+  for (const guard of ["SF6_NOTES_NOT_EMPTY", "SF6_COMBOS_NOT_COPIED", "SF6_SETPLAYS_NOT_COPIED", "SF6_DRILLS_NOT_COPIED"]) {
+    assert.match(phase2, new RegExp(`raise exception '${guard}'`));
+  }
+  assert.ok(phase2.indexOf("drop table if exists public.sf6_setplays") < phase2.indexOf("drop table if exists public.sf6_combos"));
+  assert.match(phase2, /drop table if exists public\.sf6_notes;/);
+  assert.match(phase2, /drop function if exists public\.sf6_copy_legacy\(\);/);
+  assert.ok(phase2.indexOf("end $$;") < phase2.indexOf("drop "), "the guard runs before anything is dropped");
+});
