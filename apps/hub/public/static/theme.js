@@ -32,6 +32,9 @@
       if (!meta.dataset.lightColor) meta.dataset.lightColor = meta.content;
       meta.content = theme === "dark" ? DARK_THEME_COLOR : meta.dataset.lightColor;
     }
+    // iOSのホーム画面アプリでは"default"だと上端が常に白くなる。ダークのときだけ透過にして背景色を見せる。
+    const bar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (bar) bar.content = theme === "dark" ? "black-translucent" : "default";
     document.querySelectorAll("select[data-theme-select]").forEach((select) => {
       select.value = preference;
     });
