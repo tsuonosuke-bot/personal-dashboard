@@ -66,7 +66,8 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
   四択は正解の選択肢）、回答を受け付けた後にだけ返して答え合わせに使う。出題（serve）では返さない
 - おかしな問題は `discard_review_question` で取り下げる（`discarded_reason = 'reported'`）。記録も予定の変更もせず、
   次の生成バッチで作り直す
-- 生成は `pick_review_generation_candidates`（期限到来または30分以内、新規は1日10件の枠をキュー内の新規分も含めて数える）
+- 生成は `pick_review_generation_candidates_ahead`（期限到来または30分以内（定期実行は90分以内）、新規は1日10件の枠をキュー内と結果待ちの生成バッチの新規分も含めて数える。
+  旧名の `pick_review_generation_candidates` は引数2つのまま残し、30分でこれを呼ぶ）
   → AI → `enqueue_review_questions`（`ready` が `review_queue_limit()`＝200件に達したら追加しない）
 - AIには直近2回のメモ（`past_notes`）と、何を問うか（`focus`、`questionFocus`）を項目ごとに渡す。メモは正解でも付くため、
   直近で外し、その前は外していなかったときだけ `weak_point`（外した点を突く）にし、それ以外は `core`（本文の知識を問う）にする
@@ -75,7 +76,9 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - 旧方式の日次固定キュー（`daily_review_queues` / `daily_review_queue_items` / `pick_daily_review_queue`）は
   `20261004150000_drop_daily_review_queue.sql` で削除する（所有者が適用。旧スキル関数の削除後）。今日の数字（今日の回答・残り・
   期限超過・新規の保留）はトップのパネルのために `get_daily_review_status`（`GET /api/review/queue`）で残す。Hubは問題キューの状態（`GET /api/review-queue/status`）を読む
-- 回答は `submit_review_answer`。採点は `claim_review_answers` → AI → `record_review_grade`。失敗は `release_review_answer`
+- 回答は `submit_review_answer`。採点は `claim_review_answers` → AI → `record_review_grade`。失敗は `release_review_answer`。
+  採点中のまま10分経った回答は `claim_review_answers` が採点待ちへ戻す。ただし結果待ちの採点バッチ（`review_ai_batches`）に
+  入っている回答は戻さない（25時間を過ぎたバッチは期限切れとして戻す）
 - `record_review_grade` は回答時刻を `record_answer(..., p_answered_at)` に渡し、予定の起点・`quiz_log.created_at`・`asked_on` を
   回答時刻にする。別経路でより新しく回答済みのカードへの古い回答は記録せず `discarded` にする
 - `review_batch_runs` はバッチの実行記録。`begin_review_batch` が同じ種類の同時実行を防ぐ（15分で打ち切り扱い）。
@@ -86,13 +89,31 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
   空く、またはpg_cronのジョブが止まる・失敗する・2時間動かないと `alerts` に出る。しきい値は `functions/_shared/reviewBatchHealth.ts`。
   Hubのトップと `/status/` がこれを表示する。
 
+### `review_ai_batches`（Message Batches APIで依頼中のAI処理）
+
+- 定期実行（`schedule`）の生成・採点は、AIへの依頼をMessage Batches API（料金が半額）で送り、結果を次以降の実行で回収する。
+  終わったバッチはどの実行（手動・`after_grade` を含む）でも回収する。画面からの手動実行（`manual`）・採点直後の再学習分（`after_grade`）と、
+  定期実行でも再学習中（pool `R`、q0の次は10分後）のカードの生成は、待たせないようその場でAIを呼ぶ
+- 1行が送信した1バッチ。`kind`（`generate` / `grade`）、`provider_batch_id`（AnthropicのバッチID）、`status`（`pending` → `collected` / `failed`）、
+  回収に要るもの（`payload`: 生成は候補と過去のメモ、採点は回答とナレッジ）、`knowledge_ids`（生成の候補）、`item_ids`（採点の `review_queue.id`）
+- `register_review_ai_batch` で記録し（記録に失敗したらバッチを取り消す）、`list_pending_review_ai_batches` で結果待ちを読み、
+  `finish_review_ai_batch` で閉じる（`pending` のものだけ。二重の回収を防ぐ）。閉じた行は30日で消す
+- 結果待ちの生成バッチ（25時間以内）に入っているカードは、`pick_review_generation_candidates_ahead` がLIMITの前に候補から除き、
+  新規カードは1日の枠に数える。アプリは結果待ちの件数だけ `p_limit` を減らす。定期実行の依頼は `p_lookahead_minutes` を90分にする
+  （問題が届くのが次の回以降になるため。手動などその場の生成は従来どおり30分）。採点の回答は採点中のまま押さえる
+- 回収した結果は通常の呼び出しと同じ検証を通す。条件を満たさない問題の作り直しと、採点の欠落・引用不一致の再依頼は
+  その場の呼び出し（通常料金）で行う。採点バッチの失敗・期限切れ（25時間）も、その場の採点で取り戻す（まだ採点中の回答だけ）。
+  生成バッチの失敗・期限切れはバッチを `failed` で閉じ、そのカードは次の生成で改めて候補になる（定期実行なら同じ実行でバッチで依頼し直し、
+  手動ならその場で作る）。回収したバッチの失敗で実行を `failed` にするのは定期実行だけ（手動・`after_grade` はメモに残す）
+- 状態の確認や結果の取得に失敗したバッチは、期限までは結果待ちのまま残し、実行記録の `note` に理由を残す
+
 ### `review_generation_holds`（問題を作れなかったカード）
 
 - 生成した問題が条件（`generationIssue`）を満たさなければ、その項目だけを前回の問題文と理由（`previous_attempt`）を添えて
   その場で1回だけ作り直す。それでも満たさないカードを `hold_review_generation_failures` が1行に記録する
 - 列: `knowledge_id`（PK、ナレッジ削除で連動削除）, `content_version`, `failure_count`（同じ版での連続回数）, `last_reason`,
   `last_question`（最後に不採用になった問題文）, `last_failed_at`, `retry_after`
-- `retry_after` までは `pick_review_generation_candidates` の候補にしない。待ち時間は `review_generation_backoff`:
+- `retry_after` までは `pick_review_generation_candidates_ahead` の候補にしない。待ち時間は `review_generation_backoff`:
   1回目2時間、2回目6時間、3回目以降24時間。手動の生成でも飛ばさない
 - カードを編集して `content_version` が変われば待たずに候補へ戻り、次の失敗は1回目から数える。
   `enqueue_review_questions` が問題を入れたら記録を消す
@@ -237,7 +258,7 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `POST /api/review-batch/generate` / `grade`: 生成・採点バッチ。pg_cronからは `X-Review-Batch-Token`、画面からは
   同一オリジンと `X-Dashboard-Action: review-queue` で受け付ける。ミドルウェアがBasic認証を省くのは、合言葉が一致した
   この2つと `/api/embedding-batch` のPOSTだけ。生成はキューが上限なら、採点は採点待ちがなければAIを呼ばない。採点で再学習に入った回答があれば、
-  再学習分だけを続けて生成する（`after_grade`）
+  再学習分だけを続けて生成する（`after_grade`）。定期実行はBatches APIで依頼し、終わったバッチを次以降の実行で回収する（`review_ai_batches`）
 - `POST /api/semantic-search`: 検索語（500文字以内）・種類・件数（1〜50、既定20）を受け取り、検索語だけをVoyageへ送って
   `search_semantic` の結果を返す。検索語をURLやログに残さないようPOSTにし、同一オリジンと `X-Dashboard-Action: semantic-search` を要求する
 - `GET /api/notes`: 問いとテーマの一覧と件数。`GET/POST /api/notes/theme`: テーマのノートと、示唆・日記を外す・戻す
@@ -292,6 +313,8 @@ DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECT
   （`tool_choice` の `tool` / `any`）を400で拒否するため使わない。構造化出力が受け付けない制約（数値の範囲、
   文字数、`maxItems`、2以上の `minItems`）は `toStructuredOutputSchema` が外すので、件数や範囲は受け取った後に
   必ず検証する（四択の選択肢数、q値の範囲、引用の件数など）
+- 思考の深さ（`output_config.effort`）は出題・採点・示唆のまとめが `medium`（`QUIZ_EFFORT`）、英会話の例文が `low`。
+  Sonnet 5.5の既定の `high` より思考トークン（出力単価）を抑えるため。問題文や講評の質が落ちたと感じたら、まずここを `high` に戻す
 - `max_tokens` は16,000。Sonnet 5.5は思考トークンも `max_tokens` に含まれるため、30問だと8,192では足りない。
   `stop_reason` が `max_tokens` の応答は途中までのJSONしか返らないため、
   「応答形式が正しくない」ではなく打ち切りとして返す。原因を取り違えさせないこと。`refusal` も理由つきで返す

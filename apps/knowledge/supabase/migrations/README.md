@@ -158,3 +158,20 @@ matching Cloudflare Pages build.
   `review_new_cards_remaining_today()` (a `MATERIALIZED` CTE) instead of once
   per `quiz_log` row. Same result; `get_daily_review_status` drops from ~42 ms
   to ~11 ms.
+
+- `20261012100000_review_ai_batches.sql` adds `review_ai_batches` and its
+  service_role functions (`register_review_ai_batch`,
+  `list_pending_review_ai_batches`, `finish_review_ai_batch`) so the scheduled
+  generation and grading runs can send their AI requests through the Anthropic
+  Message Batches API (half price) and collect the results on a later run.
+  `claim_review_answers` no longer returns answers in a pending grading batch
+  (younger than 25 hours) to 'answered' after 10 minutes.
+  The new `pick_review_generation_candidates_ahead(p_limit, p_relearning_only,
+  p_lookahead_minutes)` leaves out cards in a pending generation batch before
+  its LIMIT, counts their new cards against the daily allowance, and takes the
+  look-ahead window (scheduled runs use 90 minutes).
+  `pick_review_generation_candidates` keeps its two-argument signature and
+  calls it with 30 minutes, so nothing is dropped and the previous app build
+  keeps working. Apply before deploying the app build that uses it: that build
+  calls `list_pending_review_ai_batches` on every generation and grading run
+  and picks through `pick_review_generation_candidates_ahead`.

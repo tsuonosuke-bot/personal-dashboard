@@ -198,6 +198,10 @@ async function generate(
     system: SYSTEM_PROMPT,
     userText,
     maxTokens: MAX_AI_TOKENS,
+    // 短い例文づくりなので深い思考は要らない。条件を満たさない例文はその場で作り直させる。
+    effort: "low",
+    // 作り直しは直後に同じsystemで送るため、5分のキャッシュで足りる。
+    cacheTtl: "5m",
     tool: TOOL,
   });
   if (!result.ok) return {

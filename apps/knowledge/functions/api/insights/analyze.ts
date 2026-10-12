@@ -1,5 +1,5 @@
 import { inFilter, jsonResponse, methodNotAllowed, requestSupabaseRows, type SupabaseEnv } from "../../_shared/supabaseRest.ts";
-import { callAnthropicTool, QUIZ_MAX_TOKENS, QUIZ_MODEL, type AnthropicEnv } from "../../_shared/anthropicClient.ts";
+import { callAnthropicTool, QUIZ_EFFORT, QUIZ_MAX_TOKENS, QUIZ_MODEL, type AnthropicEnv } from "../../_shared/anthropicClient.ts";
 import { validateInsightRequest } from "../../_shared/insightValidation.ts";
 
 interface FunctionContext {
@@ -133,6 +133,8 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     system: SYSTEM_PROMPT,
     userText,
     maxTokens: QUIZ_MAX_TOKENS,
+    effort: QUIZ_EFFORT,
+    // 1回きりの呼び出しなのでsystemはキャッシュしない（書き込みの分だけ高くなる）。
     tool: TOOL,
   });
   if (!result.ok) {
