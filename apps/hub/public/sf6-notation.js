@@ -1,7 +1,8 @@
 // SF6のコンボレシピ（クラシック操作）。保存はテキストのまま（例: "2中K > DR 5中P > 2強P xx 236強P"）で、
 // 入力パレットの組み立てと、カード表示用の分解だけをここで行う。DOMに触れないのでテストから直接読める。
 
-const ATTACK = "(?:弱|中|強)[PK]|PP|KK";
+// 単独の P / K は強さを問わないボタン（SAのコマンド "236236P" など）。パレットにはキーを置かない
+const ATTACK = "(?:弱|中|強)[PK]|PP|KK|P|K";
 const PREFIX_ONLY = /^J?[1-9]*$/;
 const ATTACK_ONLY = new RegExp(`^(?:${ATTACK})$`);
 const COMMAND = new RegExp(`^(J)?([1-9]*)(${ATTACK})$`);
@@ -67,6 +68,7 @@ export function removeLastToken(text) {
 
 /**
  * レシピを表示用の部品に分ける。読めない語はそのまま文字として返すので、手で書いた古いレシピも壊れない。
+ * strength は light / medium / heavy / od（PP・KK）/ any（強さを問わない P・K）。
  * @returns {Array<{type: "command", jump: boolean, arrows: string[], button: string, strength: string, limb: string}
  *   | {type: "motion", arrows: string[]} | {type: "link", label: string, kind: string, title: string} | {type: "text", text: string}>}
  */
@@ -82,7 +84,7 @@ export function parseNotation(text) {
         // 5（ニュートラル）だけのときは矢印を出さない
         arrows: directions === "5" ? [] : [...directions].map((digit) => ARROWS[digit]),
         button,
-        strength: doubled ? "od" : { 弱: "light", 中: "medium", 強: "heavy" }[button[0]],
+        strength: doubled ? "od" : button.length === 1 ? "any" : { 弱: "light", 中: "medium", 強: "heavy" }[button[0]],
         limb: button.endsWith("P") ? "punch" : "kick",
       };
     }
