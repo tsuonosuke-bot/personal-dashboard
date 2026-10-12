@@ -468,9 +468,9 @@ html[data-theme="dark"] {
   color: var(--muted);
 }
 :root[data-theme="dark"] .delete-confirm {
-  border: 1px solid #643941;
+  border: 1px solid var(--lose-soft);
   border-radius: var(--radius-sm);
-  background: #251f20;
+  background: var(--bg-subtle);
 }
 :root[data-theme="dark"] .pal-key.move {
   border-color: #405448;
@@ -542,6 +542,10 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] .sheet-row small {
   color: var(--text-tertiary);
+}
+:root[data-theme="dark"] .sheet-row .preset-label {
+  border-radius: 4px;
+  background: var(--bg-hover);
 }
 :root[data-theme="dark"] .crumb {
   border: 1px solid var(--line);

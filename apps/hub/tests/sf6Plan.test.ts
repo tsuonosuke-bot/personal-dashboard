@@ -151,6 +151,15 @@ test("ルートを練習にすると、タイトル・手順の並び・トレ�
   assert.equal(preset.reversalRecorded, true);
   const single = drillPreset(sequence({ starts: [2, 3] }), new Map([[2, confirm], [3, counter]]));
   assert.deepEqual([single.sequenceIds, single.counterSetting, single.detail], [[1], "punish_counter", "ランダムガードでヒット確認して10回連続"]);
+  // 手順で終える道のり（D1・A5）：確定反撃 › コンボ › 局面 › 起き攻め（次の状況のない起き攻めで終える）
+  const ended = routeDrillPreset(
+    [{ situationId: 1 }, { sequenceId: 1, resultKind: "hit" }, { situationId: 6 }, { sequenceId: 2, resultKind: null }],
+    new Map([[1, combo], [2, setplay]]),
+    new Map([[1, punish], [6, corner]]),
+  );
+  assert.equal(ended.title, "確定反撃 › 弱連打 強エアニー › 前ステ 中パワーボム");
+  assert.deepEqual(ended.sequenceIds, [1, 2]);
+  assert.deepEqual([ended.guardSetting, ended.recoverySetting, ended.reversalRecorded], ["random", "random", true]);
   const oki = drillPreset(setplay, situationsById);
   assert.deepEqual([oki.recoverySetting, oki.reversalRecorded], ["random", true]);
 });
@@ -192,6 +201,11 @@ test("SF6ページは5タブ（フレームあり・注意点なし）で、バ�
   assert.match(html, /id="sheet"/);
   assert.match(html, /data-manage-situations/);
   assert.doesNotMatch(script, /burnoutOk|data-note-from-match|noteFromMatch/);
+  // ルートは手順で終えられる（D1）。フレームの詳細行は見えている列の数だけ広げる（M2）
+  assert.match(script, /data-route-end="\$\{sequence\.id\}">この手順で終える</);
+  assert.match(script, /colspan="\$\{WIDE_FRAMES\.matches \? 6 : 4\}"/);
+  // 初期の状況は削除ボタンを出さない（D3）
+  assert.match(script, /resource === "situations" && Boolean\(item\.presetKey\)/);
   assert.match(script, /const TABS = \["combos", "setplays", "frames", "drills", "matches"\]/);
 });
 
@@ -222,12 +236,19 @@ test("Phase1 migration は7つの新しい表と関数の権限を絞り、既�
     assert.ok(grant.includes(`public.${table}`), `grant ${table}`);
   }
   assert.match(phase1, /add column if not exists sequence_ids bigint\[\] not null default '\{\}'/);
-  for (const signature of ["sf6_resolve_situation(text, jsonb)", "sf6_save_sequence(bigint, timestamptz, jsonb, jsonb, jsonb)", "sf6_delete_sequence(bigint)", "sf6_copy_legacy()"]) {
+  for (const signature of ["sf6_situations_guard_update()", "sf6_situations_guard_delete()", "sf6_resolve_situation(text, jsonb)", "sf6_save_sequence(bigint, timestamptz, jsonb, jsonb, jsonb)", "sf6_delete_sequence(bigint)", "sf6_copy_legacy()"]) {
     const escaped = signature.replace(/[()[\]]/g, "\\$&");
     assert.match(phase1, new RegExp(`revoke all on function public\\.${escaped} from public, anon, authenticated;`));
     assert.match(phase1, new RegExp(`grant execute on function public\\.${escaped} to service_role;`));
   }
   assert.match(phase1, /create unique index if not exists sf6_situations_state_key/);
+  // 使用中の状況のキャラ・種類（D2）、初期の状況の削除（D3）はDBでも拒む
+  assert.match(phase1, /create trigger sf6_situations_guard_update\s+before update on public\.sf6_situations/);
+  assert.match(phase1, /create trigger sf6_situations_guard_delete\s+before delete on public\.sf6_situations/);
+  assert.match(phase1, /raise exception 'SF6_SITUATION_IN_USE'/);
+  assert.match(phase1, /raise exception 'SF6_PRESET_SITUATION'/);
+  // 楽観ロックは updated_at が null でも競合にする（R1）
+  assert.match(phase1, /p_updated_at is null or v_old\.updated_at is distinct from p_updated_at/);
   assert.match(phase1, /on conflict \(character, advantage, position, \(coalesce\(recovery, ''\)\)\) where kind = 'state'/);
   assert.match(phase1, /select public\.sf6_copy_legacy\(\);\s*$/);
   // 新しい保存関数は旧表の列（Phase2 で消える）を参照しない
@@ -236,6 +257,10 @@ test("Phase1 migration は7つの新しい表と関数の権限を絞り、既�
   for (const guard of ["SF6_NOTES_NOT_EMPTY", "SF6_COMBOS_NOT_COPIED", "SF6_SETPLAYS_NOT_COPIED", "SF6_DRILLS_NOT_COPIED"]) {
     assert.match(phase2, new RegExp(`raise exception '${guard}'`));
   }
+  // 旧画面でコピー後に消した行は止め（R4）、新画面で消したコピーは通す。練習は対応する手順があるのに空のときだけ止める（R3）
+  assert.match(phase2, /not exists \(select 1 from public\.sf6_combos c where c\.id = s\.legacy_combo_id\)/);
+  assert.match(phase2, /\(s\.id is null and c\.updated_at > v_last_copy\)/);
+  assert.match(phase2, /d\.sequence_ids = '\{\}'\s+and exists \(select 1 from public\.sf6_sequences s/);
   assert.ok(phase2.indexOf("drop table if exists public.sf6_setplays") < phase2.indexOf("drop table if exists public.sf6_combos"));
   assert.match(phase2, /drop table if exists public\.sf6_notes;/);
   assert.match(phase2, /drop function if exists public\.sf6_copy_legacy\(\);/);

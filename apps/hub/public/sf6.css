@@ -215,7 +215,7 @@ main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px
 .form-grid > .half { grid-column: auto; }
 .chain-list { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.7; }
 .chain-link { margin: 6px 0 0; color: var(--muted); font-size: 12px; font-weight: 600; }
-.delete-confirm { display: grid; gap: 6px; padding: 10px; border: 1px solid #f0c2ca; border-radius: var(--radius-sm); background: #fdf6f7; font-size: 12px; }
+.delete-confirm { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--lose-soft); border-radius: var(--radius-sm); background: var(--bg-subtle); font-size: 12px; }
 .delete-confirm p { margin: 0; line-height: 1.6; }
 .delete-confirm .form-actions { justify-content: flex-start; flex-wrap: wrap; }
 .delete-confirm .danger-button { margin-right: 0; }
@@ -261,6 +261,7 @@ main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px
 .sheet-row { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 6px; border: 0; border-bottom: 1px solid var(--line); background: none; font-size: 13px; text-align: left; }
 .sheet-row:hover { background: var(--bg-hover); }
 .sheet-row small { color: var(--text-tertiary); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.sheet-row .preset-label { margin-left: 4px; padding: 1px 5px; border-radius: 4px; background: var(--bg-hover); }
 .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 6px; font-size: 12px; }
 .crumb { min-height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; font-weight: 600; }
 .crumb[aria-current="step"] { border-color: var(--accent); color: var(--accent); }

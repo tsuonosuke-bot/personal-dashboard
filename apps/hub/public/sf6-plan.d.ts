@@ -48,7 +48,8 @@ export interface PlanConditions {
 
 export type RouteStep =
   | { situationId: number }
-  | { sequenceId: number; resultKind: "hit" | "guard" | "opponent"; opponentAction?: string | null };
+  /** resultKind が null の要素は「この手順で終える」（道のりの最後）。 */
+  | { sequenceId: number; resultKind: "hit" | "guard" | "opponent" | null; opponentAction?: string | null };
 
 export type Fit = "same" | "fits" | "near";
 

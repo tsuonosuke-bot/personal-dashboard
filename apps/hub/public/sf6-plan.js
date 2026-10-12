@@ -203,6 +203,7 @@ export function drillPreset(sequence, situationsById) {
 
 /**
  * ルート（[{ situationId }, { sequenceId, resultKind, opponentAction }, { situationId }, …]）を1つの練習にする。
+ * 道のりは手順で終えてもよい（最後が { sequenceId, resultKind: null }。次の状況がない起き攻めなど）。
  * 同じ手順を2回通るループは、練習の対象としては1回にまとめる。
  */
 export function routeDrillPreset(path, sequencesById, situationsById) {

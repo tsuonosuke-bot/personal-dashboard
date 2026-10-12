@@ -20,7 +20,8 @@ const POSITIONS = { anywhere: "どこでも", midscreen: "画面中央", corner:
 const RESULTS = { win: "勝ち", lose: "負け", draw: "引き分け" };
 const MODES = { ranked: "ランクマ", casual: "カジュアル", battle_hub: "バトルハブ", tournament: "大会", other: "その他" };
 const SA_LEVELS = { 0: "なし", 1: "SA1", 2: "SA2", 3: "SA3", 4: "CA" };
-const DRIVE_STEPS = Object.fromEntries(Array.from({ length: 13 }, (_, index) => [String(index / 2), String(index / 2)]));
+// 0, 0.5, 1, … 6 の順に並べるため配列で持つ（オブジェクトだと整数のキーが先に並ぶ）
+const DRIVE_STEPS = Array.from({ length: 13 }, (_, index) => [String(index / 2), String(index / 2)]);
 const RECOVERIES = { back_roll: "後ろ受け身 可", no_back_roll: "後ろ受け身 不可", none: "ダウンなし" };
 const END_PURPOSES = { damage: "ダメージ重視", oki: "起き攻め重視", carry: "運び重視" };
 const LAYERINGS = { meaty: "持続重ね", safe_jump: "安全飛び", other: "その他" };
@@ -133,8 +134,9 @@ function errorMessage(payload, fallback) {
   return fallback;
 }
 
+/** map は { 値: ラベル } か、並び順を決めたいときの [[値, ラベル], …]。 */
 function options(map, selected) {
-  return Object.entries(map).map(([value, label]) =>
+  return (Array.isArray(map) ? map : Object.entries(map)).map(([value, label]) =>
     `<option value="${escapeHtml(value)}"${value === selected ? " selected" : ""}>${escapeHtml(label)}</option>`).join("");
 }
 
@@ -466,7 +468,9 @@ function byAdvantage(a, b) {
 function renderComboSituations(combos) {
   const character = state.comboCharacter;
   const used = new Set(combos.flatMap((combo) => combo.starts));
-  const triggers = state.data.situations.filter((situation) => situation.kind === "trigger" && !situation.archived
+  // 選んでいる状況はアーカイブ済みでも残す（「確反コンボを探す」でアーカイブ済みの初期の状況が選ばれるため）
+  const triggers = state.data.situations.filter((situation) => situation.kind === "trigger"
+    && (!situation.archived || situation.id === state.conditions.situationId)
     && (!character || situation.character === null || situation.character === character));
   const states = state.data.situations.filter((situation) => situation.kind === "state" && used.has(situation.id)
     && (!character || situation.character === character)).sort(byAdvantage);
@@ -499,7 +503,11 @@ function renderCombos() {
   const archived = visible.filter((combo) => combo.archived);
   const groups = new Map();
   active.forEach((combo) => groups.set(combo.character, [...(groups.get(combo.character) || []), combo]));
-  const noStartup = punishWindow !== null ? mine.filter((combo) => !combo.archived && combo.startup === null).length : 0;
+  // 不利F以外の状況・条件では使えるのに、発生Fがないので出ていないもの
+  const noStartup = punishWindow !== null
+    ? mine.filter((combo) => !combo.archived && combo.startup === null
+      && usableNow(combo, { ...state.conditions, position: state.comboPosition, punishWindow: null })).length
+    : 0;
   els.comboList.innerHTML = active.length
     ? [...groups].map(([character, list]) => `<h2 class="list-title">${escapeHtml(character)}<small>${list.length}</small></h2>${list.map(comboCard).join("")}`).join("")
     : empty(noStartup ? `発生Fが未入力のコンボは${noStartup}件あります`
@@ -585,6 +593,9 @@ function renderSetplays() {
 
 // ---------- フレーム ----------
 
+/** PC幅ではカウンター・パニカンも列で出す。table-layout: fixed なので、詳細行の colspan は見えている列の数にする。 */
+const WIDE_FRAMES = window.matchMedia("(min-width: 681px)");
+
 const FRAME_DETAILS = [
   ["activeText", "持続"], ["recoveryText", "硬直"], ["cancelText", "キャンセル"], ["damageText", "ダメージ"],
   ["scalingText", "補正"], ["attributeText", "属性"], ["driveGainText", "Dゲージ増加"], ["driveLossText", "Dゲージ減少"], ["saGainText", "SAゲージ増加"],
@@ -626,7 +637,7 @@ function frameRowHtml(move) {
     ...FRAME_DETAILS.map(([key, label]) => [label, move[key] ? escapeHtml(move[key]) : ""]),
   ];
   details.splice(2, 0, ["カウンター", bonusHtml(counter, move.notes)], ["パニカン", bonusHtml(punish, move.notes)]);
-  const detail = open ? `<tr class="frame-detail"><td colspan="6">
+  const detail = open ? `<tr class="frame-detail"><td colspan="${WIDE_FRAMES.matches ? 6 : 4}">
       <dl>${details.filter(([, value]) => value).map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join("")}</dl>
       ${move.notes ? `<p class="memo">${escapeHtml(move.notes)}</p>` : ""}
       ${level ? `<button type="button" class="ghost-button find-punish" data-find-punish="${move.id}">確反コンボを探す</button>` : ""}
@@ -844,7 +855,7 @@ function renderRouteStart() {
     <h3 class="sheet-title">局面${character ? `（${escapeHtml(character)}）` : ""}</h3>${usable.filter((situation) => situation.kind === "state").sort(byAdvantage).map(row).join("") || empty("局面はまだありません")}`;
 }
 
-function routeCardHtml({ sequence, via, fit }) {
+function routeCardHtml({ sequence, via, fit }, ended = false) {
   const usable = usableNow(sequence, { drive: state.conditions.drive, sa: state.conditions.sa, ca: state.conditions.ca, burnout: state.conditions.burnout });
   const byId = situationsById();
   const steps = sequence.results.filter((result) => byId.get(result.nextSituationId)).map((result) =>
@@ -858,7 +869,8 @@ function routeCardHtml({ sequence, via, fit }) {
     ${fit === "same" ? "" : `<p class="meta">起点 ${escapeHtml(situationText(via))}${fit === "near" ? " · ±2F 注意" : ""}</p>`}
     ${notationHtml(sequence.notation)}
     ${sequence.kind === "setplay" ? outcomesHtml(sequence, starts.some((situation) => situation.recovery === "back_roll")) : ""}
-    ${steps ? `<div class="result-lines">${steps}</div>` : ""}
+    ${!ended && steps ? `<div class="result-lines">${steps}</div>` : ""}
+    ${ended ? "" : `<div class="card-foot end"><button type="button" class="ghost-button" data-route-end="${sequence.id}">この手順で終える</button></div>`}
   </article>`;
 }
 
@@ -866,24 +878,37 @@ function renderRoute() {
   const { path, character } = state.sheet;
   const byId = situationsById();
   const sequences = sequencesById();
-  const current = byId.get(path[path.length - 1].situationId);
+  const last = path[path.length - 1];
   els.sheetTitle.textContent = "ルート";
   const crumbs = path.map((step, index) => ("situationId" in step
     ? `<button type="button" class="crumb" data-route-back="${index}"${index === path.length - 1 ? ' aria-current="step"' : ""}>${escapeHtml(situationText(byId.get(step.situationId)) || "削除された状況")}</button>`
-    : `<span class="crumb-sequence">${escapeHtml(sequences.get(step.sequenceId)?.title || "")}</span>`)).join('<span class="crumb-sep">›</span>');
+    : `<span class="crumb-sequence"${index === path.length - 1 ? ' aria-current="step"' : ""}>${escapeHtml(sequences.get(step.sequenceId)?.title || "")}</span>`)).join('<span class="crumb-sep">›</span>');
   const summary = conditionSummaryText();
+  const sequenceCount = path.filter((step) => "sequenceId" in step).length;
+  const drillButton = sequenceCount
+    ? `<button type="button" class="primary-button route-drill" data-route-drill>この流れを練習に追加（${sequenceCount}手順）</button>`
+    : "";
+  const head = `<nav class="crumbs" aria-label="たどった道のり">${crumbs}</nav>
+    <p class="meta">条件：${escapeHtml(summary.length ? summary.join(" · ") : "指定なし")}</p>`;
+  // 手順で終えた道のり：その手順だけを出す（1つ前の状況のパンくずで戻れる）
+  if ("sequenceId" in last) {
+    const sequence = sequences.get(last.sequenceId);
+    const via = byId.get(path[path.length - 2]?.situationId);
+    els.sheetBody.innerHTML = `${head}
+      <div class="card-list">${sequence ? routeCardHtml({ sequence, via, fit: "same" }, true) : ""}</div>
+      ${drillButton}`;
+    return;
+  }
+  const current = byId.get(last.situationId);
   const candidates = state.data.sequences.filter((sequence) => !character || sequence.character === character);
   const found = current ? sequencesFrom(current, candidates, state.data.situations) : [];
   const same = found.filter((entry) => entry.fit === "same");
   const near = found.filter((entry) => entry.fit !== "same");
-  const sequenceCount = path.filter((step) => "sequenceId" in step).length;
-  els.sheetBody.innerHTML = `
-    <nav class="crumbs" aria-label="たどった道のり">${crumbs}</nav>
-    <p class="meta">条件：${escapeHtml(summary.length ? summary.join(" · ") : "指定なし")}</p>
+  els.sheetBody.innerHTML = `${head}
     <h3 class="sheet-title">この状況から</h3>
-    <div class="card-list">${same.map(routeCardHtml).join("") || empty("この状況から始まる手順はありません")}</div>
-    ${near.length ? `<h3 class="sheet-title">合う局面から</h3><div class="card-list">${near.map(routeCardHtml).join("")}</div>` : ""}
-    ${sequenceCount ? `<button type="button" class="primary-button route-drill" data-route-drill>この流れを練習に追加（${sequenceCount}手順）</button>` : ""}`;
+    <div class="card-list">${same.map((entry) => routeCardHtml(entry)).join("") || empty("この状況から始まる手順はありません")}</div>
+    ${near.length ? `<h3 class="sheet-title">合う局面から</h3><div class="card-list">${near.map((entry) => routeCardHtml(entry)).join("")}</div>` : ""}
+    ${drillButton}`;
 }
 
 function openRoute(path, character) {
@@ -897,7 +922,7 @@ function renderSituationManager() {
     return counts.starts + counts.results;
   };
   const row = (situation) => `<button type="button" class="sheet-row" data-edit-situation="${situation.id}">
-      <span>${escapeHtml(situation.name)}${situation.kind === "state" && stateLabel(situation) !== situation.name ? ` <small>${escapeHtml(stateLabel(situation))}</small>` : ""}${situation.kind === "trigger" && situation.character ? ` <small>${escapeHtml(situation.character)}</small>` : ""}</span>
+      <span>${escapeHtml(situation.name)}${situation.presetKey ? ' <small class="preset-label">初期</small>' : ""}${situation.kind === "state" && stateLabel(situation) !== situation.name ? ` <small>${escapeHtml(stateLabel(situation))}</small>` : ""}${situation.kind === "trigger" && situation.character ? ` <small>${escapeHtml(situation.character)}</small>` : ""}</span>
       <small>${usage(situation)} ›</small>
     </button>`;
   const mine = (situation) => situation.kind === "trigger" ? situation.character === null || situation.character === character : situation.character === character;
@@ -989,7 +1014,7 @@ const FORMS = {
     fields: [
       { key: "kind", label: "種類", type: "radio", options: SITUATION_KINDS, addOnly: true },
       { key: "name", label: "名前", type: "text", max: 60, required: true, placeholder: "例：強エアニー締め後" },
-      { key: "character", label: "キャラ", type: "character", showIf: (values) => values.kind === "state" },
+      { key: "character", label: "キャラ", type: "situationCharacter", showIf: (values) => values.kind === "state" || Boolean(state.editing?.item?.character) },
       { key: "advantage", label: "有利F", type: "number", min: -99, max: 300, nullable: true, required: true, hint: FRAME_HINT, showIf: (values) => values.kind === "state" },
       { key: "position", label: "位置", type: "select", options: POSITIONS, half: true, showIf: (values) => values.kind === "state" },
       { key: "recovery", label: "ダウン", type: "select", options: { "": "未設定", ...RECOVERIES }, half: true, showIf: (values) => values.kind === "state" },
@@ -1328,6 +1353,15 @@ function fieldHtml(field, value, values) {
     case "radio":
       return `<fieldset class="radio-field" data-field="${field.key}"><legend>${escapeHtml(field.label)}</legend>${Object.entries(field.options).map(([option, name]) =>
         `<label><input type="radio" name="${field.key}" value="${option}"${option === text ? " checked" : ""} /><span>${escapeHtml(name)}</span></label>`).join("")}</fieldset>`;
+    case "situationCharacter": {
+      // 使用中の状況はキャラを変えられない（DBのトリガーでも拒む）。きっかけを全キャラ共通にすることだけはできる
+      const inUse = situationInUse(state.editing.item);
+      const note = '<small class="field-hint">使っている手順があるため変えられません</small>';
+      if (inUse && values.kind === "trigger") {
+        return `<label data-field="${field.key}"${showIf}>${label}<select id="${id}">${options([[text, text], ["", "全キャラ共通"]], text)}</select><small class="field-hint">使っている手順があるため、全キャラ共通にだけ変えられます</small></label>`;
+      }
+      return `<label data-field="${field.key}"${showIf}>${label}<input id="${id}" list="characterOptions" maxlength="40" autocomplete="off" value="${escapeHtml(text)}" placeholder="キャラ名"${inUse ? " readonly" : ""} />${inUse ? note : ""}</label>`;
+    }
     case "character":
       return `<label class="${half}" data-field="${field.key}"${showIf}>${label}<input id="${id}" list="characterOptions" maxlength="40" autocomplete="off" value="${escapeHtml(text)}" placeholder="キャラ名" /></label>`;
     case "number":
@@ -1455,7 +1489,8 @@ function openModal(resource, item = null, preset = {}) {
   els.formFields.innerHTML = `${main}${more ? `<details class="form-more"><summary>詳細</summary><div class="form-grid">${more}</div></details>` : ""}`;
   els.formError.hidden = true;
   els.deleteConfirm.hidden = true;
-  els.deleteButton.hidden = !item;
+  // 初期の状況は削除できない（アーカイブだけ）
+  els.deleteButton.hidden = !item || (resource === "situations" && Boolean(item.presetKey));
   els.saveButton.textContent = item ? "保存する" : "追加する";
   syncConditional(resource);
   syncBackRoll();
@@ -1581,6 +1616,13 @@ function confirmSituationDelete(situation) {
   return Promise.resolve();
 }
 
+/** 状況が手順の始動・結果に使われているか（使用中ならキャラと種類を変えられない）。 */
+function situationInUse(situation) {
+  if (!situation) return false;
+  const usage = situationUsage(situation.id, state.data.sequences);
+  return usage.starts + usage.results > 0;
+}
+
 // ---------- イベント ----------
 
 function find(resource, id) {
@@ -1633,6 +1675,7 @@ els.setplayStart.addEventListener("change", () => {
   state.setplayStart = els.setplayStart.value === "" ? null : Number(els.setplayStart.value);
   renderSetplays();
 });
+WIDE_FRAMES.addEventListener("change", () => { if (state.data) renderFrames(); });
 els.frameCharacter.addEventListener("change", () => {
   state.frames.character = els.frameCharacter.value;
   state.frames.open = null;
@@ -1668,7 +1711,10 @@ function routeFromCard(value) {
   const result = sequence?.results.find((entry) => entry.kind === resultKind && (entry.opponentAction || "") === opponentAction);
   if (!result?.nextSituationId) return;
   const step = { sequenceId: sequence.id, resultKind, opponentAction: opponentAction || null };
-  openRoute([...(sequence.starts.length ? [{ situationId: sequence.starts[0] }, step] : []), { situationId: result.nextSituationId }], sequence.character);
+  // 始点は、絞り込みで選んでいる状況がこの手順の始動にあればそれ、なければ最初の始動
+  const selected = sequence.kind === "setplay" ? state.setplayStart : state.conditions.situationId;
+  const start = sequence.starts.includes(selected) ? selected : sequence.starts[0];
+  openRoute([...(start !== undefined ? [{ situationId: start }, step] : []), { situationId: result.nextSituationId }], sequence.character);
 }
 
 function routeStep(value) {
@@ -1723,6 +1769,12 @@ async function onAction(event) {
     routeFromCard(dataset.routeFromCard);
   } else if (dataset.routeStep) {
     routeStep(dataset.routeStep);
+  } else if (dataset.routeEnd) {
+    const sequence = findSequence(Number(dataset.routeEnd));
+    state.sheet.path.push({ sequenceId: sequence.id, resultKind: null });
+    if (!state.sheet.character) state.sheet.character = sequence.character;
+    renderSheet();
+    els.sheet.querySelector(".sheet").scrollTop = 0;
   } else if (dataset.routeBack !== undefined) {
     state.sheet.path = state.sheet.path.slice(0, Number(dataset.routeBack) + 1);
     renderSheet();
