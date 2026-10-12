@@ -206,14 +206,15 @@ function generationRecord(): GenerationRecord {
 function generationRpc(
   candidates: Record<string, unknown>[],
   record: GenerationRecord,
-  options: { holdFails?: boolean; queueStatus?: Record<string, unknown> } = {},
+  options: { holdFails?: boolean; queueStatus?: Record<string, unknown>; limit?: number; picks?: Record<string, unknown>[] } = {},
 ) {
   return (name: string, body: Record<string, unknown>) => {
     if (name === "begin_review_batch") return 9;
     if (name === "get_review_queue_status") return status({ ready_total: 190, ...options.queueStatus });
     if (name === "pick_review_generation_candidates") {
-      // 上限までの残り（10件）より多くは求めない。
-      assert.equal(body.p_limit, 10);
+      // 上限までの残り（既定10件）より多くは求めない。
+      assert.equal(body.p_limit, options.limit ?? 10);
+      options.picks?.push(body);
       return candidates;
     }
     if (name === "get_recent_quiz_notes") return [];
@@ -940,37 +941,103 @@ test("終わった生成バッチは次の定期実行で回収してキュー�
   });
 });
 
-test("結果待ちの生成バッチに入っているカードは、定期でも手動でも重ねて依頼しない", async () => {
+test("結果待ちの生成バッチの件数だけ依頼を減らし、定期実行は90分先まで、手動は30分先まで見る", async () => {
   const pendingBatch = {
     id: 5, provider_batch_id: BATCH_ID, knowledge_ids: [K1], item_ids: [], created_at: new Date().toISOString(),
     payload: { candidates: [twoCandidates()[0]], notes: [] },
   };
-  let created: Record<string, unknown> = {};
-  const scheduled = generationRecord();
-  const scheduledRpc = generationRpc(twoCandidates(), scheduled);
+  const scheduledPicks: Record<string, unknown>[] = [];
+  const scheduledRpc = generationRpc([twoCandidates()[1]], generationRecord(), { limit: 9, picks: scheduledPicks });
   await withServices({
     rpc: (name, body) => (name === "register_review_ai_batch" ? 2 : scheduledRpc(name, body)),
     pending: () => [pendingBatch],
-    batch: batchApi({ ended: false, onCreate: (body) => { created = body; } }),
+    batch: batchApi({ ended: false }),
   }, async () => {
     await generateRoute({ request: cronRequest("/api/review-batch/generate"), env });
   });
-  assert.deepEqual(aiItems((created.requests as BatchRequest[])[0].params).map((item) => item.id), [K2]);
+  assert.equal(scheduledPicks[0].p_lookahead_minutes, 90);
 
+  const manualPicks: Record<string, unknown>[] = [];
   const manual = generationRecord();
   await withServices({
-    rpc: generationRpc(twoCandidates(), manual),
+    rpc: generationRpc([twoCandidates()[1]], manual, { limit: 9, picks: manualPicks }),
     pending: () => [pendingBatch],
+    batch: batchApi({ ended: false }),
+    ai: () => aiJson({ questions: [FIXED_QUESTION] }),
+  }, async (calls) => {
+    await generateRoute({ request: manualRequest("/api/review-batch/generate"), env });
+    // 手動実行も終わったバッチを取り込むため、状態だけは確かめる。依頼はその場で行う。
+    assert.deepEqual(calls.batch.map((call) => call.method), ["GET"]);
+    assert.equal(calls.ai.length, 1);
+  });
+  assert.equal(manualPicks[0].p_lookahead_minutes, 30);
+  assert.deepEqual(manual.enqueued.map((item) => item.knowledge_id), [K2]);
+});
+
+test("結果待ちの生成バッチのカードは、候補選びのLIMITより前に除き、新規の枠にも数える", async () => {
+  const sql = await readFile(new URL("../supabase/migrations/20261012100000_review_ai_batches.sql", import.meta.url), "utf8");
+  const pick = sql.slice(sql.indexOf("create or replace function public.pick_review_generation_candidates"));
+  assert.match(sql, /drop function if exists public\.pick_review_generation_candidates\(integer, boolean\);/);
+  assert.match(pick, /with active as \(\s+select q\.knowledge_id\s+from public\.review_queue q\s+where q\.status in \('ready', 'answered', 'grading', 'error'\)\s+union\s+select unnest\(b\.knowledge_ids\)\s+from public\.review_ai_batches b\s+where b\.kind = 'generate' and b\.status = 'pending' and b\.created_at > now\(\) - interval '25 hours'/);
+  assert.match(pick, /new_in_queue as \(\s+select count\(\*\)::integer as n\s+from active a\s+join public\.knowledge k on k\.id = a\.knowledge_id\s+where k\.times_asked = 0/);
+  assert.match(pick, /k\.next_review_at <= now\(\) \+ make_interval\(mins => greatest\(0, least\(coalesce\(p_lookahead_minutes, 30\), 180\)\)\)/);
+  assert.match(sql, /'public\.pick_review_generation_candidates\(integer, boolean, integer\)'/);
+});
+
+test("定期実行でも再学習中のカードはバッチに回さず、その場で作る", async () => {
+  const record = generationRecord();
+  let created: Record<string, unknown> = {};
+  const relearning = candidate(K2, "サイロ化", { pool: "R", relearning_stage: "recall" });
+  const base = generationRpc([twoCandidates()[0], relearning], record);
+  await withServices({
+    rpc: (name, body) => (name === "register_review_ai_batch" ? 4 : base(name, body)),
+    batch: batchApi({ ended: false, onCreate: (body) => { created = body; } }),
     ai: (body) => {
       assert.deepEqual(aiItems(body).map((item) => item.id), [K2]);
       return aiJson({ questions: [FIXED_QUESTION] });
     },
   }, async (calls) => {
-    await generateRoute({ request: manualRequest("/api/review-batch/generate"), env });
-    // 手動実行は結果待ちのバッチを確かめに行かない。
-    assert.equal(calls.batch.length, 0);
+    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as { status: string };
+    assert.equal(body.status, "succeeded");
+    assert.equal(calls.ai.length, 1);
   });
-  assert.deepEqual(manual.enqueued.map((item) => item.knowledge_id), [K2]);
+  assert.deepEqual(aiItems((created.requests as BatchRequest[])[0].params).map((item) => item.id), [K1]);
+  assert.deepEqual(record.enqueued.map((item) => item.knowledge_id), [K2]);
+});
+
+test("失敗した生成バッチは閉じて失敗を記録し、同じ実行で改めて依頼する", async () => {
+  const finishedBatches: Record<string, unknown>[] = [];
+  const registered: Record<string, unknown>[] = [];
+  const base = generationRpc([twoCandidates()[0]], generationRecord());
+  await withServices({
+    rpc: (name, body) => {
+      if (name === "finish_review_ai_batch") {
+        finishedBatches.push(body);
+        return true;
+      }
+      if (name === "register_review_ai_batch") {
+        registered.push(body);
+        return 7;
+      }
+      return base(name, body);
+    },
+    pending: () => [{
+      id: 5, provider_batch_id: BATCH_ID, knowledge_ids: [K1], item_ids: [], created_at: new Date().toISOString(),
+      payload: { candidates: [twoCandidates()[0]], notes: [] },
+    }],
+    batch: batchApi({ ended: true, results: () => batchResultLines([{ customId: "generate", type: "expired" }]) }),
+  }, async (calls) => {
+    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as {
+      status: string; failed: number; note: string;
+    };
+    assert.equal(calls.ai.length, 0);
+    assert.equal(body.status, "failed");
+    assert.equal(body.failed, 1);
+    assert.match(body.note, /期限切れ/);
+    assert.match(body.note, /1件の問題の生成をバッチで依頼しました/);
+  });
+  assert.equal(finishedBatches[0].p_status, "failed");
+  assert.deepEqual(registered[0].p_knowledge_ids, [K1]);
 });
 
 const FREE_ANSWER = {
@@ -1060,10 +1127,20 @@ function gradeCollectRpc(recorded: Record<string, unknown>[], finishedBatches: R
   };
 }
 
+/** 採点バッチの回答の今の状態。既定はどれも採点中。 */
+function queueStatusRest(statuses: Record<number, string> = {}) {
+  return (url: URL) => {
+    assert.equal(url.pathname, "/rest/v1/review_queue");
+    const ids = [...(url.searchParams.get("id") ?? "").matchAll(/"(\d+)"/g)].map((match) => Number(match[1]));
+    return ids.map((id) => ({ id, status: statuses[id] ?? "grading" }));
+  };
+}
+
 test("終わった採点バッチを次の定期実行で回収して記録する", async () => {
   const recorded: Record<string, unknown>[] = [];
   const finishedBatches: Record<string, unknown>[] = [];
   await withServices({
+    rest: queueStatusRest(),
     rpc: gradeCollectRpc(recorded, finishedBatches),
     pending: (kind) => (kind === "grade" ? [pendingGradeBatch()] : []),
     batch: batchApi({ ended: true, results: () => batchResultLines([{ customId: "grade", value: { grades: [GOOD_GRADE] } }]) }),
@@ -1098,6 +1175,7 @@ test("処理中の採点バッチは待ち、失敗していたらその場の�
   const recorded: Record<string, unknown>[] = [];
   const finishedBatches: Record<string, unknown>[] = [];
   await withServices({
+    rest: queueStatusRest(),
     rpc: gradeCollectRpc(recorded, finishedBatches),
     pending: (kind) => (kind === "grade" ? [pendingGradeBatch()] : []),
     batch: batchApi({ ended: true, results: () => batchResultLines([{ customId: "grade", type: "errored" }]) }),
@@ -1146,14 +1224,122 @@ test("採点バッチの結果待ちの回答は10分で採点待ちへ戻さず
   assert.match(sql, /where b\.id = p_id and b\.status = 'pending';/);
 });
 
-test("バッチの結果はAnthropic以外のURLからは取りに行かない", async () => {
-  const { retrieveMessageBatch } = await import("../functions/_shared/anthropicClient.ts");
-  const originalFetch = globalThis.fetch;
-  try {
-    globalThis.fetch = async () => Response.json({ processing_status: "ended", results_url: "https://evil.example/results" });
-    const state = await retrieveMessageBatch(env, BATCH_ID);
-    assert.equal(state.ok, false);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+const K1_FACT = { id: K1, title: "選択と集中", explanation: "資源を強みに集める", category: "ビジネス", tags: [], archived: false };
+const SECOND_FREE_ANSWER = {
+  ...FREE_ANSWER, id: 103, knowledge_id: K1, question: "自分の強みに資源を集める方針は？", answer_text: "集中戦略",
+};
+
+test("手動実行でも終わった採点バッチを取り込み、欠けた回答だけをその場で採点し直す", async () => {
+  const recorded: Record<string, unknown>[] = [];
+  await withServices({
+    rest: queueStatusRest(),
+    rpc: gradeCollectRpc(recorded, []),
+    pending: (kind) => (kind === "grade"
+      ? [{
+        ...pendingGradeBatch(),
+        item_ids: [102, 103],
+        payload: { answers: [{ item: FREE_ANSWER, fact: K2_FACT }, { item: SECOND_FREE_ANSWER, fact: K1_FACT }] },
+      }]
+      : []),
+    batch: batchApi({ ended: true, results: () => batchResultLines([{ customId: "grade", value: { grades: [GOOD_GRADE] } }]) }),
+    ai: (body) => {
+      // バッチの応答に無かった103だけを依頼し直す。
+      assert.deepEqual(aiItems(body).map((item) => item.id), ["103"]);
+      return aiJson({
+        grades: [{
+          id: "103", answer_quotes: ["集中戦略"], quality: 4,
+          correct_answer: "選択と集中", explanation: "言い換えとして通ります。", note: "集中戦略と答えた。",
+        }],
+      });
+    },
+  }, async (calls) => {
+    const body = await (await gradeRoute({ request: manualRequest("/api/review-batch/grade"), env })).json() as {
+      status: string; succeeded: number;
+    };
+    assert.equal(calls.ai.length, 1);
+    assert.equal(body.status, "succeeded");
+    assert.equal(body.succeeded, 2);
+  });
+  assert.deepEqual(recorded.map((call) => call.p_item_id).sort(), [102, 103]);
+});
+
+test("採点バッチの回収では、もう採点中でない回答にAIを使わない", async () => {
+  const recorded: Record<string, unknown>[] = [];
+  const finishedBatches: Record<string, unknown>[] = [];
+  await withServices({
+    rest: queueStatusRest({ 102: "graded" }),
+    rpc: gradeCollectRpc(recorded, finishedBatches),
+    pending: (kind) => (kind === "grade" ? [pendingGradeBatch()] : []),
+    batch: batchApi({ ended: true, results: () => batchResultLines([{ customId: "grade", type: "errored" }]) }),
+  }, async (calls) => {
+    const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as { status: string };
+    assert.equal(calls.ai.length, 0);
+    assert.equal(body.status, "skipped");
+  });
+  assert.equal(recorded.length, 0);
+  assert.equal(finishedBatches[0].p_status, "failed");
+});
+
+test("25時間を過ぎても終わらない採点バッチは諦め、その場の採点で取り戻す", async () => {
+  const recorded: Record<string, unknown>[] = [];
+  const finishedBatches: Record<string, unknown>[] = [];
+  await withServices({
+    rest: queueStatusRest(),
+    rpc: gradeCollectRpc(recorded, finishedBatches),
+    pending: (kind) => (kind === "grade"
+      ? [{ ...pendingGradeBatch(), created_at: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString() }]
+      : []),
+    batch: batchApi({ ended: false }),
+    ai: () => aiJson({ grades: [GOOD_GRADE] }),
+  }, async (calls) => {
+    await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env });
+    assert.equal(calls.ai.length, 1);
+  });
+  assert.deepEqual(recorded.map((call) => call.p_item_id), [102]);
+  assert.equal(finishedBatches[0].p_status, "failed");
+  assert.match(String(finishedBatches[0].p_note), /24時間以内に終わりませんでした/);
+});
+
+test("バッチの状態を確かめられなければ、期限までは結果待ちのまま残してメモに理由を書く", async () => {
+  const recorded: Record<string, unknown>[] = [];
+  await withServices({
+    rpc: gradeCollectRpc(recorded, []),
+    pending: (kind) => (kind === "grade" ? [pendingGradeBatch()] : []),
+    batch: () => Response.json({ error: { type: "api_error" } }, { status: 500 }),
+  }, async (calls) => {
+    const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as {
+      status: string; note: string;
+    };
+    assert.equal(body.status, "skipped");
+    assert.match(body.note, /結果待ちのAIバッチを確認できませんでした/);
+    assert.equal(calls.ai.length, 0);
+    assert.equal(calls.rpc.some((call) => call.name === "finish_review_ai_batch"), false);
+  });
+  assert.equal(recorded.length, 0);
+});
+
+test("採点の途中で失敗しても、それまでに記録した再学習分の生成は続ける", async () => {
+  const begins: Record<string, unknown>[] = [];
+  const base = gradeCollectRpc([], []);
+  await withServices({
+    rest: queueStatusRest(),
+    rpc: (name, body) => {
+      if (name === "begin_review_batch") begins.push(body);
+      if (name === "claim_review_answers") throw new Error("db down");
+      return base(name, body);
+    },
+    pending: (kind) => (kind === "grade" ? [pendingGradeBatch()] : []),
+    batch: batchApi({
+      ended: true,
+      results: () => batchResultLines([{ customId: "grade", value: { grades: [{ ...GOOD_GRADE, quality: 1 }] } }]),
+    }),
+  }, async () => {
+    const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as {
+      status: string; succeeded: number; followUp?: { status: string };
+    };
+    assert.equal(body.status, "failed");
+    assert.equal(body.succeeded, 1);
+    assert.equal(body.followUp?.status, "busy");
+  });
+  assert.deepEqual(begins.map((call) => call.p_trigger), ["schedule", "after_grade"]);
 });

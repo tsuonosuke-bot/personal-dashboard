@@ -8,6 +8,12 @@
 -- claim_review_answers no longer returns them to 'answered' after 10 minutes,
 -- so they are neither graded twice nor counted as another attempt. A batch older
 -- than 25 hours has expired on the API side and no longer protects its answers.
+--
+-- pick_review_generation_candidates leaves out cards in a pending generation
+-- batch before its LIMIT (otherwise they would fill the top of every pick until
+-- collected) and counts their new cards against the daily new-card allowance.
+-- It gains p_lookahead_minutes: scheduled runs look further ahead because
+-- their questions arrive one run later.
 begin;
 
 create table if not exists public.review_ai_batches (
@@ -141,6 +147,100 @@ begin
 end
 $$;
 
+-- Same as 20261004120000_review_generation_holds.sql, except that cards in a
+-- pending generation batch (younger than 25 hours) count as active, and the
+-- look-ahead window is a parameter (default 30 minutes as before, at most 3 hours).
+drop function if exists public.pick_review_generation_candidates(integer, boolean);
+
+create or replace function public.pick_review_generation_candidates(
+  p_limit integer default 30,
+  p_relearning_only boolean default false,
+  p_lookahead_minutes integer default 30
+)
+returns table(
+  id uuid,
+  title text,
+  explanation text,
+  category text,
+  tags text[],
+  mastery text,
+  times_asked integer,
+  pool text,
+  stability_hours numeric,
+  relearning_stage text,
+  content_version bigint
+)
+language sql
+stable
+set search_path to 'public', 'pg_temp'
+as $$
+  with active as (
+    select q.knowledge_id
+    from public.review_queue q
+    where q.status in ('ready', 'answered', 'grading', 'error')
+    union
+    select unnest(b.knowledge_ids)
+    from public.review_ai_batches b
+    where b.kind = 'generate' and b.status = 'pending' and b.created_at > now() - interval '25 hours'
+  ),
+  new_in_queue as (
+    select count(*)::integer as n
+    from active a
+    join public.knowledge k on k.id = a.knowledge_id
+    where k.times_asked = 0
+  ),
+  allowance as (
+    select greatest(0, public.review_new_cards_remaining_today() - (select n from new_in_queue)) as new_slots
+  ),
+  eligible as (
+    select
+      k.*,
+      case
+        when k.relearning_stage is not null then 'R'::text
+        when k.times_asked = 0 then 'B'::text
+        else 'A'::text
+      end as pool
+    from public.knowledge k
+    where k.archived = false
+      and k.next_review_at <= now() + make_interval(mins => greatest(0, least(coalesce(p_lookahead_minutes, 30), 180)))
+      and not exists (select 1 from active a where a.knowledge_id = k.id)
+      and not exists (
+        select 1 from public.review_generation_holds h
+        where h.knowledge_id = k.id and h.content_version = k.content_version and h.retry_after > now()
+      )
+  ),
+  new_ranked as (
+    select e.id, row_number() over (
+      order by
+        case e.priority when '最高' then 0 when '高' then 1 when '中' then 2 when '低' then 3 else 4 end,
+        e.created_at,
+        e.id
+    ) as rank_no
+    from eligible e
+    where e.pool = 'B'
+  ),
+  selectable as (
+    select e.*
+    from eligible e
+    where (not p_relearning_only or e.pool = 'R')
+      and (
+        e.pool <> 'B'
+        or e.id in (select n.id from new_ranked n cross join allowance a where n.rank_no <= a.new_slots)
+      )
+  )
+  select
+    s.id, s.title, s.explanation, s.category, s.tags, s.mastery, s.times_asked, s.pool,
+    s.stability_hours, s.relearning_stage, s.content_version
+  from selectable s
+  order by
+    case s.pool when 'R' then 0 when 'A' then 1 else 2 end,
+    case when s.pool = 'R' then s.relearning_quality else 4 end asc nulls last,
+    case s.priority when '最高' then 0 when '高' then 1 when '中' then 2 when '低' then 3 else 4 end,
+    s.next_review_at,
+    s.id
+  limit greatest(0, least(coalesce(p_limit, 30), public.review_generation_batch_size()));
+$$;
+
 do $$
 declare
   fn text;
@@ -149,7 +249,8 @@ begin
     'public.register_review_ai_batch(text, text, uuid[], bigint[], jsonb)',
     'public.list_pending_review_ai_batches(text)',
     'public.finish_review_ai_batch(bigint, text, text)',
-    'public.claim_review_answers(integer)'
+    'public.claim_review_answers(integer)',
+    'public.pick_review_generation_candidates(integer, boolean, integer)'
   ]
   loop
     execute format('revoke all on function %s from public, anon, authenticated', fn);

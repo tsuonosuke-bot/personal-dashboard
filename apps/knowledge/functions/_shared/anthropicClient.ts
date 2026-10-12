@@ -303,10 +303,7 @@ export async function callAnthropicTool(
 
 const BATCHES_URL = "https://api.anthropic.com/v1/messages/batches";
 
-export type MessageBatchState =
-  | { ok: true; ended: false }
-  | { ok: true; ended: true; resultsUrl: string }
-  | AnthropicFailure;
+export type MessageBatchState = { ok: true; ended: boolean } | AnthropicFailure;
 
 function batchConnectionFailure(error: unknown): AnthropicFailure {
   console.error("Anthropic batch request failed", error instanceof Error ? error.message : "unknown error");
@@ -345,7 +342,7 @@ export async function createMessageBatch(
   return { ok: true, id: body.id };
 }
 
-/** バッチの処理状況を確かめる。終わっていれば結果のURLを返す。 */
+/** バッチの処理が終わったかを確かめる。 */
 export async function retrieveMessageBatch(env: AnthropicEnv, id: string): Promise<MessageBatchState> {
   const missing = missingApiKey(env);
   if (missing) return missing;
@@ -356,39 +353,28 @@ export async function retrieveMessageBatch(env: AnthropicEnv, id: string): Promi
     return batchConnectionFailure(error);
   }
   if (!response.ok) return httpFailure(response);
-  const body = await response.json().catch(() => null) as { processing_status?: unknown; results_url?: unknown } | null;
-  if (body?.processing_status !== "ended") {
-    if (body?.processing_status === "in_progress" || body?.processing_status === "canceling") return { ok: true, ended: false };
-    return { ok: false, status: 502, error: "AIのバッチの状態を読み取れませんでした。" };
-  }
-  // APIキーを付けて取りに行くため、Anthropic以外のURLは使わない。
-  const resultsUrl = typeof body.results_url === "string" ? body.results_url : "";
-  let host = "";
-  try {
-    host = new URL(resultsUrl).hostname;
-  } catch {
-    // 下で失敗にする。
-  }
-  if (host !== "api.anthropic.com") {
-    return { ok: false, status: 502, error: "AIのバッチ結果の取得先を確認できませんでした。" };
-  }
-  return { ok: true, ended: true, resultsUrl };
+  const body = await response.json().catch(() => null) as { processing_status?: unknown } | null;
+  const status = body?.processing_status;
+  if (status === "ended") return { ok: true, ended: true };
+  if (status === "in_progress" || status === "canceling") return { ok: true, ended: false };
+  return { ok: false, status: 502, error: "AIのバッチの状態を読み取れませんでした。" };
 }
 
 /**
  * 終わったバッチの結果を custom_id ごとに読む。成功した応答は通常の呼び出しと同じ検証を通し、
- * 失敗・期限切れ・取り消しは理由つきの失敗にする。
+ * 失敗・期限切れ・取り消しは理由つきの失敗にする。APIキーを付けて取りに行くため、
+ * 応答の results_url は使わず、結果の取得先は自分で組み立てる。
  */
 export async function readMessageBatchResults(
   env: AnthropicEnv,
-  resultsUrl: string,
+  id: string,
   meta: { label: string; model: string; maxTokens: number },
 ): Promise<{ ok: true; results: Map<string, AnthropicToolCallResult> } | AnthropicFailure> {
   const missing = missingApiKey(env);
   if (missing) return missing;
   let response: Response;
   try {
-    response = await fetch(resultsUrl, { headers: apiHeaders(env) });
+    response = await fetch(`${BATCHES_URL}/${encodeURIComponent(id)}/results`, { headers: apiHeaders(env) });
   } catch (error) {
     return batchConnectionFailure(error);
   }

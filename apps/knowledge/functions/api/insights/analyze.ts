@@ -133,8 +133,8 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     system: SYSTEM_PROMPT,
     userText,
     maxTokens: QUIZ_MAX_TOKENS,
-    // 1回きりの呼び出しなのでsystemはキャッシュしない（書き込みの分だけ高くなる）。
     effort: QUIZ_EFFORT,
+    // 1回きりの呼び出しなのでsystemはキャッシュしない（書き込みの分だけ高くなる）。
     tool: TOOL,
   });
   if (!result.ok) {

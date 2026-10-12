@@ -113,14 +113,21 @@ async function finishRun(env: BatchEnv, runId: number, summary: BatchSummary): P
 
 /*
  * 定期実行（schedule）はMessage Batches API（料金が半額）でAIへ依頼する。結果は非同期に返るため、
- * ある回で送信したバッチを、次以降の回で回収する。結果待ちのバッチに入っているカード・回答は、
- * 新しい依頼に重ねない（採点は claim_review_answers が採点中のまま押さえ、生成は候補から除く）。
- * 画面からの手動実行と採点直後の再学習分は、待たせないよう従来どおりその場で呼ぶ。
+ * ある回で送信したバッチを、次以降の回（手動実行を含む）で回収する。結果待ちのバッチに入っている
+ * カード・回答は新しい依頼に重ねない（採点は claim_review_answers が採点中のまま押さえ、生成は
+ * pick_review_generation_candidates が候補から除く）。画面からの手動実行・採点直後の再学習分、
+ * 定期実行でも再学習中のカードは、待たせないよう従来どおりその場で呼ぶ。
  */
 
 /** バッチの結果を待つ上限。APIは24時間で期限切れにするので、それを過ぎたら諦めて記録を閉じる。 */
 const AI_BATCH_MAX_AGE_MS = 25 * 60 * 60 * 1000;
 const GENERATION_CUSTOM_ID = "generate";
+/**
+ * 定期実行で生成を依頼するカードの先読み（分）。問題が届くのは送信した次の回以降なので、
+ * その場で作る手動実行（30分）より先まで見ておく。
+ */
+const SCHEDULED_LOOKAHEAD_MINUTES = 90;
+const DEFAULT_LOOKAHEAD_MINUTES = 30;
 const GRADING_CUSTOM_ID = "grade";
 
 interface PendingAiBatch {
@@ -179,25 +186,31 @@ async function registerAiBatch(
 }
 
 /**
- * バッチの結果を1件取り出す。まだ処理中ならnull。接続の失敗は次の回にもう一度確かめ、
- * 期限（25時間）を過ぎたものだけを失敗として返す。
+ * バッチの結果を1件取り出す。まだ処理中ならnull。確認や取得の失敗は次の回にもう一度試し
+ * （気づけるよう実行記録のメモに残す）、期限（25時間）を過ぎたものだけを失敗として返す。
  */
 async function fetchAiBatchResult(
   env: BatchEnv,
   batch: PendingAiBatch,
   customId: string,
   label: string,
+  tally: RunTally,
 ): Promise<AnthropicToolCallResult | null> {
   const expired = Date.now() - Date.parse(batch.created_at) > AI_BATCH_MAX_AGE_MS;
   const state = await retrieveMessageBatch(env, batch.provider_batch_id);
   if (!state.ok || !state.ended) {
-    if (!expired) return null;
-    return state.ok
-      ? { ok: false, status: 502, error: "AIのバッチが24時間以内に終わりませんでした。" }
-      : state;
+    if (expired) {
+      return state.ok ? { ok: false, status: 502, error: "AIのバッチが24時間以内に終わりませんでした。" } : state;
+    }
+    if (!state.ok) tally.notes.push(`結果待ちのAIバッチを確認できませんでした（${state.error}）。`);
+    return null;
   }
-  const read = await readMessageBatchResults(env, state.resultsUrl, { label, model: QUIZ_MODEL, maxTokens: QUIZ_MAX_TOKENS });
-  if (!read.ok) return expired ? read : null;
+  const read = await readMessageBatchResults(env, batch.provider_batch_id, { label, model: QUIZ_MODEL, maxTokens: QUIZ_MAX_TOKENS });
+  if (!read.ok) {
+    if (expired) return read;
+    tally.notes.push(`AIバッチの結果を読み取れませんでした（${read.error}）。`);
+    return null;
+  }
   return read.results.get(customId)
     ?? { ok: false, status: 502, error: "AIのバッチ結果にこの依頼が含まれていませんでした。" };
 }
@@ -273,11 +286,11 @@ export async function runGenerationBatch(
 
   try {
     const useBatchApi = trigger === "schedule";
-    // 結果待ちのバッチに入っているカードは、重ねて依頼しない。
-    const inFlight = new Set<string>();
+    // 終わったバッチはどの実行でも回収する（トークンは支払い済みで、状態の確認だけで済む）。
+    // 結果待ちのまま残ったカードは、回収されればキューに入るので、その分だけ新しく依頼する数を減らす。
+    let inFlight = 0;
     for (const batch of await listPendingAiBatches(env, "generate")) {
-      const collected = useBatchApi && await collectGenerationBatch(env, batch, tally);
-      if (!collected) for (const id of batch.knowledge_ids) inFlight.add(id);
+      if (!await collectGenerationBatch(env, batch, tally)) inFlight += batch.knowledge_ids.length;
     }
 
     const status = firstRow(await callRpc(env, "get_review_queue_status", {}));
@@ -286,25 +299,26 @@ export async function runGenerationBatch(
     if (!status || !Number.isFinite(readyTotal) || !Number.isFinite(queueLimit)) {
       throw new Error("キューの件数を確認できませんでした。");
     }
-    if (status.queue_full === true || readyTotal >= queueLimit) {
-      return finish(`出題待ちの問題が上限（${queueLimit}件）に達しているため、生成しませんでした。`);
+    const room = queueLimit - readyTotal - inFlight;
+    if (status.queue_full === true || room <= 0) {
+      return finish(inFlight > 0 && status.queue_full !== true && readyTotal < queueLimit
+        ? `出題待ちの問題と結果待ちの生成（${inFlight}件）で上限（${queueLimit}件）に達するため、生成しませんでした。`
+        : `出題待ちの問題が上限（${queueLimit}件）に達しているため、生成しませんでした。`);
     }
 
     const picked = await callRpc(env, "pick_review_generation_candidates", {
-      p_limit: queueLimit - readyTotal,
+      p_limit: room,
       p_relearning_only: relearningOnly,
+      p_lookahead_minutes: useBatchApi ? SCHEDULED_LOOKAHEAD_MINUTES : DEFAULT_LOOKAHEAD_MINUTES,
     });
     if (!Array.isArray(picked)) throw new Error("生成対象の応答形式が正しくありません。");
-    const valid = picked.filter(isGenerationCandidate);
-    if (valid.length !== picked.length) throw new Error("生成対象に必須項目の不足があります。");
-    const candidates = valid.filter((item) => !inFlight.has(item.id));
+    const candidates = picked.filter(isGenerationCandidate);
+    if (candidates.length !== picked.length) throw new Error("生成対象に必須項目の不足があります。");
     if (candidates.length === 0) {
       const held = Number(status.generation_held);
-      return finish(valid.length > 0
-        ? "新しく生成する問題はありませんでした（対象のカードは結果待ちの生成バッチに入っています）。"
-        : Number.isSafeInteger(held) && held > 0
-          ? `新しく生成する問題はありませんでした（問題を作れず保留中のカードが${held}件あります）。`
-          : "新しく生成する問題はありませんでした。");
+      return finish(Number.isSafeInteger(held) && held > 0
+        ? `新しく生成する問題はありませんでした（問題を作れず保留中のカードが${held}件あります）。`
+        : "新しく生成する問題はありませんでした。");
     }
 
     const ids = candidates.map((item) => item.id);
@@ -312,20 +326,21 @@ export async function runGenerationBatch(
     if (!Array.isArray(notes)) throw new Error("過去の復習記録の応答形式が正しくありません。");
     const inputs = generationInputs(candidates, groupRecentNotes(notes));
 
-    if (useBatchApi) {
-      await submitGenerationBatch(env, candidates, inputs, tally);
-      return finish();
+    // 再学習中のカードは次の段階まで短い（最短10分）ので、定期実行でもバッチに回さずその場で作る。
+    const batched = useBatchApi ? candidates.filter((item) => item.pool !== "R") : [];
+    const immediate = useBatchApi ? candidates.filter((item) => item.pool === "R") : candidates;
+    if (batched.length > 0) await submitGenerationBatch(env, batched, inputs, tally);
+    if (immediate.length > 0) {
+      const generated = await generateQuestions(env, immediate, inputs.allowedById, inputs.tagsById, inputs.notesById);
+      if (generated.ok) {
+        await storeGeneratedQuestions(env, immediate, inputs, generated, tally);
+      } else {
+        tally.broken = true;
+        tally.processed += immediate.length;
+        tally.failed += immediate.length;
+        tally.notes.push(`${generated.failure.stage}: ${generated.failure.reason}`);
+      }
     }
-
-    const generated = await generateQuestions(env, candidates, inputs.allowedById, inputs.tagsById, inputs.notesById);
-    if (!generated.ok) {
-      tally.broken = true;
-      tally.processed += candidates.length;
-      tally.failed += candidates.length;
-      tally.notes.push(`${generated.failure.stage}: ${generated.failure.reason}`);
-      return finish();
-    }
-    await storeGeneratedQuestions(env, candidates, inputs, generated, tally);
     return finish();
   } catch (error) {
     return finishRun(env, runId, {
@@ -372,7 +387,7 @@ async function submitGenerationBatch(
 
 /** 終わった生成バッチを回収してキューへ入れる。まだ処理中ならfalse（候補は結果待ちのまま）。 */
 async function collectGenerationBatch(env: BatchEnv, batch: PendingAiBatch, tally: RunTally): Promise<boolean> {
-  const result = await fetchAiBatchResult(env, batch, GENERATION_CUSTOM_ID, "submit_questions");
+  const result = await fetchAiBatchResult(env, batch, GENERATION_CUSTOM_ID, "submit_questions", tally);
   if (!result) return false;
   const payload = readGenerationPayload(batch.payload);
   if (!payload) {
@@ -387,6 +402,7 @@ async function collectGenerationBatch(env: BatchEnv, batch: PendingAiBatch, tall
     env, candidates, inputs.allowedById, inputs.tagsById, inputs.notesById, undefined, result,
   );
   if (!generated.ok) {
+    // 回収した回の続きで、同じカードを新しいバッチとして依頼し直す。
     const reason = `${generated.failure.stage}: ${generated.failure.reason}`;
     tally.broken = true;
     tally.processed += candidates.length;
@@ -533,7 +549,7 @@ export async function runGradingBatch(env: BatchEnv, trigger: BatchTrigger): Pro
   let submitted = 0;
   let firstError: string | null = null;
   const add = (outcome: GradingOutcome, processed: number) => {
-    tally.worked = true;
+    if (processed > 0) tally.worked = true;
     tally.processed += processed;
     tally.succeeded += outcome.succeeded;
     tally.failed += outcome.errors.size;
@@ -543,11 +559,10 @@ export async function runGradingBatch(env: BatchEnv, trigger: BatchTrigger): Pro
   };
   try {
     const useBatchApi = trigger === "schedule";
-    if (useBatchApi) {
-      for (const batch of await listPendingAiBatches(env, "grade")) {
-        const collected = await collectGradingBatch(env, batch);
-        if (collected) add(collected, collected.processed);
-      }
+    // 終わったバッチはどの実行でも回収する（手動実行で押しても結果が記録されるように）。
+    for (const batch of await listPendingAiBatches(env, "grade")) {
+      const collected = await collectGradingBatch(env, batch, tally);
+      if (collected) add(collected, collected.processed);
     }
 
     const claimed = await callRpc(env, "claim_review_answers", { p_limit: GRADING_BATCH_SIZE });
@@ -556,7 +571,8 @@ export async function runGradingBatch(env: BatchEnv, trigger: BatchTrigger): Pro
     if (answers.length !== claimed.length) throw new Error("採点待ちの回答に必須項目の不足があります。");
     if (answers.length > 0) add(await gradeClaimedAnswers(env, answers, useBatchApi), answers.length);
     if (!tally.worked) {
-      return finishRun(env, runId, { ...base, status: "skipped", note: "採点待ちの回答はありませんでした。" });
+      tally.notes.unshift("採点待ちの回答はありませんでした。");
+      return finishRun(env, runId, { ...base, status: "skipped", note: tallyNote(tally) });
     }
 
     if (tally.failed > 0) {
@@ -573,13 +589,14 @@ export async function runGradingBatch(env: BatchEnv, trigger: BatchTrigger): Pro
       note: tallyNote(tally),
     });
   } catch (error) {
-    return finishRun(env, runId, {
+    // 途中で失敗しても、それまでに記録した再学習分の生成は続ける。
+    summary = await finishRun(env, runId, {
       ...base,
       status: "failed",
       processed: tally.processed,
       succeeded: tally.succeeded,
       failed: tally.failed,
-      note: errorMessage(error),
+      note: [...tally.notes, errorMessage(error)].join(""),
     });
   }
 
@@ -685,7 +702,8 @@ async function recordGrades(
         p_correct_answer: grade.correctAnswer,
         p_explanation: grade.explanation,
       }));
-      if (row?.status === "graded") {
+      // 別の経路で記録済み（recorded: false）の回答は数えず、再学習の生成も起こさない。
+      if (row?.status === "graded" && row.recorded === true) {
         succeeded += 1;
         if (grade.quality <= 3) relearning = true;
       }
@@ -734,13 +752,15 @@ async function submitGradingBatch(
 
 /**
  * 終わった採点バッチを回収して記録する。まだ処理中ならnull。バッチの応答が欠けた・崩れた回答は、
- * 通常の採点と同じくその場でまとめて、最後は1問ずつ依頼し直す。
+ * 通常の採点と同じくその場でまとめて、最後は1問ずつ依頼し直す（通常料金）。
+ * その前に、まだ採点中の回答だけに絞る（期限切れの後に別の実行が採点し直した回答などに、二重に払わない）。
  */
 async function collectGradingBatch(
   env: BatchEnv,
   batch: PendingAiBatch,
+  tally: RunTally,
 ): Promise<(GradingOutcome & { processed: number }) | null> {
-  const result = await fetchAiBatchResult(env, batch, GRADING_CUSTOM_ID, "submit_grades");
+  const result = await fetchAiBatchResult(env, batch, GRADING_CUSTOM_ID, "submit_grades", tally);
   if (!result) return null;
   const payload = readGradingPayload(batch.payload);
   if (!payload) {
@@ -750,15 +770,32 @@ async function collectGradingBatch(
     await finishAiBatch(env, batch.id, "failed", reason);
     return { succeeded: 0, errors, relearning: false, submitted: 0, processed: batch.item_ids.length };
   }
-  const graded = await gradeAnswers(env, payload.answers.map(toGradingAnswer), result);
+  const current = await requestSupabaseRows(env, {
+    table: "review_queue",
+    params: new URLSearchParams({
+      id: inFilter(payload.answers.map(({ item }) => String(item.id))),
+      select: "id,status",
+    }),
+  });
+  if (!current.ok) throw new Error("採点バッチの回答の状態を確認できませんでした。");
+  const grading = new Set(current.rows.flatMap((row) => (isRecord(row) && row.status === "grading" && typeof row.id === "number"
+    ? [row.id]
+    : [])));
+  const answers = payload.answers.filter(({ item }) => grading.has(item.id));
+  if (answers.length === 0) {
+    await finishAiBatch(env, batch.id, result.ok ? "collected" : "failed", "採点中の回答が残っていませんでした。");
+    return { succeeded: 0, errors: new Map(), relearning: false, submitted: 0, processed: 0 };
+  }
+
+  const graded = await gradeAnswers(env, answers.map(toGradingAnswer), result);
   const gradeByItem = new Map<number, Grade>();
   const errorByItem = new Map<number, string>();
-  for (const { item } of payload.answers) {
+  for (const { item } of answers) {
     const grade = graded.grades.get(String(item.id));
     if (grade) gradeByItem.set(item.id, grade);
     else errorByItem.set(item.id, graded.errors.get(String(item.id)) ?? "採点結果を得られませんでした。");
   }
-  const recorded = await recordGrades(env, payload.answers.map(({ item }) => item.id), gradeByItem, errorByItem);
+  const recorded = await recordGrades(env, answers.map(({ item }) => item.id), gradeByItem, errorByItem);
   await finishAiBatch(env, batch.id, result.ok ? "collected" : "failed", result.ok ? null : result.error);
-  return { ...recorded, errors: errorByItem, submitted: 0, processed: payload.answers.length };
+  return { ...recorded, errors: errorByItem, submitted: 0, processed: answers.length };
 }

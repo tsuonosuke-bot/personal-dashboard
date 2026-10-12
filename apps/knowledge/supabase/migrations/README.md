@@ -165,6 +165,10 @@ matching Cloudflare Pages build.
   generation and grading runs can send their AI requests through the Anthropic
   Message Batches API (half price) and collect the results on a later run.
   `claim_review_answers` no longer returns answers in a pending grading batch
-  (younger than 25 hours) to 'answered' after 10 minutes. Apply before deploying
+  (younger than 25 hours) to 'answered' after 10 minutes.
+  `pick_review_generation_candidates` leaves out cards in a pending generation
+  batch before its LIMIT, counts their new cards against the daily allowance,
+  and gains `p_lookahead_minutes` (default 30; scheduled runs use 90). The old
+  two-argument function is dropped and recreated. Apply before deploying
   the app build that uses it: that build calls `list_pending_review_ai_batches`
   on every generation and scheduled grading run.

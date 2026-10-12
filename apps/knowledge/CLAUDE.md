@@ -91,14 +91,19 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 ### `review_ai_batches`（Message Batches APIで依頼中のAI処理）
 
 - 定期実行（`schedule`）の生成・採点は、AIへの依頼をMessage Batches API（料金が半額）で送り、結果を次以降の実行で回収する。
-  画面からの手動実行（`manual`）と採点直後の再学習分（`after_grade`）は待たせないようその場でAIを呼ぶ
+  終わったバッチはどの実行（手動・`after_grade` を含む）でも回収する。画面からの手動実行（`manual`）・採点直後の再学習分（`after_grade`）と、
+  定期実行でも再学習中（pool `R`、q0の次は10分後）のカードの生成は、待たせないようその場でAIを呼ぶ
 - 1行が送信した1バッチ。`kind`（`generate` / `grade`）、`provider_batch_id`（AnthropicのバッチID）、`status`（`pending` → `collected` / `failed`）、
   回収に要るもの（`payload`: 生成は候補と過去のメモ、採点は回答とナレッジ）、`knowledge_ids`（生成の候補）、`item_ids`（採点の `review_queue.id`）
 - `register_review_ai_batch` で記録し（記録に失敗したらバッチを取り消す）、`list_pending_review_ai_batches` で結果待ちを読み、
   `finish_review_ai_batch` で閉じる（`pending` のものだけ。二重の回収を防ぐ）。閉じた行は30日で消す
-- 結果待ちの生成バッチに入っているカードは、定期・手動とも新しい依頼に重ねない。採点の回答は採点中のまま押さえる
-- 回収した結果は通常の呼び出しと同じ検証を通す。条件を満たさない問題の作り直し、採点の欠落・引用不一致の再依頼、
-  バッチの失敗・期限切れ（25時間）からの取り戻しは、その場の呼び出し（通常料金）で行う
+- 結果待ちの生成バッチ（25時間以内）に入っているカードは、`pick_review_generation_candidates` がLIMITの前に候補から除き、
+  新規カードは1日の枠に数える。アプリは結果待ちの件数だけ `p_limit` を減らす。定期実行の依頼は `p_lookahead_minutes` を90分にする
+  （問題が届くのが次の回以降になるため。手動などその場の生成は従来どおり30分）。採点の回答は採点中のまま押さえる
+- 回収した結果は通常の呼び出しと同じ検証を通す。条件を満たさない問題の作り直しと、採点の欠落・引用不一致の再依頼は
+  その場の呼び出し（通常料金）で行う。採点バッチの失敗・期限切れ（25時間）も、その場の採点で取り戻す（まだ採点中の回答だけ）。
+  生成バッチの失敗・期限切れはバッチを `failed` で閉じ、同じ実行で改めてバッチで依頼する
+- 状態の確認や結果の取得に失敗したバッチは、期限までは結果待ちのまま残し、実行記録の `note` に理由を残す
 
 ### `review_generation_holds`（問題を作れなかったカード）
 
@@ -306,6 +311,8 @@ DB関数は `supabase/migrations/` で管理する。アプリ側の事前SELECT
   （`tool_choice` の `tool` / `any`）を400で拒否するため使わない。構造化出力が受け付けない制約（数値の範囲、
   文字数、`maxItems`、2以上の `minItems`）は `toStructuredOutputSchema` が外すので、件数や範囲は受け取った後に
   必ず検証する（四択の選択肢数、q値の範囲、引用の件数など）
+- 思考の深さ（`output_config.effort`）は出題・採点・示唆のまとめが `medium`（`QUIZ_EFFORT`）、英会話の例文が `low`。
+  Sonnet 5.5の既定の `high` より思考トークン（出力単価）を抑えるため。問題文や講評の質が落ちたと感じたら、まずここを `high` に戻す
 - `max_tokens` は16,000。Sonnet 5.5は思考トークンも `max_tokens` に含まれるため、30問だと8,192では足りない。
   `stop_reason` が `max_tokens` の応答は途中までのJSONしか返らないため、
   「応答形式が正しくない」ではなく打ち切りとして返す。原因を取り違えさせないこと。`refusal` も理由つきで返す
