@@ -1,8 +1,14 @@
 import { readApiJson } from "./api-client.js";
+import { formatAdvantage, counterText, punishCounterText, punishLevel, searchMoves, starterMove, defaultStateName } from "./sf6-frames.js";
 import { ARROWS, appendFragment, appendToken, frequentFragments, parseNotation, removeLastToken } from "./sf6-notation.js";
-import { bestStreakOf, MASTERY, setplaysAfter, shouldRaiseMastery, situationOptions, STREAK_GOAL, usableNow } from "./sf6-plan.js";
+import {
+  bestStreakOf, defaultTitle, drillPreset, findState, leadsInto, MASTERY, OPPONENT_OPTIONS, PRESET, raiseTargets, resultOf,
+  routeDrillPreset, sequencesFrom, setplaysAfter, situationUsage, sortSequences, stateFit, stateLabel, STREAK_GOAL, usableNow,
+} from "./sf6-plan.js";
 
-// SF6ページ。コンボ帳・起き攻め・注意点・練習メニュー・対戦振り返りの5タブ。
+// SF6ページ。コンボ・起き攻め・フレーム・練習メニュー・対戦振り返りの5タブ。
+// コンボと起き攻めは同じ「手順」（sequences）で、始動の状況と結果（→次の状況）を持つ。状況（situations）は
+// きっかけと局面の2種類。ルートと状況の管理は、1つのシート（#sheet）を使い回して開く。
 // 編集は1つのモーダルを使い回し、FORMS の定義から入力欄を組み立てる。
 
 const CHARACTERS = [
@@ -11,51 +17,58 @@ const CHARACTERS = [
   "ラシード", "A.K.I.", "エド", "豪鬼", "ベガ", "テリー", "舞", "エレナ", "サガット", "C.ヴァイパー", "アレックス", "イングリッド",
 ];
 const POSITIONS = { anywhere: "どこでも", midscreen: "画面中央", corner: "画面端" };
-const CATEGORIES = { self: "自分の癖", general: "立ち回り", matchup: "対キャラ" };
 const RESULTS = { win: "勝ち", lose: "負け", draw: "引き分け" };
 const MODES = { ranked: "ランクマ", casual: "カジュアル", battle_hub: "バトルハブ", tournament: "大会", other: "その他" };
 const SA_LEVELS = { 0: "なし", 1: "SA1", 2: "SA2", 3: "SA3", 4: "CA" };
-const DRIVE_STEPS = Object.fromEntries(Array.from({ length: 13 }, (_, index) => [String(index / 2), String(index / 2)]));
+// 0, 0.5, 1, … 6 の順に並べるため配列で持つ（オブジェクトだと整数のキーが先に並ぶ）
+const DRIVE_STEPS = Array.from({ length: 13 }, (_, index) => [String(index / 2), String(index / 2)]);
 const RECOVERIES = { back_roll: "後ろ受け身 可", no_back_roll: "後ろ受け身 不可", none: "ダウンなし" };
 const END_PURPOSES = { damage: "ダメージ重視", oki: "起き攻め重視", carry: "運び重視" };
 const LAYERINGS = { meaty: "持続重ね", safe_jump: "安全飛び", other: "その他" };
 const AIMS = { strike: "打撃", throw: "投げ", shimmy: "シミー" };
-const CHECKED = { ok: "対応", ng: "非対応", unknown: "未確認" };
-const OPPONENT_OPTIONS = {
+const OPPONENT_LABELS = {
   reversal: "無敵技", backdash: "バクステ", jump: "ジャンプ", tech: "グラップ",
-  delay_tech: "遅らせグラップ", parry: "パリィ", drive_reversal: "ドライブリバーサル",
+  delay_tech: "遅らせグラップ", parry: "パリィ", drive_reversal: "ドライブリバーサル", back_roll: "後ろ受け身",
 };
+const RESULT_LABELS = { hit: "ヒット", guard: "ガード" };
 const OUTCOME_MARKS = { win: "○", lose: "×", unknown: "–" };
 const GUARD_SETTINGS = { none: "ガードしない", all: "全部ガード", random: "ランダムガード" };
 const COUNTER_SETTINGS = { normal: "通常", counter: "カウンター", punish_counter: "パニッシュカウンター", random: "ランダム" };
 const RECOVERY_SETTINGS = { neutral: "その場起き", back: "後ろ受け身", random: "受け身ランダム" };
-const TABS = ["combos", "setplays", "notes", "drills", "matches"];
-const ADD_LABELS = { combos: "コンボを追加", setplays: "起き攻めを追加", notes: "注意点を追加", drills: "練習を追加", matches: "振り返りを追加" };
+const SITUATION_KINDS = { trigger: "きっかけ", state: "局面" };
+const TABS = ["combos", "setplays", "frames", "drills", "matches"];
+const ADD_LABELS = { combos: "コンボを追加", setplays: "起き攻めを追加", frames: "", drills: "練習を追加", matches: "振り返りを追加" };
 
 const state = {
   data: null,
   tab: "combos",
   comboCharacter: "",
   comboPosition: "",
-  /** 「状況から引く」の条件。drive・saはnullなら指定なし。 */
-  conditions: { situation: "", drive: null, sa: null, ca: false, burnout: false },
+  /** 「状況から引く」の条件。situationId は状況の id（"none" は状況なし）、drive・sa・punishWindow は null なら指定なし。 */
+  conditions: { situationId: null, drive: null, sa: null, ca: false, burnout: false, punishWindow: null },
   setplayCharacter: "",
-  noteOpponent: "",
-  /** モーダルで編集中の記録。{ resource, item(null=追加), values } */
+  setplayStart: null,
+  frames: { character: "", query: "", category: "", sort: "official", punishableOnly: false, cancelableOnly: false, open: null },
+  /** キャラ名 → GET /api/sf6/moves の応答。タブやモーダルで初めて要るときに1回だけ読む。 */
+  moves: new Map(),
+  /** シート：{ type: "route", path, character } / { type: "routeStart", character } / { type: "situations", character } */
+  sheet: null,
+  /** モーダルで編集中の記録。{ resource, item(null=追加), values, startRefs, openNext } */
   editing: null,
   saving: false,
 };
 
 const ids = [
   "sourceBadge", "refreshButton", "addButton", "addLabel", "loadingState", "errorState", "errorMessage", "retryButton",
-  "countCombos", "countSetplays", "countNotes", "countDrills", "countMatches",
+  "countCombos", "countSetplays", "countDrills", "countMatches",
   "comboCharacter", "comboPosition", "comboSituation", "comboConditions", "conditionDrive", "conditionSa", "conditionCa", "conditionBurnout",
-  "conditionSummary", "comboList", "comboArchiveFold", "comboArchiveCount", "comboArchive",
-  "setplayCharacter", "setplayList", "setplayArchiveFold", "setplayArchiveCount", "setplayArchive",
-  "noteOpponent", "noteGroups", "noteResolvedFold", "noteResolvedCount", "noteResolved",
+  "conditionPunish", "conditionSummary", "comboList", "comboArchiveFold", "comboArchiveCount", "comboArchive",
+  "setplayCharacter", "setplayStart", "setplayList", "setplayArchiveFold", "setplayArchiveCount", "setplayArchive",
+  "frameCharacter", "frameQuery", "frameCategory", "frameSort", "framePunishable", "frameCancelable", "frameVersion", "frameTable",
   "drillList", "logList", "drillDoneFold", "drillDoneCount", "drillDone",
   "matchStats", "matchList",
-  "editModal", "modalTitle", "modalClose", "editForm", "formFields", "formError", "deleteButton", "cancelButton", "saveButton",
+  "editModal", "modalTitle", "modalClose", "editForm", "formFields", "formError", "deleteConfirm", "deleteButton", "cancelButton", "saveButton",
+  "sheet", "sheetTitle", "sheetClose", "sheetBody",
   "characterOptions", "toast",
 ];
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
@@ -103,10 +116,6 @@ function percent(successes, attempts) {
   return attempts > 0 ? `${Math.round((successes / attempts) * 100)}%` : "—";
 }
 
-function frames(value) {
-  return value === null || value === undefined ? "" : `${value > 0 ? "+" : ""}${value}F`;
-}
-
 let toastTimer;
 function showToast(message) {
   clearTimeout(toastTimer);
@@ -125,8 +134,9 @@ function errorMessage(payload, fallback) {
   return fallback;
 }
 
+/** map は { 値: ラベル } か、並び順を決めたいときの [[値, ラベル], …]。 */
 function options(map, selected) {
-  return Object.entries(map).map(([value, label]) =>
+  return (Array.isArray(map) ? map : Object.entries(map)).map(([value, label]) =>
     `<option value="${escapeHtml(value)}"${value === selected ? " selected" : ""}>${escapeHtml(label)}</option>`).join("");
 }
 
@@ -134,8 +144,8 @@ function chips(list) {
   return list.length ? `<div class="tags">${list.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}</div>` : "";
 }
 
-/** レシピを矢印と色付きのボタンで表示する。読めない語は文字のまま出す。 */
-function notationHtml(text) {
+/** レシピを矢印と色付きのボタンで表示する。読めない語は文字のまま出す。inline はフレーム表のコマンド用。 */
+function notationHtml(text, inline = false) {
   const parts = parseNotation(text).map((part) => {
     if (part.type === "command" || part.type === "motion") {
       const jump = part.jump ? '<span class="cmd-jump" title="ジャンプ">J</span>' : "";
@@ -148,7 +158,9 @@ function notationHtml(text) {
     if (part.type === "link") return `<span class="cmd-link ${part.kind}" title="${escapeHtml(part.title)}">${escapeHtml(part.label)}</span>`;
     return `<span class="cmd-text">${escapeHtml(part.text)}</span>`;
   });
-  return `<div class="notation" aria-label="${escapeHtml(text)}">${parts.join("")}</div>`;
+  return inline
+    ? `<span class="notation inline" aria-label="${escapeHtml(text)}">${parts.join("")}</span>`
+    : `<div class="notation" aria-label="${escapeHtml(text)}">${parts.join("")}</div>`;
 }
 
 const PALETTE = {
@@ -179,32 +191,47 @@ function paletteHtml(withMoves) {
   </div>`;
 }
 
-/** よく使う出だし。フォームのキャラの記録から拾い、なければ全キャラから。 */
-function fragmentsHtml(resource, character) {
-  const list = state.data[resource].filter((item) => !item.archived);
-  const own = list.filter((item) => item.character === character);
-  const fragments = frequentFragments((own.length ? own : list).map((item) => item.notation));
-  if (!fragments.length) return "";
-  return `<span class="frag-label">よく使う</span>${fragments.map((fragment) =>
-    `<button type="button" class="frag" data-fragment="${escapeHtml(fragment)}">${escapeHtml(fragment)}</button>`).join("")}`;
+// ---------- データの引き方 ----------
+
+function situationsById() {
+  return new Map(state.data.situations.map((situation) => [situation.id, situation]));
 }
 
-function refreshNotationAssist() {
-  const input = document.getElementById("field-notation");
-  if (!input || !state.editing) return;
-  const preview = document.getElementById("notationPreview");
-  preview.innerHTML = input.value.trim() ? notationHtml(input.value) : '<p class="notation-empty">下のボタンを押すとここに手順が並びます</p>';
-  const fragments = document.getElementById("notationFragments");
-  const character = document.getElementById("field-character")?.value.trim() || "";
-  fragments.innerHTML = fragmentsHtml(state.editing.resource, character);
-  fragments.hidden = !fragments.innerHTML;
+function sequencesById() {
+  return new Map(state.data.sequences.map((sequence) => [sequence.id, sequence]));
 }
 
-function editNotation(change) {
-  const input = document.getElementById("field-notation");
-  if (!input) return;
-  input.value = change(input.value).slice(0, 1000);
-  refreshNotationAssist();
+function findSituation(id) {
+  return state.data.situations.find((situation) => situation.id === id) || null;
+}
+
+function findSequence(id) {
+  return state.data.sequences.find((sequence) => sequence.id === id) || null;
+}
+
+/** 状況の表示名。局面は数値も添える（名前が数値そのものなら重ねない）。 */
+function situationText(situation) {
+  if (!situation) return "";
+  const label = stateLabel(situation);
+  return label && label !== situation.name ? `${situation.name} ${label}` : situation.name;
+}
+
+function resultLabel(result) {
+  return result.kind === "opponent" ? OPPONENT_LABELS[result.opponentAction] || "" : RESULT_LABELS[result.kind];
+}
+
+function sequencesOf(kind) {
+  return state.data.sequences.filter((sequence) => sequence.kind === kind);
+}
+
+function activeDrillFor(sequenceId) {
+  return state.data.drills.find((drill) => drill.status === "active" && drill.sequenceIds.includes(sequenceId)) || null;
+}
+
+/** 状況の一覧を出すときのキャラ。タブの絞り込み → 最後に使ったキャラの順。 */
+function currentCharacter() {
+  if (state.tab === "setplays" && state.setplayCharacter) return state.setplayCharacter;
+  return state.comboCharacter || stored("sf6-character", "");
 }
 
 // ---------- 通信 ----------
@@ -215,11 +242,12 @@ async function load() {
     const response = await fetch("/api/sf6", { headers: { Accept: "application/json" }, cache: "no-store" });
     const payload = await readApiJson(response);
     if (!response.ok) throw new Error(errorMessage(payload, "読み込みに失敗しました。"));
-    state.data = { setplays: [], ...payload };
+    state.data = payload;
     els.sourceBadge.className = "source-badge live";
     els.loadingState.hidden = true;
     els.errorState.hidden = true;
     render();
+    if (state.tab === "frames") loadFrames();
   } catch (error) {
     els.sourceBadge.className = "source-badge error";
     els.sourceBadge.lastElementChild.textContent = "接続エラー";
@@ -246,7 +274,31 @@ async function send(method, resource, body) {
   return payload;
 }
 
-/** 返ってきた行で手元のデータを差し替える（再読み込みしない）。 */
+/** 1キャラの技データを読む（キャラごとに1回）。登録のないキャラは null。 */
+async function ensureMoves(character) {
+  if (!character || !state.data?.moveSets.some((set) => set.character === character)) return null;
+  if (state.moves.has(character)) return state.moves.get(character);
+  const response = await fetch(`/api/sf6/moves?character=${encodeURIComponent(character)}`, { headers: { Accept: "application/json" }, cache: "no-store" });
+  const payload = await readApiJson(response);
+  if (!response.ok) throw new Error(errorMessage(payload, "技データを読み込めませんでした。"));
+  state.moves.set(character, payload);
+  return payload;
+}
+
+function movesOf(character) {
+  return state.moves.get(character)?.moves || [];
+}
+
+/** 返ってきた行で手元のデータを差し替える（再読み込みしない）。手順は { item, situations } で返る。 */
+function applySaved(resource, saved) {
+  if (resource === "sequences") {
+    state.data.situations = saved.situations;
+    replaceItem("sequences", saved.item);
+    return;
+  }
+  replaceItem(resource, saved);
+}
+
 function replaceItem(resource, item) {
   const list = state.data[resource];
   const index = list.findIndex((entry) => entry.id === item.id);
@@ -254,29 +306,39 @@ function replaceItem(resource, item) {
   else list.push(item);
 }
 
-/** DB側の「削除時にnullにする」紐づけを手元にも反映する。 */
+/** DB側の「削除時に外す・nullにする」を手元にも反映する。 */
 function removeItem(resource, id) {
   state.data[resource] = state.data[resource].filter((entry) => entry.id !== id);
   if (resource === "drills") state.data.logs = state.data.logs.filter((log) => log.drillId !== id);
-  if (resource === "combos") {
-    state.data.drills.forEach((drill) => { if (drill.comboId === id) drill.comboId = null; });
-    state.data.setplays.forEach((setplay) => {
-      if (setplay.followComboId === id) setplay.followComboId = null;
+  if (resource === "situations") {
+    state.data.sequences.forEach((sequence) => {
+      sequence.starts = sequence.starts.filter((start) => start !== id);
+      sequence.results.forEach((result) => { if (result.nextSituationId === id) result.nextSituationId = null; });
     });
+    if (state.conditions.situationId === id) state.conditions.situationId = null;
+    if (state.setplayStart === id) state.setplayStart = null;
   }
-  if (resource === "setplays") state.data.drills.forEach((drill) => { if (drill.setplayId === id) drill.setplayId = null; });
 }
 
-/** 一部の項目だけ変える（習得度・ピン留めなど）。サーバーへは全項目を送る。 */
+/**
+ * 一部の項目だけ変える（習得度など）。サーバーへは全項目を送る。手順の始動・結果は送らない（子表を変えない）。
+ * 始動の状況がなくなった手順でも、習得度は変えられる。
+ */
 async function patch(resource, item, changes, message) {
-  const { id, createdAt, updatedAt, ...fields } = item;
+  const { id, createdAt, updatedAt, presetKey, ...fields } = item;
+  if (resource === "sequences") {
+    delete fields.starts;
+    delete fields.results;
+  }
   try {
     const saved = await send("PATCH", resource, { id, updatedAt, ...fields, ...changes });
-    replaceItem(resource, saved);
+    applySaved(resource, saved);
     render();
     if (message) showToast(message);
+    return true;
   } catch (error) {
     showToast(error instanceof Error ? error.message : "保存できませんでした。");
+    return false;
   }
 }
 
@@ -290,23 +352,24 @@ function fillSelect(select, values, selected, allLabel) {
   select.innerHTML = `<option value="">${escapeHtml(allLabel)}</option>${values.map((value) =>
     `<option value="${escapeHtml(value)}"${value === selected ? " selected" : ""}>${escapeHtml(value)}</option>`).join("")}`;
   if (!values.includes(selected)) select.value = "";
+  return values.includes(selected) ? selected : "";
 }
 
 function render() {
-  const { combos, setplays, notes, drills, matches } = state.data;
-  els.countCombos.textContent = combos.filter((combo) => !combo.archived).length || "";
-  els.countSetplays.textContent = setplays.filter((setplay) => !setplay.archived).length || "";
-  els.countNotes.textContent = notes.filter((note) => !note.resolved).length || "";
+  const { sequences, drills, matches } = state.data;
+  els.countCombos.textContent = sequences.filter((entry) => entry.kind === "combo" && !entry.archived).length || "";
+  els.countSetplays.textContent = sequences.filter((entry) => entry.kind === "setplay" && !entry.archived).length || "";
   els.countDrills.textContent = drills.filter((drill) => drill.status === "active").length || "";
   els.countMatches.textContent = matches.length || "";
-  const known = new Set([...CHARACTERS, ...charactersIn(combos, "character"), ...charactersIn(matches, "opponent"), ...charactersIn(notes, "opponent")]);
+  const known = new Set([...CHARACTERS, ...charactersIn(sequences, "character"), ...charactersIn(matches, "opponent")]);
   els.characterOptions.innerHTML = [...known].map((name) => `<option value="${escapeHtml(name)}"></option>`).join("");
   renderTabs();
   renderCombos();
   renderSetplays();
-  renderNotes();
+  renderFrames();
   renderDrills();
   renderMatches();
+  if (state.sheet) renderSheet();
 }
 
 function renderTabs() {
@@ -315,199 +378,337 @@ function renderTabs() {
   });
   TABS.forEach((tab) => { document.getElementById(`panel-${tab}`).hidden = !state.data || tab !== state.tab; });
   els.addLabel.textContent = ADD_LABELS[state.tab];
+  els.addButton.hidden = !ADD_LABELS[state.tab];
 }
 
-function masteryHtml(resource, item) {
+function masteryHtml(item) {
   const steps = MASTERY.map((label, level) =>
-    `<button type="button" class="mastery-step${level <= item.mastery && item.mastery > 0 ? " on" : ""}" data-mastery="${level}" data-resource="${resource}" data-id="${item.id}" aria-label="${label}" title="${label}"${level === item.mastery ? ' aria-current="true"' : ""}></button>`).join("");
+    `<button type="button" class="mastery-step${level <= item.mastery && item.mastery > 0 ? " on" : ""}" data-mastery="${level}" data-id="${item.id}" aria-label="${label}" title="${label}"${level === item.mastery ? ' aria-current="true"' : ""}></button>`).join("");
   return `<div class="mastery" role="group" aria-label="習得度">${steps}<small>${MASTERY[item.mastery]}</small></div>`;
 }
 
-function endLine(combo) {
-  const parts = [
-    combo.endAdvantage !== null ? `締め後 ${frames(combo.endAdvantage)}` : "",
-    combo.recovery ? RECOVERIES[combo.recovery] : "",
-    combo.endPurpose ? END_PURPOSES[combo.endPurpose] : "",
-  ].filter(Boolean);
-  return parts.length ? `<p class="end-line">${parts.map(escapeHtml).join(" · ")}</p>` : "";
+/** 結果 → 次の状況の行。タップでルートを開く。 */
+function resultLinesHtml(sequence, kinds) {
+  const byId = situationsById();
+  const lines = sequence.results
+    .filter((result) => kinds.includes(result.kind) && byId.get(result.nextSituationId))
+    .map((result) => `<button type="button" class="result-line" data-route-from-card="${sequence.id}|${result.kind}|${result.opponentAction || ""}">${escapeHtml(resultLabel(result))} → ${escapeHtml(situationText(byId.get(result.nextSituationId)))} ›</button>`);
+  return lines.join("");
+}
+
+function drillButtonHtml(sequence) {
+  if (sequence.archived) return "";
+  return activeDrillFor(sequence.id)
+    ? '<span class="linked">練習中</span>'
+    : `<button type="button" class="ghost-button" data-drill-from-sequence="${sequence.id}">練習に追加</button>`;
 }
 
 function comboCard(combo) {
+  const byId = situationsById();
+  const starts = combo.starts.map((id) => byId.get(id)).filter(Boolean);
   const conditions = [
+    combo.startup !== null ? `発生${combo.startup}F` : "",
     combo.position !== "anywhere" ? POSITIONS[combo.position] : "",
     combo.damage !== null ? `${combo.damage.toLocaleString()}ダメ` : "",
     combo.driveCost ? `Dゲージ${combo.driveCost}` : "",
     combo.saCost ? SA_LEVELS[combo.saCost] : "",
-    combo.burnoutOk ? "バーンアウト中も可" : "",
   ].filter(Boolean);
-  const drill = state.data.drills.find((entry) => entry.comboId === combo.id && entry.status === "active");
-  const next = combo.archived ? [] : setplaysAfter(combo, state.data.setplays);
+  const hitState = byId.get(resultOf(combo, "hit")?.nextSituationId);
+  const results = resultLinesHtml(combo, ["hit", "guard"]);
+  const purpose = combo.endPurpose ? `<span class="meta">${escapeHtml(END_PURPOSES[combo.endPurpose])}</span>` : "";
+  const next = combo.archived ? [] : setplaysAfter(combo, state.data.sequences, state.data.situations);
   const nextHtml = next.length
-    ? `<div class="next-setplays"><span>起き攻め</span>${next.map(({ setplay, fit }) =>
-      `<button type="button" class="next-chip ${fit}" data-goto-setplay="${setplay.id}" title="${fit === "near" ? "有利Fが1〜2Fずれています。重ねが変わる可能性があります" : ""}">${escapeHtml(setplay.title)}${fit === "near" ? ` <small>${escapeHtml(frames(setplay.startAdvantage))} 注意</small>` : ""}</button>`).join("")}</div>`
+    ? `<div class="next-setplays"><span>起き攻め</span>${next.map(({ sequence, fit }) => {
+      const start = sequence.starts.map((id) => byId.get(id)).find((entry) => entry && stateFit(hitState, entry));
+      return `<button type="button" class="next-chip ${fit}" data-goto-sequence="${sequence.id}" title="${fit === "near" ? "有利Fが1〜2Fずれています。重ねが変わる可能性があります" : ""}">${escapeHtml(sequence.title)}${fit === "near" && start ? ` <small>${escapeHtml(stateLabel(start))} 注意</small>` : ""}</button>`;
+    }).join("")}</div>`
     : "";
-  return `<article class="card combo-card">
+  return `<article class="card combo-card" id="sequence-${combo.id}">
     <div class="card-head">
       <h3>${escapeHtml(combo.title)}</h3>
-      <button type="button" class="ghost-button" data-edit="combos" data-id="${combo.id}">編集</button>
+      <button type="button" class="ghost-button" data-edit="sequences" data-id="${combo.id}">編集</button>
     </div>
-    ${combo.situations.length ? `<div class="situations">${combo.situations.map((situation) => `<span>${escapeHtml(situation)}</span>`).join("")}</div>` : ""}
+    <div class="situations">${starts.length
+      ? starts.map((situation) => `<button type="button" data-route-situation="${situation.id}" data-character="${escapeHtml(combo.character)}">${escapeHtml(situation.name)}</button>`).join("")
+      : '<span class="none">状況なし</span>'}</div>
     ${notationHtml(combo.notation)}
     ${chips(conditions)}
-    ${endLine(combo)}
+    ${results || purpose ? `<div class="result-lines">${results}${purpose}</div>` : ""}
     ${nextHtml}
     ${combo.memo ? `<p class="memo">${escapeHtml(combo.memo)}</p>` : ""}
     <div class="card-foot">
-      ${masteryHtml("combos", combo)}
+      ${masteryHtml(combo)}
       <span class="foot-actions">
-        ${combo.archived || combo.endAdvantage === null ? "" : `<button type="button" class="ghost-button" data-setplay-from-combo="${combo.id}">起き攻めを追加</button>`}
-        ${combo.archived ? "" : drill
-          ? '<span class="linked">練習中</span>'
-          : `<button type="button" class="ghost-button" data-drill-from-combo="${combo.id}">練習に追加</button>`}
+        ${combo.archived || hitState?.kind !== "state" ? "" : `<button type="button" class="ghost-button" data-setplay-from-combo="${combo.id}">起き攻めを追加</button>`}
+        ${drillButtonHtml(combo)}
       </span>
     </div>
   </article>`;
 }
 
 function conditionsActive() {
-  const { situation, drive, sa, burnout } = state.conditions;
-  return Boolean(situation) || drive !== null || sa !== null || burnout;
+  const { situationId, drive, sa, burnout, punishWindow } = state.conditions;
+  return situationId !== null || drive !== null || sa !== null || burnout || punishWindow !== null;
+}
+
+function conditionSummaryText() {
+  const { drive, sa, ca, burnout } = state.conditions;
+  return [drive !== null ? `Dゲージ${drive}` : "", sa !== null ? `SA${sa}本` : "", ca ? "CA可" : "", burnout ? "バーンアウト中" : ""].filter(Boolean);
+}
+
+function situationOptionsHtml(groups, selected) {
+  return groups.filter(([, list]) => list.length).map(([label, list]) => `<optgroup label="${escapeHtml(label)}">${list.map((situation) =>
+    `<option value="${situation.id}"${situation.id === selected ? " selected" : ""}>${escapeHtml(situationText(situation))}</option>`).join("")}</optgroup>`).join("");
+}
+
+function byAdvantage(a, b) {
+  return (b.advantage ?? -Infinity) - (a.advantage ?? -Infinity) || a.id - b.id;
+}
+
+function renderComboSituations(combos) {
+  const character = state.comboCharacter;
+  const used = new Set(combos.flatMap((combo) => combo.starts));
+  // 選んでいる状況はアーカイブ済みでも残す（「確反コンボを探す」でアーカイブ済みの初期の状況が選ばれるため）
+  const triggers = state.data.situations.filter((situation) => situation.kind === "trigger"
+    && (!situation.archived || situation.id === state.conditions.situationId)
+    && (!character || situation.character === null || situation.character === character));
+  const states = state.data.situations.filter((situation) => situation.kind === "state" && used.has(situation.id)
+    && (!character || situation.character === character)).sort(byAdvantage);
+  const orphaned = combos.some((combo) => combo.starts.length === 0);
+  const { situationId } = state.conditions;
+  const known = [...triggers, ...states].some((situation) => situation.id === situationId) || (situationId === "none" && orphaned);
+  if (!known) state.conditions.situationId = null;
+  els.comboSituation.innerHTML = `<option value="">状況：すべて</option>${situationOptionsHtml([["きっかけ", triggers], ["局面", states]], state.conditions.situationId)}${orphaned
+    ? `<option value="none"${state.conditions.situationId === "none" ? " selected" : ""}>状況なし</option>` : ""}`;
 }
 
 function renderCombos() {
-  const combos = state.data.combos;
-  fillSelect(els.comboCharacter, charactersIn(combos, "character"), state.comboCharacter, "全キャラ");
-  const situations = situationOptions(combos);
-  fillSelect(els.comboSituation, situations, state.conditions.situation, "状況：すべて");
+  const combos = sequencesOf("combo");
+  state.comboCharacter = fillSelect(els.comboCharacter, charactersIn(combos, "character"), state.comboCharacter, "全キャラ");
+  renderComboSituations(combos);
   els.comboPosition.querySelectorAll("button").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.value === state.comboPosition));
   });
-  const { drive, sa, ca, burnout } = state.conditions;
+  const { drive, sa, ca, burnout, punishWindow } = state.conditions;
   els.conditionDrive.value = drive === null ? "" : String(drive);
   els.conditionSa.value = sa === null ? "" : String(sa);
+  els.conditionPunish.value = punishWindow === null ? "" : String(punishWindow);
   els.conditionCa.checked = ca;
   els.conditionBurnout.checked = burnout;
-  const summary = [drive !== null ? `Dゲージ${drive}` : "", sa !== null ? `SA${sa}本` : "", ca ? "CA可" : "", burnout ? "バーンアウト中" : ""].filter(Boolean);
+  const summary = [...conditionSummaryText(), punishWindow !== null ? `相手の不利F${punishWindow}` : ""].filter(Boolean);
   els.conditionSummary.textContent = summary.length ? summary.join("・") : "指定なし";
-  const visible = combos.filter((combo) => (!state.comboCharacter || combo.character === state.comboCharacter)
-    && usableNow(combo, { ...state.conditions, position: state.comboPosition }));
-  const active = visible.filter((combo) => !combo.archived);
-  // 状況・条件で絞ったときは、ダメージの大きい順に並べる
-  if (conditionsActive()) active.sort((a, b) => (b.damage ?? -1) - (a.damage ?? -1));
+  const mine = combos.filter((combo) => !state.comboCharacter || combo.character === state.comboCharacter);
+  const visible = mine.filter((combo) => usableNow(combo, { ...state.conditions, position: state.comboPosition }));
+  const active = sortSequences(visible.filter((combo) => !combo.archived), state.conditions, situationsById());
   const archived = visible.filter((combo) => combo.archived);
   const groups = new Map();
   active.forEach((combo) => groups.set(combo.character, [...(groups.get(combo.character) || []), combo]));
+  // 不利F以外の状況・条件では使えるのに、発生Fがないので出ていないもの
+  const noStartup = punishWindow !== null
+    ? mine.filter((combo) => !combo.archived && combo.startup === null
+      && usableNow(combo, { ...state.conditions, position: state.comboPosition, punishWindow: null })).length
+    : 0;
   els.comboList.innerHTML = active.length
     ? [...groups].map(([character, list]) => `<h2 class="list-title">${escapeHtml(character)}<small>${list.length}</small></h2>${list.map(comboCard).join("")}`).join("")
-    : empty(combos.length ? "この状況・条件で使えるコンボはありません" : "まだコンボがありません。右上の「＋」から追加できます");
+    : empty(noStartup ? `発生Fが未入力のコンボは${noStartup}件あります`
+      : combos.length ? "この状況・条件で使えるコンボはありません" : "まだコンボがありません。右上の「＋」から追加できます");
   els.comboArchiveFold.hidden = archived.length === 0;
   els.comboArchiveCount.textContent = archived.length;
   els.comboArchive.innerHTML = archived.map(comboCard).join("");
+  if (conditionsActive() && punishWindow !== null) els.comboConditions.open = true;
 }
 
-function outcomesHtml(outcomes) {
-  if (!Object.keys(outcomes).length) return '<p class="meta outcomes-empty">相手の行動ごとの結果：未確認</p>';
-  return `<div class="outcomes" aria-label="相手の行動ごとの結果">${Object.entries(OPPONENT_OPTIONS).map(([key, label]) => {
+function outcomesHtml(setplay, showBackRoll) {
+  const outcomes = Object.fromEntries(setplay.results.filter((result) => result.kind === "opponent").map((result) => [result.opponentAction, result.outcome]));
+  if (!Object.values(outcomes).some((value) => value !== "unknown")) return '<p class="meta outcomes-empty">相手の行動ごとの結果：未確認</p>';
+  return `<div class="outcomes" aria-label="相手の行動ごとの結果">${OPPONENT_OPTIONS.filter((key) => showBackRoll || key !== "back_roll").map((key) => {
     const value = outcomes[key] || "unknown";
-    return `<span class="outcome ${value}" title="${escapeHtml(label)}：${value === "win" ? "こちらが勝つ" : value === "lose" ? "こちらが負ける" : "未確認"}"><b>${OUTCOME_MARKS[value]}</b>${escapeHtml(label)}</span>`;
+    return `<span class="outcome ${value}" title="${escapeHtml(OPPONENT_LABELS[key])}：${value === "win" ? "こちらが勝つ" : value === "lose" ? "こちらが負ける" : "未確認"}"><b>${OUTCOME_MARKS[value]}</b>${escapeHtml(OPPONENT_LABELS[key])}</span>`;
   }).join("")}</div>`;
 }
 
+function startStatesOf(sequence) {
+  const byId = situationsById();
+  return sequence.starts.map((id) => byId.get(id)).filter(Boolean);
+}
+
 function setplayCard(setplay) {
-  const combos = state.data.combos.filter((combo) => setplay.comboIds.includes(combo.id));
-  const follow = setplay.followComboId ? state.data.combos.find((combo) => combo.id === setplay.followComboId) : null;
-  const start = [frames(setplay.startAdvantage), POSITIONS[setplay.position], RECOVERIES[setplay.recovery]].filter(Boolean);
-  const tags = [
-    AIMS[setplay.aim],
-    setplay.layering ? LAYERINGS[setplay.layering] : "",
-    setplay.recovery === "back_roll" ? `後ろ受け身：${CHECKED[setplay.backRollOk]}` : "",
-  ].filter(Boolean);
-  const drill = state.data.drills.find((entry) => entry.setplayId === setplay.id && entry.status === "active");
-  return `<article class="card setplay-card" id="setplay-${setplay.id}">
+  const starts = startStatesOf(setplay);
+  const showBackRoll = starts.some((situation) => situation.recovery === "back_roll");
+  const before = [...new Set(starts.filter((situation) => situation.kind === "state")
+    .flatMap((situation) => leadsInto(situation, state.data.sequences, state.data.situations)))].slice(0, 2);
+  // 起点 強エアニー締め後 +29F · 画面端 · 後ろ受け身 可（名前が数値そのものなら名前は出さない）
+  const startText = starts.map((situation) => (situation.kind === "state" ? [
+    situation.name === stateLabel(situation) ? "" : situation.name,
+    `${situation.advantage > 0 ? "+" : ""}${situation.advantage}F`,
+    situation.position !== "anywhere" ? POSITIONS[situation.position] : "",
+    situation.recovery ? RECOVERIES[situation.recovery] : "",
+  ].filter(Boolean).join(" · ") : situation.name)).join(" ／ ");
+  const tags = [AIMS[setplay.aim], setplay.layering ? LAYERINGS[setplay.layering] : ""].filter(Boolean);
+  const results = resultLinesHtml(setplay, ["hit", "guard", "opponent"]);
+  return `<article class="card setplay-card" id="sequence-${setplay.id}">
     <div class="card-head">
       <h3>${escapeHtml(setplay.title)}</h3>
-      <button type="button" class="ghost-button" data-edit="setplays" data-id="${setplay.id}">編集</button>
+      <button type="button" class="ghost-button" data-edit="sequences" data-id="${setplay.id}">編集</button>
     </div>
-    <p class="start-line"><b>起点</b>${escapeHtml(start.join(" · "))}${combos.length ? `<span>${combos.map((combo) => escapeHtml(combo.title)).join("、")}の後</span>` : ""}</p>
+    <p class="start-line"><b>起点</b>${starts.length ? escapeHtml(startText) : "状況なし"}${before.length ? `<span>${before.map((combo) => escapeHtml(combo.title)).join("、")}の後</span>` : ""}</p>
     ${notationHtml(setplay.notation)}
     ${chips(tags)}
-    ${outcomesHtml(setplay.outcomes)}
-    ${follow ? `<p class="end-line">重ねがヒットしたら → ${escapeHtml(follow.title)}</p>` : ""}
+    ${outcomesHtml(setplay, showBackRoll)}
+    ${results ? `<div class="result-lines">${results}</div>` : ""}
     ${setplay.memo ? `<p class="memo">${escapeHtml(setplay.memo)}</p>` : ""}
     <div class="card-foot">
-      ${masteryHtml("setplays", setplay)}
-      ${setplay.archived ? "" : drill
-        ? '<span class="linked">練習中</span>'
-        : `<button type="button" class="ghost-button" data-drill-from-setplay="${setplay.id}">練習に追加</button>`}
+      ${masteryHtml(setplay)}
+      ${drillButtonHtml(setplay)}
     </div>
   </article>`;
 }
 
+function maxAdvantage(sequence) {
+  return Math.max(-Infinity, ...startStatesOf(sequence).map((situation) => situation.advantage ?? -Infinity));
+}
+
 function renderSetplays() {
-  const setplays = state.data.setplays;
-  fillSelect(els.setplayCharacter, charactersIn(setplays, "character"), state.setplayCharacter, "全キャラ");
-  const visible = setplays.filter((setplay) => !state.setplayCharacter || setplay.character === state.setplayCharacter);
+  const setplays = sequencesOf("setplay");
+  state.setplayCharacter = fillSelect(els.setplayCharacter, charactersIn(setplays, "character"), state.setplayCharacter, "全キャラ");
+  const mine = setplays.filter((setplay) => !state.setplayCharacter || setplay.character === state.setplayCharacter);
+  const used = new Set(mine.flatMap((setplay) => setplay.starts));
+  const starts = state.data.situations.filter((situation) => used.has(situation.id)).sort(byAdvantage);
+  if (!starts.some((situation) => situation.id === state.setplayStart)) state.setplayStart = null;
+  els.setplayStart.innerHTML = `<option value="">起点：すべて</option>${starts.map((situation) =>
+    `<option value="${situation.id}"${situation.id === state.setplayStart ? " selected" : ""}>${escapeHtml(situationText(situation))}</option>`).join("")}`;
+  const visible = mine.filter((setplay) => state.setplayStart === null || setplay.starts.includes(state.setplayStart));
   const active = visible.filter((setplay) => !setplay.archived);
   const archived = visible.filter((setplay) => setplay.archived);
   const groups = new Map();
   active.forEach((setplay) => groups.set(setplay.character, [...(groups.get(setplay.character) || []), setplay]));
   els.setplayList.innerHTML = active.length
     ? [...groups].map(([character, list]) => `<h2 class="list-title">${escapeHtml(character)}<small>${list.length}</small></h2>${list
-      .sort((a, b) => b.startAdvantage - a.startAdvantage).map(setplayCard).join("")}`).join("")
-    : empty(setplays.length ? "条件に合う起き攻めはありません" : "まだ起き攻めがありません。コンボの「起き攻めを追加」から作ると、締めの有利Fが入ります");
+      .sort((a, b) => maxAdvantage(b) - maxAdvantage(a)).map(setplayCard).join("")}`).join("")
+    : empty(setplays.length ? "条件に合う起き攻めはありません" : "まだ起き攻めがありません。コンボの「起き攻めを追加」から作ると、締めの局面が入ります");
   els.setplayArchiveFold.hidden = archived.length === 0;
   els.setplayArchiveCount.textContent = archived.length;
   els.setplayArchive.innerHTML = archived.map(setplayCard).join("");
 }
 
-function noteCard(note) {
-  return `<article class="card note-card${note.pinned ? " pinned" : ""}${note.resolved ? " resolved" : ""}">
-    <button type="button" class="pin-button" data-pin="${note.id}" aria-pressed="${note.pinned}" aria-label="${note.pinned ? "ピン留めを外す" : "ピン留め"}" title="ピン留め">★</button>
-    <p class="note-body">${escapeHtml(note.body)}</p>
-    <div class="note-actions">
-      <button type="button" class="ghost-button" data-resolve="${note.id}">${note.resolved ? "戻す" : "直った"}</button>
-      <button type="button" class="ghost-button" data-edit="notes" data-id="${note.id}">編集</button>
-    </div>
-  </article>`;
+// ---------- フレーム ----------
+
+/** PC幅ではカウンター・パニカンも列で出す。table-layout: fixed なので、詳細行の colspan は見えている列の数にする。 */
+const WIDE_FRAMES = window.matchMedia("(min-width: 681px)");
+
+const FRAME_DETAILS = [
+  ["activeText", "持続"], ["recoveryText", "硬直"], ["cancelText", "キャンセル"], ["damageText", "ダメージ"],
+  ["scalingText", "補正"], ["attributeText", "属性"], ["driveGainText", "Dゲージ増加"], ["driveLossText", "Dゲージ減少"], ["saGainText", "SAゲージ増加"],
+];
+
+function frameCharacters() {
+  return state.data.moveSets.map((set) => set.character);
 }
 
-function sortNotes(list) {
-  return [...list].sort((a, b) => Number(b.pinned) - Number(a.pinned) || String(b.createdAt).localeCompare(String(a.createdAt)));
+async function loadFrames() {
+  const characters = frameCharacters();
+  if (!characters.includes(state.frames.character)) {
+    const last = stored("sf6-character", "");
+    state.frames.character = characters.includes(last) ? last : characters[0] || "";
+  }
+  renderFrames();
+  if (!state.frames.character || state.moves.has(state.frames.character)) return;
+  try {
+    await ensureMoves(state.frames.character);
+    renderFrames();
+  } catch (error) {
+    els.frameTable.innerHTML = empty(error instanceof Error ? error.message : "技データを読み込めませんでした。");
+  }
 }
 
-function renderNotes() {
-  const notes = state.data.notes;
-  fillSelect(els.noteOpponent, charactersIn(notes, "opponent"), state.noteOpponent, "対キャラ：すべて");
-  const open = notes.filter((note) => !note.resolved);
-  const groups = [];
-  if (!state.noteOpponent) {
-    for (const category of ["self", "general"]) {
-      const list = open.filter((note) => note.category === category);
-      if (list.length) groups.push([CATEGORIES[category], list]);
-    }
-  }
-  charactersIn(open, "opponent")
-    .filter((opponent) => !state.noteOpponent || opponent === state.noteOpponent)
-    .forEach((opponent) => groups.push([`vs ${opponent}`, open.filter((note) => note.opponent === opponent)]));
-  els.noteGroups.innerHTML = groups.length
-    ? groups.map(([title, list]) => `<h2 class="list-title">${escapeHtml(title)}<small>${list.length}</small></h2><div class="card-list">${sortNotes(list).map(noteCard).join("")}</div>`).join("")
-    : empty(notes.length ? "条件に合う注意点はありません" : "まだ注意点がありません。自分の癖や対キャラの対策を書き留めましょう");
-  const resolved = notes.filter((note) => note.resolved && (!state.noteOpponent || note.opponent === state.noteOpponent));
-  els.noteResolvedFold.hidden = resolved.length === 0;
-  els.noteResolvedCount.textContent = resolved.length;
-  els.noteResolved.innerHTML = sortNotes(resolved).map(noteCard).join("");
+function bonusHtml(result, notes) {
+  if (!result.text) return "";
+  return result.overridden
+    ? `<span class="override" title="${escapeHtml(notes || "備考の性能")}">${escapeHtml(result.text)}※</span>`
+    : escapeHtml(result.text);
 }
 
-function drillTarget(drill) {
-  if (drill.comboId) {
-    const combo = state.data.combos.find((entry) => entry.id === drill.comboId);
-    if (combo) return { resource: "combos", item: combo };
+function frameRowHtml(move) {
+  const open = state.frames.open === move.id;
+  const level = punishLevel(move);
+  const counter = counterText(move);
+  const punish = punishCounterText(move);
+  const details = [
+    ...FRAME_DETAILS.map(([key, label]) => [label, move[key] ? escapeHtml(move[key]) : ""]),
+  ];
+  details.splice(2, 0, ["カウンター", bonusHtml(counter, move.notes)], ["パニカン", bonusHtml(punish, move.notes)]);
+  const detail = open ? `<tr class="frame-detail"><td colspan="${WIDE_FRAMES.matches ? 6 : 4}">
+      <dl>${details.filter(([, value]) => value).map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join("")}</dl>
+      ${move.notes ? `<p class="memo">${escapeHtml(move.notes)}</p>` : ""}
+      ${level ? `<button type="button" class="ghost-button find-punish" data-find-punish="${move.id}">確反コンボを探す</button>` : ""}
+    </td></tr>` : "";
+  return `<tr class="frame-row${open ? " open" : ""}">
+    <td><button type="button" class="frame-name" data-frame-row="${move.id}" aria-expanded="${open}"><span>${escapeHtml(move.name)}</span>${move.command ? notationHtml(move.command, true) : ""}</button></td>
+    <td class="num">${escapeHtml(move.startupText || "")}</td>
+    <td class="num${level ? ` punish ${level}` : ""}">${escapeHtml(formatAdvantage(move.blockText))}</td>
+    <td class="num">${escapeHtml(formatAdvantage(move.hitText))}</td>
+    <td class="num wide">${bonusHtml(counter, move.notes)}</td>
+    <td class="num wide">${bonusHtml(punish, move.notes)}</td>
+  </tr>${detail}`;
+}
+
+function renderFrames() {
+  const characters = frameCharacters();
+  els.frameCharacter.innerHTML = characters.map((character) =>
+    `<option value="${escapeHtml(character)}"${character === state.frames.character ? " selected" : ""}>${escapeHtml(character)}</option>`).join("");
+  els.frameCategory.querySelectorAll("[data-category]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.category === state.frames.category));
+  });
+  els.frameSort.value = state.frames.sort;
+  els.framePunishable.setAttribute("aria-pressed", String(state.frames.punishableOnly));
+  els.frameCancelable.setAttribute("aria-pressed", String(state.frames.cancelableOnly));
+  if (!characters.length) {
+    els.frameVersion.textContent = "";
+    els.frameTable.innerHTML = empty("フレームはまだ登録されていません（登録方法はヘルプ）");
+    return;
   }
-  if (drill.setplayId) {
-    const setplay = state.data.setplays.find((entry) => entry.id === drill.setplayId);
-    if (setplay) return { resource: "setplays", item: setplay };
+  const data = state.moves.get(state.frames.character);
+  if (!data) {
+    els.frameVersion.textContent = "";
+    els.frameTable.innerHTML = '<div class="state-card"><span class="spinner"></span></div>';
+    return;
   }
-  return null;
+  els.frameVersion.innerHTML = data.set
+    ? `${escapeHtml(data.set.dataVersion)} · ${escapeHtml(formatDay(data.set.checkedOn))}確認 · <a href="${escapeHtml(data.set.sourceUrl)}" target="_blank" rel="noopener noreferrer">公式</a>`
+    : "";
+  const list = searchMoves(data.moves, state.frames);
+  els.frameTable.innerHTML = list.length
+    ? `<table class="frame-table">
+        <thead><tr><th>技名 / コマンド</th><th class="num">発生</th><th class="num">ガード</th><th class="num">ヒット</th><th class="num wide">カウンター</th><th class="num wide">パニカン</th></tr></thead>
+        <tbody>${list.map(frameRowHtml).join("")}</tbody>
+      </table>`
+    : empty("条件に合う技はありません");
+}
+
+/** ガードした相手の技から、確定反撃のコンボを引く（不利F＝ガード時の不利）。 */
+function findPunish(moveId) {
+  const move = movesOf(state.frames.character).find((entry) => entry.id === moveId);
+  if (!move || move.onBlock === null) return;
+  const punish = state.data.situations.find((situation) => situation.presetKey === PRESET.punish);
+  state.conditions = { ...state.conditions, situationId: punish?.id ?? null, punishWindow: Math.abs(move.onBlock) };
+  state.comboCharacter = stored("sf6-character", state.comboCharacter);
+  state.comboPosition = "";
+  selectTab("combos");
+  renderCombos();
+  els.comboConditions.open = true;
+  window.scrollTo({ top: 0 });
+}
+
+// ---------- 練習・振り返り ----------
+
+/** 練習の手順どうしの間に出す結果の種類（前の手順のどの結果が、次の手順の始動につながるか）。 */
+function linkLabel(previous, next) {
+  const byId = situationsById();
+  const result = previous.results.find((entry) => {
+    const from = byId.get(entry.nextSituationId);
+    return from && next.starts.some((id) => byId.get(id) && stateFit(from, byId.get(id)));
+  });
+  return result ? resultLabel(result) : "";
 }
 
 function drillStats(drill) {
@@ -527,8 +728,16 @@ function trainerChips(drill) {
   ].filter(Boolean);
 }
 
+function drillChainHtml(drill) {
+  const sequences = drill.sequenceIds.map(findSequence).filter(Boolean);
+  return sequences.map((sequence, index) => {
+    const link = index > 0 ? `<p class="chain-link">› ${escapeHtml(linkLabel(sequences[index - 1], sequence))}</p>` : "";
+    const label = sequences.length > 1 ? sequence.title : sequence.kind === "setplay" ? "起き攻め" : "";
+    return `${link}${label ? `<span class="kind-label">${escapeHtml(label)}</span>` : ""}${notationHtml(sequence.notation)}`;
+  }).join("");
+}
+
 function drillCard(drill) {
-  const target = drillTarget(drill);
   const stats = drillStats(drill);
   const meta = [
     stats.last ? `最終 ${daysAgo(stats.last)}` : "まだ記録なし",
@@ -536,7 +745,7 @@ function drillCard(drill) {
     stats.hasRate ? `直近成功率 ${stats.rate}` : "",
     stats.streak ? `最高${stats.streak}連続` : "",
   ].filter(Boolean);
-  const raise = drill.status === "active" && target && shouldRaiseMastery(target.item, stats.logs)
+  const raise = drill.status === "active" && raiseTargets(drill.sequenceIds, state.data.sequences, stats.logs).length
     ? `<button type="button" class="raise-button" data-raise="${drill.id}">${STREAK_GOAL}連続達成 → 習得度を「${MASTERY[2]}」にする</button>`
     : "";
   const settings = trainerChips(drill);
@@ -545,7 +754,7 @@ function drillCard(drill) {
       <h3>${escapeHtml(drill.title)}</h3>
       <button type="button" class="ghost-button" data-edit="drills" data-id="${drill.id}">編集</button>
     </div>
-    ${target ? `${target.resource === "setplays" ? '<span class="kind-label">起き攻め</span>' : ""}${notationHtml(target.item.notation)}` : ""}
+    ${drillChainHtml(drill)}
     ${settings.length ? `<div class="tags trainer"><span class="trainer-label">トレモ</span>${settings.map((setting) => `<span>${escapeHtml(setting)}</span>`).join("")}</div>` : ""}
     ${drill.detail ? `<p class="memo">${escapeHtml(drill.detail)}</p>` : ""}
     ${raise}
@@ -564,7 +773,7 @@ function renderDrills() {
   const done = drills.filter((drill) => drill.status === "done");
   els.drillList.innerHTML = active.length
     ? active.map(drillCard).join("")
-    : empty("練習メニューはありません。コンボや起き攻めの「練習に追加」、右上の「＋」から作れます");
+    : empty("練習メニューはありません。コンボや起き攻めの「練習に追加」、ルート、右上の「＋」から作れます");
   els.drillDoneFold.hidden = done.length === 0;
   els.drillDoneCount.textContent = done.length;
   els.drillDone.innerHTML = done.map(drillCard).join("");
@@ -607,11 +816,154 @@ function renderMatches() {
         ${match.good ? `<p class="review good"><b>良</b>${escapeHtml(match.good)}</p>` : ""}
         ${match.bad ? `<p class="review bad"><b>反省</b>${escapeHtml(match.bad)}</p>` : ""}
         ${match.bad ? `<div class="card-foot end">
-          <button type="button" class="ghost-button" data-note-from-match="${match.id}">注意点にする</button>
           <button type="button" class="ghost-button" data-drill-from-match="${match.id}">練習にする</button>
         </div>` : ""}
       </article>`).join("")
     : empty("まだ振り返りがありません。試合のあとに良かった点と反省点を残しましょう");
+}
+
+// ---------- シート（ルート・状況の管理） ----------
+
+function openSheet(sheet) {
+  state.sheet = sheet;
+  renderSheet();
+  els.sheet.hidden = false;
+  document.querySelectorAll("details.menu[open]").forEach((menu) => menu.removeAttribute("open"));
+}
+
+function closeSheet() {
+  els.sheet.hidden = true;
+  state.sheet = null;
+}
+
+function renderSheet() {
+  const { type } = state.sheet;
+  if (type === "route") renderRoute();
+  else if (type === "routeStart") renderRouteStart();
+  else renderSituationManager();
+}
+
+/** ルートの始点を選ぶ画面（状況を選んでいないときの「ルートで見る」）。 */
+function renderRouteStart() {
+  const { character } = state.sheet;
+  const usable = state.data.situations.filter((situation) => !situation.archived
+    && (situation.kind === "trigger" ? situation.character === null || !character || situation.character === character : !character || situation.character === character));
+  const row = (situation) => `<button type="button" class="sheet-row" data-route-start="${situation.id}"><span>${escapeHtml(situationText(situation))}</span><small>›</small></button>`;
+  els.sheetTitle.textContent = "ルート：始点を選ぶ";
+  els.sheetBody.innerHTML = `
+    <h3 class="sheet-title">きっかけ</h3>${usable.filter((situation) => situation.kind === "trigger").map(row).join("")}
+    <h3 class="sheet-title">局面${character ? `（${escapeHtml(character)}）` : ""}</h3>${usable.filter((situation) => situation.kind === "state").sort(byAdvantage).map(row).join("") || empty("局面はまだありません")}`;
+}
+
+function routeCardHtml({ sequence, via, fit }, ended = false) {
+  const usable = usableNow(sequence, { drive: state.conditions.drive, sa: state.conditions.sa, ca: state.conditions.ca, burnout: state.conditions.burnout });
+  const byId = situationsById();
+  const steps = sequence.results.filter((result) => byId.get(result.nextSituationId)).map((result) =>
+    `<button type="button" class="result-line" data-route-step="${sequence.id}|${result.kind}|${result.opponentAction || ""}">${escapeHtml(resultLabel(result))}${result.outcome ? ` ${OUTCOME_MARKS[result.outcome]}` : ""} → ${escapeHtml(situationText(byId.get(result.nextSituationId)))} ›</button>`).join("");
+  const starts = startStatesOf(sequence);
+  return `<article class="card route-card${usable ? "" : " dim"}">
+    <div class="card-head">
+      <h3>${escapeHtml(sequence.title)}${sequence.startup !== null ? ` <small>発生${sequence.startup}F</small>` : ""}</h3>
+      ${usable ? "" : '<span class="meta">条件外</span>'}
+    </div>
+    ${fit === "same" ? "" : `<p class="meta">起点 ${escapeHtml(situationText(via))}${fit === "near" ? " · ±2F 注意" : ""}</p>`}
+    ${notationHtml(sequence.notation)}
+    ${sequence.kind === "setplay" ? outcomesHtml(sequence, starts.some((situation) => situation.recovery === "back_roll")) : ""}
+    ${!ended && steps ? `<div class="result-lines">${steps}</div>` : ""}
+    ${ended ? "" : `<div class="card-foot end"><button type="button" class="ghost-button" data-route-end="${sequence.id}">この手順で終える</button></div>`}
+  </article>`;
+}
+
+function renderRoute() {
+  const { path, character } = state.sheet;
+  const byId = situationsById();
+  const sequences = sequencesById();
+  const last = path[path.length - 1];
+  els.sheetTitle.textContent = "ルート";
+  const crumbs = path.map((step, index) => ("situationId" in step
+    ? `<button type="button" class="crumb" data-route-back="${index}"${index === path.length - 1 ? ' aria-current="step"' : ""}>${escapeHtml(situationText(byId.get(step.situationId)) || "削除された状況")}</button>`
+    : `<span class="crumb-sequence"${index === path.length - 1 ? ' aria-current="step"' : ""}>${escapeHtml(sequences.get(step.sequenceId)?.title || "")}</span>`)).join('<span class="crumb-sep">›</span>');
+  const summary = conditionSummaryText();
+  const sequenceCount = path.filter((step) => "sequenceId" in step).length;
+  const drillButton = sequenceCount
+    ? `<button type="button" class="primary-button route-drill" data-route-drill>この流れを練習に追加（${sequenceCount}手順）</button>`
+    : "";
+  const head = `<nav class="crumbs" aria-label="たどった道のり">${crumbs}</nav>
+    <p class="meta">条件：${escapeHtml(summary.length ? summary.join(" · ") : "指定なし")}</p>`;
+  // 手順で終えた道のり：その手順だけを出す（1つ前の状況のパンくずで戻れる）
+  if ("sequenceId" in last) {
+    const sequence = sequences.get(last.sequenceId);
+    const via = byId.get(path[path.length - 2]?.situationId);
+    els.sheetBody.innerHTML = `${head}
+      <div class="card-list">${sequence ? routeCardHtml({ sequence, via, fit: "same" }, true) : ""}</div>
+      ${drillButton}`;
+    return;
+  }
+  const current = byId.get(last.situationId);
+  const candidates = state.data.sequences.filter((sequence) => !character || sequence.character === character);
+  const found = current ? sequencesFrom(current, candidates, state.data.situations) : [];
+  const same = found.filter((entry) => entry.fit === "same");
+  const near = found.filter((entry) => entry.fit !== "same");
+  els.sheetBody.innerHTML = `${head}
+    <h3 class="sheet-title">この状況から</h3>
+    <div class="card-list">${same.map((entry) => routeCardHtml(entry)).join("") || empty("この状況から始まる手順はありません")}</div>
+    ${near.length ? `<h3 class="sheet-title">合う局面から</h3><div class="card-list">${near.map((entry) => routeCardHtml(entry)).join("")}</div>` : ""}
+    ${drillButton}`;
+}
+
+function openRoute(path, character) {
+  openSheet({ type: "route", path, character: character || "" });
+}
+
+function renderSituationManager() {
+  const { character } = state.sheet;
+  const usage = (situation) => {
+    const counts = situationUsage(situation.id, state.data.sequences);
+    return counts.starts + counts.results;
+  };
+  const row = (situation) => `<button type="button" class="sheet-row" data-edit-situation="${situation.id}">
+      <span>${escapeHtml(situation.name)}${situation.presetKey ? ' <small class="preset-label">初期</small>' : ""}${situation.kind === "state" && stateLabel(situation) !== situation.name ? ` <small>${escapeHtml(stateLabel(situation))}</small>` : ""}${situation.kind === "trigger" && situation.character ? ` <small>${escapeHtml(situation.character)}</small>` : ""}</span>
+      <small>${usage(situation)} ›</small>
+    </button>`;
+  const mine = (situation) => situation.kind === "trigger" ? situation.character === null || situation.character === character : situation.character === character;
+  const list = state.data.situations.filter(mine);
+  const triggers = list.filter((situation) => situation.kind === "trigger" && !situation.archived);
+  const states = list.filter((situation) => situation.kind === "state" && !situation.archived).sort(byAdvantage);
+  const archived = list.filter((situation) => situation.archived);
+  const characters = [...new Set([character, ...charactersIn(state.data.sequences, "character")].filter(Boolean))];
+  els.sheetTitle.textContent = "状況";
+  els.sheetBody.innerHTML = `
+    <div class="add-situation"><input id="newTrigger" maxlength="60" placeholder="＋ きっかけを追加（例：昇龍ガード後）" /><button type="button" class="secondary-button small" data-add-trigger>追加</button></div>
+    <h3 class="sheet-title">きっかけ</h3>
+    ${triggers.map(row).join("")}
+    <div class="sheet-title-row">
+      <h3 class="sheet-title">局面</h3>
+      <select id="sheetCharacter" aria-label="局面のキャラ">${characters.map((name) => `<option value="${escapeHtml(name)}"${name === character ? " selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select>
+      <button type="button" class="ghost-button" data-add-state>＋ 局面</button>
+    </div>
+    ${states.map(row).join("") || empty(character ? "局面はまだありません" : "キャラを選ぶと局面が出ます")}
+    ${archived.length ? `<details class="fold"><summary>アーカイブ ${archived.length}</summary>${archived.map(row).join("")}</details>` : ""}`;
+}
+
+async function addTrigger(input) {
+  const name = input.value.trim().slice(0, 60);
+  if (!name) return null;
+  const existing = state.data.situations.find((situation) => situation.kind === "trigger" && situation.character === null && situation.name === name);
+  if (existing) {
+    input.value = "";
+    return existing;
+  }
+  try {
+    const saved = await send("POST", "situations", {
+      character: null, kind: "trigger", name, advantage: null, position: "anywhere", recovery: null, memo: null, archived: false,
+    });
+    replaceItem("situations", saved);
+    input.value = "";
+    return saved;
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : "追加できませんでした。");
+    return null;
+  }
 }
 
 // ---------- 編集モーダル ----------
@@ -619,72 +971,64 @@ function renderMatches() {
 const MASTERY_OPTIONS = Object.fromEntries(MASTERY.map((label, level) => [level, label]));
 const FRAME_HINT = "トレモのフレームメーターで、相手が起き上がって動けるまでに自分が先に動けるF";
 
+/**
+ * kinds: 手順の種類（combo / setplay）で出し分ける。more: 「詳細」の折りたたみに入れる。
+ * editOnly / addOnly: 編集のときだけ / 追加のときだけ出す。
+ */
 const FORMS = {
-  combos: {
-    title: "コンボ",
+  sequences: {
+    title: (values) => (values.kind === "setplay" ? "起き攻め" : "コンボ"),
     fields: [
       { key: "character", label: "キャラ", type: "character", required: true },
-      { key: "title", label: "名前", type: "text", max: 120, required: true, placeholder: "例：中足ラッシュ基本" },
-      { key: "situations", label: "使える状況", type: "situations", required: true },
-      { key: "notation", label: "レシピ", type: "notation", max: 1000, required: true },
-      { key: "position", label: "位置", type: "select", options: POSITIONS, half: true },
-      { key: "damage", label: "ダメージ", type: "number", min: 0, max: 20000, nullable: true, half: true },
-      { key: "driveCost", label: "Dゲージ", type: "select", options: DRIVE_STEPS, numeric: true, half: true },
-      { key: "saCost", label: "SA", type: "select", options: SA_LEVELS, numeric: true, half: true },
-      { key: "burnoutOk", label: "バーンアウト中も使える", type: "checkbox" },
-      { key: "endAdvantage", label: "締め後の有利F", type: "number", min: -99, max: 300, nullable: true, required: true, hint: FRAME_HINT, placeholder: "例：31" },
-      { key: "recovery", label: "ダウン", type: "select", options: { "": "未設定", ...RECOVERIES }, half: true },
-      { key: "endPurpose", label: "締めの目的", type: "select", options: { "": "未設定", ...END_PURPOSES }, half: true },
-      { key: "mastery", label: "習得度", type: "select", options: MASTERY_OPTIONS, numeric: true },
-      { key: "memo", label: "メモ", type: "textarea", max: 2000, rows: 2, placeholder: "コツ・ヒット確認の目安など" },
-      { key: "archived", label: "アーカイブ（一覧から隠す）", type: "checkbox", editOnly: true },
+      { key: "starts", label: "始動の状況", type: "startChips", required: true, kinds: ["combo"] },
+      { key: "starts", label: "起点の局面", type: "startStates", required: true, kinds: ["setplay"] },
+      { key: "notation", label: "レシピ", type: "notation", max: 1000, required: true, kinds: ["combo"] },
+      { key: "notation", label: "手順", type: "notation", max: 1000, required: true, moves: true, kinds: ["setplay"] },
+      { key: "startup", label: "発生F", type: "number", min: 1, max: 99, nullable: true, half: true, kinds: ["combo"], suggest: true },
+      { key: "damage", label: "ダメージ", type: "number", min: 0, max: 20000, nullable: true, half: true, kinds: ["combo"] },
+      { key: "driveCost", label: "Dゲージ", type: "select", options: DRIVE_STEPS, numeric: true, half: true, kinds: ["combo"] },
+      { key: "saCost", label: "SA", type: "select", options: SA_LEVELS, numeric: true, half: true, kinds: ["combo"] },
+      { key: "position", label: "位置", type: "select", options: POSITIONS, kinds: ["combo"] },
+      { key: "aim", label: "狙い", type: "radio", options: AIMS, kinds: ["setplay"] },
+      { key: "outcomes", label: "相手の行動ごとの結果", type: "outcomes", kinds: ["setplay"], hint: "押すたびに ○（こちらが勝つ）→ ×（負ける）→ –（未確認）。→ で次の状況を選べます" },
+      { key: "resultHit", label: "ヒットしたら", type: "next", resultKind: "hit" },
+      { key: "title", label: "名前", type: "text", max: 120, placeholder: "空欄ならレシピから付けます" },
+      { key: "resultGuard", label: "ガードされたら", type: "next", resultKind: "guard", more: true },
+      { key: "endPurpose", label: "締めの目的", type: "select", options: { "": "未設定", ...END_PURPOSES }, more: true, kinds: ["combo"] },
+      { key: "layering", label: "重ね方", type: "select", options: { "": "未設定", ...LAYERINGS }, more: true, kinds: ["setplay"] },
+      { key: "driveCost", label: "Dゲージ", type: "select", options: DRIVE_STEPS, numeric: true, half: true, more: true, kinds: ["setplay"] },
+      { key: "saCost", label: "SA", type: "select", options: SA_LEVELS, numeric: true, half: true, more: true, kinds: ["setplay"] },
+      { key: "position", label: "位置", type: "select", options: POSITIONS, more: true, kinds: ["setplay"] },
+      { key: "mastery", label: "習得度", type: "select", options: MASTERY_OPTIONS, numeric: true, more: true },
+      { key: "memo", label: "メモ", type: "textarea", max: 2000, rows: 2, placeholder: "コツ・ヒット確認やタイミングの目安など", more: true },
+      { key: "archived", label: "アーカイブ（一覧から隠す）", type: "checkbox", editOnly: true, more: true },
     ],
-    defaults: () => ({
-      character: stored("sf6-character", ""), title: "", situations: [], notation: "", position: "anywhere", damage: null,
-      driveCost: 0, saCost: 0, burnoutOk: false, endAdvantage: null, recovery: null, endPurpose: null, mastery: 0, memo: null, archived: false,
+    defaults: (preset = {}) => ({
+      kind: preset.kind || "combo", character: stored("sf6-character", ""), title: "", notation: "", startup: null, damage: null,
+      driveCost: 0, saCost: 0, position: "anywhere", layering: null, aim: preset.kind === "setplay" ? "strike" : null, endPurpose: null,
+      mastery: 0, memo: null, archived: false, starts: [], results: [],
     }),
   },
-  setplays: {
-    title: "起き攻め",
+  situations: {
+    title: () => "状況",
     fields: [
-      { key: "character", label: "キャラ", type: "character", required: true },
-      { key: "title", label: "名前", type: "text", max: 120, required: true, placeholder: "例：強昇龍締め 前ステ中P重ね" },
-      { key: "comboIds", label: "起点のコンボ（締め）", type: "comboIds", hint: "選ぶと有利F・位置・ダウンがそのコンボから入ります" },
-      { key: "startAdvantage", label: "起点の有利F", type: "number", min: -99, max: 300, required: true, hint: FRAME_HINT },
-      { key: "position", label: "位置", type: "select", options: POSITIONS, half: true },
-      { key: "recovery", label: "ダウン", type: "select", options: RECOVERIES, half: true },
-      { key: "notation", label: "手順", type: "notation", max: 1000, required: true, moves: true },
-      { key: "layering", label: "重ね方", type: "select", options: { "": "未設定", ...LAYERINGS }, half: true },
-      { key: "aim", label: "狙い", type: "radio", options: AIMS },
-      { key: "backRollOk", label: "後ろ受け身されても成立", type: "select", options: CHECKED, showIf: (values) => values.recovery === "back_roll" },
-      { key: "outcomes", label: "相手の行動ごとの結果", type: "outcomes", hint: "押すたびに ○（こちらが勝つ）→ ×（負ける）→ –（未確認）" },
-      { key: "followComboId", label: "重ねがヒットしたら", type: "combo" },
-      { key: "mastery", label: "習得度", type: "select", options: MASTERY_OPTIONS, numeric: true },
-      { key: "memo", label: "メモ", type: "textarea", max: 2000, rows: 2, placeholder: "タイミングの目安など" },
+      { key: "kind", label: "種類", type: "radio", options: SITUATION_KINDS, addOnly: true },
+      { key: "name", label: "名前", type: "text", max: 60, required: true, placeholder: "例：強エアニー締め後" },
+      { key: "character", label: "キャラ", type: "situationCharacter", showIf: (values) => values.kind === "state" || Boolean(state.editing?.item?.character) },
+      { key: "advantage", label: "有利F", type: "number", min: -99, max: 300, nullable: true, required: true, hint: FRAME_HINT, showIf: (values) => values.kind === "state" },
+      { key: "position", label: "位置", type: "select", options: POSITIONS, half: true, showIf: (values) => values.kind === "state" },
+      { key: "recovery", label: "ダウン", type: "select", options: { "": "未設定", ...RECOVERIES }, half: true, showIf: (values) => values.kind === "state" },
+      { key: "memo", label: "メモ", type: "textarea", max: 2000, rows: 2 },
       { key: "archived", label: "アーカイブ（一覧から隠す）", type: "checkbox", editOnly: true },
     ],
-    defaults: () => ({
-      character: stored("sf6-character", ""), title: "", comboIds: [], startAdvantage: null, position: "anywhere", recovery: "back_roll",
-      notation: "", layering: null, aim: "strike", backRollOk: "unknown", outcomes: {}, followComboId: null, mastery: 0, memo: null, archived: false,
-    }),
-  },
-  notes: {
-    title: "注意点",
-    fields: [
-      { key: "category", label: "種類", type: "select", options: CATEGORIES },
-      { key: "opponent", label: "相手キャラ", type: "character", showIf: (values) => values.category === "matchup" },
-      { key: "body", label: "内容", type: "textarea", max: 2000, required: true, rows: 4, placeholder: "例：起き攻めで暴れすぎる。まずガード" },
-      { key: "pinned", label: "ピン留め（上に表示）", type: "checkbox" },
-      { key: "resolved", label: "直った", type: "checkbox", editOnly: true },
-    ],
-    defaults: () => ({ category: state.noteOpponent ? "matchup" : "self", opponent: state.noteOpponent || null, body: "", pinned: false, resolved: false }),
+    defaults: () => ({ character: null, kind: "trigger", name: "", advantage: null, position: "anywhere", recovery: null, memo: null, archived: false }),
   },
   drills: {
-    title: "練習メニュー",
+    title: () => "練習メニュー",
     fields: [
       { key: "title", label: "練習すること", type: "text", max: 200, required: true, placeholder: "例：中足ラッシュをヒット確認" },
       { key: "detail", label: "やり方・目標", type: "textarea", max: 2000, rows: 2, placeholder: "例：ランダムガードで10回連続" },
-      { key: "target", label: "練習する対象", type: "target" },
+      { key: "sequenceIds", label: "練習する対象", type: "target" },
       { key: "guardSetting", label: "ガード", type: "select", options: { "": "指定なし", ...GUARD_SETTINGS }, half: true },
       { key: "counterSetting", label: "カウンター", type: "select", options: { "": "指定なし", ...COUNTER_SETTINGS }, half: true },
       { key: "recoverySetting", label: "受け身", type: "select", options: { "": "指定なし", ...RECOVERY_SETTINGS }, half: true },
@@ -692,12 +1036,12 @@ const FORMS = {
       { key: "status", label: "状態", type: "select", options: { active: "練習中", done: "完了" }, editOnly: true },
     ],
     defaults: () => ({
-      title: "", detail: null, comboId: null, setplayId: null, status: "active",
+      title: "", detail: null, sequenceIds: [], status: "active",
       guardSetting: null, counterSetting: null, recoverySetting: null, reversalRecorded: false,
     }),
   },
   logs: {
-    title: "練習記録",
+    title: () => "練習記録",
     fields: [
       { key: "drillId", type: "hidden", numeric: true },
       { key: "practicedOn", label: "日付", type: "date", required: true },
@@ -709,7 +1053,7 @@ const FORMS = {
     defaults: () => ({ drillId: null, practicedOn: state.data.today, attempts: null, successes: null, bestStreak: null, note: null }),
   },
   matches: {
-    title: "振り返り",
+    title: () => "振り返り",
     fields: [
       { key: "playedOn", label: "日付", type: "date", required: true, half: true },
       { key: "mode", label: "モード", type: "select", options: MODES, half: true },
@@ -717,7 +1061,7 @@ const FORMS = {
       { key: "opponent", label: "相手キャラ", type: "character", required: true, half: true },
       { key: "result", label: "結果", type: "radio", options: RESULTS },
       { key: "good", label: "良かった点", type: "textarea", max: 2000, rows: 2 },
-      { key: "bad", label: "反省点", type: "textarea", max: 2000, rows: 3, placeholder: "あとで「注意点にする」「練習にする」で送れます" },
+      { key: "bad", label: "反省点", type: "textarea", max: 2000, rows: 3, placeholder: "あとで「練習にする」で送れます" },
     ],
     defaults: () => {
       const last = state.data.matches[0];
@@ -726,29 +1070,232 @@ const FORMS = {
   },
 };
 
-function situationsHtml(selected) {
-  const list = [...new Set([...situationOptions(state.data.combos), ...selected])];
-  return list.map((situation) => {
-    const on = selected.includes(situation);
-    return `<button type="button" class="toggle-chip" data-situation="${escapeHtml(situation)}" aria-pressed="${on}">${escapeHtml(situation)}</button>`;
+/** 今のモーダルで出す項目（種類・追加/編集で絞る）。 */
+function visibleFields(resource, values, isEdit) {
+  return FORMS[resource].fields.filter((field) => (!field.kinds || field.kinds.includes(values.kind))
+    && !(field.editOnly && !isEdit) && !(field.addOnly && isEdit));
+}
+
+function formCharacter() {
+  return document.getElementById("field-character")?.value.trim() || state.editing?.values.character || "";
+}
+
+function formPosition() {
+  return document.getElementById("field-position")?.value || "anywhere";
+}
+
+// --- 始動の状況（コンボ：きっかけ＋局面のトグルチップ） ---
+
+function startChipsHtml(selected) {
+  const character = formCharacter();
+  const list = state.data.situations.filter((situation) => selected.includes(situation.id) || (!situation.archived
+    && (situation.kind === "trigger" ? situation.character === null || situation.character === character : situation.character === character)));
+  // きっかけを先に、局面は有利Fの大きい順
+  list.sort((a, b) => (a.kind === b.kind ? (a.kind === "state" ? byAdvantage(a, b) : a.id - b.id) : a.kind === "trigger" ? -1 : 1));
+  return list.map((situation) => `<button type="button" class="toggle-chip${situation.kind === "state" ? " state" : ""}" data-start-id="${situation.id}" aria-pressed="${selected.includes(situation.id)}">${escapeHtml(situationText(situation))}</button>`).join("");
+}
+
+function selectedStartChips() {
+  return [...els.formFields.querySelectorAll("[data-start-id][aria-pressed=true]")].map((chip) => Number(chip.dataset.startId));
+}
+
+// --- 局面ピッカー（ヒット・ガード・相手の行動の次の状況、起き攻めの起点） ---
+
+function refName(ref) {
+  if (typeof ref === "number") return situationText(findSituation(ref)) || "削除された状況";
+  return ref.state.name || stateLabel({ kind: "state", ...ref.state });
+}
+
+/**
+ * config.allowPosition: 位置を選べる（起き攻めの起点）。ほかは手順の「位置」を使う。
+ * config.withTriggers: 一覧にきっかけも出す。config.add: 「追加」ボタンを置く（起点を複数選ぶとき）。
+ */
+function pickerHtml(key, ref, config = {}) {
+  const situation = typeof ref === "number" ? findSituation(ref) : null;
+  const numbers = situation?.kind === "state" ? situation : ref && typeof ref === "object" ? ref.state : null;
+  const character = formCharacter();
+  const states = state.data.situations.filter((entry) => entry.kind === "state" && entry.character === character
+    && (!entry.archived || entry.id === situation?.id)).sort(byAdvantage);
+  const triggers = config.withTriggers ? state.data.situations.filter((entry) => entry.kind === "trigger"
+    && (entry.character === null || entry.character === character) && (!entry.archived || entry.id === situation?.id)) : [];
+  return `<div class="picker" data-picker="${escapeHtml(key)}"${config.allowPosition ? " data-allow-position" : ""}>
+    <div class="picker-row">
+      <label class="picker-num"><span>有利F</span><input type="number" inputmode="numeric" data-pick="advantage" min="-99" max="300" step="1" value="${numbers ? escapeHtml(numbers.advantage) : ""}" placeholder="例：29" /></label>
+      <label><span>ダウン</span><select data-pick="recovery">${options({ "": "未設定", ...RECOVERIES }, numbers?.recovery || "")}</select></label>
+      ${config.allowPosition ? `<label><span>位置</span><select data-pick="position">${options(POSITIONS, numbers?.position || "anywhere")}</select></label>` : ""}
+    </div>
+    <p class="picker-match" data-pick-match></p>
+    <input data-pick="name" maxlength="60" placeholder="局面の名前" value="${escapeHtml(ref && typeof ref === "object" ? ref.state.name || "" : "")}" hidden />
+    <div class="picker-row">
+      <select data-pick="list" aria-label="一覧から選ぶ"><option value="">一覧から選ぶ</option>${situationOptionsHtml([["局面", states], ["きっかけ", triggers]], situation?.id ?? null)}</select>
+      ${config.add ? '<button type="button" class="secondary-button small" data-add-start>追加</button>' : ""}
+    </div>
+  </div>`;
+}
+
+function pickerParts(picker) {
+  const part = (name) => picker.querySelector(`[data-pick="${name}"]`);
+  return {
+    advantage: part("advantage"), recovery: part("recovery"), position: part("position"), name: part("name"), list: part("list"),
+    match: picker.querySelector("[data-pick-match]"),
+  };
+}
+
+function pickerKey(picker) {
+  const parts = pickerParts(picker);
+  if (parts.advantage.value === "" || !Number.isInteger(Number(parts.advantage.value))) return null;
+  return {
+    character: formCharacter(),
+    advantage: Number(parts.advantage.value),
+    position: picker.hasAttribute("data-allow-position") ? parts.position.value : formPosition(),
+    recovery: parts.recovery.value || null,
+  };
+}
+
+function newStateName(picker, key) {
+  const notation = document.getElementById("field-notation")?.value || "";
+  const fromMoves = picker.dataset.picker === "hit" ? defaultStateName(notation, movesOf(key.character)) : null;
+  return fromMoves || stateLabel({ kind: "state", ...key });
+}
+
+/** ピッカーの値：一覧で選んだ状況の id、数値に合う既存の局面の id、または新しい局面 {state}。空なら null。 */
+function readPicker(picker) {
+  const parts = pickerParts(picker);
+  if (parts.list.value) return Number(parts.list.value);
+  const key = pickerKey(picker);
+  if (!key) return null;
+  const found = findState(state.data.situations, key);
+  if (found) return found.id;
+  const name = parts.name.value.trim() || newStateName(picker, key);
+  return { state: { advantage: key.advantage, position: key.position, recovery: key.recovery, name } };
+}
+
+function refreshPicker(picker) {
+  const parts = pickerParts(picker);
+  if (parts.list.value) {
+    parts.match.innerHTML = `→ 「${escapeHtml(situationText(findSituation(Number(parts.list.value))))}」を使います`;
+    parts.name.hidden = true;
+    return;
+  }
+  const key = pickerKey(picker);
+  if (!key) {
+    parts.match.textContent = "";
+    parts.name.hidden = true;
+    return;
+  }
+  const found = findState(state.data.situations, key);
+  if (found) {
+    parts.match.innerHTML = `→ 既存の「${escapeHtml(found.name)}」を使います`;
+    parts.name.hidden = true;
+  } else {
+    const name = parts.name.value.trim() || newStateName(picker, key);
+    parts.match.innerHTML = `→ 新しい局面「${escapeHtml(name)}」を作ります <button type="button" class="link-button" data-pick-rename>名前を変える</button>`;
+  }
+}
+
+function refreshPickers() {
+  els.formFields.querySelectorAll("[data-picker]").forEach(refreshPicker);
+}
+
+/** 一覧で選んだら数値を入れ、数値を変えたら一覧の選択を外す（一覧の選択が優先されるため）。 */
+function onPickerChange(target) {
+  const picker = target.closest("[data-picker]");
+  if (!picker) return;
+  const parts = pickerParts(picker);
+  if (target === parts.list) {
+    const situation = findSituation(Number(parts.list.value));
+    if (situation?.kind === "state") {
+      parts.advantage.value = String(situation.advantage);
+      parts.recovery.value = situation.recovery || "";
+      if (parts.position) parts.position.value = situation.position;
+    } else if (situation) {
+      parts.advantage.value = "";
+      parts.recovery.value = "";
+    }
+  } else if (target.dataset.pick !== "name") {
+    parts.list.value = "";
+  }
+  refreshPicker(picker);
+}
+
+// --- 起き攻めの起点（局面を複数） ---
+
+function startStateChipsHtml(refs) {
+  return refs.length
+    ? refs.map((ref, index) => `<span class="toggle-chip state" aria-pressed="true">${escapeHtml(refName(ref))}<button type="button" class="chip-remove" data-remove-start="${index}" aria-label="起点から外す">×</button></span>`).join("")
+    : '<span class="field-hint">下で有利F・ダウン・位置を入れるか、一覧から選んで「追加」</span>';
+}
+
+function sameRef(a, b) {
+  if (typeof a === "number" || typeof b === "number") return a === b;
+  return a.state.advantage === b.state.advantage && a.state.position === b.state.position && a.state.recovery === b.state.recovery;
+}
+
+function addStartFromPicker() {
+  const picker = els.formFields.querySelector('[data-picker="start"]');
+  const ref = picker ? readPicker(picker) : null;
+  if (!ref) return false;
+  if (!state.editing.startRefs.some((entry) => sameRef(entry, ref))) state.editing.startRefs.push(ref);
+  picker.outerHTML = pickerHtml("start", null, { allowPosition: true, withTriggers: false, add: true });
+  renderStartStates();
+  return true;
+}
+
+function renderStartStates() {
+  const chipsEl = document.getElementById("startStateChips");
+  if (chipsEl) chipsEl.innerHTML = startStateChipsHtml(state.editing.startRefs);
+  syncBackRoll();
+}
+
+function startsHaveBackRoll() {
+  return state.editing.startRefs.some((ref) => (typeof ref === "number" ? findSituation(ref)?.recovery : ref.state.recovery) === "back_roll");
+}
+
+/** 「後ろ受け身」の○×は、起点に後ろ受け身できるダウンがあるときだけ出す。 */
+function syncBackRoll() {
+  const item = els.formFields.querySelector('[data-outcome-item="back_roll"]');
+  if (item) item.hidden = !startsHaveBackRoll();
+  const next = els.formFields.querySelector('[data-outcome-next="back_roll"]');
+  if (next && !startsHaveBackRoll()) next.hidden = true;
+}
+
+// --- 相手の行動ごとの結果（起き攻め） ---
+
+function outcomesFieldHtml(field, results) {
+  const byAction = Object.fromEntries(results.filter((result) => result.kind === "opponent").map((result) => [result.opponentAction, result]));
+  const buttons = OPPONENT_OPTIONS.map((action) => {
+    const value = byAction[action]?.outcome || "unknown";
+    return `<span class="outcome-item" data-outcome-item="${action}">
+      <button type="button" class="outcome ${value}" data-outcome="${action}" data-value="${value}"><b>${OUTCOME_MARKS[value]}</b>${escapeHtml(OPPONENT_LABELS[action])}</button>
+      <button type="button" class="next-toggle" data-next-toggle="${action}" aria-label="${escapeHtml(OPPONENT_LABELS[action])}の次の状況"${value === "unknown" ? " hidden" : ""}>→</button>
+    </span>`;
   }).join("");
+  const nexts = OPPONENT_OPTIONS.map((action) => {
+    const next = byAction[action]?.nextSituationId ?? byAction[action]?.next ?? null;
+    return `<div class="outcome-next" data-outcome-next="${action}"${next === null ? " hidden" : ""}>
+      <span class="field-label">${escapeHtml(OPPONENT_LABELS[action])}のあと</span>
+      ${pickerHtml(`opponent:${action}`, next, { withTriggers: true })}
+    </div>`;
+  }).join("");
+  return `<div class="chip-field" data-field="${field.key}">
+    <span class="field-label">${escapeHtml(field.label)}</span><small class="field-hint">${escapeHtml(field.hint)}</small>
+    <div class="outcome-buttons">${buttons}</div>
+    ${nexts}
+  </div>`;
 }
 
-function comboIdsHtml(selected, character) {
-  const combos = state.data.combos.filter((combo) => (!combo.archived || selected.includes(combo.id))
-    && (!character || combo.character === character));
-  if (!combos.length) return '<p class="field-hint">このキャラのコンボがまだありません</p>';
-  return combos.map((combo) => `<label class="check-row"><input type="checkbox" data-combo-id="${combo.id}"${selected.includes(combo.id) ? " checked" : ""} />
-    <span>${escapeHtml(combo.title)}<small>${escapeHtml([frames(combo.endAdvantage), combo.recovery ? RECOVERIES[combo.recovery] : ""].filter(Boolean).join(" · "))}</small></span></label>`).join("");
+function resultNext(results, kind) {
+  const result = results.find((entry) => entry.kind === kind);
+  return result ? result.nextSituationId ?? result.next ?? null : null;
 }
 
-function fieldHtml(field, value, isEdit) {
-  if (field.editOnly && !isEdit) return "";
+function fieldHtml(field, value, values) {
   const id = `field-${field.key}`;
   const label = `<span>${escapeHtml(field.label)}${field.required ? " <b>必須</b>" : ""}</span>`;
   const hint = field.hint ? `<small class="field-hint">${escapeHtml(field.hint)}</small>` : "";
   const text = value === null || value === undefined ? "" : String(value);
   const half = field.half ? " half" : "";
+  const showIf = field.showIf ? ` data-show-if="${field.key}"` : "";
   switch (field.type) {
     case "hidden":
       return `<input type="hidden" id="${id}" value="${escapeHtml(text)}" />`;
@@ -764,115 +1311,192 @@ function fieldHtml(field, value, isEdit) {
           <textarea id="${id}" rows="2" maxlength="${field.max}" placeholder="例：2中K > DR 5中P > 2強P xx 236強P">${escapeHtml(text)}</textarea>
         </details>
       </div>`;
-    case "situations":
+    case "startChips":
       return `<div class="chip-field" data-field="${field.key}">
         <span class="field-label">${escapeHtml(field.label)} <b>必須</b></span>
-        <div class="toggle-chips" id="situationChips">${situationsHtml(value || [])}</div>
-        <div class="add-situation"><input id="newSituation" maxlength="60" placeholder="自分の状況を追加（例：昇龍ガード後）" /><button type="button" class="secondary-button small" data-add-situation>追加</button></div>
+        <div class="toggle-chips" id="startChips">${startChipsHtml(value || [])}</div>
+        <div class="add-situation"><input id="newSituation" maxlength="60" placeholder="＋ 状況を追加（例：昇龍ガード後）" /><button type="button" class="secondary-button small" data-add-situation>追加</button></div>
       </div>`;
-    case "comboIds":
+    case "startStates":
       return `<div class="chip-field" data-field="${field.key}">
-        <span class="field-label">${escapeHtml(field.label)}</span>${hint}
-        <div class="check-list" id="comboIdList">${comboIdsHtml(value || [], state.editing?.values.character || "")}</div>
+        <span class="field-label">${escapeHtml(field.label)} <b>必須</b></span>
+        <div class="toggle-chips" id="startStateChips">${startStateChipsHtml(state.editing.startRefs)}</div>
+        ${pickerHtml("start", null, { allowPosition: true, add: true })}
+      </div>`;
+    case "next":
+      return `<div class="chip-field" data-field="${field.key}">
+        <span class="field-label">${escapeHtml(field.label)}</span>
+        ${pickerHtml(field.resultKind, resultNext(values.results, field.resultKind), { withTriggers: true })}
       </div>`;
     case "outcomes":
-      return `<div class="chip-field" data-field="${field.key}">
-        <span class="field-label">${escapeHtml(field.label)}</span>${hint}
-        <div class="outcome-buttons">${Object.entries(OPPONENT_OPTIONS).map(([key, name]) => {
-          const current = (value || {})[key] || "unknown";
-          return `<button type="button" class="outcome ${current}" data-outcome="${key}" data-value="${current}"><b>${OUTCOME_MARKS[current]}</b>${escapeHtml(name)}</button>`;
-        }).join("")}</div>
-      </div>`;
+      return outcomesFieldHtml(field, values.results);
     case "target": {
-      const { comboId, setplayId } = state.editing.values;
-      const selected = comboId ? `c:${comboId}` : setplayId ? `s:${setplayId}` : "";
-      const option = (value, name) => `<option value="${value}"${value === selected ? " selected" : ""}>${escapeHtml(name)}</option>`;
-      const combos = state.data.combos.filter((combo) => !combo.archived || combo.id === comboId);
-      const setplays = state.data.setplays.filter((setplay) => !setplay.archived || setplay.id === setplayId);
+      if (value.length > 1) {
+        return `<div class="chip-field" data-field="${field.key}">
+          <span class="field-label">練習する手順</span>
+          <ol class="chain-list">${value.map((sequenceId) => `<li>${escapeHtml(findSequence(sequenceId)?.title || "削除された手順")}</li>`).join("")}</ol>
+          <small class="field-hint">変えるときはルートから作り直します</small>
+        </div>`;
+      }
+      const selected = value[0] ?? null;
+      const option = (sequence) => `<option value="${sequence.id}"${sequence.id === selected ? " selected" : ""}>${escapeHtml(`${sequence.character}：${sequence.title}`)}</option>`;
+      const list = (kind) => state.data.sequences.filter((sequence) => sequence.kind === kind && (!sequence.archived || sequence.id === selected));
       return `<label data-field="${field.key}">${label}<select id="${id}"><option value="">なし</option>
-        ${combos.length ? `<optgroup label="コンボ">${combos.map((combo) => option(`c:${combo.id}`, `${combo.character}：${combo.title}`)).join("")}</optgroup>` : ""}
-        ${setplays.length ? `<optgroup label="起き攻め">${setplays.map((setplay) => option(`s:${setplay.id}`, `${setplay.character}：${setplay.title}`)).join("")}</optgroup>` : ""}
+        ${list("combo").length ? `<optgroup label="コンボ">${list("combo").map(option).join("")}</optgroup>` : ""}
+        ${list("setplay").length ? `<optgroup label="起き攻め">${list("setplay").map(option).join("")}</optgroup>` : ""}
       </select></label>`;
     }
     case "textarea":
-      return `<label data-field="${field.key}">${label}<textarea id="${id}" rows="${field.rows || 3}" maxlength="${field.max}" placeholder="${escapeHtml(field.placeholder || "")}">${escapeHtml(text)}</textarea></label>`;
+      return `<label data-field="${field.key}"${showIf}>${label}<textarea id="${id}" rows="${field.rows || 3}" maxlength="${field.max}" placeholder="${escapeHtml(field.placeholder || "")}">${escapeHtml(text)}</textarea></label>`;
     case "select":
-      return `<label class="${half}" data-field="${field.key}">${label}<select id="${id}">${options(field.options, text)}</select>${hint}</label>`;
+      return `<label class="${half}" data-field="${field.key}"${showIf}>${label}<select id="${id}">${options(field.options, text)}</select>${hint}</label>`;
     case "radio":
       return `<fieldset class="radio-field" data-field="${field.key}"><legend>${escapeHtml(field.label)}</legend>${Object.entries(field.options).map(([option, name]) =>
         `<label><input type="radio" name="${field.key}" value="${option}"${option === text ? " checked" : ""} /><span>${escapeHtml(name)}</span></label>`).join("")}</fieldset>`;
-    case "combo": {
-      const combos = state.data.combos.filter((combo) => !combo.archived || combo.id === value);
-      const list = combos.map((combo) => `<option value="${combo.id}"${combo.id === value ? " selected" : ""}>${escapeHtml(`${combo.character}：${combo.title}`)}</option>`).join("");
-      return `<label data-field="${field.key}">${label}<select id="${id}"><option value="">なし</option>${list}</select></label>`;
+    case "situationCharacter": {
+      // 使用中の状況はキャラを変えられない（DBのトリガーでも拒む）。きっかけを全キャラ共通にすることだけはできる
+      const inUse = situationInUse(state.editing.item);
+      const note = '<small class="field-hint">使っている手順があるため変えられません</small>';
+      if (inUse && values.kind === "trigger") {
+        return `<label data-field="${field.key}"${showIf}>${label}<select id="${id}">${options([[text, text], ["", "全キャラ共通"]], text)}</select><small class="field-hint">使っている手順があるため、全キャラ共通にだけ変えられます</small></label>`;
+      }
+      return `<label data-field="${field.key}"${showIf}>${label}<input id="${id}" list="characterOptions" maxlength="40" autocomplete="off" value="${escapeHtml(text)}" placeholder="キャラ名"${inUse ? " readonly" : ""} />${inUse ? note : ""}</label>`;
     }
     case "character":
-      return `<label class="${half}" data-field="${field.key}">${label}<input id="${id}" list="characterOptions" maxlength="40" autocomplete="off" value="${escapeHtml(text)}" placeholder="キャラ名" /></label>`;
+      return `<label class="${half}" data-field="${field.key}"${showIf}>${label}<input id="${id}" list="characterOptions" maxlength="40" autocomplete="off" value="${escapeHtml(text)}" placeholder="キャラ名" /></label>`;
     case "number":
-      return `<label class="${half}" data-field="${field.key}">${label}<input id="${id}" type="number" inputmode="numeric" min="${field.min}" max="${field.max}" step="1" value="${escapeHtml(text)}" placeholder="${escapeHtml(field.placeholder || "")}" />${hint}</label>`;
+      return `<label class="${half}" data-field="${field.key}"${showIf}>${label}<input id="${id}" type="number" inputmode="numeric" min="${field.min}" max="${field.max}" step="1" value="${escapeHtml(text)}" placeholder="${escapeHtml(field.placeholder || "")}" />${hint}${field.suggest ? '<span class="suggest" id="startupSuggest"></span>' : ""}</label>`;
     case "date":
-      return `<label class="${half}" data-field="${field.key}">${label}<input id="${id}" type="date" max="${state.data.today}" value="${escapeHtml(text)}" /></label>`;
+      return `<label class="${half}" data-field="${field.key}"${showIf}>${label}<input id="${id}" type="date" max="${state.data.today}" value="${escapeHtml(text)}" /></label>`;
     default:
-      return `<label class="${half}" data-field="${field.key}">${label}<input id="${id}" maxlength="${field.max}" placeholder="${escapeHtml(field.placeholder || "")}" value="${escapeHtml(text)}" /></label>`;
+      return `<label class="${half}" data-field="${field.key}"${showIf}>${label}<input id="${id}" maxlength="${field.max}" placeholder="${escapeHtml(field.placeholder || "")}" value="${escapeHtml(text)}" /></label>`;
   }
+}
+
+/** 手順の結果を入力欄から組み立てる。起き攻めでない手順の相手の行動は、今の値をそのまま残す。 */
+function readResults(base) {
+  const results = [];
+  for (const kind of ["hit", "guard"]) {
+    const picker = els.formFields.querySelector(`[data-picker="${kind}"]`);
+    const next = picker ? readPicker(picker) : resultNext(base.results, kind);
+    if (next !== null) results.push({ kind, next });
+  }
+  const buttons = [...els.formFields.querySelectorAll("[data-outcome]")];
+  if (!buttons.length) {
+    base.results.filter((result) => result.kind === "opponent").forEach((result) => results.push({
+      kind: "opponent", opponentAction: result.opponentAction, outcome: result.outcome, next: result.nextSituationId ?? result.next ?? null,
+    }));
+    return results;
+  }
+  for (const button of buttons) {
+    const action = button.dataset.outcome;
+    if (button.closest("[data-outcome-item]")?.hidden) continue;
+    const box = els.formFields.querySelector(`[data-outcome-next="${action}"]`);
+    const next = box && !box.hidden ? readPicker(box.querySelector("[data-picker]")) : null;
+    if (button.dataset.value !== "unknown" || next !== null) results.push({ kind: "opponent", opponentAction: action, outcome: button.dataset.value, next });
+  }
+  return results;
 }
 
 /** モーダルの入力値を読む。空欄の任意項目は null。 */
 function readForm(resource, base) {
   const values = { ...base };
-  for (const field of FORMS[resource].fields) {
-    if (field.editOnly && !state.editing.item) continue;
+  const fields = visibleFields(resource, base, Boolean(state.editing.item));
+  for (const field of fields) {
     if (field.type === "radio") {
       values[field.key] = els.formFields.querySelector(`input[name="${field.key}"]:checked`)?.value || base[field.key];
       continue;
     }
-    if (field.type === "situations") {
-      values.situations = [...els.formFields.querySelectorAll("[data-situation][aria-pressed=true]")].map((chip) => chip.dataset.situation);
+    if (field.type === "startChips") {
+      values.starts = selectedStartChips();
       continue;
     }
-    if (field.type === "comboIds") {
-      values.comboIds = [...els.formFields.querySelectorAll("[data-combo-id]:checked")].map((input) => Number(input.dataset.comboId));
+    if (field.type === "startStates") {
+      values.starts = [...state.editing.startRefs];
       continue;
     }
-    if (field.type === "outcomes") {
-      values.outcomes = Object.fromEntries([...els.formFields.querySelectorAll("[data-outcome]")]
-        .filter((button) => button.dataset.value !== "unknown")
-        .map((button) => [button.dataset.outcome, button.dataset.value]));
-      continue;
-    }
+    if (field.type === "next" || field.type === "outcomes") continue;
     const input = document.getElementById(`field-${field.key}`);
-    if (!input) continue;
     if (field.type === "target") {
-      const [kind, id] = input.value.split(":");
-      values.comboId = kind === "c" ? Number(id) : null;
-      values.setplayId = kind === "s" ? Number(id) : null;
-    } else if (field.type === "checkbox") values[field.key] = input.checked;
-    else if (field.type === "number" || field.type === "combo" || field.numeric) {
-      values[field.key] = input.value === "" ? null : Number(input.value);
-    } else values[field.key] = input.value.trim() || null;
+      if (input) values.sequenceIds = input.value ? [Number(input.value)] : [];
+      continue;
+    }
+    if (!input) continue;
+    if (field.type === "checkbox") values[field.key] = input.checked;
+    else if (field.type === "number" || field.numeric) values[field.key] = input.value === "" ? null : Number(input.value);
+    else values[field.key] = input.value.trim() || null;
   }
+  if (resource === "sequences") values.results = readResults(base);
   return values;
 }
 
 function syncConditional(resource) {
   const values = readForm(resource, state.editing.values);
   FORMS[resource].fields.filter((field) => field.showIf).forEach((field) => {
-    const wrapper = els.formFields.querySelector(`[data-field="${field.key}"]`);
+    const wrapper = els.formFields.querySelector(`[data-show-if="${field.key}"]`);
     if (wrapper) wrapper.hidden = !field.showIf(values);
   });
 }
 
+function fragmentsHtml(character) {
+  const list = state.data.sequences.filter((sequence) => !sequence.archived && sequence.kind === state.editing.values.kind);
+  const own = list.filter((sequence) => sequence.character === character);
+  const fragments = frequentFragments((own.length ? own : list).map((sequence) => sequence.notation));
+  if (!fragments.length) return "";
+  return `<span class="frag-label">よく使う</span>${fragments.map((fragment) =>
+    `<button type="button" class="frag" data-fragment="${escapeHtml(fragment)}">${escapeHtml(fragment)}</button>`).join("")}`;
+}
+
+/** レシピのプレビュー・よく使う出だし・発生Fの提案・局面の名前の候補を更新する。 */
+function refreshNotationAssist() {
+  const input = document.getElementById("field-notation");
+  if (!input || !state.editing) return;
+  const preview = document.getElementById("notationPreview");
+  preview.innerHTML = input.value.trim() ? notationHtml(input.value) : '<p class="notation-empty">下のボタンを押すとここに手順が並びます</p>';
+  const fragments = document.getElementById("notationFragments");
+  fragments.innerHTML = fragmentsHtml(formCharacter());
+  fragments.hidden = !fragments.innerHTML;
+  const suggest = document.getElementById("startupSuggest");
+  if (suggest) {
+    const move = document.getElementById("field-startup").value === "" ? starterMove(input.value, movesOf(formCharacter())) : null;
+    suggest.innerHTML = move?.startup ? `<button type="button" class="suggest-chip" data-suggest-startup="${move.startup}">${escapeHtml(move.command)} 発生${move.startup}F を入れる</button>` : "";
+  }
+  refreshPickers();
+}
+
+function editNotation(change) {
+  const input = document.getElementById("field-notation");
+  if (!input) return;
+  input.value = change(input.value).slice(0, 1000);
+  refreshNotationAssist();
+}
+
+/** 技データのあるキャラなら読み込んで、発生Fの提案と局面の名前に使う。 */
+function prepareMoves() {
+  const character = formCharacter();
+  if (state.moves.has(character)) return;
+  ensureMoves(character).then((data) => { if (data && state.editing) refreshNotationAssist(); }).catch(() => {});
+}
+
 function openModal(resource, item = null, preset = {}) {
   const form = FORMS[resource];
-  const values = item ? { ...item } : { ...form.defaults(), ...preset };
-  state.editing = { resource, item, values };
-  els.modalTitle.textContent = `${form.title}を${item ? "編集" : "追加"}`;
-  els.formFields.innerHTML = form.fields.map((field) => fieldHtml(field, values[field.key], Boolean(item))).join("");
+  const values = item ? { ...item } : { ...form.defaults(preset), ...preset };
+  state.editing = { resource, item, values, startRefs: [...(values.starts || [])] };
+  els.modalTitle.textContent = `${form.title(values)}を${item ? "編集" : "追加"}`;
+  const fields = visibleFields(resource, values, Boolean(item));
+  const main = fields.filter((field) => !field.more).map((field) => fieldHtml(field, values[field.key], values)).join("");
+  const more = fields.filter((field) => field.more).map((field) => fieldHtml(field, values[field.key], values)).join("");
+  els.formFields.innerHTML = `${main}${more ? `<details class="form-more"><summary>詳細</summary><div class="form-grid">${more}</div></details>` : ""}`;
   els.formError.hidden = true;
-  els.deleteButton.hidden = !item;
+  els.deleteConfirm.hidden = true;
+  // 初期の状況は削除できない（アーカイブだけ）
+  els.deleteButton.hidden = !item || (resource === "situations" && Boolean(item.presetKey));
   els.saveButton.textContent = item ? "保存する" : "追加する";
   syncConditional(resource);
+  syncBackRoll();
   refreshNotationAssist();
+  refreshPickers();
+  if (resource === "sequences") prepareMoves();
   els.editModal.hidden = false;
   const first = els.formFields.querySelector("input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=date]), textarea");
   // スマホで勝手にキーボードが開かないよう、フォーカスはPC幅のときだけ
@@ -885,18 +1509,20 @@ function closeModal() {
 }
 
 function validate(resource, values) {
-  for (const field of FORMS[resource].fields) {
-    const wrapper = els.formFields.querySelector(`[data-field="${field.key}"]`);
-    if (wrapper?.hidden || (field.editOnly && !state.editing.item)) continue;
+  for (const field of visibleFields(resource, state.editing.values, Boolean(state.editing.item))) {
+    const wrapper = els.formFields.querySelector(`[data-show-if="${field.key}"]`);
+    if (wrapper?.hidden) continue;
     const value = values[field.key];
     if (field.required && (value === null || value === "" || (Array.isArray(value) && value.length === 0))) {
-      return field.type === "situations" ? "使える状況を1つ以上選んでください。" : `「${field.label}」を入力してください。`;
+      if (field.type === "startChips") return "始動の状況を1つ以上選んでください。";
+      if (field.type === "startStates") return "起点の局面を1つ以上追加してください。";
+      return `「${field.label}」を入力してください。`;
     }
     if (field.type === "number" && value !== null && (!Number.isInteger(value) || value < field.min || value > field.max)) {
       return `「${field.label}」は${field.min}〜${field.max}の整数で入力してください。`;
     }
   }
-  if (resource === "notes" && values.category === "matchup" && !values.opponent) return "相手キャラを入力してください。";
+  if (resource === "situations" && values.kind === "state" && !values.character) return "局面にはキャラを入力してください。";
   if (resource === "logs" && (values.attempts === null) !== (values.successes === null)) return "回数と成功は両方入力するか、両方空欄にしてください。";
   if (resource === "logs" && values.attempts !== null && values.successes > values.attempts) return "成功は回数以下にしてください。";
   if (resource === "logs" && values.bestStreak !== null && (values.successes === null || values.bestStreak > values.successes)) {
@@ -905,19 +1531,34 @@ function validate(resource, values) {
   return null;
 }
 
+/** 見えていない項目を既定値に戻す（種類に合わない項目はDBの制約で拒否されるため）。 */
+function normalizeValues(resource, values) {
+  if (resource === "sequences") {
+    if (!values.title) values.title = defaultTitle(values.notation);
+    if (values.kind === "combo") Object.assign(values, { aim: null, layering: null });
+    else values.endPurpose = null;
+  }
+  if (resource === "situations" && values.kind === "trigger") Object.assign(values, { advantage: null, recovery: null, position: "anywhere" });
+}
+
+function showFormError(message) {
+  els.formError.textContent = message;
+  els.formError.hidden = false;
+}
+
 async function submitModal(event) {
   event.preventDefault();
   if (!state.editing || state.saving) return;
   const { resource, item } = state.editing;
+  if (resource === "sequences" && state.editing.values.kind === "setplay") addStartFromPicker();
   const values = readForm(resource, state.editing.values);
-  if (resource === "notes" && values.category !== "matchup") values.opponent = null;
+  normalizeValues(resource, values);
   const problem = validate(resource, values);
   if (problem) {
-    els.formError.textContent = problem;
-    els.formError.hidden = false;
+    showFormError(problem);
     return;
   }
-  const fields = Object.fromEntries(Object.keys(FORMS[resource].defaults()).map((key) => [key, values[key]]));
+  const fields = Object.fromEntries(Object.keys(FORMS[resource].defaults(values)).map((key) => [key, values[key]]));
   state.saving = true;
   els.saveButton.disabled = true;
   try {
@@ -927,27 +1568,30 @@ async function submitModal(event) {
     if (resource === "logs") {
       state.data.logs.unshift(saved);
       state.data.logs.sort((a, b) => b.practicedOn.localeCompare(a.practicedOn) || b.id - a.id);
-    } else replaceItem(resource, saved);
-    if ((resource === "combos" || resource === "setplays") && fields.character) store("sf6-character", fields.character);
+    } else applySaved(resource, saved);
+    if (resource === "sequences" && fields.character) store("sf6-character", fields.character);
     if (resource === "matches") store("sf6-character", fields.myCharacter);
     closeModal();
     render();
     showToast(item ? "保存しました" : "追加しました");
   } catch (error) {
-    els.formError.textContent = error instanceof Error ? error.message : "保存できませんでした。";
-    els.formError.hidden = false;
+    showFormError(error instanceof Error ? error.message : "保存できませんでした。");
   } finally {
     state.saving = false;
     els.saveButton.disabled = false;
   }
 }
 
-async function deleteItem(resource, id, label) {
-  if (!window.confirm(`${label}を削除しますか？元に戻せません。`)) return false;
+async function deleteItem(resource, id, label, confirmed = false) {
+  if (!confirmed && !window.confirm(`${label}を削除しますか？元に戻せません。`)) return false;
   try {
     await send("DELETE", resource, { id });
-    removeItem(resource, id);
-    render();
+    // 手順は練習の連なりからも外れる（練習の updatedAt も変わるので読み直す）
+    if (resource === "sequences" && state.data.drills.some((drill) => drill.sequenceIds.includes(id))) await load();
+    else {
+      removeItem(resource, id);
+      render();
+    }
     showToast("削除しました");
     return true;
   } catch (error) {
@@ -956,15 +1600,27 @@ async function deleteItem(resource, id, label) {
   }
 }
 
-/** 起点のコンボを選んだら、その締めの有利F・位置・ダウンを入れる（空欄のときだけ上書きしないよう、最初の1件で埋める）。 */
-function fillStartFromCombo(comboId) {
-  const combo = state.data.combos.find((entry) => entry.id === comboId);
-  if (!combo) return;
-  const advantage = document.getElementById("field-startAdvantage");
-  if (combo.endAdvantage !== null && advantage.value === "") advantage.value = String(combo.endAdvantage);
-  if (combo.position !== "anywhere") document.getElementById("field-position").value = combo.position;
-  if (combo.recovery) document.getElementById("field-recovery").value = combo.recovery;
-  syncConditional("setplays");
+/** 使われている状況の削除：件数と手順名を出して、外して削除／アーカイブ／やめるを選ぶ。 */
+function confirmSituationDelete(situation) {
+  const usage = situationUsage(situation.id, state.data.sequences);
+  if (!usage.sequenceIds.length) return deleteItem("situations", situation.id, "この状況").then((done) => { if (done) closeModal(); });
+  const first = findSequence(usage.sequenceIds[0]);
+  els.deleteConfirm.innerHTML = `<p>この状況は ${usage.sequenceIds.length}件の手順で使われています：${escapeHtml(first?.title || "")}${usage.sequenceIds.length > 1 ? " ほか" : ""}</p>
+    ${usage.orphaned ? `<p>${usage.orphaned}件は始動の状況がなくなります（一覧の「状況なし」に出ます）</p>` : ""}
+    <div class="form-actions">
+      <button type="button" class="danger-button" data-situation-delete>外して削除</button>
+      <button type="button" class="secondary-button" data-situation-archive>アーカイブにする</button>
+      <button type="button" class="secondary-button" data-situation-cancel>やめる</button>
+    </div>`;
+  els.deleteConfirm.hidden = false;
+  return Promise.resolve();
+}
+
+/** 状況が手順の始動・結果に使われているか（使用中ならキャラと種類を変えられない）。 */
+function situationInUse(situation) {
+  if (!situation) return false;
+  const usage = situationUsage(situation.id, state.data.sequences);
+  return usage.starts + usage.results > 0;
 }
 
 // ---------- イベント ----------
@@ -977,7 +1633,9 @@ function selectTab(tab) {
   if (!TABS.includes(tab)) return;
   state.tab = tab;
   store("sf6-tab", tab);
-  if (state.data) renderTabs();
+  if (!state.data) return;
+  renderTabs();
+  if (tab === "frames") loadFrames();
 }
 
 document.querySelectorAll("[data-tab]").forEach((button) => {
@@ -996,12 +1654,15 @@ els.comboPosition.addEventListener("click", (event) => {
   renderCombos();
 });
 els.comboSituation.addEventListener("change", () => {
-  state.conditions.situation = els.comboSituation.value;
+  const value = els.comboSituation.value;
+  state.conditions.situationId = value === "" ? null : value === "none" ? "none" : Number(value);
   renderCombos();
 });
 els.comboConditions.addEventListener("change", () => {
+  const punish = Number(els.conditionPunish.value);
   state.conditions.drive = els.conditionDrive.value === "" ? null : Number(els.conditionDrive.value);
   state.conditions.sa = els.conditionSa.value === "" ? null : Number(els.conditionSa.value);
+  state.conditions.punishWindow = els.conditionPunish.value === "" || !Number.isInteger(punish) || punish < 1 ? null : Math.min(punish, 99);
   state.conditions.ca = els.conditionCa.checked;
   state.conditions.burnout = els.conditionBurnout.checked;
   renderCombos();
@@ -1010,72 +1671,135 @@ els.setplayCharacter.addEventListener("change", () => {
   state.setplayCharacter = els.setplayCharacter.value;
   renderSetplays();
 });
-els.noteOpponent.addEventListener("change", () => {
-  state.noteOpponent = els.noteOpponent.value;
-  renderNotes();
+els.setplayStart.addEventListener("change", () => {
+  state.setplayStart = els.setplayStart.value === "" ? null : Number(els.setplayStart.value);
+  renderSetplays();
+});
+WIDE_FRAMES.addEventListener("change", () => { if (state.data) renderFrames(); });
+els.frameCharacter.addEventListener("change", () => {
+  state.frames.character = els.frameCharacter.value;
+  state.frames.open = null;
+  loadFrames();
+});
+els.frameQuery.addEventListener("input", () => {
+  state.frames.query = els.frameQuery.value;
+  renderFrames();
+});
+els.frameSort.addEventListener("change", () => {
+  state.frames.sort = els.frameSort.value;
+  renderFrames();
+});
+els.frameCategory.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-category]");
+  if (!button) return;
+  state.frames.category = button.dataset.category;
+  renderFrames();
+});
+els.framePunishable.addEventListener("click", () => {
+  state.frames.punishableOnly = !state.frames.punishableOnly;
+  renderFrames();
+});
+els.frameCancelable.addEventListener("click", () => {
+  state.frames.cancelableOnly = !state.frames.cancelableOnly;
+  renderFrames();
 });
 
-function drillPresetFromCombo(combo) {
-  const confirm = combo.situations.includes("ヒット確認");
-  return {
-    title: `${combo.title}（${combo.character}）`,
-    comboId: combo.id,
-    guardSetting: "random",
-    counterSetting: combo.situations.includes("パニッシュカウンター") ? "punish_counter" : combo.situations.includes("カウンター") ? "counter" : null,
-    detail: confirm ? "ランダムガードでヒット確認して10回連続" : "ランダムガードで10回連続",
-  };
+/** カードの「結果 → 次の状況」からルートを開く：始動の状況 › 手順 › 次の状況。 */
+function routeFromCard(value) {
+  const [sequenceId, resultKind, opponentAction] = value.split("|");
+  const sequence = findSequence(Number(sequenceId));
+  const result = sequence?.results.find((entry) => entry.kind === resultKind && (entry.opponentAction || "") === opponentAction);
+  if (!result?.nextSituationId) return;
+  const step = { sequenceId: sequence.id, resultKind, opponentAction: opponentAction || null };
+  // 始点は、絞り込みで選んでいる状況がこの手順の始動にあればそれ、なければ最初の始動
+  const selected = sequence.kind === "setplay" ? state.setplayStart : state.conditions.situationId;
+  const start = sequence.starts.includes(selected) ? selected : sequence.starts[0];
+  openRoute([...(start !== undefined ? [{ situationId: start }, step] : []), { situationId: result.nextSituationId }], sequence.character);
 }
 
-function drillPresetFromSetplay(setplay) {
-  return {
-    title: `${setplay.title}（${setplay.character}）`,
-    setplayId: setplay.id,
-    recoverySetting: setplay.recovery === "back_roll" ? "random" : null,
-    reversalRecorded: true,
-    detail: "無敵技を録画再生してガードが間に合うか、重ねが成立するかを確認",
-  };
+function routeStep(value) {
+  const [sequenceId, resultKind, opponentAction] = value.split("|");
+  const sequence = findSequence(Number(sequenceId));
+  const result = sequence?.results.find((entry) => entry.kind === resultKind && (entry.opponentAction || "") === opponentAction);
+  if (!result?.nextSituationId) return;
+  state.sheet.path.push({ sequenceId: sequence.id, resultKind, opponentAction: opponentAction || null }, { situationId: result.nextSituationId });
+  if (!state.sheet.character) state.sheet.character = sequence.character;
+  renderSheet();
+  els.sheet.querySelector(".sheet").scrollTop = 0;
 }
 
-document.querySelector("main").addEventListener("click", async (event) => {
+async function raiseMastery(drill) {
+  const logs = state.data.logs.filter((log) => log.drillId === drill.id);
+  const targets = raiseTargets(drill.sequenceIds, state.data.sequences, logs);
+  for (const target of targets) {
+    if (!(await patch("sequences", target, { mastery: 2 }))) return;
+  }
+  showToast(`習得度：${MASTERY[2]}（${targets.length}件）`);
+}
+
+async function onAction(event) {
   const target = event.target.closest("button");
   if (!target || !state.data) return;
   const { dataset } = target;
+  if (target.closest("details.menu")) target.closest("details.menu").removeAttribute("open");
   if (dataset.edit) openModal(dataset.edit, find(dataset.edit, dataset.id));
   else if (dataset.mastery !== undefined) {
-    const resource = dataset.resource || "combos";
-    const item = find(resource, dataset.id);
+    const item = find("sequences", dataset.id);
     const level = Number(dataset.mastery);
     // 今の段階をもう一度押すと1段下げる
     const next = level === item.mastery ? Math.max(0, level - 1) : level;
-    if (next !== item.mastery) await patch(resource, item, { mastery: next }, `習得度：${MASTERY[next]}`);
-  } else if (dataset.drillFromCombo) {
-    openModal("drills", null, drillPresetFromCombo(find("combos", dataset.drillFromCombo)));
-  } else if (dataset.drillFromSetplay) {
-    openModal("drills", null, drillPresetFromSetplay(find("setplays", dataset.drillFromSetplay)));
+    if (next !== item.mastery) await patch("sequences", item, { mastery: next }, `習得度：${MASTERY[next]}`);
+  } else if (dataset.drillFromSequence) {
+    openModal("drills", null, drillPreset(find("sequences", dataset.drillFromSequence), situationsById()));
   } else if (dataset.setplayFromCombo) {
-    const combo = find("combos", dataset.setplayFromCombo);
-    openModal("setplays", null, {
-      character: combo.character, comboIds: [combo.id], startAdvantage: combo.endAdvantage,
-      position: combo.position, recovery: combo.recovery || "back_roll",
-    });
-  } else if (dataset.gotoSetplay) {
+    const combo = find("sequences", dataset.setplayFromCombo);
+    openModal("sequences", null, { kind: "setplay", character: combo.character, starts: [resultOf(combo, "hit").nextSituationId], position: combo.position });
+  } else if (dataset.gotoSequence) {
     selectTab("setplays");
     state.setplayCharacter = "";
+    state.setplayStart = null;
     renderSetplays();
-    const card = document.getElementById(`setplay-${dataset.gotoSetplay}`);
+    const card = document.getElementById(`sequence-${dataset.gotoSequence}`);
     card?.scrollIntoView({ block: "center" });
     card?.classList.add("flash");
     setTimeout(() => card?.classList.remove("flash"), 1200);
+  } else if (dataset.routeSituation) {
+    openRoute([{ situationId: Number(dataset.routeSituation) }], dataset.character);
+  } else if (dataset.routeFromCard) {
+    routeFromCard(dataset.routeFromCard);
+  } else if (dataset.routeStep) {
+    routeStep(dataset.routeStep);
+  } else if (dataset.routeEnd) {
+    const sequence = findSequence(Number(dataset.routeEnd));
+    state.sheet.path.push({ sequenceId: sequence.id, resultKind: null });
+    if (!state.sheet.character) state.sheet.character = sequence.character;
+    renderSheet();
+    els.sheet.querySelector(".sheet").scrollTop = 0;
+  } else if (dataset.routeBack !== undefined) {
+    state.sheet.path = state.sheet.path.slice(0, Number(dataset.routeBack) + 1);
+    renderSheet();
+  } else if (dataset.routeStart) {
+    openRoute([{ situationId: Number(dataset.routeStart) }], state.sheet.character);
+  } else if (dataset.routeDrill !== undefined) {
+    openModal("drills", null, routeDrillPreset(state.sheet.path, sequencesById(), situationsById()));
+  } else if (dataset.openRoute) {
+    const character = dataset.openRoute === "setplays" ? state.setplayCharacter : state.comboCharacter;
+    const selected = dataset.openRoute === "setplays" ? state.setplayStart : state.conditions.situationId;
+    if (typeof selected === "number") openRoute([{ situationId: selected }], character);
+    else openSheet({ type: "routeStart", character });
+  } else if (dataset.manageSituations !== undefined) {
+    openSheet({ type: "situations", character: currentCharacter() });
+  } else if (dataset.editSituation) {
+    openModal("situations", find("situations", dataset.editSituation));
+  } else if (dataset.addTrigger !== undefined) {
+    if (await addTrigger(document.getElementById("newTrigger"))) {
+      render();
+      showToast("追加しました");
+    }
+  } else if (dataset.addState !== undefined) {
+    openModal("situations", null, { kind: "state", character: state.sheet.character || null });
   } else if (dataset.raise) {
-    const drill = find("drills", dataset.raise);
-    const goal = drillTarget(drill);
-    if (goal) await patch(goal.resource, goal.item, { mastery: 2 }, `習得度：${MASTERY[2]}`);
-  } else if (dataset.pin) {
-    const note = find("notes", dataset.pin);
-    await patch("notes", note, { pinned: !note.pinned });
-  } else if (dataset.resolve) {
-    const note = find("notes", dataset.resolve);
-    await patch("notes", note, { resolved: !note.resolved }, note.resolved ? "注意点に戻しました" : "直ったものに移しました");
+    await raiseMastery(find("drills", dataset.raise));
   } else if (dataset.log) {
     openModal("logs", null, { drillId: Number(dataset.log) });
     els.modalTitle.textContent = `記録：${find("drills", dataset.log).title}`;
@@ -1083,76 +1807,149 @@ document.querySelector("main").addEventListener("click", async (event) => {
     await patch("drills", find("drills", dataset.reopen), { status: "active" }, "練習中に戻しました");
   } else if (dataset.deleteLog) {
     await deleteItem("logs", Number(dataset.deleteLog), "この練習記録");
-  } else if (dataset.noteFromMatch) {
-    const match = find("matches", dataset.noteFromMatch);
-    openModal("notes", null, { category: "matchup", opponent: match.opponent, body: match.bad });
   } else if (dataset.drillFromMatch) {
     const match = find("matches", dataset.drillFromMatch);
     openModal("drills", null, { title: match.bad.split("\n")[0].slice(0, 200), detail: `vs ${match.opponent}（${match.playedOn}の振り返りから）` });
+  } else if (dataset.frameRow) {
+    const id = Number(dataset.frameRow);
+    state.frames.open = state.frames.open === id ? null : id;
+    renderFrames();
+  } else if (dataset.findPunish) {
+    findPunish(Number(dataset.findPunish));
+  }
+}
+
+document.querySelector("main").addEventListener("click", onAction);
+els.sheetBody.addEventListener("click", onAction);
+els.sheetBody.addEventListener("change", (event) => {
+  if (event.target.id !== "sheetCharacter") return;
+  state.sheet.character = event.target.value;
+  renderSheet();
+});
+els.sheetBody.addEventListener("keydown", (event) => {
+  if (event.target.id === "newTrigger" && event.key === "Enter") {
+    event.preventDefault();
+    els.sheetBody.querySelector("[data-add-trigger]").click();
   }
 });
+els.sheetClose.addEventListener("click", closeSheet);
+els.sheet.addEventListener("click", (event) => { if (event.target === els.sheet) closeSheet(); });
 
 els.addButton.addEventListener("click", () => {
   if (!state.data) return;
   if (state.tab === "combos") {
-    openModal("combos", null, {
+    const { situationId } = state.conditions;
+    openModal("sequences", null, {
+      kind: "combo",
       ...(state.comboCharacter ? { character: state.comboCharacter } : {}),
-      ...(state.conditions.situation ? { situations: [state.conditions.situation] } : {}),
+      starts: typeof situationId === "number" ? [situationId] : [],
     });
-  } else if (state.tab === "setplays") openModal("setplays", null, state.setplayCharacter ? { character: state.setplayCharacter } : {});
-  else openModal(state.tab);
+  } else if (state.tab === "setplays") {
+    openModal("sequences", null, {
+      kind: "setplay",
+      ...(state.setplayCharacter ? { character: state.setplayCharacter } : {}),
+      starts: state.setplayStart !== null ? [state.setplayStart] : [],
+    });
+  } else openModal(state.tab);
 });
+
 els.formFields.addEventListener("change", (event) => {
   if (!state.editing) return;
-  if (event.target.dataset.comboId && event.target.checked) fillStartFromCombo(Number(event.target.dataset.comboId));
-  if (event.target.id === "field-character" && document.getElementById("comboIdList")) {
-    const values = readForm(state.editing.resource, state.editing.values);
-    document.getElementById("comboIdList").innerHTML = comboIdsHtml(values.comboIds, values.character || "");
+  const { target } = event;
+  if (target.closest("[data-picker]")) onPickerChange(target);
+  if (target.id === "field-character") {
+    const chipsEl = document.getElementById("startChips");
+    if (chipsEl) chipsEl.innerHTML = startChipsHtml(selectedStartChips());
+    if (state.editing.resource === "sequences") prepareMoves();
   }
   syncConditional(state.editing.resource);
   refreshNotationAssist();
 });
 els.formFields.addEventListener("input", (event) => {
-  if (event.target.id === "field-notation") refreshNotationAssist();
+  if (event.target.id === "field-notation" || event.target.id === "field-startup") refreshNotationAssist();
+  else if (event.target.closest("[data-picker]")) onPickerChange(event.target);
 });
 els.formFields.addEventListener("keydown", (event) => {
-  if (event.target.id === "newSituation" && event.key === "Enter") {
+  if (event.key !== "Enter") return;
+  if (event.target.id === "newSituation") {
     event.preventDefault();
     els.formFields.querySelector("[data-add-situation]").click();
+  } else if (event.target.closest('[data-picker="start"]')) {
+    event.preventDefault();
+    addStartFromPicker();
   }
 });
-els.formFields.addEventListener("click", (event) => {
+els.formFields.addEventListener("click", async (event) => {
   const button = event.target.closest("button");
-  if (!button) return;
-  if (button.dataset.token) editNotation((text) => appendToken(text, button.dataset.token));
-  else if (button.dataset.fragment) editNotation((text) => appendFragment(text, button.dataset.fragment));
-  else if (button.dataset.palette === "backspace") editNotation(removeLastToken);
-  else if (button.dataset.palette === "clear") editNotation(() => "");
-  else if (button.dataset.situation) button.setAttribute("aria-pressed", String(button.getAttribute("aria-pressed") !== "true"));
-  else if (button.dataset.addSituation !== undefined) {
-    const input = document.getElementById("newSituation");
-    const name = input.value.trim().slice(0, 60);
-    if (!name) return;
-    const selected = [...new Set([...readForm("combos", state.editing.values).situations, name])];
-    document.getElementById("situationChips").innerHTML = situationsHtml(selected);
-    input.value = "";
-  } else if (button.dataset.outcome) {
+  if (!button || !state.editing) return;
+  const { dataset } = button;
+  if (dataset.token) editNotation((text) => appendToken(text, dataset.token));
+  else if (dataset.fragment) editNotation((text) => appendFragment(text, dataset.fragment));
+  else if (dataset.palette === "backspace") editNotation(removeLastToken);
+  else if (dataset.palette === "clear") editNotation(() => "");
+  else if (dataset.startId) button.setAttribute("aria-pressed", String(button.getAttribute("aria-pressed") !== "true"));
+  else if (dataset.addSituation !== undefined) {
+    const selected = selectedStartChips();
+    const added = await addTrigger(document.getElementById("newSituation"));
+    if (!added) return;
+    document.getElementById("startChips").innerHTML = startChipsHtml([...new Set([...selected, added.id])]);
+  } else if (dataset.addStart !== undefined) {
+    if (!addStartFromPicker()) showFormError("有利Fを入れるか、一覧から選んでください。");
+  } else if (dataset.removeStart !== undefined) {
+    state.editing.startRefs.splice(Number(dataset.removeStart), 1);
+    renderStartStates();
+  } else if (dataset.pickRename !== undefined) {
+    const picker = button.closest("[data-picker]");
+    const parts = pickerParts(picker);
+    if (!parts.name.value) parts.name.value = newStateName(picker, pickerKey(picker));
+    parts.name.hidden = false;
+    parts.name.focus();
+  } else if (dataset.suggestStartup) {
+    document.getElementById("field-startup").value = dataset.suggestStartup;
+    refreshNotationAssist();
+  } else if (dataset.outcome) {
     const order = ["unknown", "win", "lose"];
-    const next = order[(order.indexOf(button.dataset.value) + 1) % order.length];
-    button.dataset.value = next;
+    const next = order[(order.indexOf(dataset.value) + 1) % order.length];
+    dataset.value = next;
     button.className = `outcome ${next}`;
     button.firstElementChild.textContent = OUTCOME_MARKS[next];
+    const toggle = els.formFields.querySelector(`[data-next-toggle="${dataset.outcome}"]`);
+    if (toggle) toggle.hidden = next === "unknown";
+  } else if (dataset.nextToggle) {
+    const box = els.formFields.querySelector(`[data-outcome-next="${dataset.nextToggle}"]`);
+    box.hidden = !box.hidden;
+    refreshPicker(box.querySelector("[data-picker]"));
+  }
+});
+els.deleteConfirm.addEventListener("click", async (event) => {
+  const button = event.target.closest("button");
+  if (!button || !state.editing) return;
+  const { item } = state.editing;
+  if (button.dataset.situationCancel !== undefined) els.deleteConfirm.hidden = true;
+  else if (button.dataset.situationDelete !== undefined) {
+    if (await deleteItem("situations", item.id, "この状況", true)) closeModal();
+  } else if (button.dataset.situationArchive !== undefined) {
+    if (await patch("situations", item, { archived: true }, "アーカイブにしました")) closeModal();
   }
 });
 els.editForm.addEventListener("submit", submitModal);
 els.modalClose.addEventListener("click", closeModal);
 els.cancelButton.addEventListener("click", closeModal);
 els.editModal.addEventListener("click", (event) => { if (event.target === els.editModal) closeModal(); });
-document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !els.editModal.hidden) closeModal(); });
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!els.editModal.hidden) closeModal();
+  else if (!els.sheet.hidden) closeSheet();
+});
 els.deleteButton.addEventListener("click", async () => {
   if (!state.editing?.item) return;
   const { resource, item } = state.editing;
-  if (await deleteItem(resource, item.id, `この${FORMS[resource].title}`)) closeModal();
+  if (resource === "situations") {
+    await confirmSituationDelete(item);
+    return;
+  }
+  const title = resource === "sequences" ? FORMS.sequences.title(item) : FORMS[resource].title();
+  if (await deleteItem(resource, item.id, `この${title}`)) closeModal();
 });
 els.refreshButton.addEventListener("click", load);
 els.retryButton.addEventListener("click", () => {

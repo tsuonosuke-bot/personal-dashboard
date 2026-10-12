@@ -2,7 +2,7 @@ export declare const ARROWS: Record<string, string>;
 export declare const LINKS: Record<string, { label: string; kind: string; title: string }>;
 
 export type NotationPart =
-  | { type: "command"; jump: boolean; arrows: string[]; button: string; strength: "light" | "medium" | "heavy" | "od"; limb: "punch" | "kick" }
+  | { type: "command"; jump: boolean; arrows: string[]; button: string; strength: "light" | "medium" | "heavy" | "od" | "any"; limb: "punch" | "kick" }
   | { type: "motion"; jump: boolean; arrows: string[] }
   | { type: "link"; label: string; kind: string; title: string }
   | { type: "text"; text: string };

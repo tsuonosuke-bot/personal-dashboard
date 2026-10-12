@@ -35,6 +35,13 @@ test("レシピを矢印・ボタン・つなぎに分け、読めない語は�
   assert.deepEqual(parts[5], { type: "text", text: "ディレイ" });
 });
 
+test("強さを問わない単独のP・Kはコマンドとして読む（SAのコマンドなど）", () => {
+  assert.deepEqual(parseNotation("236236P")[0], { type: "command", jump: false, arrows: ["↓", "↘", "→", "↓", "↘", "→"], button: "P", strength: "any", limb: "punch" });
+  assert.deepEqual(parseNotation("214214K")[0], { type: "command", jump: false, arrows: ["↓", "↙", "←", "↓", "↙", "←"], button: "K", strength: "any", limb: "kick" });
+  assert.equal(removeLastToken("236236P"), "236236");
+  assert.equal(press("2", "3", "6", "強P"), "236強P");
+});
+
 test("よく使う出だしは>またはxxで区切った最初の1〜2区間から多い順（同数なら短い順）に拾う", () => {
   const fragments = frequentFragments([
     "2中K > DR 5中P > 2強P xx 236強P",

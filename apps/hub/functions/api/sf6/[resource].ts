@@ -2,10 +2,13 @@ import { publicError, type DashboardEnv } from "../../_shared/dashboard.ts";
 import {
   createSf6Item,
   deleteSf6Item,
+  isLegacySf6Resource,
+  isReadOnlySf6Resource,
   isSf6Resource,
   readSf6CreateInput,
   readSf6DeleteInput,
   readSf6UpdateInput,
+  SF6_STALE_MESSAGE,
   updateSf6Item,
   validateSf6MutationRequest,
 } from "../../_shared/sf6.ts";
@@ -18,10 +21,13 @@ interface FunctionContext {
 
 const headers = { "Cache-Control": "private, no-store", "Content-Type": "application/json; charset=utf-8" };
 
-// POST = 追加、PATCH = 編集（全項目＋updatedAt）、DELETE = 削除（{ id }）
+// POST = 追加、PATCH = 編集（全項目＋updatedAt）、DELETE = 削除（{ id }）。
+// sequences（手順）は始動の状況・結果も一緒に保存し、{ item, situations } を返す。
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
   const resource = context.params.resource;
-  if (!isSf6Resource(resource)) return new Response("Not Found\n", { status: 404 });
+  // 廃止したリソース（コンボ・起き攻めの旧表、注意点）。古い画面からの保存に理由を出す
+  if (isLegacySf6Resource(resource)) return Response.json({ error: SF6_STALE_MESSAGE }, { status: 404, headers });
+  if (!isSf6Resource(resource) || isReadOnlySf6Resource(resource)) return Response.json({ error: "見つかりませんでした。" }, { status: 404, headers });
   const method = context.request.method;
   if (method !== "POST" && method !== "PATCH" && method !== "DELETE") {
     return new Response("Method Not Allowed\n", { status: 405, headers: { Allow: "POST, PATCH, DELETE" } });
