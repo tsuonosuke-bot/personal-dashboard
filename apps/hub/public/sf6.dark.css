@@ -282,6 +282,11 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .review.bad b {
   color: var(--accent);
 }
+:root[data-theme="dark"] .kind-badge {
+  border-radius: 4px;
+  background: var(--bg-hover);
+  color: var(--muted);
+}
 :root[data-theme="dark"] .menu summary {
   border-radius: var(--radius-sm);
   color: var(--muted);

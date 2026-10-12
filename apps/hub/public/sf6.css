@@ -127,7 +127,9 @@ main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px
 .match-card .meta { display: block; margin-top: 2px; }
 
 /* 状況・条件・締め後・起き攻め */
-.filters > select#comboSituation, .filters > select#setplayStart { min-width: 170px; }
+.filters > select#sequenceSituation { min-width: 170px; }
+/* 「すべて」の一覧で、コンボと起き攻めを見分ける印 */
+.kind-badge { margin-right: 6px; padding: 1px 6px; border-radius: 4px; background: var(--bg-hover); color: var(--muted); font-size: 11px; font-weight: 600; vertical-align: 1px; }
 /* 状況の「⋯」メニュー */
 .menu { position: relative; }
 .menu summary { width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--radius-sm); color: var(--muted); font-size: 18px; font-weight: 700; list-style: none; cursor: pointer; }
@@ -261,6 +263,7 @@ main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px
 .sheet-row { width: 100%; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 6px; border: 0; border-bottom: 1px solid var(--line); background: none; font-size: 13px; text-align: left; }
 .sheet-row:hover { background: var(--bg-hover); }
 .sheet-row small { color: var(--text-tertiary); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.sheet-row span small { display: block; margin-top: 2px; white-space: normal; }
 .sheet-row .preset-label { margin-left: 4px; padding: 1px 5px; border-radius: 4px; background: var(--bg-hover); }
 .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 6px; font-size: 12px; }
 .crumb { min-height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); font-size: 12px; font-weight: 600; }
