@@ -157,6 +157,9 @@ main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px
 .next-setplays { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 6px; }
 .next-setplays > span { color: var(--muted); font-size: 12px; }
 .next-chip { min-height: 30px; padding: 0 9px; border: 1px solid #b9d9c5; border-radius: 999px; background: #e7f4ec; color: #23663f; font-size: 12px; font-weight: 600; }
+.situation-card .adv { display: inline-block; min-width: 3.4em; margin-right: 4px; color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 700; }
+.situation-card .adv.minus { color: var(--muted); }
+.situation-card .next-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
 .next-chip.near { border-color: #ecd29a; background: #fbf3df; color: #8a5a12; }
 .next-chip small { font-weight: 500; }
 .foot-actions { display: inline-flex; align-items: center; gap: 2px; }

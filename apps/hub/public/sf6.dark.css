@@ -362,6 +362,12 @@ html[data-theme="dark"] {
   background: #2c3b32;
   color: #ace3c3;
 }
+:root[data-theme="dark"] .situation-card .adv {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .situation-card .adv.minus {
+  color: var(--muted);
+}
 :root[data-theme="dark"] .next-chip.near {
   border-color: #5e5032;
   background: #453b23;
