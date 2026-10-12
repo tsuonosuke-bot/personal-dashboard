@@ -36,18 +36,22 @@ const GUARD_SETTINGS = { none: "ガードしない", all: "全部ガード", ran
 const COUNTER_SETTINGS = { normal: "通常", counter: "カウンター", punish_counter: "パニッシュカウンター", random: "ランダム" };
 const RECOVERY_SETTINGS = { neutral: "その場起き", back: "後ろ受け身", random: "受け身ランダム" };
 const SITUATION_KINDS = { trigger: "きっかけ", state: "局面" };
-const TABS = ["combos", "setplays", "frames", "drills", "matches"];
-const ADD_LABELS = { combos: "コンボを追加", setplays: "起き攻めを追加", frames: "", drills: "練習を追加", matches: "振り返りを追加" };
+const TABS = ["sequences", "frames", "drills", "matches"];
+const ADD_LABELS = { sequences: "手順を追加", frames: "", drills: "練習を追加", matches: "振り返りを追加" };
+const KIND_ADD_LABELS = { combo: "コンボを追加", setplay: "起き攻めを追加" };
+const SEQUENCE_KINDS = { combo: "コンボ", setplay: "起き攻め" };
+/** 以前の「コンボ」「起き攻め」タブの保存値・URLを、手順タブ（＋種類の絞り込み）に読み替える。 */
+const LEGACY_TABS = { combos: "combo", setplays: "setplay" };
 
 const state = {
   data: null,
-  tab: "combos",
-  comboCharacter: "",
-  comboPosition: "",
+  tab: "sequences",
+  sequenceCharacter: "",
+  /** 手順の種類の絞り込み。"" はすべて、"combo" / "setplay"。 */
+  sequenceKind: "",
+  sequencePosition: "",
   /** 「状況から引く」の条件。situationId は状況の id（"none" は状況なし）、drive・sa・punishWindow は null なら指定なし。 */
   conditions: { situationId: null, drive: null, sa: null, ca: false, burnout: false, punishWindow: null },
-  setplayCharacter: "",
-  setplayStart: null,
   frames: { character: "", query: "", category: "", sort: "official", punishableOnly: false, cancelableOnly: false, open: null },
   /** キャラ名 → GET /api/sf6/moves の応答。タブやモーダルで初めて要るときに1回だけ読む。 */
   moves: new Map(),
@@ -60,10 +64,9 @@ const state = {
 
 const ids = [
   "sourceBadge", "refreshButton", "addButton", "addLabel", "loadingState", "errorState", "errorMessage", "retryButton",
-  "countCombos", "countSetplays", "countDrills", "countMatches",
-  "comboCharacter", "comboPosition", "comboSituation", "comboConditions", "conditionDrive", "conditionSa", "conditionCa", "conditionBurnout",
-  "conditionPunish", "conditionSummary", "comboList", "comboArchiveFold", "comboArchiveCount", "comboArchive",
-  "setplayCharacter", "setplayStart", "setplayList", "setplayArchiveFold", "setplayArchiveCount", "setplayArchive",
+  "countSequences", "countDrills", "countMatches",
+  "sequenceCharacter", "sequenceKind", "sequencePosition", "sequenceSituation", "sequenceConditions", "conditionDrive", "conditionSa", "conditionCa", "conditionBurnout",
+  "conditionPunish", "conditionSummary", "sequenceList", "sequenceArchiveFold", "sequenceArchiveCount", "sequenceArchive",
   "frameCharacter", "frameQuery", "frameCategory", "frameSort", "framePunishable", "frameCancelable", "frameVersion", "frameTable",
   "drillList", "logList", "drillDoneFold", "drillDoneCount", "drillDone",
   "matchStats", "matchList",
@@ -230,8 +233,7 @@ function activeDrillFor(sequenceId) {
 
 /** 状況の一覧を出すときのキャラ。タブの絞り込み → 最後に使ったキャラの順。 */
 function currentCharacter() {
-  if (state.tab === "setplays" && state.setplayCharacter) return state.setplayCharacter;
-  return state.comboCharacter || stored("sf6-character", "");
+  return state.sequenceCharacter || stored("sf6-character", "");
 }
 
 // ---------- 通信 ----------
@@ -316,7 +318,6 @@ function removeItem(resource, id) {
       sequence.results.forEach((result) => { if (result.nextSituationId === id) result.nextSituationId = null; });
     });
     if (state.conditions.situationId === id) state.conditions.situationId = null;
-    if (state.setplayStart === id) state.setplayStart = null;
   }
 }
 
@@ -357,15 +358,13 @@ function fillSelect(select, values, selected, allLabel) {
 
 function render() {
   const { sequences, drills, matches } = state.data;
-  els.countCombos.textContent = sequences.filter((entry) => entry.kind === "combo" && !entry.archived).length || "";
-  els.countSetplays.textContent = sequences.filter((entry) => entry.kind === "setplay" && !entry.archived).length || "";
+  els.countSequences.textContent = sequences.filter((entry) => !entry.archived).length || "";
   els.countDrills.textContent = drills.filter((drill) => drill.status === "active").length || "";
   els.countMatches.textContent = matches.length || "";
   const known = new Set([...CHARACTERS, ...charactersIn(sequences, "character"), ...charactersIn(matches, "opponent")]);
   els.characterOptions.innerHTML = [...known].map((name) => `<option value="${escapeHtml(name)}"></option>`).join("");
   renderTabs();
-  renderCombos();
-  renderSetplays();
+  renderSequences();
   renderFrames();
   renderDrills();
   renderMatches();
@@ -377,7 +376,7 @@ function renderTabs() {
     button.setAttribute("aria-selected", String(button.dataset.tab === state.tab));
   });
   TABS.forEach((tab) => { document.getElementById(`panel-${tab}`).hidden = !state.data || tab !== state.tab; });
-  els.addLabel.textContent = ADD_LABELS[state.tab];
+  els.addLabel.textContent = state.tab === "sequences" && state.sequenceKind ? KIND_ADD_LABELS[state.sequenceKind] : ADD_LABELS[state.tab];
   els.addButton.hidden = !ADD_LABELS[state.tab];
 }
 
@@ -403,6 +402,11 @@ function drillButtonHtml(sequence) {
     : `<button type="button" class="ghost-button" data-drill-from-sequence="${sequence.id}">練習に追加</button>`;
 }
 
+/** 種類を絞り込んでいない一覧でだけ、コンボか起き攻めかの印を出す。 */
+function kindBadgeHtml(sequence) {
+  return state.sequenceKind === "" ? `<span class="kind-badge">${SEQUENCE_KINDS[sequence.kind]}</span>` : "";
+}
+
 function comboCard(combo) {
   const byId = situationsById();
   const starts = combo.starts.map((id) => byId.get(id)).filter(Boolean);
@@ -425,7 +429,7 @@ function comboCard(combo) {
     : "";
   return `<article class="card combo-card" id="sequence-${combo.id}">
     <div class="card-head">
-      <h3>${escapeHtml(combo.title)}</h3>
+      <h3>${kindBadgeHtml(combo)}${escapeHtml(combo.title)}</h3>
       <button type="button" class="ghost-button" data-edit="sequences" data-id="${combo.id}">編集</button>
     </div>
     <div class="situations">${starts.length
@@ -465,29 +469,43 @@ function byAdvantage(a, b) {
   return (b.advantage ?? -Infinity) - (a.advantage ?? -Infinity) || a.id - b.id;
 }
 
-function renderComboSituations(combos) {
-  const character = state.comboCharacter;
-  const used = new Set(combos.flatMap((combo) => combo.starts));
+function renderSequenceSituations(sequences) {
+  const character = state.sequenceCharacter;
+  const used = new Set(sequences.flatMap((sequence) => sequence.starts));
   // 選んでいる状況はアーカイブ済みでも残す（「確反コンボを探す」でアーカイブ済みの初期の状況が選ばれるため）
   const triggers = state.data.situations.filter((situation) => situation.kind === "trigger"
     && (!situation.archived || situation.id === state.conditions.situationId)
     && (!character || situation.character === null || situation.character === character));
   const states = state.data.situations.filter((situation) => situation.kind === "state" && used.has(situation.id)
     && (!character || situation.character === character)).sort(byAdvantage);
-  const orphaned = combos.some((combo) => combo.starts.length === 0);
+  const orphaned = sequences.some((sequence) => sequence.starts.length === 0);
   const { situationId } = state.conditions;
   const known = [...triggers, ...states].some((situation) => situation.id === situationId) || (situationId === "none" && orphaned);
   if (!known) state.conditions.situationId = null;
-  els.comboSituation.innerHTML = `<option value="">状況：すべて</option>${situationOptionsHtml([["きっかけ", triggers], ["局面", states]], state.conditions.situationId)}${orphaned
+  els.sequenceSituation.innerHTML = `<option value="">状況：すべて</option>${situationOptionsHtml([["きっかけ", triggers], ["局面", states]], state.conditions.situationId)}${orphaned
     ? `<option value="none"${state.conditions.situationId === "none" ? " selected" : ""}>状況なし</option>` : ""}`;
 }
 
-function renderCombos() {
-  const combos = sequencesOf("combo");
-  state.comboCharacter = fillSelect(els.comboCharacter, charactersIn(combos, "character"), state.comboCharacter, "全キャラ");
-  renderComboSituations(combos);
-  els.comboPosition.querySelectorAll("button").forEach((button) => {
-    button.setAttribute("aria-pressed", String(button.dataset.value === state.comboPosition));
+function sequenceCard(sequence) {
+  return sequence.kind === "setplay" ? setplayCard(sequence) : comboCard(sequence);
+}
+
+function emptySequencesText(total, noStartup) {
+  if (noStartup) return `発生Fが未入力のコンボは${noStartup}件あります`;
+  const label = state.sequenceKind ? SEQUENCE_KINDS[state.sequenceKind] : "手順";
+  return total ? `この状況・条件で使える${label}はありません` : `まだ${label}がありません。右上の「＋」から追加できます`;
+}
+
+function renderSequences() {
+  const all = state.data.sequences;
+  const ofKind = all.filter((sequence) => !state.sequenceKind || sequence.kind === state.sequenceKind);
+  state.sequenceCharacter = fillSelect(els.sequenceCharacter, charactersIn(all, "character"), state.sequenceCharacter, "全キャラ");
+  renderSequenceSituations(ofKind.filter((sequence) => !state.sequenceCharacter || sequence.character === state.sequenceCharacter));
+  els.sequenceKind.querySelectorAll("button").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.value === state.sequenceKind));
+  });
+  els.sequencePosition.querySelectorAll("button").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.value === state.sequencePosition));
   });
   const { drive, sa, ca, burnout, punishWindow } = state.conditions;
   els.conditionDrive.value = drive === null ? "" : String(drive);
@@ -497,25 +515,30 @@ function renderCombos() {
   els.conditionBurnout.checked = burnout;
   const summary = [...conditionSummaryText(), punishWindow !== null ? `相手の不利F${punishWindow}` : ""].filter(Boolean);
   els.conditionSummary.textContent = summary.length ? summary.join("・") : "指定なし";
-  const mine = combos.filter((combo) => !state.comboCharacter || combo.character === state.comboCharacter);
-  const visible = mine.filter((combo) => usableNow(combo, { ...state.conditions, position: state.comboPosition }));
-  const active = sortSequences(visible.filter((combo) => !combo.archived), state.conditions, situationsById());
-  const archived = visible.filter((combo) => combo.archived);
+  const mine = ofKind.filter((sequence) => !state.sequenceCharacter || sequence.character === state.sequenceCharacter);
+  const visible = mine.filter((sequence) => usableNow(sequence, { ...state.conditions, position: state.sequencePosition }));
+  const sorted = sortSequences(visible.filter((sequence) => !sequence.archived), state.conditions, situationsById());
+  // コンボ → 起き攻めの順。条件で並べていないときの起き攻めは、起点の有利Fが大きい順
+  const active = [
+    ...sorted.filter((sequence) => sequence.kind === "combo"),
+    ...(conditionsActive() ? sorted.filter((sequence) => sequence.kind === "setplay")
+      : sorted.filter((sequence) => sequence.kind === "setplay").sort((a, b) => maxAdvantage(b) - maxAdvantage(a))),
+  ];
+  const archived = visible.filter((sequence) => sequence.archived);
   const groups = new Map();
-  active.forEach((combo) => groups.set(combo.character, [...(groups.get(combo.character) || []), combo]));
-  // 不利F以外の状況・条件では使えるのに、発生Fがないので出ていないもの
+  active.forEach((sequence) => groups.set(sequence.character, [...(groups.get(sequence.character) || []), sequence]));
+  // 不利F以外の状況・条件では使えるのに、発生Fがないので出ていないコンボ
   const noStartup = punishWindow !== null
-    ? mine.filter((combo) => !combo.archived && combo.startup === null
-      && usableNow(combo, { ...state.conditions, position: state.comboPosition, punishWindow: null })).length
+    ? mine.filter((sequence) => sequence.kind === "combo" && !sequence.archived && sequence.startup === null
+      && usableNow(sequence, { ...state.conditions, position: state.sequencePosition, punishWindow: null })).length
     : 0;
-  els.comboList.innerHTML = active.length
-    ? [...groups].map(([character, list]) => `<h2 class="list-title">${escapeHtml(character)}<small>${list.length}</small></h2>${list.map(comboCard).join("")}`).join("")
-    : empty(noStartup ? `発生Fが未入力のコンボは${noStartup}件あります`
-      : combos.length ? "この状況・条件で使えるコンボはありません" : "まだコンボがありません。右上の「＋」から追加できます");
-  els.comboArchiveFold.hidden = archived.length === 0;
-  els.comboArchiveCount.textContent = archived.length;
-  els.comboArchive.innerHTML = archived.map(comboCard).join("");
-  if (conditionsActive() && punishWindow !== null) els.comboConditions.open = true;
+  els.sequenceList.innerHTML = active.length
+    ? [...groups].map(([character, list]) => `<h2 class="list-title">${escapeHtml(character)}<small>${list.length}</small></h2>${list.map(sequenceCard).join("")}`).join("")
+    : empty(emptySequencesText(ofKind.length, noStartup));
+  els.sequenceArchiveFold.hidden = archived.length === 0;
+  els.sequenceArchiveCount.textContent = archived.length;
+  els.sequenceArchive.innerHTML = archived.map(sequenceCard).join("");
+  if (conditionsActive() && punishWindow !== null) els.sequenceConditions.open = true;
 }
 
 function outcomesHtml(setplay, showBackRoll) {
@@ -548,7 +571,7 @@ function setplayCard(setplay) {
   const results = resultLinesHtml(setplay, ["hit", "guard", "opponent"]);
   return `<article class="card setplay-card" id="sequence-${setplay.id}">
     <div class="card-head">
-      <h3>${escapeHtml(setplay.title)}</h3>
+      <h3>${kindBadgeHtml(setplay)}${escapeHtml(setplay.title)}</h3>
       <button type="button" class="ghost-button" data-edit="sequences" data-id="${setplay.id}">編集</button>
     </div>
     <p class="start-line"><b>起点</b>${starts.length ? escapeHtml(startText) : "状況なし"}${before.length ? `<span>${before.map((combo) => escapeHtml(combo.title)).join("、")}の後</span>` : ""}</p>
@@ -566,29 +589,6 @@ function setplayCard(setplay) {
 
 function maxAdvantage(sequence) {
   return Math.max(-Infinity, ...startStatesOf(sequence).map((situation) => situation.advantage ?? -Infinity));
-}
-
-function renderSetplays() {
-  const setplays = sequencesOf("setplay");
-  state.setplayCharacter = fillSelect(els.setplayCharacter, charactersIn(setplays, "character"), state.setplayCharacter, "全キャラ");
-  const mine = setplays.filter((setplay) => !state.setplayCharacter || setplay.character === state.setplayCharacter);
-  const used = new Set(mine.flatMap((setplay) => setplay.starts));
-  const starts = state.data.situations.filter((situation) => used.has(situation.id)).sort(byAdvantage);
-  if (!starts.some((situation) => situation.id === state.setplayStart)) state.setplayStart = null;
-  els.setplayStart.innerHTML = `<option value="">起点：すべて</option>${starts.map((situation) =>
-    `<option value="${situation.id}"${situation.id === state.setplayStart ? " selected" : ""}>${escapeHtml(situationText(situation))}</option>`).join("")}`;
-  const visible = mine.filter((setplay) => state.setplayStart === null || setplay.starts.includes(state.setplayStart));
-  const active = visible.filter((setplay) => !setplay.archived);
-  const archived = visible.filter((setplay) => setplay.archived);
-  const groups = new Map();
-  active.forEach((setplay) => groups.set(setplay.character, [...(groups.get(setplay.character) || []), setplay]));
-  els.setplayList.innerHTML = active.length
-    ? [...groups].map(([character, list]) => `<h2 class="list-title">${escapeHtml(character)}<small>${list.length}</small></h2>${list
-      .sort((a, b) => maxAdvantage(b) - maxAdvantage(a)).map(setplayCard).join("")}`).join("")
-    : empty(setplays.length ? "条件に合う起き攻めはありません" : "まだ起き攻めがありません。コンボの「起き攻めを追加」から作ると、締めの局面が入ります");
-  els.setplayArchiveFold.hidden = archived.length === 0;
-  els.setplayArchiveCount.textContent = archived.length;
-  els.setplayArchive.innerHTML = archived.map(setplayCard).join("");
 }
 
 // ---------- フレーム ----------
@@ -691,11 +691,12 @@ function findPunish(moveId) {
   if (!move || move.onBlock === null) return;
   const punish = state.data.situations.find((situation) => situation.presetKey === PRESET.punish);
   state.conditions = { ...state.conditions, situationId: punish?.id ?? null, punishWindow: Math.abs(move.onBlock) };
-  state.comboCharacter = stored("sf6-character", state.comboCharacter);
-  state.comboPosition = "";
-  selectTab("combos");
-  renderCombos();
-  els.comboConditions.open = true;
+  state.sequenceCharacter = stored("sf6-character", state.sequenceCharacter);
+  state.sequenceKind = "combo";
+  state.sequencePosition = "";
+  selectTab("sequences");
+  renderSequences();
+  els.sequenceConditions.open = true;
   window.scrollTo({ top: 0 });
 }
 
@@ -831,6 +832,25 @@ function openSheet(sheet) {
   document.querySelectorAll("details.menu[open]").forEach((menu) => menu.removeAttribute("open"));
 }
 
+/** 絞り込み中のキャラ・状況を引き継いだ、新しい手順の初期値。起き攻めの起点は局面だけ。 */
+function newSequencePreset(kind) {
+  const { situationId } = state.conditions;
+  const situation = typeof situationId === "number" ? situationsById().get(situationId) : null;
+  return {
+    kind,
+    ...(state.sequenceCharacter ? { character: state.sequenceCharacter } : {}),
+    starts: situation && (kind === "combo" || situation.kind === "state") ? [situation.id] : [],
+  };
+}
+
+/** 種類を絞り込んでいないときの「手順を追加」：コンボか起き攻めかを選ぶ。 */
+function renderAddKind() {
+  els.sheetTitle.textContent = "手順を追加";
+  els.sheetBody.innerHTML = `
+    <button type="button" class="sheet-row" data-add-kind="combo"><span>コンボ<small>確定反撃やヒット確認から始める手順</small></span><small>›</small></button>
+    <button type="button" class="sheet-row" data-add-kind="setplay"><span>起き攻め<small>ダウンを奪った後や有利フレームで行う手順</small></span><small>›</small></button>`;
+}
+
 function closeSheet() {
   els.sheet.hidden = true;
   state.sheet = null;
@@ -840,6 +860,7 @@ function renderSheet() {
   const { type } = state.sheet;
   if (type === "route") renderRoute();
   else if (type === "routeStart") renderRouteStart();
+  else if (type === "addKind") renderAddKind();
   else renderSituationManager();
 }
 
@@ -1642,38 +1663,38 @@ document.querySelectorAll("[data-tab]").forEach((button) => {
   button.addEventListener("click", () => selectTab(button.dataset.tab));
 });
 
-els.comboCharacter.addEventListener("change", () => {
-  state.comboCharacter = els.comboCharacter.value;
-  store("sf6-combo-character", state.comboCharacter);
-  renderCombos();
+els.sequenceCharacter.addEventListener("change", () => {
+  state.sequenceCharacter = els.sequenceCharacter.value;
+  store("sf6-sequence-character", state.sequenceCharacter);
+  renderSequences();
 });
-els.comboPosition.addEventListener("click", (event) => {
+els.sequenceKind.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-value]");
   if (!button) return;
-  state.comboPosition = button.dataset.value;
-  renderCombos();
+  state.sequenceKind = button.dataset.value;
+  store("sf6-sequence-kind", state.sequenceKind);
+  renderTabs();
+  renderSequences();
 });
-els.comboSituation.addEventListener("change", () => {
-  const value = els.comboSituation.value;
+els.sequencePosition.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-value]");
+  if (!button) return;
+  state.sequencePosition = button.dataset.value;
+  renderSequences();
+});
+els.sequenceSituation.addEventListener("change", () => {
+  const value = els.sequenceSituation.value;
   state.conditions.situationId = value === "" ? null : value === "none" ? "none" : Number(value);
-  renderCombos();
+  renderSequences();
 });
-els.comboConditions.addEventListener("change", () => {
+els.sequenceConditions.addEventListener("change", () => {
   const punish = Number(els.conditionPunish.value);
   state.conditions.drive = els.conditionDrive.value === "" ? null : Number(els.conditionDrive.value);
   state.conditions.sa = els.conditionSa.value === "" ? null : Number(els.conditionSa.value);
   state.conditions.punishWindow = els.conditionPunish.value === "" || !Number.isInteger(punish) || punish < 1 ? null : Math.min(punish, 99);
   state.conditions.ca = els.conditionCa.checked;
   state.conditions.burnout = els.conditionBurnout.checked;
-  renderCombos();
-});
-els.setplayCharacter.addEventListener("change", () => {
-  state.setplayCharacter = els.setplayCharacter.value;
-  renderSetplays();
-});
-els.setplayStart.addEventListener("change", () => {
-  state.setplayStart = els.setplayStart.value === "" ? null : Number(els.setplayStart.value);
-  renderSetplays();
+  renderSequences();
 });
 WIDE_FRAMES.addEventListener("change", () => { if (state.data) renderFrames(); });
 els.frameCharacter.addEventListener("change", () => {
@@ -1712,7 +1733,7 @@ function routeFromCard(value) {
   if (!result?.nextSituationId) return;
   const step = { sequenceId: sequence.id, resultKind, opponentAction: opponentAction || null };
   // 始点は、絞り込みで選んでいる状況がこの手順の始動にあればそれ、なければ最初の始動
-  const selected = sequence.kind === "setplay" ? state.setplayStart : state.conditions.situationId;
+  const selected = state.conditions.situationId;
   const start = sequence.starts.includes(selected) ? selected : sequence.starts[0];
   openRoute([...(start !== undefined ? [{ situationId: start }, step] : []), { situationId: result.nextSituationId }], sequence.character);
 }
@@ -1755,10 +1776,14 @@ async function onAction(event) {
     const combo = find("sequences", dataset.setplayFromCombo);
     openModal("sequences", null, { kind: "setplay", character: combo.character, starts: [resultOf(combo, "hit").nextSituationId], position: combo.position });
   } else if (dataset.gotoSequence) {
-    selectTab("setplays");
-    state.setplayCharacter = "";
-    state.setplayStart = null;
-    renderSetplays();
+    // 行き先の起き攻めを隠さないよう、絞り込みと条件を外してから開く
+    selectTab("sequences");
+    state.sequenceCharacter = "";
+    state.sequenceKind = "";
+    state.sequencePosition = "";
+    state.conditions = { situationId: null, drive: null, sa: null, ca: false, burnout: false, punishWindow: null };
+    renderTabs();
+    renderSequences();
     const card = document.getElementById(`sequence-${dataset.gotoSequence}`);
     card?.scrollIntoView({ block: "center" });
     card?.classList.add("flash");
@@ -1782,11 +1807,14 @@ async function onAction(event) {
     openRoute([{ situationId: Number(dataset.routeStart) }], state.sheet.character);
   } else if (dataset.routeDrill !== undefined) {
     openModal("drills", null, routeDrillPreset(state.sheet.path, sequencesById(), situationsById()));
-  } else if (dataset.openRoute) {
-    const character = dataset.openRoute === "setplays" ? state.setplayCharacter : state.comboCharacter;
-    const selected = dataset.openRoute === "setplays" ? state.setplayStart : state.conditions.situationId;
+  } else if (dataset.openRoute !== undefined) {
+    const character = state.sequenceCharacter;
+    const selected = state.conditions.situationId;
     if (typeof selected === "number") openRoute([{ situationId: selected }], character);
     else openSheet({ type: "routeStart", character });
+  } else if (dataset.addKind) {
+    closeSheet();
+    openModal("sequences", null, newSequencePreset(dataset.addKind));
   } else if (dataset.manageSituations !== undefined) {
     openSheet({ type: "situations", character: currentCharacter() });
   } else if (dataset.editSituation) {
@@ -1837,19 +1865,9 @@ els.sheet.addEventListener("click", (event) => { if (event.target === els.sheet)
 
 els.addButton.addEventListener("click", () => {
   if (!state.data) return;
-  if (state.tab === "combos") {
-    const { situationId } = state.conditions;
-    openModal("sequences", null, {
-      kind: "combo",
-      ...(state.comboCharacter ? { character: state.comboCharacter } : {}),
-      starts: typeof situationId === "number" ? [situationId] : [],
-    });
-  } else if (state.tab === "setplays") {
-    openModal("sequences", null, {
-      kind: "setplay",
-      ...(state.setplayCharacter ? { character: state.setplayCharacter } : {}),
-      starts: state.setplayStart !== null ? [state.setplayStart] : [],
-    });
+  if (state.tab === "sequences") {
+    if (state.sequenceKind) openModal("sequences", null, newSequencePreset(state.sequenceKind));
+    else openSheet({ type: "addKind" });
   } else openModal(state.tab);
 });
 
@@ -1961,7 +1979,13 @@ els.retryButton.addEventListener("click", () => {
 els.conditionDrive.innerHTML = `<option value="">指定なし</option>${options(DRIVE_STEPS, "")}`;
 els.conditionSa.innerHTML = `<option value="">指定なし</option>${options({ 0: "0本", 1: "1本", 2: "2本", 3: "3本" }, "")}`;
 const requestedTab = new URL(window.location.href).searchParams.get("tab");
-state.tab = TABS.includes(requestedTab) ? requestedTab : TABS.includes(stored("sf6-tab", "")) ? stored("sf6-tab", "") : "combos";
-state.comboCharacter = stored("sf6-combo-character", "");
+const savedTab = stored("sf6-tab", "");
+const initialTab = requestedTab || savedTab;
+state.tab = TABS.includes(initialTab) ? initialTab : "sequences";
+// 以前の「コンボ」「起き攻め」タブは、手順タブの種類の絞り込みとして引き継ぐ
+const savedKind = LEGACY_TABS[initialTab] || stored("sf6-sequence-kind", "");
+state.sequenceKind = savedKind in SEQUENCE_KINDS ? savedKind : "";
+if (initialTab in LEGACY_TABS) state.tab = "sequences";
+state.sequenceCharacter = stored("sf6-sequence-character", stored("sf6-combo-character", ""));
 renderTabs();
 load();

@@ -40,15 +40,14 @@
             </details>
             <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
             <button class="dashboard-refresh" id="refreshButton" type="button" aria-label="データを再読み込み" title="再読み込み">↻</button><a class="dashboard-refresh dashboard-help" href="/help/#sf6" title="ヘルプ" aria-label="ヘルプ">?</a>
-            <button class="dashboard-primary" id="addButton" type="button"><span aria-hidden="true">＋</span><span id="addLabel">コンボを追加</span></button>
+            <button class="dashboard-primary" id="addButton" type="button"><span aria-hidden="true">＋</span><span id="addLabel">手順を追加</span></button>
           </div>
         </div>
       </header>
 
       <main class="dashboard-main">
         <nav class="tabs" role="tablist" aria-label="SF6の記録">
-          <button type="button" role="tab" data-tab="combos" aria-selected="true">コンボ<b id="countCombos"></b></button>
-          <button type="button" role="tab" data-tab="setplays" aria-selected="false">起き攻め<b id="countSetplays"></b></button>
+          <button type="button" role="tab" data-tab="sequences" aria-selected="true">手順<b id="countSequences"></b></button>
           <button type="button" role="tab" data-tab="frames" aria-selected="false">フレーム</button>
           <button type="button" role="tab" data-tab="drills" aria-selected="false">練習<b id="countDrills"></b></button>
           <button type="button" role="tab" data-tab="matches" aria-selected="false">振り返り<b id="countMatches"></b></button>
@@ -57,23 +56,28 @@
         <div class="state-card" id="loadingState" role="status"><span class="spinner"></span><p>読み込んでいます</p></div>
         <div class="state-card error-state" id="errorState" role="alert" hidden><h2>読み込めませんでした</h2><p id="errorMessage"></p><button id="retryButton" type="button">再試行</button></div>
 
-        <section class="tab-panel" id="panel-combos" role="tabpanel" hidden>
+        <section class="tab-panel" id="panel-sequences" role="tabpanel" hidden>
           <div class="filters">
-            <select id="comboCharacter" aria-label="キャラで絞り込む"></select>
-            <div class="segmented" role="group" aria-label="位置で絞り込む" id="comboPosition">
+            <select id="sequenceCharacter" aria-label="キャラで絞り込む"></select>
+            <div class="segmented" role="group" aria-label="種類で絞り込む" id="sequenceKind">
+              <button type="button" data-value="" aria-pressed="true">すべて</button>
+              <button type="button" data-value="combo" aria-pressed="false">コンボ</button>
+              <button type="button" data-value="setplay" aria-pressed="false">起き攻め</button>
+            </div>
+            <div class="segmented" role="group" aria-label="位置で絞り込む" id="sequencePosition">
               <button type="button" data-value="" aria-pressed="true">すべて</button>
               <button type="button" data-value="midscreen" aria-pressed="false">中央</button>
               <button type="button" data-value="corner" aria-pressed="false">画面端</button>
             </div>
-            <select id="comboSituation" aria-label="状況から引く"></select>
+            <select id="sequenceSituation" aria-label="状況から引く"></select>
             <details class="menu">
               <summary aria-label="状況のメニュー" title="状況のメニュー">⋯</summary>
               <div class="menu-list">
-                <button type="button" data-open-route="combos">ルートで見る</button>
+                <button type="button" data-open-route>ルートで見る</button>
                 <button type="button" data-manage-situations>状況を管理</button>
               </div>
             </details>
-            <details class="conditions" id="comboConditions">
+            <details class="conditions" id="sequenceConditions">
               <summary>条件：<span id="conditionSummary">指定なし</span></summary>
               <div class="condition-grid">
                 <label><span>残りDゲージ</span><select id="conditionDrive"></select></label>
@@ -84,24 +88,8 @@
               </div>
             </details>
           </div>
-          <div class="card-list" id="comboList"></div>
-          <details class="fold" id="comboArchiveFold"><summary>アーカイブ <span id="comboArchiveCount"></span></summary><div class="card-list" id="comboArchive"></div></details>
-        </section>
-
-        <section class="tab-panel" id="panel-setplays" role="tabpanel" hidden>
-          <div class="filters">
-            <select id="setplayCharacter" aria-label="キャラで絞り込む"></select>
-            <select id="setplayStart" aria-label="起点で絞り込む"></select>
-            <details class="menu">
-              <summary aria-label="状況のメニュー" title="状況のメニュー">⋯</summary>
-              <div class="menu-list">
-                <button type="button" data-open-route="setplays">ルートで見る</button>
-                <button type="button" data-manage-situations>状況を管理</button>
-              </div>
-            </details>
-          </div>
-          <div class="card-list" id="setplayList"></div>
-          <details class="fold" id="setplayArchiveFold"><summary>アーカイブ <span id="setplayArchiveCount"></span></summary><div class="card-list" id="setplayArchive"></div></details>
+          <div class="card-list" id="sequenceList"></div>
+          <details class="fold" id="sequenceArchiveFold"><summary>アーカイブ <span id="sequenceArchiveCount"></span></summary><div class="card-list" id="sequenceArchive"></div></details>
         </section>
 
         <section class="tab-panel" id="panel-frames" role="tabpanel" hidden>
