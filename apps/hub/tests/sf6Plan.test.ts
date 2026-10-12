@@ -188,12 +188,12 @@ test("起き攻めの手順に移動・タイミングの基準を使える", ()
   assert.equal((parseNotation("前ステ")[0] as { kind: string }).kind, "move");
 });
 
-test("SF6ページは4タブ（コンボと起き攻めは手順に統合・フレームあり・注意点なし）で、バーンアウトの手入力と「注意点にする」がない", async () => {
+test("SF6ページは5タブ（状況・コンボと起き攻めは手順に統合・フレームあり・注意点なし）で、バーンアウトの手入力と「注意点にする」がない", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("../public/sf6/index.html", import.meta.url), "utf8"),
     readFile(new URL("../public/sf6.js", import.meta.url), "utf8"),
   ]);
-  assert.deepEqual([...html.matchAll(/data-tab="([a-z]+)"/g)].map((match) => match[1]), ["sequences", "frames", "drills", "matches"]);
+  assert.deepEqual([...html.matchAll(/data-tab="([a-z]+)"/g)].map((match) => match[1]), ["sequences", "situations", "frames", "drills", "matches"]);
   // 手順タブは種類（すべて・コンボ・起き攻め）で絞り込む
   assert.deepEqual([...html.matchAll(/id="sequenceKind"[\s\S]*?<\/div>/g)][0][0].match(/data-value="([a-z]*)"/g), ["data-value=\"\"", "data-value=\"combo\"", "data-value=\"setplay\""]);
   assert.doesNotMatch(html, /data-tab="notes"|注意点/);
@@ -201,6 +201,7 @@ test("SF6ページは4タブ（コンボと起き攻めは手順に統合・フ�
   assert.match(html, /id="conditionBurnout"/);
   assert.match(html, /id="conditionPunish"/);
   assert.match(html, /id="sheet"/);
+  assert.match(html, /id="situationList"/);
   assert.match(html, /data-manage-situations/);
   assert.match(html, /data-open-flow/);
   assert.doesNotMatch(script, /burnoutOk|data-note-from-match|noteFromMatch/);
@@ -209,7 +210,7 @@ test("SF6ページは4タブ（コンボと起き攻めは手順に統合・フ�
   assert.match(script, /colspan="\$\{WIDE_FRAMES\.matches \? 6 : 4\}"/);
   // 初期の状況は削除ボタンを出さない（D3）
   assert.match(script, /resource === "situations" && Boolean\(item\.presetKey\)/);
-  assert.match(script, /const TABS = \["sequences", "frames", "drills", "matches"\]/);
+  assert.match(script, /const TABS = \["sequences", "situations", "frames", "drills", "matches"\]/);
 });
 
 test("ヘルプは状況・局面・ルート・フレームを説明し、注意点の説明はない", async () => {

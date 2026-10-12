@@ -48,6 +48,7 @@
       <main class="dashboard-main">
         <nav class="tabs" role="tablist" aria-label="SF6の記録">
           <button type="button" role="tab" data-tab="sequences" aria-selected="true">手順<b id="countSequences"></b></button>
+          <button type="button" role="tab" data-tab="situations" aria-selected="false">状況<b id="countSituations"></b></button>
           <button type="button" role="tab" data-tab="frames" aria-selected="false">フレーム</button>
           <button type="button" role="tab" data-tab="drills" aria-selected="false">練習<b id="countDrills"></b></button>
           <button type="button" role="tab" data-tab="matches" aria-selected="false">振り返り<b id="countMatches"></b></button>
@@ -91,6 +92,19 @@
           </div>
           <div class="card-list" id="sequenceList"></div>
           <details class="fold" id="sequenceArchiveFold"><summary>アーカイブ <span id="sequenceArchiveCount"></span></summary><div class="card-list" id="sequenceArchive"></div></details>
+        </section>
+
+        <section class="tab-panel" id="panel-situations" role="tabpanel" hidden>
+          <div class="filters">
+            <select id="situationCharacter" aria-label="キャラを選ぶ"></select>
+            <div class="segmented" role="group" aria-label="位置で絞り込む" id="situationPosition">
+              <button type="button" data-value="" aria-pressed="true">すべて</button>
+              <button type="button" data-value="midscreen" aria-pressed="false">中央</button>
+              <button type="button" data-value="corner" aria-pressed="false">画面端</button>
+            </div>
+          </div>
+          <div class="card-list" id="situationList"></div>
+          <details class="fold" id="situationArchiveFold"><summary>アーカイブ <span id="situationArchiveCount"></span></summary><div class="card-list" id="situationArchive"></div></details>
         </section>
 
         <section class="tab-panel" id="panel-frames" role="tabpanel" hidden>
