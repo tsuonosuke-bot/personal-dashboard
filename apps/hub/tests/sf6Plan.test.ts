@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { appendToken, parseNotation } from "../public/sf6-notation.js";
 import {
@@ -169,4 +170,20 @@ test("起き攻めの手順に移動・タイミングの基準を使える", ()
   assert.equal(text, "前ステ 2中P 重ね");
   assert.deepEqual(parseNotation(text).map((part) => part.type), ["link", "command", "link"]);
   assert.equal((parseNotation("前ステ")[0] as { kind: string }).kind, "move");
+});
+
+test("SF6ページは5タブ（フレームあり・注意点なし）で、バーンアウトの手入力と「注意点にする」がない", async () => {
+  const [html, script] = await Promise.all([
+    readFile(new URL("../public/sf6/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/sf6.js", import.meta.url), "utf8"),
+  ]);
+  assert.deepEqual([...html.matchAll(/data-tab="([a-z]+)"/g)].map((match) => match[1]), ["combos", "setplays", "frames", "drills", "matches"]);
+  assert.doesNotMatch(html, /data-tab="notes"|注意点/);
+  assert.match(html, /<small>コンボ・起き攻め・練習<\/small>/);
+  assert.match(html, /id="conditionBurnout"/);
+  assert.match(html, /id="conditionPunish"/);
+  assert.match(html, /id="sheet"/);
+  assert.match(html, /data-manage-situations/);
+  assert.doesNotMatch(script, /burnoutOk|data-note-from-match|noteFromMatch/);
+  assert.match(script, /const TABS = \["combos", "setplays", "frames", "drills", "matches"\]/);
 });

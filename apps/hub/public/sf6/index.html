@@ -19,7 +19,7 @@
         <div class="dashboard-header-inner">
           <div class="dashboard-brand">
             <span class="dashboard-brand-mark sf6" aria-hidden="true">SF</span>
-            <span><h1>SF6</h1><small>コンボ・注意点・練習</small></span>
+            <span><h1>SF6</h1><small>コンボ・起き攻め・練習</small></span>
           </div>
           <div class="dashboard-actions">
             <a class="dashboard-hub" href="/">← Hub</a>
@@ -49,7 +49,7 @@
         <nav class="tabs" role="tablist" aria-label="SF6の記録">
           <button type="button" role="tab" data-tab="combos" aria-selected="true">コンボ<b id="countCombos"></b></button>
           <button type="button" role="tab" data-tab="setplays" aria-selected="false">起き攻め<b id="countSetplays"></b></button>
-          <button type="button" role="tab" data-tab="notes" aria-selected="false">注意点<b id="countNotes"></b></button>
+          <button type="button" role="tab" data-tab="frames" aria-selected="false">フレーム</button>
           <button type="button" role="tab" data-tab="drills" aria-selected="false">練習<b id="countDrills"></b></button>
           <button type="button" role="tab" data-tab="matches" aria-selected="false">振り返り<b id="countMatches"></b></button>
         </nav>
@@ -66,11 +66,19 @@
               <button type="button" data-value="corner" aria-pressed="false">画面端</button>
             </div>
             <select id="comboSituation" aria-label="状況から引く"></select>
+            <details class="menu">
+              <summary aria-label="状況のメニュー" title="状況のメニュー">⋯</summary>
+              <div class="menu-list">
+                <button type="button" data-open-route="combos">ルートで見る</button>
+                <button type="button" data-manage-situations>状況を管理</button>
+              </div>
+            </details>
             <details class="conditions" id="comboConditions">
               <summary>条件：<span id="conditionSummary">指定なし</span></summary>
               <div class="condition-grid">
                 <label><span>残りDゲージ</span><select id="conditionDrive"></select></label>
                 <label><span>SAゲージ</span><select id="conditionSa"></select></label>
+                <label><span>相手の不利F</span><input id="conditionPunish" type="number" inputmode="numeric" min="1" max="99" step="1" placeholder="例：5" /></label>
                 <label class="check-field"><input type="checkbox" id="conditionCa" /><span>CA可（体力25%以下）</span></label>
                 <label class="check-field"><input type="checkbox" id="conditionBurnout" /><span>自分がバーンアウト中</span></label>
               </div>
@@ -83,17 +91,44 @@
         <section class="tab-panel" id="panel-setplays" role="tabpanel" hidden>
           <div class="filters">
             <select id="setplayCharacter" aria-label="キャラで絞り込む"></select>
+            <select id="setplayStart" aria-label="起点で絞り込む"></select>
+            <details class="menu">
+              <summary aria-label="状況のメニュー" title="状況のメニュー">⋯</summary>
+              <div class="menu-list">
+                <button type="button" data-open-route="setplays">ルートで見る</button>
+                <button type="button" data-manage-situations>状況を管理</button>
+              </div>
+            </details>
           </div>
           <div class="card-list" id="setplayList"></div>
           <details class="fold" id="setplayArchiveFold"><summary>アーカイブ <span id="setplayArchiveCount"></span></summary><div class="card-list" id="setplayArchive"></div></details>
         </section>
 
-        <section class="tab-panel" id="panel-notes" role="tabpanel" hidden>
+        <section class="tab-panel" id="panel-frames" role="tabpanel" hidden>
           <div class="filters">
-            <select id="noteOpponent" aria-label="相手キャラで絞り込む"></select>
+            <select id="frameCharacter" aria-label="キャラを選ぶ"></select>
+            <input id="frameQuery" class="frame-query" type="search" placeholder="技名・コマンドで検索" aria-label="技名・コマンドで検索" autocomplete="off" />
           </div>
-          <div id="noteGroups"></div>
-          <details class="fold" id="noteResolvedFold"><summary>直ったもの <span id="noteResolvedCount"></span></summary><div class="card-list" id="noteResolved"></div></details>
+          <div class="chip-scroll" id="frameCategory" role="group" aria-label="種類で絞り込む">
+            <button type="button" class="toggle-chip" data-category="" aria-pressed="true">すべて</button>
+            <button type="button" class="toggle-chip" data-category="normal" aria-pressed="false">通常</button>
+            <button type="button" class="toggle-chip" data-category="unique" aria-pressed="false">特殊</button>
+            <button type="button" class="toggle-chip" data-category="special" aria-pressed="false">必殺</button>
+            <button type="button" class="toggle-chip" data-category="super" aria-pressed="false">SA</button>
+            <button type="button" class="toggle-chip" data-category="throw" aria-pressed="false">投げ</button>
+            <button type="button" class="toggle-chip" data-category="common" aria-pressed="false">共通</button>
+          </div>
+          <div class="filters frame-options">
+            <select id="frameSort" aria-label="並べ替え">
+              <option value="official">公式順</option>
+              <option value="startup">発生の速い順</option>
+              <option value="block">ガード有利の大きい順</option>
+            </select>
+            <button type="button" class="toggle-chip" id="framePunishable" aria-pressed="false">確反あり</button>
+            <button type="button" class="toggle-chip" id="frameCancelable" aria-pressed="false">キャンセル可</button>
+          </div>
+          <p class="frame-version" id="frameVersion"></p>
+          <div id="frameTable"></div>
         </section>
 
         <section class="tab-panel" id="panel-drills" role="tabpanel" hidden>
@@ -116,12 +151,19 @@
         <form id="editForm" novalidate>
           <div id="formFields"></div>
           <p class="form-error" id="formError" role="alert" hidden></p>
+          <div class="delete-confirm" id="deleteConfirm" role="alert" hidden></div>
           <div class="form-actions">
             <button class="danger-button" id="deleteButton" type="button" hidden>削除</button>
             <button class="secondary-button" id="cancelButton" type="button">キャンセル</button>
             <button class="primary-button" id="saveButton" type="submit">保存する</button>
           </div>
         </form>
+      </section>
+    </div>
+    <div class="sheet-backdrop" id="sheet" hidden>
+      <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+        <div class="modal-head"><h2 id="sheetTitle"></h2><button id="sheetClose" type="button" aria-label="閉じる">×</button></div>
+        <div id="sheetBody"></div>
       </section>
     </div>
     <datalist id="characterOptions"></datalist>
