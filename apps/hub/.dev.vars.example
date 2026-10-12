@@ -8,7 +8,8 @@ AUTH_MODE=basic
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_replace-me
 ANTHROPIC_API_KEY=replace-with-an-anthropic-api-key
-ANTHROPIC_MODEL=claude-sonnet-5
+# 既定はclaude-haiku-5-5。別のモデルを試すときだけ設定する:
+# ANTHROPIC_MODEL=claude-sonnet-5-5
 # Multi-workspace keys only:
 # ANTHROPIC_WORKSPACE_ID=wrkspc_replace-me
 GOOGLE_OAUTH_CLIENT_ID=replace-with-google-web-client-id

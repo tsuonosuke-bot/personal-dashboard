@@ -4,7 +4,8 @@ const MAX_REQUEST_CHARS = 8_000;
 const MAX_CONTENT_CHARS = 2_000;
 const MAX_ANSWERS_CHARS = 2_000;
 const MAX_RESPONSE_CHARS = 20_000;
-const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5-5";
+/** 短い分類なので軽量モデルで足りる（入出力ともSonnet 5.5の約1/20の単価）。ANTHROPIC_MODELで上書きできる。 */
+const DEFAULT_ANTHROPIC_MODEL = "claude-haiku-5-5";
 /** 思考トークンもmax_tokensに含まれる。振り分けは短い応答なので思考はeffort lowで抑え、上限には余裕を持たせる。 */
 const MAX_OUTPUT_TOKENS = 6_000;
 
@@ -290,6 +291,24 @@ function normalizeSuggestion(value: unknown): AiTriageSuggestion {
   return { summary, needsClarification: value.needs_clarification, questions: questions as string[], suggestions };
 }
 
+/** 費用の内訳をCloudflareのログで確かめられるよう、トークン数だけを残す（本文は残さない）。 */
+function logUsage(model: string, payload: unknown): void {
+  const usage = (payload as { usage?: unknown } | null)?.usage;
+  if (typeof usage !== "object" || usage === null) return;
+  const count = (key: string): number => {
+    const value = (usage as Record<string, unknown>)[key];
+    return typeof value === "number" ? value : 0;
+  };
+  console.info("Anthropic usage", JSON.stringify({
+    label: "want_triage",
+    model,
+    input: count("input_tokens"),
+    output: count("output_tokens"),
+    cache_write: count("cache_creation_input_tokens"),
+    cache_read: count("cache_read_input_tokens"),
+  }));
+}
+
 export async function suggestWantRoutes(env: DashboardEnv, input: AiTriageInput): Promise<AiTriageSuggestion> {
   const apiKey = env.ANTHROPIC_API_KEY?.trim();
   const model = env.ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL;
@@ -347,6 +366,7 @@ export async function suggestWantRoutes(env: DashboardEnv, input: AiTriageInput)
   } catch {
     throw new DashboardError("AI_RESPONSE_INVALID", "Claude returned invalid JSON.");
   }
+  logUsage(model, payload);
   const outputText = extractOutputText(payload);
   let suggestion: unknown;
   try {

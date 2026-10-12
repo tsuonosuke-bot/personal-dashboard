@@ -169,7 +169,11 @@ test("英会話開始APIはナレッジの表記ではなくAI生成のビジネ
     assert.equal(body.items[0].target_en, "Would you mind reviewing the meeting materials?");
     assert.notEqual(body.items[0].target_en, "Would you mind doing");
     assert.equal(body.items[1].practice_type, "read_aloud");
-    assert.match(String(aiBody?.system), /ビジネス例文/);
+    // 作り直しは直後に同じsystemで送るので、systemを5分キャッシュする。短い例文なので思考はlow。
+    const system = aiBody?.system as { text: string; cache_control?: unknown }[];
+    assert.match(system.map((block) => block.text).join(""), /ビジネス例文/);
+    assert.deepEqual(system[0].cache_control, { type: "ephemeral" });
+    assert.equal((aiBody?.output_config as { effort?: string }).effort, "low");
     assert.match(JSON.stringify(aiBody?.messages), /Would you mind doing/);
   } finally {
     globalThis.fetch = originalFetch;

@@ -1,8 +1,11 @@
 import {
   callAnthropicTool,
+  QUIZ_EFFORT,
   QUIZ_MAX_TOKENS,
   QUIZ_MODEL,
   type AnthropicEnv,
+  type AnthropicToolCallOptions,
+  type AnthropicToolCallResult,
 } from "./anthropicClient.ts";
 import {
   AUTO_FORMAT,
@@ -463,8 +466,33 @@ function extractQuestionArray(
 }
 
 /**
+ * 生成をAIへ依頼する内容。通常の呼び出しとバッチ（定期生成）で同じものを送る。
+ * 作り直しの指示はsystemの後ろに別ブロックで足し、共通部分のキャッシュを使えるようにする。
+ * 定期生成は30分おきに同じsystemを送るので、キャッシュは1時間持たせる。
+ */
+export function buildGenerationRequest(
+  items: PickedItem[],
+  allowedById: Map<string, QuizFormat[]>,
+  tagsById: Map<string, string[]>,
+  notesById: Map<string, RecentNote[]>,
+  previousById?: Map<string, PreviousAttempt>,
+): AnthropicToolCallOptions {
+  const retrying = previousById !== undefined && previousById.size > 0;
+  return {
+    model: QUIZ_MODEL,
+    system: retrying ? [SYSTEM_PROMPT, RETRY_PROMPT] : [SYSTEM_PROMPT],
+    userText: buildUserText(items, allowedById, tagsById, notesById, previousById),
+    maxTokens: QUIZ_MAX_TOKENS,
+    effort: QUIZ_EFFORT,
+    cacheTtl: "1h",
+    tool: QUESTION_TOOL,
+  };
+}
+
+/**
  * AIを呼んで問題文と（四択なら）選択肢を取り出す。選択肢の妥当性チェックは呼び出し側で行う。
  * previousById を渡すと、前回の問題文と不採用の理由を添えて作り直させる。
+ * prefetched を渡すと（バッチで受け取った結果）、1回目はAIを呼ばずにそれを使う。
  */
 export async function generateQuestions(
   env: AnthropicEnv,
@@ -473,6 +501,7 @@ export async function generateQuestions(
   tagsById: Map<string, string[]>,
   notesById: Map<string, RecentNote[]>,
   previousById?: Map<string, PreviousAttempt>,
+  prefetched?: AnthropicToolCallResult,
 ): Promise<
   | {
     ok: true;
@@ -485,16 +514,10 @@ export async function generateQuestions(
 > {
   let questions: unknown[] | null = null;
   let lastShape = "";
-  const retrying = previousById !== undefined && previousById.size > 0;
+  const request = buildGenerationRequest(items, allowedById, tagsById, notesById, previousById);
   // 大きな入れ子配列ではツール入力が崩れることがあるため、形が不正なら1回だけ生成し直す。
   for (let attempt = 0; attempt < 2 && questions === null; attempt += 1) {
-    const generated = await callAnthropicTool(env, {
-      model: QUIZ_MODEL,
-      system: retrying ? SYSTEM_PROMPT + RETRY_PROMPT : SYSTEM_PROMPT,
-      userText: buildUserText(items, allowedById, tagsById, notesById, previousById),
-      maxTokens: QUIZ_MAX_TOKENS,
-      tool: QUESTION_TOOL,
-    });
+    const generated = attempt === 0 && prefetched ? prefetched : await callAnthropicTool(env, request);
     if (!generated.ok) return {
       ok: false,
       failure: {

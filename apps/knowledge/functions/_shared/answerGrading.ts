@@ -1,8 +1,11 @@
 import {
   callAnthropicTool,
+  QUIZ_EFFORT,
   QUIZ_MAX_TOKENS,
   QUIZ_MODEL,
   type AnthropicEnv,
+  type AnthropicToolCallOptions,
+  type AnthropicToolCallResult,
 } from "./anthropicClient.ts";
 import { MAX_ANSWER_CHARS, type QuizFormat } from "./quizValidation.ts";
 
@@ -239,23 +242,33 @@ export function answerQuotesMatch(answer: string, quotes: string[]): boolean {
   return normalizedQuotes.every((quote) => normalizedAnswer.includes(quote));
 }
 
-/** 採点をAIに1回依頼し、形式と回答引用の検証を通った項目だけを返す。 */
+/**
+ * 採点をAIへ依頼する内容。通常の呼び出しとバッチ（定期採点）で同じものを送る。
+ * 定期採点は1時間おきで、同じ回の再依頼も続くため、systemのキャッシュは1時間持たせる。
+ */
+export function buildGradingRequest(items: unknown[]): AnthropicToolCallOptions {
+  return {
+    model: QUIZ_MODEL,
+    system: [SYSTEM_PROMPT],
+    userText: JSON.stringify(items),
+    maxTokens: QUIZ_MAX_TOKENS,
+    effort: QUIZ_EFFORT,
+    cacheTtl: "1h",
+    tool: GRADE_TOOL as unknown as AnthropicToolCallOptions["tool"],
+  };
+}
+
+/**
+ * 採点をAIに1回依頼し、形式と回答引用の検証を通った項目だけを返す。
+ * prefetched を渡すと（バッチで受け取った結果）、AIを呼ばずにそれを検証する。
+ */
 export async function requestGrades(
   env: AnthropicEnv,
   items: unknown[],
   answerById: Map<string, string>,
+  prefetched?: AnthropicToolCallResult,
 ): Promise<{ ok: true; byId: Map<string, RawGrade> } | { ok: false; status: number; error: string }> {
-  const graded = await callAnthropicTool(env, {
-    model: QUIZ_MODEL,
-    system: SYSTEM_PROMPT,
-    userText: JSON.stringify(items),
-    maxTokens: QUIZ_MAX_TOKENS,
-    tool: GRADE_TOOL as unknown as {
-      name: string;
-      description: string;
-      input_schema: Record<string, unknown>;
-    },
-  });
+  const graded = prefetched ?? await callAnthropicTool(env, buildGradingRequest(items));
   // 採点側は失敗を1つの文字列で持つため、対処方法があるときは同じ文へまとめる。
   if (!graded.ok) return {
     ok: false,
@@ -366,15 +379,9 @@ export function instantGrade(input: {
   };
 }
 
-/**
- * まとめて採点する。無回答はAIを呼ばずq0、それ以外は1回まとめて依頼し、欠落や引用不一致の
- * 項目だけをまとめて再依頼、最後は1問ずつ再依頼する。採点できなかった項目は errors に理由を返す。
- */
-export async function gradeAnswers(
-  env: AnthropicEnv,
-  answers: GradingAnswer[],
-): Promise<{ grades: Map<string, Grade>; errors: Map<string, string> }> {
-  const payloadByKey = new Map(answers.map((a) => [a.key, {
+/** AIへ渡す1問分の採点材料。 */
+function gradingPayload(a: GradingAnswer) {
+  return {
     id: a.key,
     title: a.fact.title,
     explanation: a.fact.explanation ?? "",
@@ -386,7 +393,28 @@ export async function gradeAnswers(
     choice_is_correct: a.choiceIsCorrect,
     // 採点の起点なので最後に置く。正解側の語句に引きずられた採点を防ぐ。
     user_answer: a.answer,
-  }]));
+  };
+}
+
+/**
+ * gradeAnswers が最初にまとめて送る依頼。バッチで先に送っておき、結果を prefetchedFirstPass に渡す。
+ * AIへ送る項目がなければnull。
+ */
+export function firstPassGradingRequest(answers: GradingAnswer[]): AnthropicToolCallOptions | null {
+  const items = answers.filter((a) => !isNoRecallAnswer(a.answer)).map(gradingPayload);
+  return items.length > 0 ? buildGradingRequest(items) : null;
+}
+
+/**
+ * まとめて採点する。無回答はAIを呼ばずq0、それ以外は1回まとめて依頼し、欠落や引用不一致の
+ * 項目だけをまとめて再依頼、最後は1問ずつ再依頼する。採点できなかった項目は errors に理由を返す。
+ */
+export async function gradeAnswers(
+  env: AnthropicEnv,
+  answers: GradingAnswer[],
+  prefetchedFirstPass?: AnthropicToolCallResult,
+): Promise<{ grades: Map<string, Grade>; errors: Map<string, string> }> {
+  const payloadByKey = new Map(answers.map((a) => [a.key, gradingPayload(a)]));
   const answerByKey = new Map(answers.map((a) => [a.key, a.answer]));
 
   const rawByKey = new Map<string, RawGrade>();
@@ -397,7 +425,12 @@ export async function gradeAnswers(
 
   const aiKeys = answers.map((a) => a.key).filter((key) => !rawByKey.has(key));
   if (aiKeys.length > 0) {
-    const firstPass = await requestGrades(env, aiKeys.map((key) => payloadByKey.get(key)!), answerByKey);
+    const firstPass = await requestGrades(
+      env,
+      aiKeys.map((key) => payloadByKey.get(key)!),
+      answerByKey,
+      prefetchedFirstPass,
+    );
     if (firstPass.ok) {
       for (const [key, entry] of firstPass.byId) rawByKey.set(key, entry);
     } else {
