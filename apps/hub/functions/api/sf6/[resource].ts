@@ -27,7 +27,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const resource = context.params.resource;
   // 廃止したリソース（コンボ・起き攻めの旧表、注意点）。古い画面からの保存に理由を出す
   if (isLegacySf6Resource(resource)) return Response.json({ error: SF6_STALE_MESSAGE }, { status: 404, headers });
-  if (!isSf6Resource(resource) || isReadOnlySf6Resource(resource)) return new Response("Not Found\n", { status: 404 });
+  if (!isSf6Resource(resource) || isReadOnlySf6Resource(resource)) return Response.json({ error: "見つかりませんでした。" }, { status: 404, headers });
   const method = context.request.method;
   if (method !== "POST" && method !== "PATCH" && method !== "DELETE") {
     return new Response("Method Not Allowed\n", { status: 405, headers: { Allow: "POST, PATCH, DELETE" } });

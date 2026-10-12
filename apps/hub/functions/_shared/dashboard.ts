@@ -394,6 +394,8 @@ export function publicError(error: unknown) {
     SF6_DUPLICATE: "同じ状況がすでにあります。",
     SF6_SITUATION_CHARACTER: "別のキャラの状況は選べません。",
     SF6_STARTS_REQUIRED: "始動の状況を1つ以上選んでください。",
+    SF6_SITUATION_IN_USE: "使っている手順があるため、キャラと種類は変えられません。",
+    SF6_PRESET_SITUATION: "初期の状況は削除できません。使わないときはアーカイブしてください。",
     WRITING_UPDATE_CONFLICT: "このWritingテーマは別の画面で更新されています。再読み込みしてからやり直してください。",
     GOOGLE_CALENDAR_NOT_CONFIGURED: "Google Calendar連携のサーバー設定が未完了です。",
     GOOGLE_CALENDAR_CONFIG_INVALID: "Google Calendar連携のサーバー設定が正しくありません。",

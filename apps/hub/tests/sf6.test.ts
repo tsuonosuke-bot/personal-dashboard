@@ -294,6 +294,21 @@ test("RPCとPostgRESTのエラーを、状況・手順の文言に対応づけ�
       mock.restore();
     }
   }
+  // 状況のトリガー（D2・D3）
+  const triggerCases: Array<[string, string, unknown, string]> = [
+    ["PATCH", "SF6_SITUATION_IN_USE", { id: 5, updatedAt: TIMESTAMP, character: "リュウ", kind: "state", name: "x", advantage: 3, position: "anywhere", recovery: null, memo: null, archived: false }, "使っている手順があるため、キャラと種類は変えられません。"],
+    ["DELETE", "SF6_PRESET_SITUATION", { id: 1 }, "初期の状況は削除できません。使わないときはアーカイブしてください。"],
+  ];
+  for (const [method, code, body, message] of triggerCases) {
+    const mock = withFetch(() => Response.json({ code: "P0001", message: code }, { status: 400 }));
+    try {
+      const result = await call(method, "situations", body);
+      assert.equal(result.status, 409);
+      assert.equal((await result.json()).error, message);
+    } finally {
+      mock.restore();
+    }
+  }
   const duplicate = withFetch(() => Response.json({ code: "23505", message: "duplicate key value violates unique constraint \"sf6_situations_state_key\"" }, { status: 409 }));
   try {
     const result = await call("POST", "situations", { character: "ケン", kind: "state", name: "x", advantage: 3, position: "anywhere", recovery: null, memo: null, archived: false });
@@ -339,6 +354,7 @@ test("注意点・旧コンボ・旧起き攻めは404で再読み込みを促�
     assert.equal((await drill.json()).error, STALE);
     const moveSets = await call("POST", "moveSets", { character: "ケン" });
     assert.equal(moveSets.status, 404);
+    assert.equal((await moveSets.json()).error, "見つかりませんでした。");
     const presetKey = await call("POST", "situations", { character: null, kind: "trigger", name: "x", presetKey: "punish", advantage: null, position: "anywhere", recovery: null, memo: null, archived: false });
     assert.equal(presetKey.status, 400);
     assert.equal(mock.calls.length, 0);

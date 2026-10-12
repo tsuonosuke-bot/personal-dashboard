@@ -517,6 +517,9 @@ const RPC_ERRORS: Array<[string, string, number]> = [
   ["SF6_SITUATION_CHARACTER", "SF6_SITUATION_CHARACTER", 400],
   ["SF6_STARTS_REQUIRED", "SF6_STARTS_REQUIRED", 400],
   ["SF6_NOT_FOUND", "SF6_NOT_FOUND", 404],
+  // 状況のトリガー：使用中の状況のキャラ・種類の変更、初期の状況の削除
+  ["SF6_SITUATION_IN_USE", "SF6_SITUATION_IN_USE", 409],
+  ["SF6_PRESET_SITUATION", "SF6_PRESET_SITUATION", 409],
 ];
 
 async function responseError(response: Response, table: string): Promise<DashboardError> {

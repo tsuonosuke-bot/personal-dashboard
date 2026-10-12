@@ -267,7 +267,7 @@ begin
     returning id into v_id;
   else
     select * into v_old from public.sf6_sequences where id = p_id for update;
-    if not found or v_old.updated_at <> p_updated_at then
+    if not found or p_updated_at is null or v_old.updated_at is distinct from p_updated_at then
       raise exception 'SF6_CONFLICT';
     end if;
     v_new := jsonb_populate_record(v_old, p_row);
@@ -339,6 +339,50 @@ begin
   return p_id;
 end;
 $$;
+
+-- A situation in use keeps its kind and character, so the sequences using it stay valid
+-- (otherwise their next save fails with SF6_SITUATION_CHARACTER). Making a trigger shared by every character is allowed.
+create or replace function public.sf6_situations_guard_update()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  if (new.kind is distinct from old.kind or new.character is distinct from old.character)
+     and not (new.kind = old.kind and new.character is null)
+     and (exists (select 1 from public.sf6_sequence_starts where situation_id = old.id)
+       or exists (select 1 from public.sf6_sequence_results where next_situation_id = old.id)) then
+    raise exception 'SF6_SITUATION_IN_USE';
+  end if;
+  return new;
+end;
+$$;
+
+-- The initial triggers (preset_key) drive punish ordering and drill presets, so they can be archived or renamed
+-- but not deleted.
+create or replace function public.sf6_situations_guard_delete()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  if old.preset_key is not null then
+    raise exception 'SF6_PRESET_SITUATION';
+  end if;
+  return old;
+end;
+$$;
+
+drop trigger if exists sf6_situations_guard_update on public.sf6_situations;
+create trigger sf6_situations_guard_update
+  before update on public.sf6_situations
+  for each row execute function public.sf6_situations_guard_update();
+drop trigger if exists sf6_situations_guard_delete on public.sf6_situations;
+create trigger sf6_situations_guard_delete
+  before delete on public.sf6_situations
+  for each row execute function public.sf6_situations_guard_delete();
 
 -- Copies sf6_combos / sf6_setplays (and drills' combo_id / setplay_id) into the new tables. Rows already copied
 -- (legacy_*_id) are skipped, so calling it again only copies what was added since. Returns how many rows were added.
@@ -514,6 +558,10 @@ revoke all on function public.sf6_save_sequence(bigint, timestamptz, jsonb, json
 grant execute on function public.sf6_save_sequence(bigint, timestamptz, jsonb, jsonb, jsonb) to service_role;
 revoke all on function public.sf6_delete_sequence(bigint) from public, anon, authenticated;
 grant execute on function public.sf6_delete_sequence(bigint) to service_role;
+revoke all on function public.sf6_situations_guard_update() from public, anon, authenticated;
+grant execute on function public.sf6_situations_guard_update() to service_role;
+revoke all on function public.sf6_situations_guard_delete() from public, anon, authenticated;
+grant execute on function public.sf6_situations_guard_delete() to service_role;
 revoke all on function public.sf6_copy_legacy() from public, anon, authenticated;
 grant execute on function public.sf6_copy_legacy() to service_role;
 
