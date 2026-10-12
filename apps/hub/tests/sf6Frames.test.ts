@@ -91,3 +91,42 @@ test("投入用のJSONを表の列に直し、問題があれば errors に入�
   assert.match(toMoveRow({ category: "normal", name: "x", startup: "D" }, 1).errors.join("\n"), /発生/);
   assert.match(toMoveRow({ category: "normal", name: "" }, 1).errors.join("\n"), /技名/);
 });
+
+test("投入スクリプトは検証してから入れ替えのSQLを出し、問題があれば一覧を出して止まる", async () => {
+  const { execFile } = await import("node:child_process");
+  const { mkdtemp, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { fileURLToPath } = await import("node:url");
+  const script = fileURLToPath(new URL("../scripts/sf6-moves-sql.mjs", import.meta.url));
+  const dir = await mkdtemp(join(tmpdir(), "sf6-moves-"));
+  const run = (file: string, ...flags: string[]) => new Promise<{ code: number; stdout: string; stderr: string }>((done) => {
+    execFile(process.execPath, [script, ...flags, file], (error, stdout, stderr) => done({ code: error ? Number(error.code) : 0, stdout, stderr }));
+  });
+  const input = {
+    character: "テスト'キャラ", dataVersion: "Ver.0.0001", sourceUrl: "https://www.streetfighter.com/6/ja-jp/character/test/frame", checkedOn: "2026-10-12",
+    moves: [
+      { category: "normal", name: "立ち弱P", command: "5弱P", startup: "4", hit: "+4", block: "-1", cancel: "C" },
+      { category: "super", name: "SA1", command: "236236K ディレイ", startup: "9", hit: "D", block: "-30", punishCounterOverride: null },
+    ],
+  };
+  const good = join(dir, "good.json");
+  await writeFile(good, JSON.stringify(input));
+  const ok = await run(good);
+  assert.equal(ok.code, 0);
+  assert.match(ok.stdout, /insert into public\.sf6_move_sets .*\n.*values \('テスト''キャラ', 'Ver\.0\.0001'/);
+  assert.match(ok.stdout, /delete from public\.sf6_moves where character = 'テスト''キャラ';/);
+  assert.match(ok.stdout, /\('テスト''キャラ', 1, 'normal', '立ち弱P', '5弱P', '4', null, null, '\+4', '-1', 'C',/);
+  assert.match(ok.stdout, /, 9, null, true, -30, null, null\);\n$/);
+  assert.match(ok.stderr, /ディレイ は文字のまま/);
+  assert.match(ok.stderr, /normal 1 \/ unique 0 \/ special 0 \/ super 1/);
+  assert.match((await run(good, "--dry-run")).stdout, /raise exception 'DRYRUN: % moves'/);
+  const bad = join(dir, "bad.json");
+  await writeFile(bad, JSON.stringify({ ...input, sourceUrl: "https://example.com/", moves: [{ category: "ultimate", name: "x", hit: "よろけ" }] }));
+  const failed = await run(bad);
+  assert.equal(failed.code, 1);
+  assert.equal(failed.stdout, "");
+  assert.match(failed.stderr, /sourceUrl/);
+  assert.match(failed.stderr, /カテゴリ「ultimate」/);
+  assert.match(failed.stderr, /ヒット「よろけ」/);
+});
