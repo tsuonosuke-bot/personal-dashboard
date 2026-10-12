@@ -54,6 +54,7 @@ const state = {
   /** 状況タブのキャラと位置の絞り込み。 */
   situationCharacter: "",
   situationPosition: "",
+  situationNear: true,
   /** 「状況から引く」の条件。situationId は状況の id（"none" は状況なし）、drive・sa・punishWindow は null なら指定なし。 */
   conditions: { situationId: null, drive: null, sa: null, ca: false, burnout: false, punishWindow: null },
   frames: { character: "", query: "", category: "", sort: "official", punishableOnly: false, cancelableOnly: false, open: null },
@@ -70,7 +71,7 @@ const state = {
 const ids = [
   "sourceBadge", "refreshButton", "addButton", "addLabel", "loadingState", "errorState", "errorMessage", "retryButton",
   "countSequences", "countSituations", "countDrills", "countMatches",
-  "situationCharacter", "situationPosition", "situationList", "situationArchiveFold", "situationArchiveCount", "situationArchive",
+  "situationCharacter", "situationPosition", "situationNear", "situationList", "situationArchiveFold", "situationArchiveCount", "situationArchive",
   "sequenceCharacter", "sequenceKind", "sequencePosition", "sequenceSituation", "sequenceConditions", "conditionDrive", "conditionSa", "conditionCa", "conditionBurnout",
   "conditionPunish", "conditionSummary", "sequenceList", "sequenceArchiveFold", "sequenceArchiveCount", "sequenceArchive",
   "frameCharacter", "frameQuery", "frameCategory", "frameSort", "framePunishable", "frameCancelable", "frameVersion", "frameTable",
@@ -800,7 +801,7 @@ function renderDrills() {
 
 /** 状況タブ：キャラごとの局面（有利F・位置・ダウン）を有利Fの大きい順に並べ、そこから始まる手順を添える。 */
 function situationCardHtml(situation) {
-  const from = situation.archived ? [] : sequencesFrom(situation, state.data.sequences.filter((entry) => entry.character === situation.character), state.data.situations);
+  const from = situation.archived ? [] : sequencesFrom(situation, state.data.sequences.filter((entry) => entry.character === situation.character), state.data.situations, { includeNear: state.situationNear });
   const tags = [POSITIONS[situation.position], situation.recovery ? RECOVERIES[situation.recovery] : ""].filter(Boolean);
   const counts = situationUsage(situation.id, state.data.sequences);
   return `<article class="card situation-card">
@@ -832,6 +833,7 @@ function renderSituations() {
   els.situationPosition.querySelectorAll("button").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.value === state.situationPosition));
   });
+  els.situationNear.setAttribute("aria-pressed", String(state.situationNear));
   els.situationList.innerHTML = active.map(situationCardHtml).join("")
     || empty(state.situationCharacter ? "このキャラの状況はまだありません。右上の「＋」で、投げ後・端の締め後などを追加できます" : characters.length ? "キャラを選ぶと状況が出ます" : "状況はまだありません。右上の「＋」で追加できます");
   els.situationArchiveFold.hidden = !archived.length;
@@ -1883,6 +1885,11 @@ els.situationPosition.addEventListener("click", (event) => {
   state.situationPosition = button.dataset.value;
   renderSituations();
 });
+els.situationNear.addEventListener("click", () => {
+  state.situationNear = !state.situationNear;
+  store("sf6-situation-near", state.situationNear ? "1" : "0");
+  renderSituations();
+});
 els.sequenceSituation.addEventListener("change", () => {
   const value = els.sequenceSituation.value;
   state.conditions.situationId = value === "" ? null : value === "none" ? "none" : Number(value);
@@ -2227,6 +2234,7 @@ const savedKind = LEGACY_TABS[initialTab] || stored("sf6-sequence-kind", "");
 state.sequenceKind = savedKind in SEQUENCE_KINDS ? savedKind : "";
 if (initialTab in LEGACY_TABS) state.tab = "sequences";
 state.situationCharacter = stored("sf6-situation-character", "");
+state.situationNear = stored("sf6-situation-near", "1") !== "0";
 state.sequenceCharacter = stored("sf6-sequence-character", stored("sf6-combo-character", ""));
 renderTabs();
 load();
