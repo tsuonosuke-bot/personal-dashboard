@@ -16,14 +16,20 @@ const RECOVERY_LABELS = { back_roll: "後ろ受け身可", no_back_roll: "後ろ
 const FIT_ORDER = { same: 0, fits: 1, near: 2 };
 const KIND_ORDER = { setplay: 0, combo: 1 };
 const DRIVE_TOKENS = new Set(["DR", "DI", "パリィ"]);
+/** OD必殺技：方向の数字2つ以上＋PP/KK の1語（236PP・623KK・63214PP・J236KK）。2PP のようなコマンド特殊技は含めない。 */
+const OD_SPECIAL = /^J?[1-9]{2,}(?:PP|KK)$/;
 
 function compareTitle(a, b) {
   return a.title.localeCompare(b.title, "ja");
 }
 
-/** レシピにDゲージを使う部品（DR・DI・パリィ・OD技のPP/KK）があるか。 */
+/**
+ * レシピにバーンアウト中は使えない部品（DR・DI・パリィ・OD必殺技）があるか。ドライブリバーサル（6 DI）やパリィDRも含む。
+ * 2PP（スタンス）・63214PP PP の後ろの PP・SA・投げは含めない。判定の主は Dゲージ消費なので、ここは入力ミスを拾う補助として
+ * 誤って外さない側に寄せる（方向1つ以下で書いたOD技は Dゲージ消費の値で外れる）。
+ */
 export function usesDrive(notation) {
-  return String(notation || "").split(/\s+/).some((token) => DRIVE_TOKENS.has(token) || /(?:PP|KK)$/.test(token));
+  return String(notation || "").split(/\s+/).some((token) => DRIVE_TOKENS.has(token) || OD_SPECIAL.test(token));
 }
 
 /**

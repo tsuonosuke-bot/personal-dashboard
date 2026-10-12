@@ -45,11 +45,18 @@ test("状況・位置・ゲージ・相手の不利Fで今使える手順を絞�
   assert.equal(usableNow(sequence({ startup: null }), { punishWindow: 5 }), false);
 });
 
-test("バーンアウト中は、Dゲージ0でもDR・DI・パリィ・OD技を含む手順を出さない", () => {
-  assert.equal(usesDrive("2中K > DR 5中P"), true);
-  assert.equal(usesDrive("5中P xx 236PP"), true);
-  assert.equal(usesDrive("パリィ 5強P"), true);
-  assert.equal(usesDrive("5弱P > 5弱P xx 623強K"), false);
+test("バーンアウト中は、Dゲージ0でもDR・DI・パリィ・OD必殺技を含む手順を出さない（スタンスの2PPやSAは出す）", () => {
+  for (const notation of ["2中K > DR 5中P", "5中P xx 236PP", "2中P xx 623KK", "5中P xx 63214PP", "J236KK", "パリィ 5強P", "6 DI", "5強P DI", "パリィ DR 5中P", "5中P xx DR 5中P"]) {
+    assert.equal(usesDrive(notation), true, notation);
+  }
+  for (const notation of ["5弱P > 5弱P xx 623強K", "2強P xx 2PP 6弱P", "PP", "5中P xx SA2", "2中P xx 236236P", "投げ", "4 投げ"]) {
+    assert.equal(usesDrive(notation), false, notation);
+  }
+  // 63214PP PP は前の 63214PP（OD）で外れる。後ろの単独 PP（派生）だけでは外さない
+  assert.equal(usesDrive("63214PP PP"), true);
+  // 方向1つ以下で書いたOD技はレシピからは拾わない（Dゲージ消費の値で外れる）
+  assert.equal(usableNow(sequence({ driveCost: 0, notation: "2強P xx 2PP 中P" }), { burnout: true }), true);
+  assert.equal(usableNow(sequence({ driveCost: 1, notation: "溜め 6PP" }), { burnout: true }), false);
   assert.equal(usableNow(sequence({ driveCost: 0, notation: "5弱P xx 623強K" }), { burnout: true }), true);
   assert.equal(usableNow(sequence({ driveCost: 0, notation: "2中K > DR 5中P" }), { burnout: true }), false);
   assert.equal(usableNow(sequence({ driveCost: 0, notation: "5中P xx 236PP" }), { burnout: true }), false);
