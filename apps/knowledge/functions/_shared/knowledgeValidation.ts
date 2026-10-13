@@ -5,12 +5,15 @@ export const MASTERY_VALUES = ["未学習", "学習中", "習得中", "定着"] 
 type MasteryValue = (typeof MASTERY_VALUES)[number];
 export const PRIORITY_VALUES = ["最高", "高", "中", "低", "最低"] as const;
 type PriorityValue = (typeof PRIORITY_VALUES)[number];
+export const KNOWLEDGE_KIND_VALUES = ["未分類", "事実", "著者の主張", "自分のメモ"] as const;
+type KnowledgeKindValue = (typeof KNOWLEDGE_KIND_VALUES)[number];
 
 export interface KnowledgeWriteInput {
   title?: string;
   explanation?: string | null;
   source_note?: string | null;
   category?: string;
+  knowledge_kind?: KnowledgeKindValue;
   mastery?: MasteryValue;
   priority?: PriorityValue;
   tags?: string[];
@@ -36,7 +39,7 @@ export interface RequestGuardError {
 }
 
 const EDITABLE_KEYS = new Set([
-  "title", "explanation", "source_note", "category", "mastery",
+  "title", "explanation", "source_note", "category", "knowledge_kind", "mastery",
   "priority", "tags", "next_review_on", "archived",
 ]);
 
@@ -153,6 +156,14 @@ export function validateKnowledgeInput(
     const parsed = requiredText(input.category, "カテゴリ", 100);
     if (!parsed.ok) return parsed;
     result.category = parsed.value;
+  }
+  if ("knowledge_kind" in input) {
+    if (typeof input.knowledge_kind !== "string" || !(KNOWLEDGE_KIND_VALUES as readonly string[]).includes(input.knowledge_kind)) {
+      return { ok: false, error: "内容の種類が正しくありません。" };
+    }
+    result.knowledge_kind = input.knowledge_kind as KnowledgeKindValue;
+  } else if (mode === "create") {
+    result.knowledge_kind = "未分類";
   }
   if ("explanation" in input) {
     const parsed = optionalText(input.explanation, "説明", 10_000);

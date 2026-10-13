@@ -62,6 +62,7 @@ export function KnowledgeDetailModal({
         <div className="detail-body">
           <div className="detail-status">
             {knowledge.archived && <span className="tag">アーカイブ済み</span>}
+            <span className="tag">{knowledge.knowledge_kind ?? "未分類"}</span>
             <span className={`mastery-pill mastery-${knowledge.mastery}`}>{knowledge.mastery}</span>
             <span className={`badge priority-${knowledge.priority}`}>優先度 {knowledge.priority}</span>
             <TagChips item={knowledge} onRemoveAuto={onRemoveAutoTag} disabled={mutating} />

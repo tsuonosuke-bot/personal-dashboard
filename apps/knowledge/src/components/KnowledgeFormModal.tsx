@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent, type KeyboardEvent } from "react";
 import { MASTERY_ORDER, PRIORITY_INTERVAL_HINTS, PRIORITY_ORDER } from "../constants";
 import { useModalDialog } from "../hooks/useModalDialog";
-import type { Knowledge, KnowledgeDraft, KnowledgePriority, Mastery } from "../types";
+import type { Knowledge, KnowledgeDraft, KnowledgeKind, KnowledgePriority, Mastery } from "../types";
 import "./KnowledgeFormModal.css";
 
 interface Props {
@@ -23,6 +23,7 @@ export function KnowledgeFormModal({
   const tagHelpId = useId();
   const [title, setTitle] = useState(knowledge?.title ?? "");
   const [category, setCategory] = useState(knowledge?.category ?? "");
+  const [knowledgeKind, setKnowledgeKind] = useState<KnowledgeKind>(knowledge?.knowledge_kind ?? "未分類");
   const [mastery, setMastery] = useState<Mastery>(knowledge?.mastery ?? "未学習");
   const [priority, setPriority] = useState<KnowledgePriority>(knowledge?.priority ?? "中");
   const [explanation, setExplanation] = useState(knowledge?.explanation ?? "");
@@ -61,6 +62,7 @@ export function KnowledgeFormModal({
     await onSave({
       title,
       category,
+      knowledge_kind: knowledgeKind,
       mastery,
       priority,
       explanation: explanation.trim() || null,
@@ -90,6 +92,16 @@ export function KnowledgeFormModal({
               <span>カテゴリ <b>必須</b></span>
               <input required maxLength={100} list={categoryListId} value={category} onChange={(event) => setCategory(event.target.value)} />
               <datalist id={categoryListId}>{categories.map((value) => <option key={value} value={value} />)}</datalist>
+            </label>
+            <label className="field">
+              <span>内容の種類</span>
+              <select value={knowledgeKind} onChange={(event) => setKnowledgeKind(event.target.value as KnowledgeKind)}>
+                <option value="事実">事実</option>
+                <option value="著者の主張">著者の主張</option>
+                <option value="自分のメモ">自分のメモ</option>
+                <option value="未分類">未分類</option>
+              </select>
+              <small className="field-hint">事実（英単語を含む）、著者の見解、自分のメモを分けます。</small>
             </label>
             <label className="field">
               <span>優先度</span>
