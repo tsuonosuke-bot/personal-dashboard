@@ -3,6 +3,7 @@ export type Mastery = "未学習" | "学習中" | "習得中" | "定着";
 
 /** 同じ期限内での出題順を調整するナレッジの優先度。 */
 export type KnowledgePriority = "最高" | "高" | "中" | "低" | "最低";
+export type KnowledgeKind = "未分類" | "事実" | "著者の主張" | "自分のメモ";
 
 /** 誤答後の再学習段階。recognition=再認、recall=自由想起。 */
 export type RelearningStage = "recognition" | "recall";
@@ -13,6 +14,7 @@ export interface Knowledge {
   explanation: string | null;
   source_note: string | null;
   category: string;
+  knowledge_kind: KnowledgeKind;
   mastery: Mastery;
   priority: KnowledgePriority;
   ef: number;
@@ -286,6 +288,7 @@ export type SortDirection = "asc" | "desc";
 export interface Filters {
   search: string;
   category: string;
+  knowledge_kind: string;
   mastery: string;
   priority: string;
   review: ReviewFilter;
@@ -301,6 +304,7 @@ export interface KnowledgeDraft {
   explanation: string | null;
   source_note: string | null;
   category: string;
+  knowledge_kind: KnowledgeKind;
   mastery: Mastery;
   priority: KnowledgePriority;
   tags: string[];

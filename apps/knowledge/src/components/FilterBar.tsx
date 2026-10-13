@@ -21,6 +21,7 @@ function activeConditions(filters: Filters): { key: keyof Filters; label: string
   const items: { key: keyof Filters; label: string; reset: Partial<Filters> }[] = [];
   if (filters.search) items.push({ key: "search", label: `検索: ${filters.search}`, reset: { search: "" } });
   if (filters.category !== ALL) items.push({ key: "category", label: `カテゴリ: ${filters.category}`, reset: { category: ALL } });
+  if (filters.knowledge_kind !== ALL) items.push({ key: "knowledge_kind", label: `種類: ${filters.knowledge_kind}`, reset: { knowledge_kind: ALL } });
   if (filters.mastery !== ALL) items.push({ key: "mastery", label: `習熟度: ${filters.mastery}`, reset: { mastery: ALL } });
   if (filters.priority !== ALL) items.push({ key: "priority", label: `優先度: ${filters.priority}`, reset: { priority: ALL } });
   if (filters.review !== "all") items.push({ key: "review", label: `復習日: ${REVIEW_LABELS[filters.review]}`, reset: { review: "all" } });
@@ -48,6 +49,12 @@ export function FilterBar({ filters, categories, resultCount, onChange, onClear 
           {[ALL, ...categoryOptions].map((c) => (
             <option key={c} value={c}>{c}</option>
           ))}
+        </select>
+      </label>
+      <label className="filter-field">
+        <span>内容の種類</span>
+        <select value={filters.knowledge_kind} onChange={(e) => onChange({ knowledge_kind: e.target.value })}>
+          {[ALL, "事実", "著者の主張", "自分のメモ", "未分類"].map((kind) => <option key={kind} value={kind}>{kind}</option>)}
         </select>
       </label>
       <label className="filter-field">

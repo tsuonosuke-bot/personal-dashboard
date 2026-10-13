@@ -9,7 +9,7 @@ const knowledgeId = "123e4567-e89b-42d3-a456-426614174000";
 
 test("一覧の条件・並び順・ページをURLへ書き、同じURLから復元する", () => {
   const state = {
-    filters: { search: "英語 時制", category: "英文法", mastery: "学習中", priority: "高", review: "overdue" as const },
+    filters: { search: "英語 時制", category: "英文法", knowledge_kind: "すべて", mastery: "学習中", priority: "高", review: "overdue" as const },
     sort: { key: "next_review_on" as const, direction: "asc" as const },
     page: 3,
     pageSize: 30,

@@ -1,5 +1,5 @@
 import type {
-  DailyReviewCategoryCount, DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgePriority, Mastery, MasteryHistoryEvent, QuizFormat,
+  DailyReviewCategoryCount, DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeKind, KnowledgePriority, Mastery, MasteryHistoryEvent, QuizFormat,
   QuizLog, QuizVerdict, PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary,
   ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
@@ -16,6 +16,7 @@ interface PageEnvelope {
 
 const MASTERY_VALUES = new Set<Mastery>(["未学習", "学習中", "習得中", "定着"]);
 const PRIORITY_VALUES = new Set<KnowledgePriority>(["最高", "高", "中", "低", "最低"]);
+const KNOWLEDGE_KIND_VALUES = new Set<KnowledgeKind>(["未分類", "事実", "著者の主張", "自分のメモ"]);
 const VERDICT_VALUES = new Set<QuizVerdict>(["正解", "不正解", "部分正解"]);
 const QUIZ_FORMAT_VALUES = new Set<QuizFormat>(["一問一答", "四択", "記述説明", "産出"]);
 const RELEARNING_STAGE_VALUES = new Set<RelearningStage>(["recognition", "recall"]);
@@ -99,6 +100,8 @@ export function parseKnowledge(value: unknown): Knowledge {
   if (!MASTERY_VALUES.has(mastery as Mastery)) return fail(entity, "mastery");
   const priority = stringValue(value, "priority", entity);
   if (!PRIORITY_VALUES.has(priority as KnowledgePriority)) return fail(entity, "priority");
+  const knowledgeKind = value.knowledge_kind === undefined ? "未分類" : stringValue(value, "knowledge_kind", entity);
+  if (!KNOWLEDGE_KIND_VALUES.has(knowledgeKind as KnowledgeKind)) return fail(entity, "knowledge_kind");
   if (typeof value.archived !== "boolean") return fail(entity, "archived");
   const contentVersion = numberValue(value, "content_version", entity);
   if (!Number.isSafeInteger(contentVersion) || contentVersion < 1) return fail(entity, "content_version");
@@ -112,6 +115,7 @@ export function parseKnowledge(value: unknown): Knowledge {
     explanation: nullableStringValue(value, "explanation", entity),
     source_note: nullableStringValue(value, "source_note", entity),
     category: stringValue(value, "category", entity),
+    knowledge_kind: knowledgeKind as KnowledgeKind,
     mastery: mastery as Mastery,
     priority: priority as KnowledgePriority,
     ef: numberValue(value, "ef", entity),

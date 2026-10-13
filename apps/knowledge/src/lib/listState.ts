@@ -9,13 +9,13 @@ export interface ListState {
   pageSize: number;
 }
 
-export const DEFAULT_FILTERS: Filters = { search: "", category: ALL, mastery: ALL, priority: ALL, review: "all" };
+export const DEFAULT_FILTERS: Filters = { search: "", category: ALL, knowledge_kind: ALL, mastery: ALL, priority: ALL, review: "all" };
 export const DEFAULT_SORT: SortState = { key: "created_at", direction: "desc" };
 
 const SORT_KEYS: SortKey[] = ["created_at", "title", "category", "mastery", "priority", "accuracy", "next_review_on"];
 const REVIEW_FILTERS: Filters["review"][] = ["all", "due", "today", "overdue"];
 /** ほかの画面（view / knowledge など）のパラメータと重ならない名前にする。 */
-const PARAMS = ["q", "category", "mastery", "priority", "review", "sort", "dir", "page", "size"] as const;
+const PARAMS = ["q", "category", "kind", "mastery", "priority", "review", "sort", "dir", "page", "size"] as const;
 
 function asUrl(value: string | URL): URL {
   return value instanceof URL ? new URL(value.toString()) : new URL(value, "https://knowledge.invalid");
@@ -39,6 +39,7 @@ export function parseListState(value: string | URL): ListState {
     filters: {
       search,
       category: category || ALL,
+      knowledge_kind: oneOf(params.get("kind"), ["未分類", "事実", "著者の主張", "自分のメモ"] as const) ?? ALL,
       mastery: oneOf(params.get("mastery"), MASTERY_ORDER) ?? ALL,
       priority: oneOf(params.get("priority"), PRIORITY_ORDER) ?? ALL,
       review: oneOf(params.get("review"), REVIEW_FILTERS) ?? "all",
@@ -58,6 +59,7 @@ export function listStatePath(value: string | URL, state: ListState): string {
   const { filters, sort, page, pageSize } = state;
   if (filters.search) url.searchParams.set("q", filters.search);
   if (filters.category !== ALL) url.searchParams.set("category", filters.category);
+  if (filters.knowledge_kind !== ALL) url.searchParams.set("kind", filters.knowledge_kind);
   if (filters.mastery !== ALL) url.searchParams.set("mastery", filters.mastery);
   if (filters.priority !== ALL) url.searchParams.set("priority", filters.priority);
   if (filters.review !== "all") url.searchParams.set("review", filters.review);

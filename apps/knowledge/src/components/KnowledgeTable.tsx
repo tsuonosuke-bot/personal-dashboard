@@ -65,13 +65,13 @@ export function KnowledgeTable({ rows, sort, onSort, onSortChange, onOpen }: Pro
                 </button>
               </th>
             ))}
-            <th>操作</th>
+            <th>種類</th><th>操作</th>
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={7} className="msg">条件に一致するナレッジはありません。「条件をクリア」で全件の一覧に戻せます。</td>
+              <td colSpan={8} className="msg">条件に一致するナレッジはありません。「条件をクリア」で全件の一覧に戻せます。</td>
             </tr>
           ) : (
             rows.map((k) => {
@@ -96,6 +96,7 @@ export function KnowledgeTable({ rows, sort, onSort, onSortChange, onOpen }: Pro
                       hour: "2-digit", minute: "2-digit",
                     })}
                   </td>
+                  <td data-label="種類">{k.knowledge_kind ?? "未分類"}</td>
                   <td className="cell-action"><button className="text-button" aria-label={`${k.title}の詳細`} onClick={() => onOpen(k)}>詳細</button></td>
                 </tr>
               );

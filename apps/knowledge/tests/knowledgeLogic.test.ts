@@ -15,6 +15,7 @@ function knowledge(id: string, patch: Partial<Knowledge> = {}): Knowledge {
     explanation: null,
     source_note: null,
     category: "共通",
+    knowledge_kind: "未分類",
     mastery: "未学習",
     priority: "高",
     ef: 2.5,
@@ -42,11 +43,29 @@ function knowledge(id: string, patch: Partial<Knowledge> = {}): Knowledge {
 const defaultFilters: Filters = {
   search: "",
   category: "すべて",
+  knowledge_kind: "すべて",
   mastery: "すべて",
   priority: "すべて",
   review: "all",
 };
 const defaultSort: SortState = { key: "created_at", direction: "desc" };
+
+test("内容の種類で事実・著者の主張・自分のメモを分ける", () => {
+  const rows = [
+    knowledge("fact", { knowledge_kind: "事実" }),
+    knowledge("claim", { knowledge_kind: "著者の主張" }),
+    knowledge("insight", { knowledge_kind: "自分のメモ" }),
+    knowledge("unclassified"),
+  ];
+  assert.deepEqual(
+    filterAndSortKnowledge(rows, { ...defaultFilters, knowledge_kind: "著者の主張" }, defaultSort).map((row) => row.id),
+    ["claim"],
+  );
+  assert.deepEqual(
+    filterAndSortKnowledge(rows, { ...defaultFilters, knowledge_kind: "未分類" }, defaultSort).map((row) => row.id),
+    ["unclassified"],
+  );
+});
 
 test("JST基準の日付を返す", () => {
   assert.equal(getJstToday(new Date("2026-09-08T15:01:00Z")), "2026-09-09");

@@ -175,3 +175,9 @@ matching Cloudflare Pages build.
   keeps working. Apply before deploying the app build that uses it: that build
   calls `list_pending_review_ai_batches` on every generation and grading run
   and picks through `pick_review_generation_candidates_ahead`.
+
+- `20261013100000_knowledge_kind.sql` adds `knowledge.knowledge_kind` with
+  `未分類` as the default for existing rows. Allowed values are `未分類`, `事実`,
+  `著者の主張`, and `自分のメモ`. Apply this before deploying the app build that
+  selects the new column. Changing the kind increments `content_version` through
+  the existing trigger, so queued questions for the older interpretation expire.

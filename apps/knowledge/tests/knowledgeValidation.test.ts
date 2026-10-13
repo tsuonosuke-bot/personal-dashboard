@@ -39,6 +39,7 @@ test("新規ナレッジを検証し、文字列とタグを正規化する", ()
   assert.deepEqual(result.value, {
     title: "タイトル",
     category: "技術",
+    knowledge_kind: "未分類",
     mastery: "習得中",
     priority: "最高",
     explanation: "説明",

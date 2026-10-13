@@ -46,6 +46,7 @@ export function filterKnowledge(
   const nowMs = now.getTime();
   return knowledge.filter((item) => {
     if (filters.category !== ALL && item.category !== filters.category) return false;
+    if (filters.knowledge_kind !== ALL && (item.knowledge_kind ?? "未分類") !== filters.knowledge_kind) return false;
     if (filters.mastery !== ALL && item.mastery !== filters.mastery) return false;
     if (filters.priority !== ALL && item.priority !== filters.priority) return false;
     const dueAt = Date.parse(item.next_review_at);
