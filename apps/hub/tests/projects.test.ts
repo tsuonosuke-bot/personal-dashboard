@@ -196,6 +196,96 @@ test("Project GET loads all four tables without exposing the secret", async () =
   }
 });
 
+test("Project GET recovers from a transient JWT rejection without retrying successful tables", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = new Map<string, number>();
+  globalThis.fetch = async (input, init) => {
+    const table = new URL(String(input)).pathname.split("/").pop()!;
+    const count = (calls.get(table) ?? 0) + 1;
+    calls.set(table, count);
+    if (table === "project_actions" && count === 1) {
+      return Response.json({ code: "PGRST303", message: "JWT issued at future" }, {
+        status: 401,
+        headers: { "Proxy-Status": "PostgREST; error=PGRST303" },
+      });
+    }
+    return tableResponse(input, init) || Response.json([], { status: 404 });
+  };
+  try {
+    const response = await projectsRoute({ request: new Request("https://hub.example/api/projects"), env });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.projects.length, 1);
+    assert.equal(calls.get("project_actions"), 2);
+    for (const table of ["projects", "project_items", "project_milestones"]) assert.equal(calls.get(table), 1);
+    assert.doesNotMatch(JSON.stringify(payload), /server-secret/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Project GET stops after one retry when the transient JWT rejection persists", async () => {
+  const originalFetch = globalThis.fetch;
+  let attempts = 0;
+  globalThis.fetch = async (input, init) => {
+    if (new URL(String(input)).pathname.endsWith("/project_actions")) {
+      attempts += 1;
+      return Response.json({ code: "PGRST303", message: "JWT issued at future" }, { status: 401 });
+    }
+    return tableResponse(input, init) || Response.json([], { status: 404 });
+  };
+  try {
+    const response = await projectsRoute({ request: new Request("https://hub.example/api/projects"), env });
+    assert.equal(response.status, 502);
+    assert.equal(attempts, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Project GET does not retry genuine permission failures or expired JWTs", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    for (const failure of [
+      { status: 403, code: "42501", message: "permission denied" },
+      { status: 401, code: "PGRST303", message: "JWT expired" },
+    ]) {
+      let attempts = 0;
+      globalThis.fetch = async (input, init) => {
+        if (new URL(String(input)).pathname.endsWith("/project_actions")) {
+          attempts += 1;
+          return Response.json({ code: failure.code, message: failure.message }, { status: failure.status });
+        }
+        return tableResponse(input, init) || Response.json([], { status: 404 });
+      };
+      const response = await projectsRoute({ request: new Request("https://hub.example/api/projects"), env });
+      assert.equal(response.status, 502);
+      assert.equal(attempts, 1, failure.message);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Project mutations are not automatically replayed on authentication failure", async () => {
+  const originalFetch = globalThis.fetch;
+  let attempts = 0;
+  globalThis.fetch = async () => {
+    attempts += 1;
+    return Response.json({ code: "PGRST303", message: "JWT issued at future" }, { status: 401 });
+  };
+  try {
+    const response = await projectsRoute({
+      request: mutationRequest("/api/projects", "POST", "project-create", createBody()),
+      env,
+    });
+    assert.equal(response.status, 502);
+    assert.equal(attempts, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("Project create validates same-origin input and requires the first action", async () => {
   const request = mutationRequest("/api/projects", "POST", "project-create", createBody());
   assert.equal(validateProjectMutationRequest(request.clone(), "project-create"), null);

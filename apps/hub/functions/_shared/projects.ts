@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 
 const PAGE_SIZE = 1_000;
@@ -324,7 +325,9 @@ async function supabaseFetch(
   init: RequestInit = {},
 ): Promise<Response> {
   try {
-    return await fetch(endpoint, {
+    // 一覧取得の一時的なJWT拒否は、共通処理で画面へ返す前に1回だけ再試行する。
+    const fetcher = (init.method ?? "GET").toUpperCase() === "GET" ? fetchSupabase : fetch;
+    return await fetcher(endpoint, {
       ...init,
       headers: { Accept: "application/json", apikey: connectionInfo.key, ...(init.headers || {}) },
     });

@@ -24,16 +24,18 @@ export function methodNotAllowed(allow = "GET"): Response {
   });
 }
 
-/** 同じキーの同時リクエストのうち片方だけが、Supabase側でJWTの検証エラー（PGRST303）として
- * 401になることがある。拒否されたリクエストは実行されていないので、少し待って1回だけやり直す。 */
+/** SupabaseがJWTの発行時刻を未来と判定して一時的に拒否したときだけ、少し待って1回やり直す。
+ * PGRST303には期限切れやaudience不一致も含まれるため、コードだけで再試行を決めない。 */
 const AUTH_RETRY_DELAY_MS = 300;
 
 async function isTransientAuthError(response: Response): Promise<boolean> {
   if (response.status !== 401) return false;
-  if (response.headers.get("Proxy-Status")?.includes("PGRST303")) return true;
   try {
     const body: unknown = await response.clone().json();
-    return typeof body === "object" && body !== null && (body as { code?: unknown }).code === "PGRST303";
+    if (typeof body !== "object" || body === null) return false;
+    const { code, message } = body as { code?: unknown; message?: unknown };
+    const claimsError = code === "PGRST303" || response.headers.get("Proxy-Status")?.includes("PGRST303");
+    return Boolean(claimsError) && typeof message === "string" && message.startsWith("JWT issued at future");
   } catch {
     return false;
   }
