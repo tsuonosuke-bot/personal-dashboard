@@ -2,11 +2,12 @@
 
 Supabase のナレッジDBを自分専用で管理するダッシュボード
 （Vite + React + TypeScript + Cloudflare Pages Functions）。
-ナレッジの追加・編集・アーカイブ、問題キューによる復習、学習ログ、問い・示唆・タグの整理、
-復習とは独立した英会話練習を扱う。
+ナレッジの追加・編集・アーカイブ、問題キューによる復習、学習ログ、問い・示唆・タグ・ノートの整理、
+ナレッジ・示唆・日記の意味検索、復習とは独立した英会話練習を扱う。
 
-ブラウザはSupabaseへ直接接続しない。全リクエストをHTTP Basic認証またはCloudflare Accessで保護し、
-認証後の `/api/*` だけがCloudflare Pages FunctionsからSupabaseを読み書きする。
+ブラウザはSupabaseへ直接接続しない。静的アセットとAPIを共通ミドルウェアで認証し、
+Cloudflare Pages FunctionsからSupabaseを読み書きする。Basic認証・SSOセッション・Cloudflare Accessと、
+用途を限定したHub・定期実行の専用トークンの範囲は「閲覧制限」を参照。
 
 ```text
 Browser --Basic認証 / Cloudflare Access--> Cloudflare Pages Functions --Secret key--> Supabase REST API
@@ -39,7 +40,9 @@ Viteだけを起動するため `/api/*` は利用できない。
 | `/?view=quiz` | 復習。問題キューの上から30問ずつ受け取って解き続け、いつでも終えられる。回答直後に答え合わせを出す |
 | `/?view=quiz&mode=daily` | 上と同じ画面を、開始ボタンを押さずに始める。Personal Hubの「今日の復習」はSSO引き継ぎ後にここを開く |
 | `/?view=log` | 学習ログ。採点待ちの回答、問題を作れなかったカード、AIの採点と講評、英会話練習の履歴 |
-| `/?view=organize` | 問い・示唆・タグの整理（`tab=questions`・`insights`・`tags`） |
+| `/?view=organize` | 問い・示唆・タグ・ノートの整理（`tab=questions`・`insights`・`tags`・`notes`） |
+| `/?view=organize&tab=notes` | 問い・テーマ別にナレッジ・示唆・日記を集めたノート。`question=<id>` または `theme=<タグ>` で直接開ける |
+| `/?view=search` | ナレッジ・示唆・日記を意味で横断検索し、索引の件数確認・手動更新も行う |
 | `/?view=speaking` | 英会話練習。英語ナレッジからAIが瞬間英作文と短いビジネス英文を作り、3回音読と自己評価を専用履歴へ記録する。音声は保存せず、習熟度や次回復習日も変えない |
 | `/?knowledge=<id>` | ナレッジの詳細 |
 
@@ -104,6 +107,7 @@ Viteだけを起動するため `/api/*` は利用できない。
   `GET/POST /api/insight-groups`、`PATCH/DELETE /api/insight-groups/:id`、`GET/POST/DELETE /api/insight-group-members`
 - 英会話練習: `GET/POST /api/speaking-practice`、`POST /api/speaking-practice/start`
 - 意味検索: `POST /api/semantic-search`、`GET /api/semantic-search/status`、`POST /api/embedding-batch`
+- ノート: `GET /api/notes`、`GET/POST /api/notes/theme`、`GET/POST /api/insight-groups/:id/materials`（問いの材料の取得・除外・復元）
 - その他: `POST /api/inbox`（採点結果の「あとで深掘り」を `idea_inbox` へ登録）、
   `GET /api/export`（読み取り専用JSON）、`GET /api/status`（接続状態）
 
@@ -116,9 +120,10 @@ AIは `claude-sonnet-5-5` を使う。問題文と講評の質が成果物その
 `{ items, total, limit, offset }` を返す。画面は必要なページをすべて取得するため、
 2,000件／5,000件を超えても累計値や履歴を黙って切り捨てない。
 
-書き込みはBasic認証に加えて、同一オリジン、専用ヘッダー、JSON、25,000文字以下の本文を
-必須とする。サーバー側で許可するのはタイトル、説明、出典メモ、カテゴリ、習熟度、優先度、タグ、
-次回復習日、アーカイブ状態だけで、ID・作成日時・学習統計は変更できない。
+ナレッジの登録・編集は認証に加えて、同一オリジン、専用ヘッダー、JSON、25,000文字以下の本文を
+必須とする。サーバー側で許可するのはタイトル、説明、出典メモ、カテゴリ、内容の種類（`knowledge_kind`）、
+習熟度、優先度、タグ、次回復習日、アーカイブ状態だけで、ID・作成日時・学習統計は変更できない。
+内容の種類は `事実` / `著者の主張` / `自分のメモ` / `未分類`。新規登録で省略した場合は `未分類` になる。
 更新には一覧取得時の `content_version` が必要で、競合時は上書きせず再読み込みを促す。
 アーカイブ直後は画面上で取り消せるほか、「アーカイブ済み」一覧から復元できる。
 DB接続設定がない場合は503、Supabase通信失敗は502を返す。HTMLや壊れたJSONなど想定外のAPI応答は、ブラウザ内部の解析エラーをそのまま出さず利用者向けの再試行メッセージへ変換する。各グラフには、合計・最大区分・正答率などを短く伝える表示テキストを付け、スクリーンリーダーとタッチ操作だけでも要点を確認できる。
@@ -176,18 +181,27 @@ Cloudflare Pages の **Settings → Variables and Secrets** で、Production と
 
 ### 閲覧制限
 
-`functions/_middleware.ts` が静的アセットとAPIを含む全リクエストに
-HTTP Basic認証をかける。`DASHBOARD_PASSWORD` が未設定だとサイト全体が503を返す
-フェイルクローズ設計。認証後のレスポンスもキャッシュおよび検索エンジン登録を禁止する。
+`functions/_middleware.ts` が静的アセットとAPIを共通ミドルウェアで保護する。
+`AUTH_MODE=basic`（既定）では、署名付き引き継ぎ、有効なSSOセッション、用途を限定した専用トークンを
+先に検証し、それらで認証されなかったリクエストにHTTP Basic認証を要求する。このとき
+`DASHBOARD_PASSWORD` が未設定なら503を返す。パスワードの削除だけでは、有効なセッションや
+専用トークンによるアクセスは停止しない。
+
+HTML・APIなどは `Cache-Control: private, no-store` とする。認証済みのGET/HEADで200を返す
+ハッシュ付き静的ファイルだけは `private, max-age=31536000, immutable` でブラウザに保存する。
+非公開レスポンスの検索エンジン登録は禁止する。
 CSPは外部のスクリプトとスタイルを禁止し、rechartsに必要なstyle属性だけを許可する。
 
-`AUTH_MODE=access` ではCloudflare Access JWTの署名・issuer・audienceを検証する。
+`AUTH_MODE=access` ではCloudflare Access JWTの署名・issuer・audienceを検証する。Basic認証、
+SSOセッション、Hub・定期実行の専用トークンだけではAccess JWTの検証を省略できず、`DASHBOARD_PASSWORD` は使わない。
 Personal Hub、家計簿、ナレッジを同じAccess applicationで保護すると、1回のログインで3画面を移動できる。
 
 Basic認証を継続する場合も、3サイトへ同じ `SSO_SHARED_SECRET` を設定すれば、Hubからの署名付き引き継ぎで対象ホストに固定したHttpOnlyセッションを作成できる。`HUB_SERVICE_TOKEN` は `GET /api/knowledge`、`GET /api/review-queue/status`、`GET /api/export`、`GET /api/status` のみに使え、POST/PATCHや他のAPIは認証を迂回できない。
 引き継ぎトークンのnonceはSupabaseで1回だけ消費されるため、同じURLの再利用は403になる。
 
-生成・採点バッチへのPOSTだけは、Basic認証の代わりに `X-Review-Batch-Token`（`REVIEW_BATCH_TOKEN` と一致するもの）で受け付ける。
+`AUTH_MODE=basic` では、`POST /api/review-batch/generate`、`POST /api/review-batch/grade`、
+`POST /api/embedding-batch` に限り、Basic認証の代わりに `X-Review-Batch-Token` を受け付ける。
+32文字以上の `REVIEW_BATCH_TOKEN` と一致することが必要。
 
 ### DBマイグレーション
 

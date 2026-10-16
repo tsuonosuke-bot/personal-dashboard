@@ -32,9 +32,11 @@ npm run build -w apps/knowledge   # 1アプリだけ
 | Root directory | `apps/hub` | `apps/knowledge` | `apps/finance` |
 | Build command | `cd ../.. && npm ci && npm run build -w apps/hub` | `cd ../.. && npm ci && npm run build -w apps/knowledge` | `cd ../.. && npm ci && npm run build -w apps/finance` |
 | Output directory | `dist` | `dist` | `dist` |
-| Build watch paths (include) | `apps/hub/*`, `package.json`, `package-lock.json` | `apps/knowledge/*`, `package.json`, `package-lock.json` | `apps/finance/*`, `package.json`, `package-lock.json` |
+| Build watch paths (include) | `apps/hub/*`, `packages/dashboard-auth/*`, `package.json`, `package-lock.json` | `apps/knowledge/*`, `packages/dashboard-auth/*`, `package.json`, `package-lock.json` | `apps/finance/*`, `packages/dashboard-auth/*`, `package.json`, `package-lock.json` |
 
 Root directory直下にlockfileが無いため、Build commandでルートの `npm ci` を明示する。
+`packages/dashboard-auth` は3アプリ共通の認証・Supabase通信処理なので、全プロジェクトの監視対象に含める。
+既存プロジェクトのBuild watch pathsもCloudflare Pagesの設定画面で更新する。READMEの変更だけでは設定は変わらない。
 
 ## Supabaseバックアップ
 

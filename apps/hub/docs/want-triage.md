@@ -183,7 +183,9 @@ Inboxへ登録
 | Knowledge DB | Knowledge候補を`planned`として保存。後続LLMがまとめて調査し、重複・カテゴリ検証後に登録する。画面外で登録した場合は「Knowledge登録済みにする」で`created`にする |
 | Journal | `planned` として保存。既存Journalの書込仕様確定前には登録しない |
 
-Google Calendarは `calendar.events` scopeだけを要求し、`primary` カレンダーへ `Asia/Tokyo` で一方向に新規作成します。日付のみなら終日、日時なしなら登録を拒否します。更新トークンはサーバーで暗号化し、Claudeとブラウザには渡しません。GitHub・Knowledge DB・Journalは、認証方法、下書き内容、重複防止、作成後の再取得方法を個別に合意してから有効化します。
+Google Calendarは `calendar.events` scopeだけを要求し、`primary` カレンダーへ `Asia/Tokyo` で予定を作成します。日付のみなら終日、日時なしなら登録を拒否します。ToDo表示時にはGoogle側の現在日時・取消・削除を再確認し、「日程を決め直す」は同じ予定をETag付きで更新します。別画面で変更済みなら上書きを拒否します。予定が削除・取消済みの場合は、同じToDoから新しい予定を重複安全に再作成して接続し直せます。ToDoの完了・見送りではGoogle Calendar予定を変更しません。
+
+更新トークンはサーバーで暗号化し、Claudeとブラウザには渡しません。GitHub・Knowledge DB・Journalは、認証方法、下書き内容、重複防止、作成後の再取得方法を個別に合意してから有効化します。
 
 ## DB関数への集約
 

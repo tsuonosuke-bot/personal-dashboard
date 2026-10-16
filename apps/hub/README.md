@@ -31,15 +31,15 @@ Browser
               └─ Google OAuth + Calendar API
 ```
 
-- 初期状態は静的ファイルとAPIを含む全リクエストをBasic認証で保護
+- `AUTH_MODE=basic`（既定）では、静的ファイルとAPIを含む非公開リクエストをBasic認証または有効なSSOセッション・署名付き引き継ぎで保護
 - Google OAuthの説明・プライバシー・利用条件ページだけは、Googleの外部向け本番アプリ要件を満たすため読取専用で公開
 - `AUTH_MODE=access` ではCloudflare Access JWTの署名・issuer・audienceを検証
-- `DASHBOARD_PASSWORD` 未設定時は503でフェイルクローズ
+- Basic認証が必要なリクエストで `DASHBOARD_PASSWORD` が未設定なら503を返す。有効なSSOセッション・署名付き引き継ぎ、Access認証、公開OAuthページはこの設定に依存しないため、パスワードの削除だけではサイト全体の停止にはならない
 - Supabase URLとsecret keyはPages Functionsだけが参照
 - 新形式のSupabase secret keyはサーバーから `apikey` ヘッダーだけで送信
 - ブラウザは同一オリジンのPersonal Dashboard APIだけを呼び出す
 - APIレスポンス、URL、Viteバンドルへsecret keyを含めない
-- `Cache-Control: private, no-store`、CSP、`X-Frame-Options: DENY`、`X-Robots-Tag` を適用
+- 非公開レスポンスは原則 `Cache-Control: private, no-store` と検索エンジン登録禁止。認証済みのGET/HEADで200を返すハッシュ付き静的ファイルだけは `private, max-age=31536000, immutable` でブラウザに保存する。公開OAuthページとそのCSSは `public, max-age=300` と検索エンジン登録を許可する。CSPと `X-Frame-Options: DENY` は公開・非公開の両方に適用
 - Inbox登録は同一オリジン・専用ヘッダー・入力文字数を検証し、`pending` として保存
 - Inbox更新はIDと編集前の値を条件にし、別画面で更新済みの場合は409で拒否
 - AI整理はユーザーがボタンを押した時だけ実行し、送信直前にWantが未変更かを再確認
@@ -53,10 +53,9 @@ Browser
 - Personal／Knowledge／Financeの認証方式・接続先・DB migration・最終成功時刻をまとめる接続状態画面
 - HTMLや壊れたJSONなど想定外のAPI応答を、内部解析エラーではなく再試行可能な案内へ変換
 - 今日の復習: Knowledgeの問題キューのすぐ解ける問題数と開始導線、採点待ち・未確認の採点結果（解ける問題がなければ学習ログへ案内）
-- 未整理Wantsのスナップショット
-- 未整理のActive Wantsの件数と最古の滞留日数を表示
-- 未整理のActive Wantsを古い順で最大3件表示
-- 未整理件数と一覧からIdeaの絞り込み表示へ直接移動
+- 未整理Inboxの件数と、古い順で最大3件の本文・登録からの日数を表示
+- Inboxの一覧・各項目からIdeaへ直接移動
+- Ideaの入口には未整理Inboxと再訪日が来たActive Wantsの合計件数を表示。再訪日のないWant、未来の再訪日、欲しいもの（`type='wish'`）は未整理Wantsに数えない
 - Wantから選んだFocusを最大5件、指定順で固定表示
 - Focusの言葉・補足の編集、表示解除／再表示、並び替え、満杯時の入れ替え（満杯中に追加したFocusは表示解除中に入る）
 - 直近5件の家計簿レコード
@@ -126,12 +125,11 @@ Browser
 
 ## ローカル確認
 
-1. `.dev.vars.example` を `.dev.vars` にコピーします。
-2. ローカル用の値を設定します。
+1. モノレポのルートで `npm install` を1回実行してから、`apps/hub` へ移動します。
+2. `.dev.vars.example` を `.dev.vars` にコピーし、ローカル用の値を設定します。
 3. 次を実行します。
 
 ```powershell
-npm install
 npm run dev:pages
 ```
 
@@ -176,11 +174,9 @@ AI整理も提案専用です。Want登録時・画面表示時・定期処理�
 
 ## Cloudflare Pages設定
 
-Build settings:
-
-- Build command: `npm run build`
-- Build output directory: `dist`
-- Root directory: `/`
+モノレポのビルド設定（Root directory、Build command、Output directory、Build watch paths）は
+ルートの [`README.md`](../../README.md#cloudflare-pages設定) を正本とします。HubのRoot directoryは
+`apps/hub`、出力先はその配下の `dist` です。
 
 PreviewとProductionの両方に、次の環境変数を設定します。
 
