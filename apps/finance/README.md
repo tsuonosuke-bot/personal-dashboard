@@ -9,8 +9,9 @@ Browser --Basic認証 / Cloudflare Access--> Cloudflare Pages Functions --Secret
 
 ## セットアップ
 
+モノレポのルートで `npm install` を1回実行してから、`apps/finance` で作業します。
+
 ```bash
-npm install
 cp .dev.vars.example .dev.vars
 # .dev.vars に認証情報とサーバー専用Supabase接続情報を設定
 npm run dev:pages
@@ -107,13 +108,20 @@ APIは取得列、並び順、対象テーブル、1回あたり最大1,000件�
 ## セキュリティ構成
 
 `functions/_middleware.ts` が静的ファイルとAPIを含むサイト全体をBasic認証またはCloudflare Accessで保護します。
-`DASHBOARD_PASSWORD` が未設定の場合は503で閉じ、認証後もキャッシュ、外部スクリプト、
-iframe埋め込み、検索エンジン登録を禁止します。
+`AUTH_MODE=basic`（既定）では、署名付き引き継ぎ、有効なSSOセッション、読取専用のHubサービストークンを
+先に検証し、それらで認証されなかったリクエストにBasic認証を要求します。このとき
+`DASHBOARD_PASSWORD` が未設定なら503を返します。パスワードの削除だけでは、有効なセッションや
+Hubサービストークンによるアクセスは停止しません。
 
-`AUTH_MODE=access` では `Cf-Access-Jwt-Assertion` の署名・issuer・audienceを検証します。
+HTML・APIなどは `Cache-Control: private, no-store` とします。認証済みのGET/HEADで200を返す
+ハッシュ付き静的ファイルだけは `private, max-age=31536000, immutable` でブラウザに保存します。
+外部スクリプト、iframe埋め込み、検索エンジン登録は禁止します。
+
+`AUTH_MODE=access` では `Cf-Access-Jwt-Assertion` の署名・issuer・audienceを検証します。Basic認証、
+SSOセッション、HubサービストークンだけではAccess JWTの検証を省略できず、`DASHBOARD_PASSWORD` は使いません。
 Personal Hubと他のダッシュボードを同じAccess applicationに登録すると、1回のログインで移動できます。
 
-`AUTH_MODE=basic` では、Personal Hubと同じ `SSO_SHARED_SECRET` を設定すると署名付き引き継ぎを受け付け、対象ホストに固定したHttpOnlyセッションを作成します。`HUB_SERVICE_TOKEN` は `GET /api/expenses`、`GET /api/export`、`GET /api/status` のみに使え、他のAPIやメソッドはBasic認証を要求します。
+`AUTH_MODE=basic` では、Personal Hubと同じ `SSO_SHARED_SECRET` を設定すると署名付き引き継ぎを受け付け、対象ホストに固定したHttpOnlyセッションを作成します。`HUB_SERVICE_TOKEN` は `GET /api/expenses`、`GET /api/export`、`GET /api/status` のみに使え、他のAPIやメソッドにはBasic認証または有効なSSOセッションが必要です。
 
 FunctionsだけがSupabase Secret keyを保持し、ブラウザへは必要な列だけを返します。
 同じキーの同時リクエストでSupabaseが一時的に返す401（`PGRST303`）だけは、実行前に拒否されているため1回だけやり直します。
@@ -139,7 +147,9 @@ FunctionsだけがSupabase Secret keyを保持し、ブラウザへは必要な�
 | Build output directory | `dist` |
 | Node version | `.node-version`（22） |
 
-Cloudflare PagesのProductionとPreviewの両方へ、上記4つの環境変数を設定します。
+共通のビルド設定とBuild watch pathsはルートの [`README.md`](../../README.md#cloudflare-pages設定) を参照します。
+
+Cloudflare PagesのProductionとPreviewの両方へ、「実行時の環境変数」の表に従って必要な変数を設定します。
 `DASHBOARD_PASSWORD` と `SUPABASE_SECRET_KEY` はSecretとして保存してください。
 
 移行は次の順番で行います。

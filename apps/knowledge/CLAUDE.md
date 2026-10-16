@@ -2,7 +2,7 @@
 
 Supabase のナレッジDB（学習カード + クイズ履歴）を自分専用で管理する
 ダッシュボード。Vite + React + TypeScript、グラフは recharts。
-ブラウザはSupabaseへ直接接続せず、Basic認証済みのCloudflare Pages Functions APIを使う。
+ブラウザはSupabaseへ直接接続せず、認証済みのCloudflare Pages Functions APIを使う。
 ナレッジの追加・編集・アーカイブ・復元を行える。復習とは独立した英会話練習も記録する。
 
 ## コマンド
@@ -24,8 +24,12 @@ npm test           # ロジック、API、認証、入力・応答検証
 ローカルでは `.dev.vars.example` を `.dev.vars` へコピーする。
 `.dev.vars` はgitignore済みで、実値をコミットしない。
 
-- `DASHBOARD_PASSWORD`（必須、ASCII）
+- `DASHBOARD_PASSWORD`（Basic認証時に必要、ASCII）
 - `DASHBOARD_USER`（任意、既定 admin）
+- `AUTH_MODE`（任意、`basic`（既定）または `access`）
+- `TEAM_DOMAIN` / `POLICY_AUD`（Access時に必要）
+- `SSO_SHARED_SECRET` / `SESSION_TTL_DAYS`（SSO引き継ぎとセッション。詳細はREADMEの「閲覧制限」）
+- `HUB_SERVICE_TOKEN`（Hubからの読取専用API用。詳細はREADMEの「閲覧制限」）
 - `SUPABASE_URL`（必須）
 - `SUPABASE_SECRET_KEY`（必須、CloudflareではSecretとして保存）
 - `ANTHROPIC_API_KEY`（必須、復習クイズの出題・採点に使用。CloudflareではSecretとして保存）
@@ -171,7 +175,7 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - グループを閲覧・整理しても `quiz_log`、習熟度、次回復習時刻を更新しない
 - タグ別画面は既存の `knowledge.tags` を厳密一致で集計し、タグなしも表示する。タグの一括補完は行わない
 
-### 整理ページ（問い・示唆・タグ）
+### 整理ページ（問い・示唆・タグ・ノート）
 
 - `?view=organize&tab=questions|insights|tags|notes&question=<id>` の1ページで、問い・すべての示唆・タグ・ノートをタブで切り替える。
   旧URLの `?view=insights` は問いタブ、`?view=tags` はタグタブで開く
@@ -257,8 +261,9 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `POST /api/review-queue/discard`: 出題待ちのおかしな問題を取り下げる
 - `POST /api/review-queue/confirm`: 採点結果（`quiz_log_ids`）を確認済みにする
 - `POST /api/review-batch/generate` / `grade`: 生成・採点バッチ。pg_cronからは `X-Review-Batch-Token`、画面からは
-  同一オリジンと `X-Dashboard-Action: review-queue` で受け付ける。ミドルウェアがBasic認証を省くのは、合言葉が一致した
-  この2つと `/api/embedding-batch` のPOSTだけ。生成はキューが上限なら、採点は採点待ちがなければAIを呼ばない。採点で再学習に入った回答があれば、
+  同一オリジンと `X-Dashboard-Action: review-queue` で受け付ける。`AUTH_MODE=basic` の定期実行用トークンで
+  Basic認証を省けるのは、合言葉が一致したこの2つと `/api/embedding-batch` のPOSTだけ。
+  SSOセッションとHubサービストークンの認証範囲はREADMEの「閲覧制限」に従う。生成はキューが上限なら、採点は採点待ちがなければAIを呼ばない。採点で再学習に入った回答があれば、
   再学習分だけを続けて生成する（`after_grade`）。定期実行はBatches APIで依頼し、終わったバッチを次以降の実行で回収する（`review_ai_batches`）
 - `POST /api/semantic-search`: 検索語（500文字以内）・種類・件数（1〜50、既定20）を受け取り、検索語だけをVoyageへ送って
   `search_semantic` の結果を返す。検索語をURLやログに残さないようPOSTにし、同一オリジンと `X-Dashboard-Action: semantic-search` を要求する
@@ -382,9 +387,9 @@ src/
   components/               表示、編集、詳細、アーカイブ復元、復習画面（ReviewView）、学習ログ（LearningLogView。
                             採点待ちと採点結果への操作は ReviewLogParts）、
                             英会話練習画面（SpeakingPracticeView）、整理ページ（OrganizeView）と
-                            その各タブ（InsightGroupsPanel / InsightListPanel / TagGroupsPanel）
+                            その各タブ（InsightGroupsPanel / InsightListPanel / TagGroupsPanel / NotesPanel）
 functions/
-  _middleware.ts            全リクエストのBasic認証とセキュリティヘッダー
+  _middleware.ts            共通認証ミドルウェアの設定（Access・SSO・Basic・専用トークン）とセキュリティヘッダー
   _shared/supabaseRest.ts   Supabase REST API / RPC呼び出し。同時リクエストでキーが一時的に拒否された401（PGRST303）だけ1回やり直す
   _shared/knowledgeValidation.ts 書き込み要求と入力の検証
   _shared/quizValidation.ts 問題と回答の上限、出題形式の定数
@@ -430,8 +435,12 @@ public/
 Functionsの環境変数はCloudflareのVariables and SecretsでProduction/Preview双方に設定し、
 値を変更したら再デプロイする。
 
-`functions/_middleware.ts` は静的アセットと `/api/*` の全リクエストにBasic認証をかける。
-パスワード未設定時は503を返すフェイルクローズ設計を変えない。
+`functions/_middleware.ts` は `packages/dashboard-auth` の共通ミドルウェアを使い、静的アセットと `/api/*` を保護する。
+`AUTH_MODE=basic` では署名付き引き継ぎ・有効なSSOセッション・用途を限定した専用トークンを先に検証し、
+それらで認証されなければBasic認証を要求する。この段階でパスワード未設定なら503を返す。
+`AUTH_MODE=access` はAccess JWTを必須とし、パスワード設定には依存しない。パスワードの削除だけでは全体を停止できない。
+HTML・APIなどは `Cache-Control: private, no-store`、認証済みのGET/HEADで200を返すハッシュ付き静的ファイルだけは
+`private, max-age=31536000, immutable`。非公開レスポンスの検索エンジン登録は禁止する。認証範囲の詳細はREADMEの「閲覧制限」を参照する。
 CSPは外部スクリプト・外部スタイルを禁止する。rechartsが生成するstyle属性だけは
 `style-src-attr` で許可し、アプリ固有の色分けはCSSクラスで行う。
 
