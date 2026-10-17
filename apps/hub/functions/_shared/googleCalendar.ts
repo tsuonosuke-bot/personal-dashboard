@@ -813,3 +813,88 @@ export async function createReplacementGoogleCalendarEvent(
   const verified = await readVerifiedEvent(accessToken, event);
   return fetchGoogleCalendarEvent(accessToken, verified.targetId);
 }
+
+export interface GoogleCalendarListedEvent {
+  eventId: string;
+  targetUrl: string | null;
+  title: string | null;
+  status: "confirmed" | "cancelled";
+  schedule: CalendarSchedule | null;
+  etag: string | null;
+}
+
+/**
+ * ToDoの1行に収まる形へ丸める。複数日の終日予定は初日、日をまたぐ時間指定の予定は
+ * 開始日の23:59までとして扱う。
+ */
+export function listedEventSchedule(event: GoogleEventShape): CalendarSchedule | null {
+  if (!isPlainObject(event.start) || !isPlainObject(event.end)) return null;
+  if (isValidDate(event.start.date)) {
+    return { allDay: true, date: event.start.date, startTime: null, endTime: null, timeZone: GOOGLE_CALENDAR_TIME_ZONE };
+  }
+  if (typeof event.start.dateTime !== "string" || typeof event.end.dateTime !== "string") return null;
+  const start = tokyoDateTime(event.start.dateTime);
+  const end = tokyoDateTime(event.end.dateTime);
+  if (!start) return null;
+  const endTime = end && end.date === start.date && minutes(end.time) > minutes(start.time) ? end.time : "23:59";
+  if (minutes(endTime) <= minutes(start.time)) return null;
+  return { allDay: false, date: start.date, startTime: start.time, endTime, timeZone: GOOGLE_CALENDAR_TIME_ZONE };
+}
+
+const LIST_PAGE_LIMIT = 10;
+
+/** primaryカレンダーの [timeMin, timeMax) を、取消済みも含めて列挙する。繰り返し予定は1回ずつに展開する。 */
+export async function listGoogleCalendarEvents(
+  env: DashboardEnv,
+  timeMin: string,
+  timeMax: string,
+): Promise<{ events: GoogleCalendarListedEvent[]; complete: boolean }> {
+  if (!configured(env)) throw new DashboardError("GOOGLE_CALENDAR_NOT_CONFIGURED", "Google Calendar is not configured.", 503);
+  const accessToken = await refreshAccessToken(env);
+  const events: GoogleCalendarListedEvent[] = [];
+  let pageToken: string | null = null;
+  for (let page = 0; page < LIST_PAGE_LIMIT; page += 1) {
+    const endpoint = new URL(`${CALENDAR_API}/calendars/primary/events`);
+    endpoint.searchParams.set("singleEvents", "true");
+    endpoint.searchParams.set("showDeleted", "true");
+    endpoint.searchParams.set("timeMin", timeMin);
+    endpoint.searchParams.set("timeMax", timeMax);
+    endpoint.searchParams.set("maxResults", "250");
+    endpoint.searchParams.set("fields", "nextPageToken,items(id,etag,htmlLink,status,summary,start,end)");
+    if (pageToken) endpoint.searchParams.set("pageToken", pageToken);
+    let response: Response;
+    try {
+      response = await fetch(endpoint, { headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" } });
+    } catch {
+      throw new DashboardError("GOOGLE_CALENDAR_UNAVAILABLE", "Could not list Google events.");
+    }
+    if (!response.ok) {
+      if (response.status === 401) forgetGoogleAccessToken();
+      const code = response.status === 401 || response.status === 403
+        ? "GOOGLE_CALENDAR_ACCESS_DENIED"
+        : response.status === 429
+          ? "GOOGLE_CALENDAR_RATE_LIMITED"
+          : "GOOGLE_CALENDAR_REQUEST_FAILED";
+      throw new DashboardError(code, `Google Calendar returned ${response.status}.`, response.status === 429 ? 429 : 502);
+    }
+    const payload: unknown = await response.json();
+    if (!isPlainObject(payload) || !Array.isArray(payload.items)) {
+      throw new DashboardError("GOOGLE_CALENDAR_RESPONSE_INVALID", "Google Calendar returned invalid data.");
+    }
+    for (const item of payload.items) {
+      if (!isPlainObject(item) || typeof item.id !== "string" || !item.id) continue;
+      const cancelled = item.status === "cancelled";
+      events.push({
+        eventId: item.id,
+        targetUrl: validGoogleUrl(item.htmlLink) ? item.htmlLink : null,
+        title: typeof item.summary === "string" && item.summary.trim() ? item.summary.trim() : null,
+        status: cancelled ? "cancelled" : "confirmed",
+        schedule: cancelled ? null : listedEventSchedule(item as GoogleEventShape),
+        etag: typeof item.etag === "string" ? item.etag : null,
+      });
+    }
+    pageToken = typeof payload.nextPageToken === "string" && payload.nextPageToken ? payload.nextPageToken : null;
+    if (!pageToken) return { events, complete: true };
+  }
+  return { events, complete: false };
+}

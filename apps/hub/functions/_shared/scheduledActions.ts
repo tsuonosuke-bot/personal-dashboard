@@ -24,6 +24,11 @@ interface ScheduledActionRow {
   last_calendar_sync_at?: unknown;
   created_at?: unknown;
   updated_at?: unknown;
+  google_event_id?: unknown;
+  calendar_title?: unknown;
+  calendar_url?: unknown;
+  calendar_etag?: unknown;
+  calendar_state?: unknown;
 }
 
 interface CalendarRouteRow {
@@ -43,7 +48,13 @@ interface WantSourceRow {
 
 interface StoredAction {
   id: number;
-  sourceRouteId: number;
+  /** Dashboardから作った予定だけ持つ。/api/calendar-syncでミラーした行はnull。 */
+  sourceRouteId: number | null;
+  googleEventId: string | null;
+  calendarTitle: string | null;
+  calendarUrl: string | null;
+  calendarEtag: string | null;
+  calendarState: "confirmed" | "cancelled";
   status: ScheduledActionStatus;
   schedule: CalendarSchedule;
   completedAt: string | null;
@@ -72,6 +83,7 @@ type ValidationResult =
   | { ok: false; status: number; error: string };
 
 const MAX_REQUEST_CHARS = 6_000;
+const ACTION_COLUMNS = "id,source_route_id,status,current_schedule,completed_at,note,reschedule_count,last_calendar_sync_at,created_at,updated_at,google_event_id,calendar_title,calendar_url,calendar_etag,calendar_state";
 const statusSet = new Set<ScheduledActionStatus>(["pending", "completed", "skipped"]);
 const commandSet = new Set<ScheduledActionCommand>(["complete", "skip", "reopen", "reschedule", "recreate"]);
 
@@ -156,17 +168,23 @@ async function fetchRows(env: DashboardEnv, table: string, select: string, order
 
 function normalizeAction(row: ScheduledActionRow): StoredAction {
   const id = integer(row.id);
-  const sourceRouteId = integer(row.source_route_id);
+  const sourceRouteId = row.source_route_id === null ? null : integer(row.source_route_id);
+  const googleEventId = textOrNull(row.google_event_id);
   const status = typeof row.status === "string" && statusSet.has(row.status as ScheduledActionStatus)
     ? row.status as ScheduledActionStatus
     : null;
   const schedule = parseCalendarSchedule(row.current_schedule);
-  if (!id || !sourceRouteId || !status || !schedule || !validTimestamp(row.updated_at)) {
+  if (!id || (!sourceRouteId && !googleEventId) || !status || !schedule || !validTimestamp(row.updated_at)) {
     throw new DashboardError("SUPABASE_RESPONSE_INVALID", "scheduled_actions returned invalid data.");
   }
   return {
     id,
     sourceRouteId,
+    googleEventId,
+    calendarTitle: textOrNull(row.calendar_title),
+    calendarUrl: safeGoogleUrl(row.calendar_url),
+    calendarEtag: textOrNull(row.calendar_etag),
+    calendarState: row.calendar_state === "cancelled" ? "cancelled" : "confirmed",
     status,
     schedule,
     completedAt: isoOrNull(row.completed_at),
@@ -196,7 +214,7 @@ export async function listScheduledActions(env: DashboardEnv) {
   const pendingAccessToken = googleAccessToken(env);
   pendingAccessToken.catch(() => undefined);
   const [actionRows, routeRows, wantRows] = await Promise.all([
-    fetchRows(env, "scheduled_actions", "id,source_route_id,status,current_schedule,completed_at,note,reschedule_count,last_calendar_sync_at,created_at,updated_at", "updated_at.desc,id.desc"),
+    fetchRows(env, "scheduled_actions", ACTION_COLUMNS, "updated_at.desc,id.desc"),
     fetchRows(env, "want_routes", "id,want_id,title,detail,target_id,target_url", "created_at.desc,id.desc"),
     fetchRows(env, "wants", "id,content,source_inbox_id", "created_at.desc,id.desc"),
   ]);
@@ -210,7 +228,7 @@ export async function listScheduledActions(env: DashboardEnv) {
     if (isPlainObject(row) && integer(row.id)) wants.set(integer(row.id)!, row as WantSourceRow);
   });
 
-  const targetIds = actions.map((action) => textOrNull(routes.get(action.sourceRouteId)?.target_id)).filter((id): id is string => Boolean(id));
+  const targetIds = actions.map((action) => (action.sourceRouteId ? textOrNull(routes.get(action.sourceRouteId)?.target_id) : null)).filter((id): id is string => Boolean(id));
   let calendarEvents = new Map<string, GoogleCalendarEventSnapshot>();
   let calendarSync: "live" | "unavailable" = "live";
   try {
@@ -220,6 +238,27 @@ export async function listScheduledActions(env: DashboardEnv) {
   }
 
   const items = actions.map((action) => {
+    if (!action.sourceRouteId) {
+      // /api/calendar-syncがミラーした予定。Wantには紐づかず、保存済みのCalendar情報を表示する。
+      return {
+        id: action.id,
+        status: action.status,
+        title: action.calendarTitle || "内容なし",
+        detail: null,
+        sourceWantId: null,
+        sourceInboxId: null,
+        schedule: action.schedule,
+        calendarState: action.calendarState,
+        calendarUrl: action.calendarUrl,
+        calendarEtag: action.calendarEtag,
+        completedAt: action.completedAt,
+        note: action.note,
+        rescheduleCount: action.rescheduleCount,
+        lastCalendarSyncAt: action.lastCalendarSyncAt,
+        createdAt: action.createdAt,
+        updatedAt: action.updatedAt,
+      };
+    }
     const route = routes.get(action.sourceRouteId);
     if (!route || !integer(route.want_id) || !textOrNull(route.target_id)) {
       throw new DashboardError("SUPABASE_RESPONSE_INVALID", "scheduled action route is missing.");
@@ -353,7 +392,7 @@ export async function readScheduledActionInput(request: Request): Promise<Valida
 
 async function readActionForUpdate(env: DashboardEnv, input: ScheduledActionInput): Promise<StoredAction> {
   const endpoint = restEndpoint(env, "scheduled_actions");
-  endpoint.searchParams.set("select", "id,source_route_id,status,current_schedule,completed_at,note,reschedule_count,last_calendar_sync_at,created_at,updated_at");
+  endpoint.searchParams.set("select", ACTION_COLUMNS);
   endpoint.searchParams.set("id", `eq.${input.id}`);
   endpoint.searchParams.set("status", `eq.${input.original.status}`);
   endpoint.searchParams.set("updated_at", `eq.${input.original.updatedAt}`);
@@ -433,7 +472,7 @@ async function patchAction(
   changes: Record<string, unknown>,
 ): Promise<StoredAction> {
   const endpoint = restEndpoint(env, "scheduled_actions");
-  endpoint.searchParams.set("select", "id,source_route_id,status,current_schedule,completed_at,note,reschedule_count,last_calendar_sync_at,created_at,updated_at");
+  endpoint.searchParams.set("select", ACTION_COLUMNS);
   endpoint.searchParams.set("id", `eq.${current.id}`);
   endpoint.searchParams.set("status", `eq.${current.status}`);
   endpoint.searchParams.set("updated_at", `eq.${current.updatedAt}`);
@@ -471,10 +510,13 @@ async function recordScheduleHistory(
 export async function updateScheduledAction(env: DashboardEnv, input: ScheduledActionInput) {
   const current = await readActionForUpdate(env, input);
   if (input.command === "reschedule") {
-    const route = await readRouteTarget(env, current.sourceRouteId);
-    const event = await rescheduleGoogleCalendarEvent(env, route.targetId, input.schedule!, input.original.calendarEtag);
+    const targetId = current.sourceRouteId
+      ? (await readRouteTarget(env, current.sourceRouteId)).targetId
+      : current.googleEventId!;
+    const event = await rescheduleGoogleCalendarEvent(env, targetId, input.schedule!, input.original.calendarEtag);
     const updated = await patchAction(env, current, {
       current_schedule: event.schedule,
+      ...(current.sourceRouteId ? {} : { calendar_etag: event.etag }),
       reschedule_count: current.rescheduleCount + 1,
       last_calendar_sync_at: new Date().toISOString(),
     });
@@ -487,6 +529,9 @@ export async function updateScheduledAction(env: DashboardEnv, input: ScheduledA
     return { id: updated.id, status: updated.status, schedule: updated.schedule, rescheduleCount: updated.rescheduleCount };
   }
   if (input.command === "recreate") {
+    if (!current.sourceRouteId) {
+      throw new DashboardError("SCHEDULED_ACTION_CALENDAR_MISSING", "Synced calendar events cannot be recreated.", 409);
+    }
     const route = await readRouteTarget(env, current.sourceRouteId);
     const existing = (await readGoogleCalendarEvents(env, [route.targetId])).get(route.targetId);
     if (existing?.status === "confirmed") {
