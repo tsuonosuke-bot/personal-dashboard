@@ -66,6 +66,8 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     preparedExplanation: typeof row.prepared_explanation === "string" ? row.prepared_explanation : null,
   }) : null;
   if (!grade) return jsonResponse({ id, status: "answered", expected_answer: expectedAnswer });
+  // 古い問題などで想定解が無くても、記録に失敗しても、確定した正解は返して答え合わせを空にしない。
+  const shownAnswer = expectedAnswer ?? grade.correctAnswer;
 
   try {
     const recorded = firstRow(await callRpc(context.env, "record_review_grade", {
@@ -77,12 +79,12 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       p_explanation: grade.explanation,
     }));
     if (recorded?.status !== "graded") {
-      return jsonResponse({ id, status: recorded?.status ?? "answered", expected_answer: expectedAnswer });
+      return jsonResponse({ id, status: recorded?.status ?? "answered", expected_answer: shownAnswer });
     }
     return jsonResponse({
       id,
       status: "graded",
-      expected_answer: expectedAnswer,
+      expected_answer: shownAnswer,
       result: {
         quiz_log_id: recorded.quiz_log_id,
         quality: grade.quality,
@@ -93,6 +95,6 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       },
     });
   } catch {
-    return jsonResponse({ id, status: "answered", expected_answer: expectedAnswer });
+    return jsonResponse({ id, status: "answered", expected_answer: shownAnswer });
   }
 };
