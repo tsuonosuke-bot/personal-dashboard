@@ -13,6 +13,8 @@ export interface Knowledge {
   title: string;
   explanation: string | null;
   source_note: string | null;
+  /** 著者の主張を支える数値・研究・事例。出典元は source_note に書く。 */
+  claim_evidence: string | null;
   category: string;
   knowledge_kind: KnowledgeKind;
   mastery: Mastery;
@@ -303,6 +305,7 @@ export interface KnowledgeDraft {
   title: string;
   explanation: string | null;
   source_note: string | null;
+  claim_evidence: string | null;
   category: string;
   knowledge_kind: KnowledgeKind;
   mastery: Mastery;

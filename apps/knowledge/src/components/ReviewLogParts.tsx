@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { MASTERY_ORDER, PRIORITY_ORDER } from "../constants";
+import { KNOWLEDGE_KIND_ORDER, MASTERY_ORDER, PRIORITY_ORDER } from "../constants";
 import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
 import { getPendingReviewAnswers, getReviewGenerationHolds, retryReviewAnswer, runReviewBatch } from "../lib/api";
-import type { Knowledge, KnowledgeDraft, KnowledgePriority, Mastery, PendingReviewAnswer, ReviewGenerationHold } from "../types";
+import type { Knowledge, KnowledgeDraft, KnowledgeKind, KnowledgePriority, Mastery, PendingReviewAnswer, ReviewGenerationHold } from "../types";
 import { DeepDiveInbox } from "./DeepDiveInbox";
 import { InsightNotes } from "./InsightNotes";
 
@@ -205,14 +205,19 @@ export function ReviewResultActions({
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [archived, setArchived] = useState<Knowledge | null>(item.archived ? item : null);
+  // 保存済みの値を覆う、この画面での最新値。保存のたびに content_version も進むので、更新後の行を持つ。
+  const [latest, setLatest] = useState<Knowledge>(item);
+  const [sourceNote, setSourceNote] = useState(item.source_note ?? "");
+  const [claimEvidence, setClaimEvidence] = useState(item.claim_evidence ?? "");
 
   const save = async (changes: Partial<KnowledgeDraft> | { archived: boolean }, message: string) => {
     if (saving) return;
     setSaving(true);
     setFeedback(null);
     try {
-      const target = archived ?? item;
+      const target = archived ?? latest;
       const updated = await onKnowledgeUpdate(target.id, target.content_version, changes);
+      setLatest(updated);
       setArchived(updated.archived ? updated : null);
       setFeedback(message);
     } catch (caught) {
@@ -247,6 +252,17 @@ export function ReviewResultActions({
       <div className="quiz-knowledge-panel">
         <div className="quiz-edit-fields">
           <label className="quiz-edit-control">
+            <span>種類</span>
+            <select
+              aria-label={`${item.title}の種類`}
+              value={latest.knowledge_kind}
+              disabled={saving}
+              onChange={(event) => void save({ knowledge_kind: event.target.value as KnowledgeKind }, "保存しました。")}
+            >
+              {KNOWLEDGE_KIND_ORDER.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="quiz-edit-control">
             <span>習熟度</span>
             <select
               aria-label={`${item.title}の習熟度`}
@@ -273,6 +289,22 @@ export function ReviewResultActions({
           {saving && <span className="quiz-edit-feedback">保存中…</span>}
           {!saving && feedback && <span className="quiz-edit-feedback">{feedback}</span>}
         </div>
+        {latest.knowledge_kind === "著者の主張" && (
+          <div className="review-claim-fields">
+            <label className="quiz-edit-control">
+              <span>出典元（著者・書名・URLなど）</span>
+              <textarea rows={2} maxLength={5_000} value={sourceNote} disabled={saving} onChange={(event) => setSourceNote(event.target.value)} />
+            </label>
+            <label className="quiz-edit-control">
+              <span>根拠データ（主張を支える数値・研究・事例）</span>
+              <textarea rows={2} maxLength={5_000} value={claimEvidence} disabled={saving} onChange={(event) => setClaimEvidence(event.target.value)} />
+            </label>
+            <button
+              disabled={saving || (sourceNote.trim() === (latest.source_note ?? "") && claimEvidence.trim() === (latest.claim_evidence ?? ""))}
+              onClick={() => void save({ source_note: sourceNote.trim() || null, claim_evidence: claimEvidence.trim() || null }, "保存しました。")}
+            >出典・根拠を保存</button>
+          </div>
+        )}
         <p className="muted review-priority-note">優先度を変えると、次回の復習時刻も優先度の倍率で計算し直します（再学習中を除く）。</p>
       </div>
     </div>

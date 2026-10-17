@@ -20,7 +20,7 @@ const KNOWLEDGE_ID = "123e4567-e89b-42d3-a456-426614174000";
 
 function knowledgeRow(overrides: Record<string, unknown> = {}) {
   return {
-    id: KNOWLEDGE_ID, title: "テスト", explanation: null, source_note: null, category: "技術",
+    id: KNOWLEDGE_ID, title: "テスト", explanation: null, source_note: null, claim_evidence: null, category: "技術",
     mastery: "学習中", priority: "中", ef: 2.5, reps: 1, interval_days: 2, times_asked: 3,
     times_correct: 2, learned_on: "2026-09-01", last_asked_on: null, tags: [], accuracy: 2 / 3,
     next_review_on: "2026-09-10", next_review_at: "2026-09-10T03:00:00Z", stability_hours: 48,

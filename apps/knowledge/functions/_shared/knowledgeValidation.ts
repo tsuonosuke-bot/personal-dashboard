@@ -12,6 +12,7 @@ export interface KnowledgeWriteInput {
   title?: string;
   explanation?: string | null;
   source_note?: string | null;
+  claim_evidence?: string | null;
   category?: string;
   knowledge_kind?: KnowledgeKindValue;
   mastery?: MasteryValue;
@@ -39,7 +40,7 @@ export interface RequestGuardError {
 }
 
 const EDITABLE_KEYS = new Set([
-  "title", "explanation", "source_note", "category", "knowledge_kind", "mastery",
+  "title", "explanation", "source_note", "claim_evidence", "category", "knowledge_kind", "mastery",
   "priority", "tags", "next_review_on", "archived",
 ]);
 
@@ -174,6 +175,11 @@ export function validateKnowledgeInput(
     const parsed = optionalText(input.source_note, "出典メモ", 5_000);
     if (!parsed.ok) return parsed;
     result.source_note = parsed.value;
+  }
+  if ("claim_evidence" in input) {
+    const parsed = optionalText(input.claim_evidence, "根拠データ", 5_000);
+    if (!parsed.ok) return parsed;
+    result.claim_evidence = parsed.value;
   }
   if ("mastery" in input) {
     if (typeof input.mastery !== "string" || !(MASTERY_VALUES as readonly string[]).includes(input.mastery)) {

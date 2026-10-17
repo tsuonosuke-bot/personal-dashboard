@@ -1083,3 +1083,7 @@ body.quiz-open { padding-bottom: 0; }
 @media (max-width: 720px) {
   input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px !important; }
 }
+.review-claim-fields { display: grid; gap: 8px; margin-top: 8px; }
+.review-claim-fields .quiz-edit-control { align-items: flex-start; flex-direction: column; }
+.review-claim-fields textarea { width: 100%; }
+.review-claim-fields button { justify-self: start; }

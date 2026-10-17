@@ -181,3 +181,9 @@ matching Cloudflare Pages build.
   `著者の主張`, and `自分のメモ`. Apply this before deploying the app build that
   selects the new column. Changing the kind increments `content_version` through
   the existing trigger, so queued questions for the older interpretation expire.
+
+- `20261018100000_knowledge_claim_evidence.sql` adds nullable
+  `knowledge.claim_evidence` (5,000 characters at most) for the data behind a
+  `著者の主張` card; the source itself stays in `source_note`. The column joins
+  the `content_version` trigger like `source_note`. Apply this before deploying
+  the app build that selects the new column.

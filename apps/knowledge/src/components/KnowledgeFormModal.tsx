@@ -28,6 +28,7 @@ export function KnowledgeFormModal({
   const [priority, setPriority] = useState<KnowledgePriority>(knowledge?.priority ?? "中");
   const [explanation, setExplanation] = useState(knowledge?.explanation ?? "");
   const [sourceNote, setSourceNote] = useState(knowledge?.source_note ?? "");
+  const [claimEvidence, setClaimEvidence] = useState(knowledge?.claim_evidence ?? "");
   const [tags, setTags] = useState(() => appendUniqueTags([], knowledge?.tags ?? []));
   const [tagInput, setTagInput] = useState("");
   const [nextReviewOn, setNextReviewOn] = useState(knowledge?.next_review_on ?? "");
@@ -67,6 +68,7 @@ export function KnowledgeFormModal({
       priority,
       explanation: explanation.trim() || null,
       source_note: sourceNote.trim() || null,
+      claim_evidence: claimEvidence.trim() || null,
       tags: parsedTags,
       next_review_on: nextReviewOn || null,
     });
@@ -125,9 +127,15 @@ export function KnowledgeFormModal({
               <textarea rows={6} maxLength={10_000} value={explanation} onChange={(event) => setExplanation(event.target.value)} />
             </label>
             <label className="field full-field">
-              <span>出典メモ</span>
+              <span>{knowledgeKind === "著者の主張" ? "出典元（著者・書名・URLなど）" : "出典メモ"}</span>
               <textarea rows={3} maxLength={5_000} value={sourceNote} onChange={(event) => setSourceNote(event.target.value)} />
             </label>
+            {knowledgeKind === "著者の主張" && (
+              <label className="field full-field">
+                <span>根拠データ（主張を支える数値・研究・事例）</span>
+                <textarea rows={3} maxLength={5_000} value={claimEvidence} onChange={(event) => setClaimEvidence(event.target.value)} />
+              </label>
+            )}
             <div className="field full-field tag-picker">
               <label htmlFor={tagInputId}>タグ</label>
               <small id={tagHelpId} className="field-hint">既存のタグから選ぶか、自由に入力できます。1〜2個が目安です。カンマ・Enterで追加できます。</small>
