@@ -71,9 +71,15 @@ export function KnowledgeDetailModal({
             <h3>説明</h3>
             <p>{knowledge.explanation || "説明はありません。"}</p>
           </div>
-          {knowledge.source_note && (
+          {(knowledge.source_note || knowledge.knowledge_kind === "著者の主張") && (
             <div className="content-block">
-              <h3>出典メモ</h3><p>{knowledge.source_note}</p>
+              <h3>{knowledge.knowledge_kind === "著者の主張" ? "出典元" : "出典メモ"}</h3>
+              <p>{knowledge.source_note || "未記入"}</p>
+            </div>
+          )}
+          {(knowledge.claim_evidence || knowledge.knowledge_kind === "著者の主張") && (
+            <div className="content-block">
+              <h3>根拠データ</h3><p>{knowledge.claim_evidence || "未記入"}</p>
             </div>
           )}
 

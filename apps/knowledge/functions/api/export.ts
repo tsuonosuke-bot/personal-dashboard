@@ -25,7 +25,7 @@ export const onRequest = async ({ request, env }: FunctionContext): Promise<Resp
   const now = new Date();
   try {
     const [knowledge, quizLog, speakingPracticeLog] = await Promise.all([
-      allRows(env, "knowledge", "id,title,explanation,source_note,category,knowledge_kind,mastery,priority,ef,reps,interval_days,times_asked,times_correct,learned_on,last_asked_on,next_review_on,next_review_at,stability_hours,relearning_stage,last_reviewed_at,archived,created_at,accuracy,tags,mastery_streak,content_version", "created_at.desc,id.asc"),
+      allRows(env, "knowledge", "id,title,explanation,source_note,claim_evidence,category,knowledge_kind,mastery,priority,ef,reps,interval_days,times_asked,times_correct,learned_on,last_asked_on,next_review_on,next_review_at,stability_hours,relearning_stage,last_reviewed_at,archived,created_at,accuracy,tags,mastery_streak,content_version", "created_at.desc,id.asc"),
       allRows(env, "quiz_log", "id,knowledge_id,asked_on,quality,verdict,format,note,created_at", "asked_on.desc,created_at.desc,id.desc"),
       allRows(env, "speaking_practice_log", "id,attempt_id,session_id,knowledge_id,practice_type,rating,answer_text,repetitions,practiced_at", "practiced_at.desc,id.desc"),
     ]);

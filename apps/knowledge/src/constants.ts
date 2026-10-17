@@ -1,8 +1,9 @@
-import type { KnowledgePriority, Mastery } from "./types";
+import type { KnowledgeKind, KnowledgePriority, Mastery } from "./types";
 
 export const ALL = "すべて";
 
 export const MASTERY_ORDER: Mastery[] = ["未学習", "学習中", "習得中", "定着"];
+export const KNOWLEDGE_KIND_ORDER: KnowledgeKind[] = ["未分類", "事実", "著者の主張", "自分のメモ"];
 export const PRIORITY_ORDER: KnowledgePriority[] = ["最高", "高", "中", "低", "最低"];
 
 export const PRIORITY_INTERVAL_HINTS: Record<KnowledgePriority, string> = {

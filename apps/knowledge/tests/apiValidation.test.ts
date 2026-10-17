@@ -11,6 +11,7 @@ function validKnowledge() {
     title: "テスト",
     explanation: null,
     source_note: null,
+    claim_evidence: null,
     category: "技術",
     knowledge_kind: "事実",
     mastery: "学習中",

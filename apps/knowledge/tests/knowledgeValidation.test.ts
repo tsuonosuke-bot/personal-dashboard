@@ -128,3 +128,14 @@ test("Supabase書き込みはSecretをヘッダーだけに付与する", async 
     globalThis.fetch = originalFetch;
   }
 });
+
+test("種類は許可された4値だけを受け付け、根拠データは空欄をnullにする", () => {
+  assert.equal(validateKnowledgeInput({ knowledge_kind: "示唆" }, "update").ok, false);
+  assert.equal(validateKnowledgeInput({ knowledge_kind: "事実 " }, "update").ok, false);
+  assert.deepEqual(
+    validateKnowledgeInput({ knowledge_kind: "著者の主張", claim_evidence: " 調査で30%増 " }, "update"),
+    { ok: true, value: { knowledge_kind: "著者の主張", claim_evidence: "調査で30%増" } },
+  );
+  assert.deepEqual(validateKnowledgeInput({ claim_evidence: " " }, "update"), { ok: true, value: { claim_evidence: null } });
+  assert.equal(validateKnowledgeInput({ claim_evidence: "x".repeat(5_001) }, "update").ok, false);
+});

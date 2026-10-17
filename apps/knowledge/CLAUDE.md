@@ -50,7 +50,8 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - `id` はuuid文字列
 - `mastery` は `未学習` / `学習中` / `習得中` / `定着` の4種。この語彙を変えない
 - 他: `title`, `explanation`, `category`, `tags`, `accuracy`,
-  `knowledge_kind`（`未分類` / `事実` / `著者の主張` / `自分のメモ`。既存行は未分類）、
+  `knowledge_kind`（`未分類` / `事実` / `著者の主張` / `自分のメモ`。既存行は未分類。DBのCHECK制約とAPI検証の両方で他の値を拒否）、
+  `source_note`（出典元）、`claim_evidence`（`著者の主張`の根拠データ。5000文字まで）、
   `next_review_on`, `next_review_at`, `stability_hours`, `relearning_stage`, `relearning_quality`, `relearning_penalized`,
   `last_reviewed_at`, `scheduled_from_at`, `archived`, `created_at`, `content_version`, `priority`, `base_interval_days`
 - `priority` は `最高` / `高` / `中` / `低` / `最低`。同じ期限内の出題順と、正解・不正解を問わず全ての次回間隔

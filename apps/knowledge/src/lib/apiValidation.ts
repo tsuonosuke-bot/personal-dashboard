@@ -114,6 +114,7 @@ export function parseKnowledge(value: unknown): Knowledge {
     title: stringValue(value, "title", entity),
     explanation: nullableStringValue(value, "explanation", entity),
     source_note: nullableStringValue(value, "source_note", entity),
+    claim_evidence: nullableStringValue(value, "claim_evidence", entity),
     category: stringValue(value, "category", entity),
     knowledge_kind: knowledgeKind as KnowledgeKind,
     mastery: mastery as Mastery,
