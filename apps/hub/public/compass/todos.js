@@ -42,7 +42,11 @@ export async function refreshGoogleCalendarConnection(statusElement, submitButto
 function todoCalendarNotice(item) {
   if (item.calendarState === "unavailable") return "Google Calendarへ接続できないため、前回確認した日時を表示しています。再読み込み後に日程を変更してください。";
   if (item.calendarState === "missing") return "紐づくGoogle Calendar予定が見つかりません。実施する場合は新しい予定として再作成できます。";
-  if (item.calendarState === "cancelled") return "Google Calendarでは取消済みです。見送るか、新しい予定として再作成してください。";
+  if (item.calendarState === "cancelled") {
+    return item.sourceWantId === null
+      ? "Google Calendarでは取消済みです。見送りにするか、このまま完了にしてください。"
+      : "Google Calendarでは取消済みです。見送るか、新しい予定として再作成してください。";
+  }
   if (item.status === "pending" && todoTiming(item) === "overdue") return "予定時刻を過ぎています。実施済みか、日程を決め直すか、見送るかを選んでください。";
   return "日時変更はGoogle Calendarへ反映されます。完了・見送りはToDoだけを更新し、Calendar予定は変更しません。";
 }
@@ -50,6 +54,7 @@ function todoCalendarNotice(item) {
 export function renderTodoDrawer(item) {
   els.drawerKicker.textContent = `ToDo · ${item.id}`;
   setDrawerTitle(item.title || "内容なし");
+  const synced = item.sourceWantId === null;
   const canReschedule = item.status === "pending" && item.calendarState === "confirmed" && item.calendarEtag;
   const calendarLink = item.calendarUrl
     ? `<a class="secondary-action action-link" href="${escapeHtml(item.calendarUrl)}" target="_blank" rel="noopener noreferrer">Google Calendarで開く</a>`
@@ -57,7 +62,7 @@ export function renderTodoDrawer(item) {
   const actions = item.status === "pending"
     ? `<button class="primary-action" id="completeTodoButton" type="button">完了にする</button>
        <button class="secondary-action" id="rescheduleTodoButton" type="button" ${canReschedule ? "" : "disabled"}>日程を決め直す</button>
-       ${item.calendarState === "missing" || item.calendarState === "cancelled" ? '<button class="secondary-action" id="recreateTodoButton" type="button">新しい予定として再作成</button>' : ""}
+       ${!synced && (item.calendarState === "missing" || item.calendarState === "cancelled") ? '<button class="secondary-action" id="recreateTodoButton" type="button">新しい予定として再作成</button>' : ""}
        <button class="close-action" id="skipTodoButton" type="button">見送る</button>`
     : `<button class="secondary-action" id="reopenTodoButton" type="button">未実施に戻す</button>`;
   els.drawerBody.innerHTML = `<div class="detail-grid">
@@ -65,7 +70,7 @@ export function renderTodoDrawer(item) {
       <div class="detail-box"><span>Schedule</span><strong>${escapeHtml(formatCalendarSchedule(item.schedule))}</strong></div>
     </div>
     ${item.detail ? `<div class="detail-section"><span>補足</span><p>${escapeHtml(item.detail)}</p></div>` : ""}
-    <div class="detail-section todo-source"><span>元の記録</span><p>Want · ${item.sourceWantId}${item.sourceInboxId ? ` / Inbox · ${item.sourceInboxId}` : ""}</p></div>
+    <div class="detail-section todo-source"><span>元の記録</span><p>${synced ? "Google Calendarから自動で取り込んだ予定" : `Want · ${item.sourceWantId}${item.sourceInboxId ? ` / Inbox · ${item.sourceInboxId}` : ""}`}</p></div>
     <div class="todo-notice ${item.status === "pending" && todoTiming(item) === "overdue" ? "attention" : ""}">${escapeHtml(todoCalendarNotice(item))}</div>
     <label class="form-field todo-note" for="todoNote"><span>実施メモ <small>空欄可</small></span><textarea id="todoNote" rows="4" maxlength="2000" placeholder="実施結果や見送り理由">${escapeHtml(item.note || "")}</textarea></label>
     <div class="drawer-actions">${calendarLink}${actions}</div>

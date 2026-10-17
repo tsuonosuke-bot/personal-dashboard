@@ -1,8 +1,9 @@
 import { applyPublicCache, createAuthMiddleware, type AuthEnv } from "@personal-dashboards/auth";
 import { acceptHandoff, type SessionEnv } from "./_shared/sessionAuth.ts";
+import { hasCalendarSyncCredential, type CalendarSyncEnv } from "./_shared/calendarSync.ts";
 
 // 認証の本体は packages/dashboard-auth。ここにはHub固有の設定だけを置く。
-interface Env extends AuthEnv, SessionEnv {}
+interface Env extends AuthEnv, SessionEnv, CalendarSyncEnv {}
 
 const PUBLIC_OAUTH_PATHS = new Set([
   "/oauth",
@@ -25,6 +26,9 @@ export const onRequest = createAuthMiddleware<Env>({
     passwordMissing: "DASHBOARD_PASSWORD is not configured.\n",
   },
   acceptHandoff,
+  // pg_cronの15分おき同期だけは、専用のBearerでこの1本のパスに限り通す。
+  alternativeCredential: (request, env) =>
+    request.method === "POST" && new URL(request.url).pathname === "/api/calendar-sync" && hasCalendarSyncCredential(request, env),
   // OAuthの同意画面が参照する静的ページだけは、認証なしで公開する。
   publicRoute: async ({ request, next }, headers) => {
     const { pathname } = new URL(request.url);
