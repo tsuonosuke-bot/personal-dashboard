@@ -231,6 +231,13 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
   embedding APIは呼ばず、出題・採点・予定にも関わらない。回答前の問題には出さない（ヒントになるため）
 - 画面は `?view=search`（`SemanticSearchView`）。検索・索引の件数・手動の「今すぐ索引を更新」
 
+### 運用用のテーブル
+
+- `dashboard_schema_versions`: アプリごとに最後に適用したmigrationを1行で持つ（`app_id` が主キー。このアプリは `knowledge-dashboard`）。
+  migrationの末尾でupsertし、`GET /api/status` が読む。`service_role` 以外は触れない
+- `knowledge_auto_tag_state`: 自動タグ（#93）を付けたときのembedding入力のハッシュ。新しく・編集されたカードだけを付け直すために使う
+- `knowledge_schedule_backup_20260928`: 復習ペース調整（`20260928100000_review_pacing`）前の次回復習の控え。アプリからは使わない
+
 ### DBアクセス
 
 Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは次だけ。
@@ -243,6 +250,8 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `GET /api/mastery-history`: 習熟度履歴の明示した列を古い順に制限付きページング
 - `GET /api/speaking-practice`: 指定期間の英会話練習履歴を新しい順に取得
 - `POST /api/speaking-practice`: 検証済みの1練習を`attempt_id`で冪等記録
+- `POST /api/speaking-practice/start`: 選んだ英語ナレッジ（`knowledge_ids`）ごとに、Claude APIで練習用の英語例文（4〜20語）と
+  日本語訳を作って返す。アクティブな英語ナレッジ以外は400。この時点では何も記録しない
 - `POST /api/inbox`: 採点結果から「あとで深掘り」したい点を`idea_inbox`へ1件登録する（`status=pending`、
   `source=knowledge-quiz`）。出典ナレッジはIDで引き直してタイトルを添え、他の列や任意内容は受け付けない
 - `GET /api/insights`: 示唆の明示した列を新しい順に制限付きページング
@@ -261,6 +270,9 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `POST /api/review-queue/retry`: 採点エラーの回答を採点待ちへ戻す
 - `POST /api/review-queue/discard`: 出題待ちのおかしな問題を取り下げる
 - `POST /api/review-queue/confirm`: 採点結果（`quiz_log_ids`）を確認済みにする
+- `GET /api/review-queue/pending`: 採点待ち・採点中・採点エラーの回答を新しい順に最大200件返す（正解の選択肢は返さない）
+- `GET /api/status`: 接続先ホスト、適用済みmigration（`dashboard_schema_versions`）、認証方式、生成・採点バッチの状態
+- `GET /api/export`: `knowledge` / `quiz_log` / `speaking_practice_log` を全件、明示した列でJSONにして返す（`knowledge-export.v1`、読み取り専用）
 - `POST /api/review-batch/generate` / `grade`: 生成・採点バッチ。pg_cronからは `X-Review-Batch-Token`、画面からは
   同一オリジンと `X-Dashboard-Action: review-queue` で受け付ける。`AUTH_MODE=basic` の定期実行用トークンで
   Basic認証を省けるのは、合言葉が一致したこの2つと `/api/embedding-batch` のPOSTだけ。
@@ -379,21 +391,36 @@ src/
   lib/api.ts                同一オリジンAPIクライアントと全ページ取得、クイズAPI呼び出し
   lib/apiValidation.ts      DB応答・クイズAPI応答の実行時型検証
   lib/knowledge.ts          絞り込み・並び替え・復習分析
+  lib/（他）                dashboardRoute（画面のURL）、listState（一覧の絞り込み・ページをURLへ）、
+                            learningLog / learningSummary（学習ログと今日・今週の集計）、speakingLog / speakingPractice（英会話練習）、
+                            masteryTrend / registrationTrend（推移グラフ）、tagGroups（手動タグと自動タグの集計）
   hooks/
     useKnowledgeData.ts     APIからの取得とリロード
     useFilteredKnowledge.ts 検索・カテゴリ・習熟度での絞り込み
     useModalDialog.ts       モーダルのフォーカス管理
     useReviewSession.ts     キューから出題された問題への回答の流れ
     useReviewQueueStatus.ts 出題待ち・採点待ち・未確認の件数
+    useDailyReview.ts / useInsights.ts / useInsightGroups.ts / useMasteryHistory.ts
+                            今日の復習状況、示唆、問いグループ、習熟度履歴の取得
   components/               表示、編集、詳細、アーカイブ復元、復習画面（ReviewView）、学習ログ（LearningLogView。
                             採点待ちと採点結果への操作は ReviewLogParts）、
                             英会話練習画面（SpeakingPracticeView）、整理ページ（OrganizeView）と
-                            その各タブ（InsightGroupsPanel / InsightListPanel / TagGroupsPanel / NotesPanel）
+                            その各タブ（InsightGroupsPanel / InsightListPanel / TagGroupsPanel / NotesPanel）、
+                            意味検索（SemanticSearchView）、答え合わせの「関連」（RelatedKnowledgePanel）、
+                            問いの材料（QuestionMaterialsPanel）、あとで深掘り（DeepDiveInbox）、ヘルプ（HelpView）
 functions/
   _middleware.ts            共通認証ミドルウェアの設定（Access・SSO・Basic・専用トークン）とセキュリティヘッダー
   _shared/supabaseRest.ts   Supabase REST API / RPC呼び出し。同時リクエストでキーが一時的に拒否された401（PGRST303）だけ1回やり直す
   _shared/knowledgeValidation.ts 書き込み要求と入力の検証
   _shared/quizValidation.ts 問題と回答の上限、出題形式の定数
+  _shared/reviewQueue.ts / reviewBatch.ts / reviewBatchHandler.ts / reviewBatchHealth.ts
+                            復習キューAPIの共通部分と、生成・採点バッチ（Message Batches）の入口・回収・健康状態
+  _shared/questionGeneration.ts / answerGrading.ts / questionMaterials.ts
+                            問題の生成、回答の採点（引用照合・q値の補正）、問いの材料
+  _shared/semanticSearch.ts / voyageClient.ts / relatedKnowledge.ts / notes.ts
+                            意味検索とembedding（Voyage）、関連ナレッジ、問い・テーマ別のノート
+  _shared/*Validation.ts    insight・insightGroup・inbox・speakingPractice の要求検証
+  _shared/sessionAuth.ts    Knowledge固有のSSO引き継ぎ設定（共通部分は packages/dashboard-auth）
   _shared/anthropicClient.ts Claude APIを構造化出力（JSONスキーマ）で叩く共通クライアント
   api/knowledge.ts          ナレッジ一覧・新規登録API
   api/knowledge/[id].ts     ナレッジ編集・アーカイブ・復元API
@@ -401,6 +428,13 @@ functions/
   api/speaking-practice.ts  復習とは独立した英会話練習履歴API
   api/inbox.ts              採点結果から深掘りしたい点をidea_inboxへ登録するAPI
   api/insights.ts           示唆（付箋）の一覧・追加API。insights/[id].ts で編集・削除、insights/analyze.ts でAIまとめ
+  api/review-queue/         復習キュー（status / pending / serve / answer / retry / discard / confirm / generation-holds）
+  api/review-batch/         生成・採点バッチ（generate / grade）。api/embedding-batch.ts がembeddingバッチ
+  api/review/               今日の復習状況（queue.ts）と復習の立て直し（recovery.ts）
+  api/semantic-search*      意味検索と、その状態（semantic-search/status.ts）
+  api/auto-tags.ts / notes*.ts / insight-groups/ / insight-group-members.ts
+                            自動タグ、ノート、問いグループ（材料は insight-groups/[id]/materials.ts）
+  api/status.ts / export.ts 接続状態の確認と、JSONの書き出し
 public/
   manifest.webmanifest      PWA用マニフェスト
   sw.js                     ホーム画面起動のための最小限のService Worker（キャッシュしない）
