@@ -452,6 +452,8 @@ a.today-row-title:hover { text-decoration: underline; }
 }
 
 @media (max-width: 620px) {
+  /* backdrop-filter があると position: fixed の基準がヘッダーになり、メニューが画面下に出ない */
+  .dashboard-header:has(.quick-add-menu[open]) { backdrop-filter: none; }
   .quick-add-menu nav { position: fixed; inset: auto 8px calc(8px + var(--tabbar-space, 0px)); width: auto; grid-template-columns: 1fr 1fr; padding: 9px; border-radius: var(--radius-lg); }
   .data-tools { align-items: stretch; flex-direction: column; gap: 7px; }
   .data-tools nav { display: grid; grid-template-columns: 1fr 1fr; }
