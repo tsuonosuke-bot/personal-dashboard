@@ -24,10 +24,17 @@ export type AnthropicToolCallResult =
     reference?: string;
     /** 接続や認証ではなく、応答が上限トークン数で切れたことを表す。処理段階の表示に使う。 */
     truncated?: true;
+    /** 認証・権限・入力エラーなど、同じ内容で再実行しても復旧しない失敗。再試行を止める判断に使う。 */
+    permanent?: true;
+    /** 429/一時障害でAPIが示した待ち時間（秒）。Retry-Afterヘッダーから読む。 */
+    retryAfterSeconds?: number;
   };
 
 const API_URL = "https://api.anthropic.com/v1/messages";
 const API_VERSION = "2023-06-01";
+
+/** 認証・権限・リクエスト内容の誤りは、同じ呼び出しを繰り返しても復旧しない。 */
+const PERMANENT_HTTP_STATUSES = new Set([400, 401, 403, 404, 413]);
 
 function providerFailure(status: number): { error: string; action: string } {
   if (status === 400) return {
@@ -147,6 +154,7 @@ function missingApiKey(env: AnthropicEnv): AnthropicFailure | null {
     status: 503,
     error: "サーバーのAI接続設定が未完了です。",
     action: "サーバーのANTHROPIC_API_KEYを設定してください。",
+    permanent: true,
   };
 }
 
@@ -166,7 +174,15 @@ async function httpFailure(response: Response): Promise<AnthropicFailure> {
     `Anthropic API request failed with status ${response.status}`,
     reference ? `request-id=${reference}` : "request-id=unavailable",
   );
-  return { ok: false, status: 502, ...providerFailure(response.status), reference };
+  const retryAfter = Number(response.headers.get("retry-after"));
+  return {
+    ok: false,
+    status: 502,
+    ...providerFailure(response.status),
+    reference,
+    ...(PERMANENT_HTTP_STATUSES.has(response.status) ? { permanent: true as const } : {}),
+    ...(Number.isFinite(retryAfter) && retryAfter > 0 ? { retryAfterSeconds: retryAfter } : {}),
+  };
 }
 
 /**
@@ -221,6 +237,7 @@ export function readToolResult(
       status: 502,
       error: "AIが安全上の理由で応答を控えました（stop_reason: refusal）。",
       action: "対象の内容を確認して、もう一度実行してください。",
+      permanent: true,
     };
   }
 

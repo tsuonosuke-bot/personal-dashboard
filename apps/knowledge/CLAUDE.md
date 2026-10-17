@@ -254,6 +254,9 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
   日本語訳を作って返す。アクティブな英語ナレッジ以外は400。この時点では何も記録しない
 - `POST /api/inbox`: 採点結果から「あとで深掘り」したい点を`idea_inbox`へ1件登録する（`status=pending`、
   `source=knowledge-quiz`）。出典ナレッジはIDで引き直してタイトルを添え、他の列や任意内容は受け付けない
+- `POST /api/grading-report`: 「採点がおかしい」の報告を問題・回答・AIの採点と講評つきで`idea_inbox`へ1件登録する
+  （`status=pending`、`source=knowledge-grading-report`、1行目は「採点がおかしい: タイトル」）。専用テーブルは無く、
+  あとからIdeaの未整理Inboxか`source`での絞り込みで見直す。採点結果・復習予定は変えない
 - `GET /api/insights`: 示唆の明示した列を新しい順に制限付きページング
 - `POST /api/insights`: 存在を確認したナレッジに示唆を1件追加
 - `PATCH /api/insights/:id` / `DELETE /api/insights/:id`: 示唆1件の編集・削除。編集は`updated_at`で競合を検出して409
@@ -427,6 +430,7 @@ functions/
   api/quiz-log.ts           クイズ履歴読み取りAPI
   api/speaking-practice.ts  復習とは独立した英会話練習履歴API
   api/inbox.ts              採点結果から深掘りしたい点をidea_inboxへ登録するAPI
+  api/grading-report.ts     「採点がおかしい」の報告をidea_inboxへ登録するAPI
   api/insights.ts           示唆（付箋）の一覧・追加API。insights/[id].ts で編集・削除、insights/analyze.ts でAIまとめ
   api/review-queue/         復習キュー（status / pending / serve / answer / retry / discard / confirm / generation-holds）
   api/review-batch/         生成・採点バッチ（generate / grade）。api/embedding-batch.ts がembeddingバッチ

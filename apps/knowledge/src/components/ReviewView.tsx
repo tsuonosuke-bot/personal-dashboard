@@ -424,6 +424,14 @@ function ReviewFeedbackCard({
             insightGroupStore={insightGroupStore}
             onOpenDetail={onOpenDetail}
             archiveWarning={result ? undefined : "採点前にアーカイブしたままだと、この回答は記録されません。"}
+            gradingReport={result ? {
+              question: question.question,
+              userAnswer: answer,
+              correctAnswer: result.correct_answer,
+              explanation: result.explanation,
+              quality: result.quality,
+              verdict: result.verdict,
+            } : undefined}
           />
         </div>
       )}

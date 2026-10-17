@@ -108,7 +108,7 @@ Viteだけを起動するため `/api/*` は利用できない。
 - 英会話練習: `GET/POST /api/speaking-practice`、`POST /api/speaking-practice/start`
 - 意味検索: `POST /api/semantic-search`、`GET /api/semantic-search/status`、`POST /api/embedding-batch`
 - ノート: `GET /api/notes`、`GET/POST /api/notes/theme`、`GET/POST /api/insight-groups/:id/materials`（問いの材料の取得・除外・復元）
-- その他: `POST /api/inbox`（採点結果の「あとで深掘り」を `idea_inbox` へ登録）、
+- その他: `POST /api/inbox`（採点結果の「あとで深掘り」を `idea_inbox` へ登録）、`POST /api/grading-report`（「採点がおかしい」の報告を問題・回答・採点つきで `idea_inbox` へ登録）、
   `GET /api/export`（読み取り専用JSON）、`GET /api/status`（接続状態）
 
 AIは `claude-sonnet-5-5` を使う。問題文と講評の質が成果物そのものなので、コスト目的で軽量モデルへ落とさない。
