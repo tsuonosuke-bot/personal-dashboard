@@ -1,4 +1,4 @@
-import { publicError } from "../_shared/dashboard.ts";
+import { DashboardError, publicError } from "../_shared/dashboard.ts";
 import { hasCalendarSyncCredential, syncCalendarToTodos, type CalendarSyncEnv } from "../_shared/calendarSync.ts";
 
 interface FunctionContext {
@@ -19,7 +19,9 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     return Response.json(await syncCalendarToTodos(context.env), { headers });
   } catch (error) {
     const failure = publicError(error);
-    console.error(`calendar sync failed: ${failure.code}`);
-    return Response.json({ error: { code: failure.code, message: failure.message } }, { status: failure.status, headers });
+    // Bearerで守られた呼び出しなので、失敗したリクエストの場所(テーブルとステータス)まで返す。秘密の値は含まれない。
+    const detail = error instanceof DashboardError ? error.message : undefined;
+    console.error(`calendar sync failed: ${failure.code}${detail ? ` (${detail})` : ""}`);
+    return Response.json({ error: { code: failure.code, message: failure.message, detail } }, { status: failure.status, headers });
   }
 };
