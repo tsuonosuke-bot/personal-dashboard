@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { KNOWLEDGE_KIND_ORDER, MASTERY_ORDER, PRIORITY_ORDER } from "../constants";
 import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
+import type { GradingReport as GradingReportInput } from "../lib/api";
 import { getPendingReviewAnswers, getReviewGenerationHolds, retryReviewAnswer, runReviewBatch } from "../lib/api";
 import type { Knowledge, KnowledgeDraft, KnowledgeKind, KnowledgePriority, Mastery, PendingReviewAnswer, ReviewGenerationHold } from "../types";
 import { DeepDiveInbox } from "./DeepDiveInbox";
+import { GradingReport } from "./GradingReport";
 import { InsightNotes } from "./InsightNotes";
 
 export type KnowledgeUpdate = (
@@ -192,7 +194,7 @@ export function GenerationHoldsPanel({ onOpenKnowledge }: { onOpenKnowledge: (id
  * 示唆、あとで深掘り、詳細表示をここに置く。学習ログと復習の答え合わせ画面で共通に使う。
  */
 export function ReviewResultActions({
-  item, onKnowledgeUpdate, insightStore, insightGroupStore, onOpenDetail, archiveWarning,
+  item, onKnowledgeUpdate, insightStore, insightGroupStore, onOpenDetail, archiveWarning, gradingReport,
 }: {
   item: Knowledge;
   onKnowledgeUpdate: KnowledgeUpdate;
@@ -201,6 +203,8 @@ export function ReviewResultActions({
   onOpenDetail: (item: Knowledge) => void;
   /** アーカイブの確認に添える注意。採点前の回答は、アーカイブされたままだと採点バッチが記録せずに破棄する。 */
   archiveWarning?: string;
+  /** AI採点の結果。渡したときだけ「採点がおかしい」の報告を出す（採点前の回答には出さない）。 */
+  gradingReport?: Omit<GradingReportInput, "comment" | "knowledgeId">;
 }) {
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -248,6 +252,7 @@ export function ReviewResultActions({
   return (
     <div className="review-result-actions">
       <DeepDiveInbox knowledgeId={item.id} title={item.title} />
+      {gradingReport && <GradingReport report={{ ...gradingReport, knowledgeId: item.id }} />}
       <InsightNotes knowledgeId={item.id} store={insightStore} groupStore={insightGroupStore} compact />
       <div className="quiz-knowledge-panel">
         <div className="quiz-edit-fields">

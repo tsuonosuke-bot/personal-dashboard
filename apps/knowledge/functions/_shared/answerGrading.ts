@@ -258,6 +258,31 @@ export function buildGradingRequest(items: unknown[]): AnthropicToolCallOptions 
   };
 }
 
+/** 依頼そのものが失敗したときの理由。再試行するかの判断に使う。 */
+interface GradeRequestFailure {
+  ok: false;
+  status: number;
+  error: string;
+  /** 認証・入力エラーなど、繰り返しても復旧しない。 */
+  permanent?: boolean;
+  /** 応答が上限トークンで切れた。件数を減らせば通る可能性がある。 */
+  truncated?: boolean;
+  retryAfterSeconds?: number;
+}
+
+/** 一時障害の再試行前に待つ時間の上限（ミリ秒）。Workerの実行時間を食い切らないための上限。 */
+export const MAX_RETRY_WAIT_MS = 3_000;
+const DEFAULT_RETRY_WAIT_MS = 1_000;
+
+function retryWaitMs(failure: GradeRequestFailure): number {
+  const requested = failure.retryAfterSeconds === undefined
+    ? DEFAULT_RETRY_WAIT_MS
+    : failure.retryAfterSeconds * 1_000;
+  return Math.min(requested, MAX_RETRY_WAIT_MS);
+}
+
+const sleepMs = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 /**
  * 採点をAIに1回依頼し、形式と回答引用の検証を通った項目だけを返す。
  * prefetched を渡すと（バッチで受け取った結果）、AIを呼ばずにそれを検証する。
@@ -267,13 +292,16 @@ export async function requestGrades(
   items: unknown[],
   answerById: Map<string, string>,
   prefetched?: AnthropicToolCallResult,
-): Promise<{ ok: true; byId: Map<string, RawGrade> } | { ok: false; status: number; error: string }> {
+): Promise<{ ok: true; byId: Map<string, RawGrade> } | GradeRequestFailure> {
   const graded = prefetched ?? await callAnthropicTool(env, buildGradingRequest(items));
   // 採点側は失敗を1つの文字列で持つため、対処方法があるときは同じ文へまとめる。
   if (!graded.ok) return {
     ok: false,
     status: graded.status,
     error: graded.action ? `${graded.error}${graded.action}` : graded.error,
+    permanent: graded.permanent === true,
+    truncated: graded.truncated === true,
+    retryAfterSeconds: graded.retryAfterSeconds,
   };
 
   const grades = (graded.input as { grades?: unknown })?.grades;
@@ -408,11 +436,14 @@ export function firstPassGradingRequest(answers: GradingAnswer[]): AnthropicTool
 /**
  * まとめて採点する。無回答はAIを呼ばずq0、それ以外は1回まとめて依頼し、欠落や引用不一致の
  * 項目だけをまとめて再依頼、最後は1問ずつ再依頼する。採点できなかった項目は errors に理由を返す。
+ * 認証・入力エラーは再依頼せず打ち切り、一時障害は上限付きの待機のあと全体を1回だけ再依頼する。
+ * 個別の再依頼は、応答は返ったが一部の項目が欠落・不正だった場合に限る。
  */
 export async function gradeAnswers(
   env: AnthropicEnv,
   answers: GradingAnswer[],
   prefetchedFirstPass?: AnthropicToolCallResult,
+  sleep: (ms: number) => Promise<void> = sleepMs,
 ): Promise<{ grades: Map<string, Grade>; errors: Map<string, string> }> {
   const payloadByKey = new Map(answers.map((a) => [a.key, gradingPayload(a)]));
   const answerByKey = new Map(answers.map((a) => [a.key, a.answer]));
@@ -436,17 +467,25 @@ export async function gradeAnswers(
     } else {
       for (const key of aiKeys) errors.set(key, firstPass.error);
     }
-    const needsRetry = aiKeys.filter((key) => !rawByKey.has(key));
+    // 依頼自体が失敗したキーは、復旧の見込みがある場合に限って再試行する。
+    // 認証・入力エラーは繰り返しても同じなので、項目数に比例した呼び出しを起こさず打ち切る。
+    const abandoned = new Set<string>();
+    if (!firstPass.ok && firstPass.permanent) for (const key of aiKeys) abandoned.add(key);
+    const needsRetry = aiKeys.filter((key) => !rawByKey.has(key) && !abandoned.has(key));
     if (needsRetry.length > 0) {
-      // AIの出力崩れだけでなく一時的な接続失敗も、未採点分だけをまとめて再試行する。
+      // AIの出力崩れ（一部の項目の欠落・引用不一致）は未採点分だけをまとめて再依頼する。
+      // 一時障害は、待機に上限を付けて1回だけ全体を再依頼する。
+      if (!firstPass.ok && !firstPass.truncated) await sleep(retryWaitMs(firstPass));
       const retry = await requestGrades(env, needsRetry.map((key) => payloadByKey.get(key)!), answerByKey);
       if (retry.ok) {
         for (const [key, entry] of retry.byId) rawByKey.set(key, entry);
       } else {
         for (const key of needsRetry) errors.set(key, retry.error);
+        // 再試行でも依頼が失敗した場合、1件ずつ呼んでも復旧しない。ただし件数超過による打ち切りは絞れば通る。
+        if (!retry.truncated) for (const key of needsRetry) abandoned.add(key);
       }
     }
-    for (const key of aiKeys.filter((candidate) => !rawByKey.has(candidate))) {
+    for (const key of aiKeys.filter((candidate) => !rawByKey.has(candidate) && !abandoned.has(candidate))) {
       // 複数件をまとめた応答では、一部の項目だけ欠落したり別回答の引用が混ざることがある。
       // 最後は1問だけに絞って再依頼し、安全な引用照合を維持したまま回復させる。
       const retry = await requestGrades(env, [payloadByKey.get(key)!], new Map([[key, answerByKey.get(key)!]]));
@@ -456,6 +495,11 @@ export async function gradeAnswers(
         else errors.set(key, "AIが回答を読み取った有効な採点結果を返しませんでした。");
       } else {
         errors.set(key, retry.error);
+        if (!retry.truncated) {
+          // 個別の依頼が失敗したら、残りも同じ原因で失敗する可能性が高いので止める。
+          for (const rest of aiKeys) if (!rawByKey.has(rest) && !errors.has(rest)) errors.set(rest, retry.error);
+          break;
+        }
       }
     }
   }

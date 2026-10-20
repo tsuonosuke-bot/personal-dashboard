@@ -1,5 +1,5 @@
 import type {
-  DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizLog,
+  DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizLog, QuizVerdict,
   PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary, ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
   SpeakingPracticeWrite, EmbeddingBatchSummary, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType, QuestionMaterials, RelatedItem, NoteTopic, ThemeNote,
@@ -395,6 +395,34 @@ export async function addDeepDiveToInbox(knowledgeId: string, note: string): Pro
   const id = typeof data === "object" && data !== null ? (data as { id?: unknown }).id : undefined;
   if (typeof id !== "number" || !Number.isSafeInteger(id)) {
     throw new ApiError("Inboxへの登録結果を確認できませんでした。", 502);
+  }
+  return { id };
+}
+
+export interface GradingReport {
+  knowledgeId: string;
+  question: string;
+  userAnswer: string;
+  correctAnswer: string;
+  explanation: string;
+  quality: number;
+  verdict: QuizVerdict;
+  comment: string;
+}
+
+/** AI採点がおかしいときに、問題・回答・採点結果をそのままInboxへ報告する。 */
+export async function reportGrading(report: GradingReport): Promise<{ id: number }> {
+  const data = await requestJson("/api/grading-report", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Dashboard-Action": "grading-report",
+    },
+    body: JSON.stringify(report),
+  });
+  const id = typeof data === "object" && data !== null ? (data as { id?: unknown }).id : undefined;
+  if (typeof id !== "number" || !Number.isSafeInteger(id)) {
+    throw new ApiError("採点の報告を登録できたか確認できませんでした。", 502);
   }
   return { id };
 }

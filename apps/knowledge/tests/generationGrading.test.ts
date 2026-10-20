@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { gradeAnswers, type GradingAnswer } from "../functions/_shared/answerGrading.ts";
+import { gradeAnswers, MAX_RETRY_WAIT_MS, type GradingAnswer } from "../functions/_shared/answerGrading.ts";
 import {
   allowedFormats,
   generateQuestions,
@@ -201,5 +201,67 @@ test("設問の誤った語数指定に従った1語差の回答は、知識不�
     const result = await gradeAnswers(env, [english]);
     assert.equal(result.grades.get("1")?.quality, 4);
     assert.match(result.grades.get("1")?.explanation ?? "", /設問側の指定に誤り/);
+  });
+});
+
+const manyAnswers = (count: number) =>
+  Array.from({ length: count }, (_, index) => answer(String(index + 1)));
+const noSleep = async () => {};
+
+test("認証などの永続的な失敗では、項目数にかかわらず呼び出しを1回で止める", async () => {
+  for (const status of [400, 401, 403, 404, 413]) {
+    await withAi([() => new Response("{}", { status })], async (bodies) => {
+      const result = await gradeAnswers(env, manyAnswers(30), undefined, noSleep);
+      assert.equal(bodies.length, 1, `HTTP ${status}`);
+      assert.equal(result.grades.size, 0);
+      assert.equal(result.errors.size, 30);
+    });
+  }
+});
+
+test("APIキー未設定ではAIを呼ばずに全項目を失敗にする", async () => {
+  await withAi([], async (bodies) => {
+    const result = await gradeAnswers({}, manyAnswers(5), undefined, noSleep);
+    assert.equal(bodies.length, 0);
+    assert.equal(result.errors.size, 5);
+  });
+});
+
+test("一時障害は上限付きの待機のあと全体を1回だけ再依頼し、続けて失敗したら止める", async () => {
+  const waits: number[] = [];
+  await withAi([
+    () => new Response("{}", { status: 429, headers: { "retry-after": "120" } }),
+    () => new Response("{}", { status: 503 }),
+  ], async (bodies) => {
+    const result = await gradeAnswers(env, manyAnswers(30), undefined, async (ms) => { waits.push(ms); });
+    assert.equal(bodies.length, 2);
+    assert.deepEqual(waits, [MAX_RETRY_WAIT_MS]);
+    assert.equal(result.errors.size, 30);
+  });
+});
+
+test("一時障害から再依頼で復旧したら、正常な項目は個別に再採点しない", async () => {
+  const ok = (id: string) => ({ id, answer_quotes: ["サイロ化"], quality: 5, correct_answer: "c", explanation: "e", note: "n" });
+  await withAi([
+    () => new Response("{}", { status: 529 }),
+    () => aiJson({ grades: [ok("1"), ok("2")] }),
+  ], async (bodies) => {
+    const result = await gradeAnswers(env, [answer("1"), answer("2")], undefined, noSleep);
+    assert.equal(bodies.length, 2);
+    assert.equal(result.grades.size, 2);
+    assert.equal(result.errors.size, 0);
+  });
+});
+
+test("個別の再採点が失敗したら、残りの項目へ呼び出しを続けない", async () => {
+  const bad = (id: string) => ({ id, answer_quotes: ["無い語句"], quality: 4, correct_answer: "c", explanation: "e", note: "n" });
+  await withAi([
+    () => aiJson({ grades: [bad("1"), bad("2"), bad("3")] }),
+    () => aiJson({ grades: [bad("1"), bad("2"), bad("3")] }),
+    () => new Response("{}", { status: 401 }),
+  ], async (bodies) => {
+    const result = await gradeAnswers(env, manyAnswers(3), undefined, noSleep);
+    assert.equal(bodies.length, 3);
+    assert.equal(result.errors.size, 3);
   });
 });

@@ -205,6 +205,14 @@ export function LearningLogView({
                         insightStore={insightStore}
                         insightGroupStore={insightGroupStore}
                         onOpenDetail={(item) => setDetailId(item.id)}
+                        gradingReport={{
+                          question: entry.question ?? "",
+                          userAnswer: entry.user_answer ?? "",
+                          correctAnswer: entry.correct_answer ?? "",
+                          explanation: entry.explanation ?? "",
+                          quality: entry.quality,
+                          verdict: entry.verdict,
+                        }}
                       />
                     )}
                   </details>
