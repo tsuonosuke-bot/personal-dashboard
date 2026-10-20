@@ -4,8 +4,8 @@ import { addDeepDiveToInbox } from "../lib/api";
 const MAX_DEEP_DIVE_CHARS = 1_000;
 
 /** 採点結果から「あとで深掘りしたい点」を、出典つきで未整理のInboxへ登録する。 */
-export function DeepDiveInbox({ knowledgeId, title }: { knowledgeId: string; title: string }) {
-  const [open, setOpen] = useState(false);
+export function DeepDiveInbox({ knowledgeId, title, onClose }: { knowledgeId: string; title: string; onClose?: () => void }) {
+  const [open, setOpen] = useState(onClose !== undefined);
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export function DeepDiveInbox({ knowledgeId, title }: { knowledgeId: string; tit
       <small className="muted">「深掘り元: 復習「{title}」」を添えて未整理のInboxに入ります。採点結果や復習予定は変わりません。</small>
       {message && <p className="quiz-edit-error" role="alert">{message}</p>}
       <div className="quiz-deep-dive-actions">
-        <button onClick={() => { setOpen(false); setMessage(null); }} disabled={status === "saving"}>やめる</button>
+        <button onClick={() => { setOpen(false); setMessage(null); onClose?.(); }} disabled={status === "saving"}>やめる</button>
         <button className="primary-button" onClick={() => void save()} disabled={status === "saving" || !note.trim()}>
           {status === "saving" ? "登録中…" : "Inboxに登録"}
         </button>

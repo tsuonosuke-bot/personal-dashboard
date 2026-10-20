@@ -47,7 +47,7 @@ test("おかしな問題は確認のうえ取り下げ、記録せずに次へ�
     readFile(new URL("../src/components/ReviewView.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/hooks/useReviewSession.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(view, /おかしな問題を報告/);
+  assert.match(view, /問題を取り下げる/);
   assert.match(view, /window\.confirm\("この問題を取り下げますか？/);
   assert.match(session, /await discardReviewQuestion\(current\.id\);[\s\S]*?status: "discarded"[\s\S]*?await advance\(\);/);
 });
@@ -111,5 +111,5 @@ test("復習の回答はCtrl+Enter（Macは⌘+Enter）でも提出でき、変�
   assert.match(view, /<div className="quiz-question card" onKeyDown=\{submitOnShortcut\}>/);
   assert.match(view, /event\.key !== "Enter" \|\| !\(event\.metaKey \|\| event\.ctrlKey\)/);
   assert.match(view, /event\.nativeEvent\.isComposing \|\| event\.repeat \|\| busy/);
-  assert.match(view, /Ctrl\+Enter（Macは⌘\+Enter）でも回答できます/);
+  assert.match(view, /⌘\/Ctrl\+Enterでも回答できます/);
 });

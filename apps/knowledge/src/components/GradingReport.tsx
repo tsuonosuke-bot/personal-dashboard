@@ -4,8 +4,8 @@ import { reportGrading, type GradingReport as GradingReportInput } from "../lib/
 const MAX_COMMENT_CHARS = 500;
 
 /** 採点結果がおかしいとき、問題・回答・採点を添えて未整理のInboxへ報告する。採点結果や復習予定は変わらない。 */
-export function GradingReport({ report }: { report: Omit<GradingReportInput, "comment"> }) {
-  const [open, setOpen] = useState(false);
+export function GradingReport({ report, onClose }: { report: Omit<GradingReportInput, "comment">; onClose?: () => void }) {
+  const [open, setOpen] = useState(onClose !== undefined);
   const [comment, setComment] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -51,7 +51,7 @@ export function GradingReport({ report }: { report: Omit<GradingReportInput, "co
       <small className="muted">問題・あなたの回答・AIの採点と講評を添えて、未整理のInboxに入ります。採点結果や復習予定は変わりません。</small>
       {message && <p className="quiz-edit-error" role="alert">{message}</p>}
       <div className="quiz-deep-dive-actions">
-        <button onClick={() => { setOpen(false); setMessage(null); }} disabled={status === "saving"}>やめる</button>
+        <button onClick={() => { setOpen(false); setMessage(null); onClose?.(); }} disabled={status === "saving"}>やめる</button>
         <button className="primary-button" onClick={() => void send()} disabled={status === "saving"}>
           {status === "saving" ? "報告中…" : "Inboxに報告"}
         </button>

@@ -100,15 +100,17 @@ function InsightNote({
  * groupStore を渡すと、書くときや後から示唆を問いに入れられ、入っている問いも表示する。
  */
 export function InsightNotes({
-  knowledgeId, store, groupStore, compact = false,
+  knowledgeId, store, groupStore, compact = false, startAdding = false,
 }: {
   knowledgeId: string;
   store: InsightStore;
   groupStore?: InsightGroupStore;
   compact?: boolean;
+  /** 呼び出し側のメニューから開いたとき、最初から書き込み欄を出す。 */
+  startAdding?: boolean;
 }) {
   const notes = store.byKnowledge.get(knowledgeId) ?? [];
-  const [adding, setAdding] = useState(!compact && notes.length === 0);
+  const [adding, setAdding] = useState(startAdding || (!compact && notes.length === 0));
   const [draft, setDraft] = useState("");
   const [questionId, setQuestionId] = useState<number | "">("");
   const [busy, setBusy] = useState(false);

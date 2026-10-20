@@ -1751,3 +1751,23 @@
 :root[data-theme="dark"] .help-body dd {
   color: var(--text-secondary);
 }
+:root[data-theme="dark"] .review-menu {
+  border-top: 1px solid var(--border);
+}
+:root[data-theme="dark"] .review-menu-button {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+}
+:root[data-theme="dark"] .review-menu-button:hover {
+  background: var(--bg-subtle);
+}
+:root[data-theme="dark"] .review-menu-button.active {
+  border-color: var(--border-strong);
+  background: var(--bg-subtle);
+  color: var(--text);
+}
+:root[data-theme="dark"] .review-edit-footer .review-archive {
+  color: var(--red);
+}

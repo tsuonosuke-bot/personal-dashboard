@@ -95,7 +95,7 @@ test("送信元・ヘッダー・入力を検証してからDBへ接続する", 
 
 test("学習ログと答え合わせの採点結果から報告できる", async () => {
   const parts = await readFile(new URL("../src/components/ReviewLogParts.tsx", import.meta.url), "utf8");
-  assert.match(parts, /gradingReport && <GradingReport/);
+  assert.match(parts, /gradingReport && \(\s*<GradingReport/);
   const log = await readFile(new URL("../src/components/LearningLogView.tsx", import.meta.url), "utf8");
   assert.match(log, /gradingReport=\{\{/);
   const review = await readFile(new URL("../src/components/ReviewView.tsx", import.meta.url), "utf8");
