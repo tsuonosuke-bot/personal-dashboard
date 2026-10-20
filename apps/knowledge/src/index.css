@@ -1087,3 +1087,12 @@ body.quiz-open { padding-bottom: 0; }
 .review-claim-fields .quiz-edit-control { align-items: flex-start; flex-direction: column; }
 .review-claim-fields textarea { width: 100%; }
 .review-claim-fields button { justify-self: start; }
+
+/* 答え合わせ後の操作は、普段は1行のメニューだけ見せ、選んだものだけを開く。 */
+.review-menu { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 12px; border-top: 1px solid var(--border); }
+.review-menu-button { padding: 4px 10px; border: 1px solid transparent; border-radius: 999px; background: transparent; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.review-menu-button:hover { background: var(--bg-subtle); }
+.review-menu-button.active { border-color: var(--border-strong); background: var(--bg-subtle); color: var(--text); }
+.review-edit-footer { display: flex; justify-content: space-between; gap: 8px; }
+.review-edit-footer .text-button { font-size: 12px; font-weight: 600; }
+.review-edit-footer .review-archive { color: var(--red); }

@@ -352,13 +352,12 @@ function ReviewQuestionCard({
         />
       )}
       <p className="muted review-answer-hint">
-        空欄のまま送ると「思い出せなかった」として記録します。スキップした問題は次の復習でまた出ます。
-        Ctrl+Enter（Macは⌘+Enter）でも回答できます。
+        空欄で送ると「思い出せなかった」として記録します。⌘/Ctrl+Enterでも回答できます。
       </p>
       <div className="quiz-question-actions">
-        <button className="text-button review-report" onClick={onReport} disabled={busy}>おかしな問題を報告</button>
+        <button className="text-button review-report" onClick={onReport} disabled={busy}>問題を取り下げる</button>
         <span className="action-spacer" />
-        <button onClick={onSkip} disabled={busy}>スキップ</button>
+        <button className="text-button" onClick={onSkip} disabled={busy}>スキップ</button>
         <button className="primary-button" onClick={onSubmit} disabled={busy}>
           {busy ? "送信中…" : "回答する"}
         </button>
@@ -414,7 +413,7 @@ function ReviewFeedbackCard({
         <span className="action-spacer" />
         <button className="primary-button" onClick={onNext} autoFocus>次の問題へ →</button>
       </div>
-      {/* 学習ログと同じ操作（示唆・あとで深掘り・習熟度・優先度・詳細・アーカイブ）を、ここでも済ませられる。 */}
+      {/* 学習ログと同じ操作を、控えめなメニューにまとめて、ここでも済ませられる。 */}
       {item && (
         <div className="review-feedback-actions">
           <ReviewResultActions

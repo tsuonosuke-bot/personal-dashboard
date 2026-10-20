@@ -15,6 +15,8 @@ export type KnowledgeUpdate = (
   changes: Partial<KnowledgeDraft> | { archived: boolean },
 ) => Promise<Knowledge>;
 
+type ResultPanel = "insight" | "deepdive" | "report" | "edit" | null;
+
 const PENDING_LABEL: Record<PendingReviewAnswer["status"], string> = {
   answered: "採点待ち",
   grading: "採点中",
@@ -206,6 +208,7 @@ export function ReviewResultActions({
   /** AI採点の結果。渡したときだけ「採点がおかしい」の報告を出す（採点前の回答には出さない）。 */
   gradingReport?: Omit<GradingReportInput, "comment" | "knowledgeId">;
 }) {
+  const [panel, setPanel] = useState<ResultPanel>(null);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [archived, setArchived] = useState<Knowledge | null>(item.archived ? item : null);
@@ -249,69 +252,93 @@ export function ReviewResultActions({
     );
   }
 
+  const noteCount = insightStore.byKnowledge.get(item.id)?.length ?? 0;
+  const toggle = (next: ResultPanel) => setPanel((current) => (current === next ? null : next));
+  const menuButton = (id: ResultPanel & string, label: string) => (
+    <button
+      className={`review-menu-button${panel === id ? " active" : ""}`}
+      aria-expanded={panel === id}
+      onClick={() => toggle(id)}
+    >{label}</button>
+  );
+
   return (
     <div className="review-result-actions">
-      <DeepDiveInbox knowledgeId={item.id} title={item.title} />
-      {gradingReport && <GradingReport report={{ ...gradingReport, knowledgeId: item.id }} />}
-      <InsightNotes knowledgeId={item.id} store={insightStore} groupStore={insightGroupStore} compact />
-      <div className="quiz-knowledge-panel">
-        <div className="quiz-edit-fields">
-          <label className="quiz-edit-control">
-            <span>種類</span>
-            <select
-              aria-label={`${item.title}の種類`}
-              value={latest.knowledge_kind}
-              disabled={saving}
-              onChange={(event) => void save({ knowledge_kind: event.target.value as KnowledgeKind }, "保存しました。")}
-            >
-              {KNOWLEDGE_KIND_ORDER.map((value) => <option key={value} value={value}>{value}</option>)}
-            </select>
-          </label>
-          <label className="quiz-edit-control">
-            <span>習熟度</span>
-            <select
-              aria-label={`${item.title}の習熟度`}
-              value={item.mastery}
-              disabled={saving}
-              onChange={(event) => void save({ mastery: event.target.value as Mastery }, "保存しました。")}
-            >
-              {MASTERY_ORDER.map((value) => <option key={value} value={value}>{value}</option>)}
-            </select>
-          </label>
-          <label className="quiz-edit-control">
-            <span>優先度</span>
-            <select
-              aria-label={`${item.title}の優先度`}
-              value={item.priority}
-              disabled={saving}
-              onChange={(event) => void save({ priority: event.target.value as KnowledgePriority }, "保存しました。")}
-            >
-              {PRIORITY_ORDER.map((value) => <option key={value} value={value}>{value}</option>)}
-            </select>
-          </label>
-          <button className="text-button" onClick={() => onOpenDetail(item)}>詳細を見る</button>
-          <button className="danger-button" onClick={archive} disabled={saving}>アーカイブ</button>
-          {saving && <span className="quiz-edit-feedback">保存中…</span>}
-          {!saving && feedback && <span className="quiz-edit-feedback">{feedback}</span>}
-        </div>
-        {latest.knowledge_kind === "著者の主張" && (
-          <div className="review-claim-fields">
-            <label className="quiz-edit-control">
-              <span>出典元（著者・書名・URLなど）</span>
-              <textarea rows={2} maxLength={5_000} value={sourceNote} disabled={saving} onChange={(event) => setSourceNote(event.target.value)} />
-            </label>
-            <label className="quiz-edit-control">
-              <span>根拠データ（主張を支える数値・研究・事例）</span>
-              <textarea rows={2} maxLength={5_000} value={claimEvidence} disabled={saving} onChange={(event) => setClaimEvidence(event.target.value)} />
-            </label>
-            <button
-              disabled={saving || (sourceNote.trim() === (latest.source_note ?? "") && claimEvidence.trim() === (latest.claim_evidence ?? ""))}
-              onClick={() => void save({ source_note: sourceNote.trim() || null, claim_evidence: claimEvidence.trim() || null }, "保存しました。")}
-            >出典・根拠を保存</button>
-          </div>
-        )}
-        <p className="muted review-priority-note">優先度を変えると、次回の復習時刻も優先度の倍率で計算し直します（再学習中を除く）。</p>
+      <div className="review-menu" role="group" aria-label="この問題について">
+        {menuButton("insight", noteCount > 0 ? `示唆を書く（${noteCount}）` : "示唆を書く")}
+        {menuButton("deepdive", "あとで深掘り")}
+        {gradingReport && menuButton("report", "採点がおかしい")}
+        {menuButton("edit", "カードを編集")}
       </div>
+      {panel === "insight" && (
+        <InsightNotes knowledgeId={item.id} store={insightStore} groupStore={insightGroupStore} compact startAdding />
+      )}
+      {panel === "deepdive" && <DeepDiveInbox knowledgeId={item.id} title={item.title} onClose={() => setPanel(null)} />}
+      {panel === "report" && gradingReport && (
+        <GradingReport report={{ ...gradingReport, knowledgeId: item.id }} onClose={() => setPanel(null)} />
+      )}
+      {panel === "edit" && (
+        <div className="quiz-knowledge-panel">
+          <div className="quiz-edit-fields">
+            <label className="quiz-edit-control">
+              <span>種類</span>
+              <select
+                aria-label={`${item.title}の種類`}
+                value={latest.knowledge_kind}
+                disabled={saving}
+                onChange={(event) => void save({ knowledge_kind: event.target.value as KnowledgeKind }, "保存しました。")}
+              >
+                {KNOWLEDGE_KIND_ORDER.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>
+            <label className="quiz-edit-control">
+              <span>習熟度</span>
+              <select
+                aria-label={`${item.title}の習熟度`}
+                value={item.mastery}
+                disabled={saving}
+                onChange={(event) => void save({ mastery: event.target.value as Mastery }, "保存しました。")}
+              >
+                {MASTERY_ORDER.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>
+            <label className="quiz-edit-control">
+              <span>優先度</span>
+              <select
+                aria-label={`${item.title}の優先度`}
+                value={item.priority}
+                disabled={saving}
+                onChange={(event) => void save({ priority: event.target.value as KnowledgePriority }, "保存しました。")}
+              >
+                {PRIORITY_ORDER.map((value) => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>
+            {saving && <span className="quiz-edit-feedback">保存中…</span>}
+            {!saving && feedback && <span className="quiz-edit-feedback">{feedback}</span>}
+          </div>
+          {latest.knowledge_kind === "著者の主張" && (
+            <div className="review-claim-fields">
+              <label className="quiz-edit-control">
+                <span>出典元（著者・書名・URLなど）</span>
+                <textarea rows={2} maxLength={5_000} value={sourceNote} disabled={saving} onChange={(event) => setSourceNote(event.target.value)} />
+              </label>
+              <label className="quiz-edit-control">
+                <span>根拠データ（主張を支える数値・研究・事例）</span>
+                <textarea rows={2} maxLength={5_000} value={claimEvidence} disabled={saving} onChange={(event) => setClaimEvidence(event.target.value)} />
+              </label>
+              <button
+                disabled={saving || (sourceNote.trim() === (latest.source_note ?? "") && claimEvidence.trim() === (latest.claim_evidence ?? ""))}
+                onClick={() => void save({ source_note: sourceNote.trim() || null, claim_evidence: claimEvidence.trim() || null }, "保存しました。")}
+              >出典・根拠を保存</button>
+            </div>
+          )}
+          <p className="muted review-priority-note">優先度を変えると、次回の復習時刻も優先度の倍率で計算し直します（再学習中を除く）。</p>
+          <div className="review-edit-footer">
+            <button className="text-button" onClick={() => onOpenDetail(item)}>詳細を見る</button>
+            <button className="text-button review-archive" onClick={archive} disabled={saving}>アーカイブ</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
