@@ -538,6 +538,9 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .frame-detail dt {
   color: var(--muted);
 }
+:root[data-theme="dark"] .frame-overrides div > span:first-child {
+  color: var(--muted);
+}
 :root[data-theme="dark"] .find-punish {
   color: var(--accent);
 }

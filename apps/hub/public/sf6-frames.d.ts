@@ -17,6 +17,7 @@ export interface Move {
   onHit: number | null;
   hitKnockdown: boolean;
   onBlock: number | null;
+  /** 個別性能は適用条件も含む。各40字以内。 */
   counterOverride?: string | null;
   punishCounterOverride?: string | null;
 }
@@ -39,6 +40,7 @@ export interface MoveInput {
   saGain?: string | null;
   attribute?: string | null;
   notes?: string | null;
+  /** 「追撃可能（地上のみ）」のように適用条件も含める。各40字以内。 */
   counterOverride?: string | null;
   punishCounterOverride?: string | null;
 }
@@ -59,5 +61,5 @@ export declare function punishWindowForMove(move: Pick<Move, "onBlock" | "blockT
 export declare function normalizeQuery(text: string | null | undefined): string;
 export declare function searchMoves<T extends Move>(moves: T[], options?: { query?: string; category?: string; punishableOnly?: boolean; heavyPunishableOnly?: boolean; cancelableOnly?: boolean; sort?: "official" | "startup" | "block" | "blockDisadvantage" }): T[];
 export declare function starterMove<T extends Move>(notation: string, moves: T[]): T | null;
-export declare function defaultStateName(notation: string, moves: Move[]): string | null;
+export declare function defaultStateName(notation: string, moves: Move[], title?: string): string | null;
 export declare function toMoveRow(input: MoveInput, sortOrder: number): { row: Record<string, unknown>; errors: string[] };

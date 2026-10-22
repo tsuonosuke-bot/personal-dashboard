@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // SF6の技データ（1キャラ1ファイルのJSON。1件の形は public/sf6-frames.d.ts の MoveInput）から、
 // sf6_move_sets / sf6_moves を入れ替えるSQLを標準出力に出す。データ本体（公式のフレームデータ）はリポジトリに入れない。
+// counterOverride / punishCounterOverride は適用条件を含む40字以内の文字列（例「追撃可能（地上のみ）」）。
 //
 //   node scripts/sf6-moves-sql.mjs <character>.json > <character>.sql
 //   node scripts/sf6-moves-sql.mjs --dry-run <character>.json   # 最後に件数つきの例外を投げて、全部ロールバックする

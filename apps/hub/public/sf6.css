@@ -267,6 +267,8 @@ main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px
 .frame-detail dt { color: var(--muted); }
 .frame-detail dd { margin: 0; font-weight: 600; }
 .override { cursor: help; }
+.frame-overrides { display: grid; gap: 2px; font-size: 12px; }
+.frame-overrides div > span:first-child { color: var(--muted); }
 .find-punish { margin-top: 6px; color: var(--accent); }
 
 /* シート（ルート・状況の管理） */
@@ -380,6 +382,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 @media (min-width: 681px) {
   .frame-table .wide { display: table-cell; }
   .frame-table th.wide { width: 96px; }
+  .frame-overrides { display: none; }
 }
 
 /* フローチャート */
