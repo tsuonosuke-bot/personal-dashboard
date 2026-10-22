@@ -38,6 +38,55 @@
   color: var(--text);
   background: var(--bg);
 }
+:root[data-theme="dark"] .transaction-kind {
+  color: var(--text-secondary);
+}
+:root[data-theme="dark"] .transaction-amount {
+  color: var(--text);
+}
+:root[data-theme="dark"] .transaction-money[data-kind="income"] .transaction-amount {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .transaction-edit {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--accent);
+}
+:root[data-theme="dark"] .transaction-edit:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+@media (max-width: 760px) {
+  :root[data-theme="dark"] .transaction-results {
+    border: 0;
+    border-radius: 0;
+  }
+  :root[data-theme="dark"] .transaction-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+  }
+  :root[data-theme="dark"] .transaction-card time {
+    color: var(--text-secondary);
+  }
+  :root[data-theme="dark"] .transaction-card-title {
+    color: var(--text);
+  }
+  :root[data-theme="dark"] .transaction-card-meta dt {
+    color: var(--text-secondary);
+  }
+  :root[data-theme="dark"] .transaction-card-meta dd {
+    color: var(--text);
+  }
+  :root[data-theme="dark"] .transaction-card-memo {
+    color: var(--text-secondary);
+  }
+  :root[data-theme="dark"] .transaction-page-selection,
+  :root[data-theme="dark"] .transaction-card-actions label {
+    color: var(--text-secondary);
+  }
+}
 :root[data-theme="dark"] .category-filter > summary {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
