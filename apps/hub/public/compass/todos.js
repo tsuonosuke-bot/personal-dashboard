@@ -48,7 +48,7 @@ function todoCalendarNotice(item) {
       : "Google Calendarでは取消済みです。見送るか、新しい予定として再作成してください。";
   }
   if (item.status === "pending" && todoTiming(item) === "overdue") return "予定時刻を過ぎています。実施済みか、日程を決め直すか、見送るかを選んでください。";
-  return "日時変更はGoogle Calendarへ反映されます。完了・見送りはToDoだけを更新し、Calendar予定は変更しません。";
+  return "日時・タイトルの変更はGoogle Calendarへ反映されます。完了・見送りはToDoだけを更新し、Calendar予定は変更しません。";
 }
 
 export function renderTodoDrawer(item) {
@@ -56,15 +56,17 @@ export function renderTodoDrawer(item) {
   setDrawerTitle(item.title || "内容なし");
   const synced = item.sourceWantId === null;
   const canReschedule = item.status === "pending" && item.calendarState === "confirmed" && item.calendarEtag;
+  const canRetitle = item.calendarState === "confirmed" && item.calendarEtag;
   const calendarLink = item.calendarUrl
     ? `<a class="secondary-action action-link" href="${escapeHtml(item.calendarUrl)}" target="_blank" rel="noopener noreferrer">Google Calendarで開く</a>`
     : "";
-  const actions = item.status === "pending"
+  const retitleButton = `<button class="secondary-action" id="retitleTodoButton" type="button" ${canRetitle ? "" : "disabled"}>タイトルを変更</button>`;
+  const actions = retitleButton + (item.status === "pending"
     ? `<button class="primary-action" id="completeTodoButton" type="button">完了にする</button>
        <button class="secondary-action" id="rescheduleTodoButton" type="button" ${canReschedule ? "" : "disabled"}>日程を決め直す</button>
        ${!synced && (item.calendarState === "missing" || item.calendarState === "cancelled") ? '<button class="secondary-action" id="recreateTodoButton" type="button">新しい予定として再作成</button>' : ""}
        <button class="close-action" id="skipTodoButton" type="button">見送る</button>`
-    : `<button class="secondary-action" id="reopenTodoButton" type="button">未実施に戻す</button>`;
+    : `<button class="secondary-action" id="reopenTodoButton" type="button">未実施に戻す</button>`);
   els.drawerBody.innerHTML = `<div class="detail-grid">
       <div class="detail-box"><span>Status</span><strong>${escapeHtml(item.status === "pending" ? todoTimingLabel(item) : statusLabel(item.status, "todos"))}</strong></div>
       <div class="detail-box"><span>Schedule</span><strong>${escapeHtml(formatCalendarSchedule(item.schedule))}</strong></div>
@@ -78,6 +80,7 @@ export function renderTodoDrawer(item) {
   document.getElementById("completeTodoButton")?.addEventListener("click", () => changeTodoStatus(item, "complete"));
   document.getElementById("skipTodoButton")?.addEventListener("click", () => changeTodoStatus(item, "skip"));
   document.getElementById("reopenTodoButton")?.addEventListener("click", () => changeTodoStatus(item, "reopen"));
+  document.getElementById("retitleTodoButton")?.addEventListener("click", () => renderTodoRetitleForm(item));
   document.getElementById("rescheduleTodoButton")?.addEventListener("click", () => renderTodoRescheduleForm(item));
   document.getElementById("recreateTodoButton")?.addEventListener("click", () => renderTodoRescheduleForm(item, "recreate"));
 }
@@ -95,6 +98,7 @@ function todoRequestBody(item, command, options = {}) {
     command,
     note: options.note ?? null,
     schedule: options.schedule ?? null,
+    ...(options.title ? { title: options.title } : {}),
     original: {
       status: item.status,
       updatedAt: item.updatedAt,
@@ -136,6 +140,48 @@ async function changeTodoStatus(item, command) {
   } catch (error) {
     setTodoActionError(error instanceof Error ? error.message : "ToDoを更新できませんでした。");
     if (button.isConnected) button.disabled = false;
+  }
+}
+
+function renderTodoRetitleForm(item) {
+  els.drawerKicker.textContent = `ToDo · ${item.id}`;
+  setDrawerTitle("タイトルを変更");
+  els.drawerBody.innerHTML = `<form class="edit-form" id="todoRetitleForm">
+    <label class="form-field" for="todoTitleInput"><span>タイトル</span><input id="todoTitleInput" name="title" type="text" maxlength="200" value="${escapeHtml(item.title)}" required></label>
+    <p class="route-boundary">同じGoogle Calendar予定のタイトルだけを更新します。</p>
+    <p class="form-error" id="todoActionError" role="alert" hidden></p>
+    <div class="drawer-actions"><button class="secondary-action" id="cancelTodoRetitle" type="button">戻る</button><button class="primary-action" id="saveTodoRetitle" type="submit">Calendarのタイトルを更新</button></div>
+  </form>`;
+  document.getElementById("cancelTodoRetitle").addEventListener("click", () => renderTodoDrawer(item));
+  document.getElementById("todoRetitleForm").addEventListener("submit", (event) => saveTodoRetitle(event, item));
+}
+
+async function saveTodoRetitle(event, item) {
+  event.preventDefault();
+  const title = event.currentTarget.elements.title.value.trim();
+  if (!title) {
+    setTodoActionError("タイトルを入力してください。");
+    return;
+  }
+  const submit = document.getElementById("saveTodoRetitle");
+  const cancel = document.getElementById("cancelTodoRetitle");
+  submit.disabled = true;
+  cancel.disabled = true;
+  submit.textContent = "更新中…";
+  setTodoActionError("");
+  try {
+    await sendTodoUpdate(item, "retitle", { title });
+    hideDrawer();
+    syncCompassRoute("todos", null, "replace", ["overdue", "today", "upcoming"].includes(state.metricFilter) ? state.metricFilter : null);
+    await loadTodos(true);
+    showToast("Google Calendarのタイトルを更新しました。");
+  } catch (error) {
+    setTodoActionError(error instanceof Error ? error.message : "タイトルを変更できませんでした。");
+    if (submit.isConnected) {
+      submit.disabled = false;
+      cancel.disabled = false;
+      submit.textContent = "Calendarのタイトルを更新";
+    }
   }
 }
 

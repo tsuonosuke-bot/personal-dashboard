@@ -332,3 +332,51 @@ test("Googleのアクセストークンは有効な間は使い回し、401で�
     globalThis.fetch = originalFetch;
   }
 });
+
+test("タイトル変更はGoogle Calendarのsummaryだけを更新し、同期行のタイトルを保存する", async () => {
+  const encrypted = await encryptGoogleCalendarRefreshToken("refresh-token", env);
+  const originalFetch = globalThis.fetch;
+  let calendarPatch = 0;
+  let actionPatch = 0;
+  forgetGoogleAccessToken();
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/scheduled_actions") && init?.method !== "PATCH") {
+      return Response.json([actionRow({ source_route_id: null, google_event_id: "event-1", calendar_title: "旧タイトル", calendar_etag: '"etag-1"', calendar_state: "confirmed" })]);
+    }
+    if (url.pathname.endsWith("/integration_connections")) return Response.json([{ provider: "google_calendar", encrypted_credentials: encrypted, scope: "https://www.googleapis.com/auth/calendar.events" }]);
+    if (url.hostname === "oauth2.googleapis.com") return Response.json({ access_token: "access-token" });
+    if (url.hostname === "www.googleapis.com" && init?.method === "PATCH") {
+      calendarPatch += 1;
+      assert.equal((init.headers as Record<string, string>)["If-Match"], '"etag-1"');
+      assert.deepEqual(JSON.parse(String(init.body)), { summary: "新タイトル" });
+      return Response.json({
+        id: "event-1",
+        etag: '"etag-2"',
+        htmlLink: "https://calendar.google.com/calendar/event?eid=live",
+        status: "confirmed",
+        summary: "新タイトル",
+        start: { dateTime: "2099-09-22T09:00:00+09:00" },
+        end: { dateTime: "2099-09-22T10:00:00+09:00" },
+      });
+    }
+    if (url.pathname.endsWith("/scheduled_actions") && init?.method === "PATCH") {
+      actionPatch += 1;
+      const body = JSON.parse(String(init.body));
+      assert.equal(body.calendar_title, "新タイトル");
+      assert.equal(body.calendar_etag, '"etag-2"');
+      return Response.json([actionRow({ source_route_id: null, google_event_id: "event-1", calendar_title: "新タイトル", calendar_etag: '"etag-2"' })]);
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  };
+  try {
+    const response = await scheduledActionsEndpoint({ request: patchRequest("retitle", { title: "  新タイトル  " }), env });
+    assert.equal(response.status, 200);
+    assert.equal(calendarPatch, 1);
+    assert.equal(actionPatch, 1);
+    const empty = await scheduledActionsEndpoint({ request: patchRequest("retitle", { title: "  " }), env });
+    assert.equal(empty.status, 400);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

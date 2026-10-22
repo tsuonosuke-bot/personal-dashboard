@@ -5,13 +5,14 @@ import {
   parseCalendarSchedule,
   readGoogleCalendarEvents,
   rescheduleGoogleCalendarEvent,
+  retitleGoogleCalendarEvent,
   type CalendarSchedule,
   type GoogleCalendarEventSnapshot,
 } from "./googleCalendar.ts";
 import { supabaseHeaders } from "./supabaseAuth.ts";
 
 type ScheduledActionStatus = "pending" | "completed" | "skipped";
-type ScheduledActionCommand = "complete" | "skip" | "reopen" | "reschedule" | "recreate";
+type ScheduledActionCommand = "complete" | "skip" | "reopen" | "reschedule" | "recreate" | "retitle";
 
 interface ScheduledActionRow {
   id?: unknown;
@@ -70,6 +71,7 @@ export interface ScheduledActionInput {
   command: ScheduledActionCommand;
   note: string | null;
   schedule: CalendarSchedule | null;
+  title: string | null;
   original: {
     status: ScheduledActionStatus;
     updatedAt: string;
@@ -85,7 +87,7 @@ type ValidationResult =
 const MAX_REQUEST_CHARS = 6_000;
 const ACTION_COLUMNS = "id,source_route_id,status,current_schedule,completed_at,note,reschedule_count,last_calendar_sync_at,created_at,updated_at,google_event_id,calendar_title,calendar_url,calendar_etag,calendar_state";
 const statusSet = new Set<ScheduledActionStatus>(["pending", "completed", "skipped"]);
-const commandSet = new Set<ScheduledActionCommand>(["complete", "skip", "reopen", "reschedule", "recreate"]);
+const commandSet = new Set<ScheduledActionCommand>(["complete", "skip", "reopen", "reschedule", "recreate", "retitle"]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -331,7 +333,8 @@ export async function readScheduledActionInput(request: Request): Promise<Valida
   } catch {
     return { ok: false, status: 400, error: "JSONの形式が正しくありません。" };
   }
-  if (!isPlainObject(value) || !exactKeys(value, ["id", "command", "note", "schedule", "original"])) {
+  const baseKeys = ["id", "command", "note", "schedule", "original"];
+  if (!isPlainObject(value) || !exactKeys(value, "title" in value ? [...baseKeys, "title"] : baseKeys)) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
   const id = integer(value.id);
@@ -347,6 +350,11 @@ export async function readScheduledActionInput(request: Request): Promise<Valida
   if ((command === "reschedule" || command === "recreate") && schedule && !scheduleEndsInFuture(schedule)) {
     return { ok: false, status: 400, error: "実施予定は現在より後の日時を指定してください。" };
   }
+  if (value.title !== undefined && value.title !== null && typeof value.title !== "string") return { ok: false, status: 400, error: "予定のタイトルが正しくありません。" };
+  const title = typeof value.title === "string" && value.title.trim() ? value.title.trim() : null;
+  if ((title?.length || 0) > 200) return { ok: false, status: 400, error: "タイトルは200文字以内で入力してください。" };
+  if (command === "retitle" && !title) return { ok: false, status: 400, error: "タイトルを入力してください。" };
+  if (command !== "retitle" && title) return { ok: false, status: 400, error: "この操作ではタイトルを変更できません。" };
   if (command !== "reschedule" && command !== "recreate" && value.schedule !== null) return { ok: false, status: 400, error: "この操作では予定日時を変更できません。" };
   if (!isPlainObject(value.original) || !exactKeys(value.original, ["status", "updatedAt", "calendarEtag", "schedule"])) {
     return { ok: false, status: 400, error: "変更前のToDo情報が正しくありません。" };
@@ -364,6 +372,9 @@ export async function readScheduledActionInput(request: Request): Promise<Valida
   if (command === "reschedule" && (originalStatus !== "pending" || !calendarEtag || !originalSchedule)) {
     return { ok: false, status: 409, error: "Google Calendarの最新状態を再読み込みしてから日程を変更してください。" };
   }
+  if (command === "retitle" && !calendarEtag) {
+    return { ok: false, status: 409, error: "Google Calendarの最新状態を再読み込みしてからタイトルを変更してください。" };
+  }
   if (command === "recreate" && (originalStatus !== "pending" || !originalSchedule)) {
     return { ok: false, status: 409, error: "Google Calendarの最新状態を再読み込みしてから予定を再作成してください。" };
   }
@@ -380,6 +391,7 @@ export async function readScheduledActionInput(request: Request): Promise<Valida
       command,
       note,
       schedule,
+      title,
       original: {
         status: originalStatus,
         updatedAt: value.original.updatedAt,
@@ -466,6 +478,19 @@ async function replaceRouteTarget(
   if (rows.length !== 1) throw new DashboardError("SCHEDULED_ACTION_UPDATE_CONFLICT", "Calendar route changed before replacement.", 409);
 }
 
+async function renameRoute(env: DashboardEnv, route: RouteTarget, title: string): Promise<void> {
+  const endpoint = restEndpoint(env, "want_routes");
+  endpoint.searchParams.set("id", `eq.${route.id}`);
+  endpoint.searchParams.set("destination", "eq.calendar");
+  endpoint.searchParams.set("status", "eq.created");
+  const response = await supabaseFetch(env, endpoint, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ title, updated_at: new Date().toISOString() }),
+  });
+  if (!response.ok) throw responseError(response, "want_routes");
+}
+
 async function patchAction(
   env: DashboardEnv,
   current: StoredAction,
@@ -527,6 +552,17 @@ export async function updateScheduledAction(env: DashboardEnv, input: ScheduledA
       // still recovers the current state even if the optional audit insert fails.
     }
     return { id: updated.id, status: updated.status, schedule: updated.schedule, rescheduleCount: updated.rescheduleCount };
+  }
+  if (input.command === "retitle") {
+    const route = current.sourceRouteId ? await readRouteTarget(env, current.sourceRouteId) : null;
+    const event = await retitleGoogleCalendarEvent(env, route ? route.targetId : current.googleEventId!, input.title!, input.original.calendarEtag);
+    const updated = await patchAction(env, current, {
+      ...(route ? {} : { calendar_title: event.title, calendar_etag: event.etag }),
+      last_calendar_sync_at: new Date().toISOString(),
+    });
+    // 再作成で新しい予定に同じタイトルを引き継ぐため、Wantの経路にも反映する。失敗してもCalendarは更新済み。
+    if (route) await renameRoute(env, route, input.title!).catch(() => undefined);
+    return { id: updated.id, status: updated.status, schedule: updated.schedule, title: input.title };
   }
   if (input.command === "recreate") {
     if (!current.sourceRouteId) {

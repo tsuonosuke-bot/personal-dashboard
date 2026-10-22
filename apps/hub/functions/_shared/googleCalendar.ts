@@ -633,11 +633,12 @@ export async function readGoogleCalendarEvents(
   return new Map(snapshots.map((snapshot) => [snapshot.targetId, snapshot]));
 }
 
-export async function rescheduleGoogleCalendarEvent(
+async function patchGoogleCalendarEvent(
   env: DashboardEnv,
   targetId: string,
-  schedule: CalendarSchedule,
+  body: Record<string, unknown>,
   expectedEtag: string | null,
+  failureMessage: string,
 ): Promise<GoogleCalendarEventSnapshot> {
   if (!configured(env)) throw new DashboardError("GOOGLE_CALENDAR_NOT_CONFIGURED", "Google Calendar is not configured.", 503);
   const accessToken = await refreshAccessToken(env);
@@ -652,19 +653,15 @@ export async function rescheduleGoogleCalendarEvent(
   if (expectedEtag) requestHeaders["If-Match"] = expectedEtag;
   let response: Response;
   try {
-    response = await fetch(endpoint, {
-      method: "PATCH",
-      headers: requestHeaders,
-      body: JSON.stringify(schedulePayload(schedule)),
-    });
+    response = await fetch(endpoint, { method: "PATCH", headers: requestHeaders, body: JSON.stringify(body) });
   } catch {
-    throw new DashboardError("GOOGLE_CALENDAR_UNAVAILABLE", "Could not reschedule the Google event.");
+    throw new DashboardError("GOOGLE_CALENDAR_UNAVAILABLE", `Could not ${failureMessage} the Google event.`);
   }
   if (response.status === 404 || response.status === 410) {
     throw new DashboardError("GOOGLE_CALENDAR_EVENT_MISSING", "Google Calendar event no longer exists.", 409);
   }
   if (response.status === 412) {
-    throw new DashboardError("GOOGLE_CALENDAR_EVENT_CONFLICT", "Google Calendar event changed before rescheduling.", 409);
+    throw new DashboardError("GOOGLE_CALENDAR_EVENT_CONFLICT", `Google Calendar event changed before ${failureMessage === "reschedule" ? "rescheduling" : "renaming"}.`, 409);
   }
   if (!response.ok) {
     if (response.status === 401) forgetGoogleAccessToken();
@@ -679,9 +676,31 @@ export async function rescheduleGoogleCalendarEvent(
   if (!isPlainObject(event) || event.id !== targetId) {
     throw new DashboardError("GOOGLE_CALENDAR_RESPONSE_INVALID", "Google Calendar returned an unexpected event.");
   }
-  const snapshot = snapshotFromEvent(targetId, event as GoogleEventShape);
+  return snapshotFromEvent(targetId, event as GoogleEventShape);
+}
+
+export async function rescheduleGoogleCalendarEvent(
+  env: DashboardEnv,
+  targetId: string,
+  schedule: CalendarSchedule,
+  expectedEtag: string | null,
+): Promise<GoogleCalendarEventSnapshot> {
+  const snapshot = await patchGoogleCalendarEvent(env, targetId, schedulePayload(schedule), expectedEtag, "reschedule");
   if (snapshot.status !== "confirmed" || !snapshot.schedule || JSON.stringify(snapshot.schedule) !== JSON.stringify(schedule)) {
     throw new DashboardError("GOOGLE_CALENDAR_RESPONSE_INVALID", "Google Calendar did not confirm the new schedule.");
+  }
+  return snapshot;
+}
+
+export async function retitleGoogleCalendarEvent(
+  env: DashboardEnv,
+  targetId: string,
+  title: string,
+  expectedEtag: string | null,
+): Promise<GoogleCalendarEventSnapshot> {
+  const snapshot = await patchGoogleCalendarEvent(env, targetId, { summary: title }, expectedEtag, "rename");
+  if (snapshot.status !== "confirmed" || snapshot.title !== title) {
+    throw new DashboardError("GOOGLE_CALENDAR_RESPONSE_INVALID", "Google Calendar did not confirm the new title.");
   }
   return snapshot;
 }
