@@ -133,6 +133,9 @@ test("AIのまとめは渡した示唆のIDだけを根拠として残す", () =
 test("AIのまとめは示唆とナレッジ名だけを送り、結果を返す", async () => {
   let prompt = "";
   await withFetch(async (url, init) => {
+    if (url.pathname.endsWith("/insight_analysis_cache")) {
+      return Response.json(init?.method === "POST" ? [JSON.parse(String(init.body))] : []);
+    }
     if (url.pathname.endsWith("/knowledge_insights")) {
       return Response.json([
         { id: 1, knowledge_id: knowledgeId, body: "依頼メールで使う" },

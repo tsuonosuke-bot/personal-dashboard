@@ -715,6 +715,15 @@ button:disabled { opacity: 0.4; cursor: default; }
 .speaking-start-row span { color: var(--text-secondary); font-size: 12px; }
 .speaking-start-row .primary-button { padding: 10px 24px; background: #157b6f; border-color: #157b6f; }
 .speaking-generation-note { margin: -12px 0 0; color: var(--text-secondary); font-size: 12px; text-align: center; }
+.speaking-prepared { display: grid; gap: 14px; }
+.speaking-prepared h2 { margin: 0; font-size: 16px; }
+.speaking-prepared p { margin: 0; color: var(--text-secondary); font-size: 14px; }
+.speaking-prepared-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.insight-analysis-status { margin: 0; color: var(--text-secondary); font-size: 12px; }
+@media (max-width: 560px) {
+  .speaking-prepared-actions { align-items: stretch; flex-direction: column; }
+  .speaking-prepared-actions button { min-height: 40px; }
+}
 
 .speaking-card { display: grid; gap: 20px; min-height: 520px; padding: 26px; }
 .speaking-progress { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 11px; color: var(--text-secondary); font-size: 12px; }

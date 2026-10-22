@@ -1159,6 +1159,12 @@
 :root[data-theme="dark"] .speaking-generation-note {
   color: var(--text-secondary);
 }
+:root[data-theme="dark"] .speaking-prepared p {
+  color: var(--text-secondary);
+}
+:root[data-theme="dark"] .insight-analysis-status {
+  color: var(--text-secondary);
+}
 :root[data-theme="dark"] .speaking-progress {
   color: var(--text-secondary);
 }

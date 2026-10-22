@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ApiError,
   getSpeakingPracticeLog,
@@ -19,10 +19,12 @@ import {
   type SpeakingPracticeMode,
   type SpeakingPracticeScope,
 } from "../lib/speakingPractice";
+import { mergeSpeakingPrompts, missingSpeakingIds, speakingRetryTypes } from "../lib/speakingPreparation";
 import type {
   Knowledge,
   SpeakingPracticeLog,
   SpeakingPracticeRating,
+  SpeakingPracticePrompt,
 } from "../types";
 
 interface Props {
@@ -88,7 +90,11 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [mode, setMode] = useState<SpeakingPracticeMode>("mixed");
   const [limit, setLimit] = useState(5);
-  const [phase, setPhase] = useState<"setup" | "practice" | "complete">("setup");
+  const [phase, setPhase] = useState<"setup" | "prepared" | "practice" | "complete">("setup");
+  const [preparedSources, setPreparedSources] = useState<Knowledge[]>([]);
+  const [preparedPrompts, setPreparedPrompts] = useState<SpeakingPracticePrompt[]>([]);
+  const generationRun = useRef(0);
+  const generationBusy = useRef(false);
   const [cards, setCards] = useState<SessionCard[]>([]);
   const [sessionId, setSessionId] = useState("");
   const [index, setIndex] = useState(0);
@@ -111,6 +117,7 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
       });
     return () => {
       active = false;
+      generationRun.current += 1;
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     };
   }, []);
@@ -119,41 +126,69 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
   const current = cards[index];
   const canRate = current?.type === "instant_composition" ? revealed : repetitions >= 3;
 
+  const beginPractice = (selected: Knowledge[], prompts: SpeakingPracticePrompt[]) => {
+    const selectedById = new Map(selected.map((item) => [item.id, item]));
+    const nextCards: SessionCard[] = prompts.map((item) => {
+      const source = selectedById.get(item.knowledge_id);
+      if (!source) throw new Error("AI例文と元のナレッジを対応できませんでした。");
+      return { knowledge: source, type: item.practice_type, prompt: item.prompt_ja, target: item.target_en, attemptId: crypto.randomUUID() };
+    });
+    setCards(nextCards);
+    setSessionId(crypto.randomUUID());
+    setIndex(0);
+    setRevealed(false);
+    setAnswer("");
+    setRepetitions(0);
+    setRatings([]);
+    setActionError(null);
+    setPhase("practice");
+  };
+
   const start = async () => {
-    if (generating) return;
+    if (generationBusy.current) return;
     const selected = selectSpeakingPracticeKnowledge(knowledge, limit, Math.random, scope);
     if (selected.length === 0) return;
+    generationBusy.current = true;
+    const run = ++generationRun.current;
     setGenerating(true);
     setActionError(null);
     try {
       const generated = await startSpeakingPractice(selected.map((item) => item.id), mode);
-      const selectedById = new Map(selected.map((item) => [item.id, item]));
-      const nextCards: SessionCard[] = generated.items.map((item) => {
-        const source = selectedById.get(item.knowledge_id);
-        if (!source) throw new Error("AI例文と元のナレッジを対応できませんでした。");
-        return {
-          knowledge: source,
-          type: item.practice_type,
-          prompt: item.prompt_ja,
-          target: item.target_en,
-          attemptId: crypto.randomUUID(),
-        };
-      });
-      if (nextCards.length !== selected.length) {
-        throw new Error("AI例文の件数がナレッジと一致しませんでした。");
+      if (run !== generationRun.current) return;
+      const prepared = mergeSpeakingPrompts(selected.map((item) => item.id), [], generated.items);
+      if (prepared.length < selected.length) {
+        setPreparedSources(selected);
+        setPreparedPrompts(prepared);
+        setPhase("prepared");
+      } else {
+        beginPractice(selected, prepared);
       }
-      setCards(nextCards);
-      setSessionId(crypto.randomUUID());
-      setIndex(0);
-      setRevealed(false);
-      setAnswer("");
-      setRepetitions(0);
-      setRatings([]);
-      setPhase("practice");
     } catch (caught) {
-      setActionError(generationErrorMessage(caught));
+      if (run === generationRun.current) setActionError(generationErrorMessage(caught));
     } finally {
-      setGenerating(false);
+      generationBusy.current = false;
+      if (run === generationRun.current) setGenerating(false);
+    }
+  };
+
+  const missingIds = missingSpeakingIds(preparedSources.map((item) => item.id), preparedPrompts);
+  const retryMissing = async () => {
+    if (generationBusy.current || missingIds.length === 0) return;
+    generationBusy.current = true;
+    const run = ++generationRun.current;
+    setGenerating(true);
+    setActionError(null);
+    try {
+      const result = await startSpeakingPractice(missingIds, mode,
+        speakingRetryTypes(preparedSources.map((item) => item.id), missingIds, mode));
+      if (run === generationRun.current) {
+        setPreparedPrompts((current) => mergeSpeakingPrompts(preparedSources.map((item) => item.id), current, result.items));
+      }
+    } catch (caught) {
+      if (run === generationRun.current) setActionError(generationErrorMessage(caught));
+    } finally {
+      generationBusy.current = false;
+      if (run === generationRun.current) setGenerating(false);
     }
   };
 
@@ -248,7 +283,7 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
           <section className="card speaking-setup">
             <h2 className="speaking-setup-title">練習を始める</h2>
 
-            <fieldset className="speaking-options">
+            <fieldset className="speaking-options" disabled={generating}>
               <legend>練習する対象</legend>
               <div className="speaking-choice-row" role="radiogroup" aria-label="練習する対象">
                 {(Object.keys(SCOPE_LABELS) as SpeakingPracticeScope["kind"][]).map((value) => (
@@ -313,7 +348,7 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
               )}
             </fieldset>
 
-            <fieldset className="speaking-options">
+            <fieldset className="speaking-options" disabled={generating}>
               <legend>練習メニュー</legend>
               <div className="speaking-choice-row">
                 {(Object.keys(MODE_LABELS) as SpeakingPracticeMode[]).map((value) => (
@@ -330,7 +365,7 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
             </fieldset>
 
             {scopeKind !== "cards" && (
-              <fieldset className="speaking-options">
+              <fieldset className="speaking-options" disabled={generating}>
                 <legend>問題数</legend>
                 <div className="speaking-choice-row">
                   {[5, 10, 15].map((value) => (
@@ -376,6 +411,19 @@ export function SpeakingPracticeView({ knowledge, loading, error, onExit }: Prop
               <summary>この練習について</summary>
               <p>AIが英語ナレッジから短いビジネス例文を作ります。平易な日本語からの瞬間英作文と、実際の仕事場面に合う例文の音読を練習できます。記録は復習とは別に残り、復習スケジュールは変わりません。</p>
             </details>
+          </section>
+        )}
+
+        {!loading && !error && phase === "prepared" && (
+          <section className="card speaking-prepared" aria-label="用意できた例文">
+            <h2>{preparedSources.length}件中{preparedPrompts.length}件の例文を用意しました</h2>
+            <p role="status">{missingIds.length ? `残り${missingIds.length}件は作れませんでした。` : "すべての例文を用意できました。"}</p>
+            <div className="speaking-prepared-actions">
+              <button className="primary-button" disabled={generating} onClick={() => beginPractice(preparedSources, preparedPrompts)}>{preparedPrompts.length}件で練習を始める</button>
+              {missingIds.length > 0 && <button className="secondary-button" disabled={generating} onClick={() => void retryMissing()}>{generating ? "不足分を作成中…" : `残り${missingIds.length}件だけ再試行`}</button>}
+              <button className="text-button" disabled={generating} onClick={() => { setActionError(null); setPhase("setup"); }}>条件を選び直す</button>
+            </div>
+            {actionError && <div className="err compact" role="alert">{actionError}</div>}
           </section>
         )}
 

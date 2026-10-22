@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
-import { analyzeInsights, ApiError } from "../lib/api";
+import { useInsightAnalysis } from "../hooks/useInsightAnalysis";
 import { dashboardRoutePath } from "../lib/dashboardRoute";
-import type { InsightAnalysis, Knowledge, KnowledgeInsight } from "../types";
+import type { Knowledge, KnowledgeInsight } from "../types";
 import { QuestionChips, ThemeToQuestion } from "./InsightQuestions";
 
 interface Props {
@@ -19,9 +19,7 @@ function formatDate(value: string): string {
 /** 「すべての示唆」タブ。ナレッジごとの示唆一覧と、AIによる共通点のまとめ。 */
 export function InsightListPanel({ knowledge, store, groupStore }: Props) {
   const [query, setQuery] = useState("");
-  const [analysis, setAnalysis] = useState<InsightAnalysis | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const { analysis, checking, analyzing, error: analysisError, analyze } = useInsightAnalysis(store.insights, knowledge, !store.loading && !store.error);
 
   const knowledgeById = useMemo(() => new Map(knowledge.map((item) => [item.id, item])), [knowledge]);
   const insightById = useMemo(() => new Map(store.insights.map((item) => [item.id, item])), [store.insights]);
@@ -45,19 +43,6 @@ export function InsightListPanel({ knowledge, store, groupStore }: Props) {
   const knowledgeHref = (id: string) => dashboardRoutePath(window.location.href, { kind: "knowledge", knowledgeId: id });
   const knowledgeTitle = (id: string) => knowledgeById.get(id)?.title ?? "アーカイブ済みのナレッジ";
 
-  const analyze = async () => {
-    setAnalyzing(true);
-    setAnalysisError(null);
-    try {
-      setAnalysis(await analyzeInsights());
-    } catch (caught) {
-      const detail = caught instanceof ApiError && caught.reason ? `（${caught.reason}）` : "";
-      setAnalysisError(`${caught instanceof Error ? caught.message : "示唆をまとめられませんでした。"}${detail}`);
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
   return (
     <div className="insights-view">
         <div className="insights-toolbar card">
@@ -74,11 +59,11 @@ export function InsightListPanel({ knowledge, store, groupStore }: Props) {
             />
             <button
               className="primary-button"
-              onClick={() => void analyze()}
-              disabled={analyzing || store.insights.length < 2}
+              onClick={() => void analyze(Boolean(analysis))}
+              disabled={checking || analyzing || store.loading || Boolean(store.error) || store.insights.length < 2}
               title={store.insights.length < 2 ? "示唆が2件以上になるとまとめられます" : undefined}
             >
-              {analyzing ? "まとめ中…" : "AIで共通点をまとめる"}
+              {checking ? "前回のまとめを確認中…" : analyzing ? "まとめ中…" : analysis ? "再分析" : "AIで共通点をまとめる"}
             </button>
           </div>
         </div>
@@ -87,6 +72,7 @@ export function InsightListPanel({ knowledge, store, groupStore }: Props) {
         {analysis && (
           <section className="insight-themes" aria-label="AIがまとめた共通の示唆">
             <h2>共通して現れる示唆 <span>{analysis.analyzed_count}件から</span></h2>
+            {analysis.analyzed_at && <p className="insight-analysis-status" role="status">{analysis.saved ? "保存済み" : "保存できませんでした。この画面では結果を確認できます。"} · {new Date(analysis.analyzed_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</p>}
             <ol>
               {analysis.themes.map((theme) => {
                 const related = theme.insight_ids.flatMap((id) => insightById.get(id) ?? []);

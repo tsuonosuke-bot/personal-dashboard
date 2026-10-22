@@ -51,6 +51,104 @@ function sourceRow(id: string, title: string) {
   };
 }
 
+const firstPrompt = {
+  knowledge_id: input.knowledge_id,
+  practice_type: "instant_composition",
+  prompt_ja: "会議資料を確認していただけますか。",
+  target_en: "Would you mind reviewing the meeting materials?",
+};
+const secondPrompt = {
+  knowledge_id: SECOND_ID,
+  practice_type: "read_aloud",
+  prompt_ja: "できるだけ早く更新をご連絡ください。",
+  target_en: "Please share the update at your earliest convenience.",
+};
+
+test("再生成が通信失敗しても初回の有効な例文を残し、不足分だけを再依頼する", async () => {
+  const originalFetch = globalThis.fetch;
+  const requested: string[][] = [];
+  globalThis.fetch = async (request, init) => {
+    if (String(request).includes("/rest/v1/knowledge")) return Response.json([
+      sourceRow(input.knowledge_id, "Would you mind doing"), sourceRow(SECOND_ID, "at your earliest convenience"),
+    ]);
+    const body = JSON.parse(String(init?.body));
+    requested.push(JSON.parse(body.messages[0].content).map((item: { id: string }) => item.id));
+    return requested.length === 1 ? anthropicResponse([firstPrompt])
+      : Response.json({ error: { type: "overloaded_error", message: "busy" } }, { status: 503 });
+  };
+  try {
+    const response = await startPractice({ request: startRequest({ knowledge_ids: [input.knowledge_id, SECOND_ID], mode: "mixed" }), env });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { items: [firstPrompt], partial: true, requested_count: 2, missing_knowledge_ids: [SECOND_ID] });
+    assert.deepEqual(requested, [[input.knowledge_id, SECOND_ID], [SECOND_ID]]);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("再生成の余分な出力は有効な例文を上書きせず、重複した不足分は採用しない", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (request) => {
+    if (String(request).includes("/rest/v1/knowledge")) return Response.json([
+      sourceRow(input.knowledge_id, "Would you mind doing"), sourceRow(SECOND_ID, "at your earliest convenience"),
+    ]);
+    return anthropicResponse(++calls === 1 ? [firstPrompt] : [
+      { ...firstPrompt, target_en: "Would you mind changing the valid example?" }, secondPrompt, secondPrompt,
+    ]);
+  };
+  try {
+    const response = await startPractice({ request: startRequest({ knowledge_ids: [input.knowledge_id, SECOND_ID], mode: "mixed" }), env });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.deepEqual(body.items, [firstPrompt]);
+    assert.deepEqual(body.missing_knowledge_ids, [SECOND_ID]);
+    assert.equal(calls, 2);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("不足分の再生成が成功したら初回分と元の順で合わせる", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async (request) => {
+    if (String(request).includes("/rest/v1/knowledge")) return Response.json([
+      sourceRow(input.knowledge_id, "Would you mind doing"), sourceRow(SECOND_ID, "at your earliest convenience"),
+    ]);
+    return anthropicResponse(++calls === 1 ? [firstPrompt] : [secondPrompt]);
+  };
+  try {
+    const response = await startPractice({ request: startRequest({ knowledge_ids: [input.knowledge_id, SECOND_ID], mode: "mixed" }), env });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { items: [firstPrompt, secondPrompt] });
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("不足分だけのリクエストでも最初の音読割り当てを保つ", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (request, init) => {
+    if (String(request).includes("/rest/v1/knowledge")) return Response.json([sourceRow(SECOND_ID, "at your earliest convenience")]);
+    const body = JSON.parse(String(init?.body));
+    assert.equal(JSON.parse(body.messages[0].content)[0].practice_type, "read_aloud");
+    return anthropicResponse([secondPrompt]);
+  };
+  try {
+    const response = await startPractice({ request: startRequest({ knowledge_ids: [SECOND_ID], mode: "mixed", practice_types: { [SECOND_ID]: "read_aloud" } }), env });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { items: [secondPrompt] });
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("不正な再試行の種別指定はデータ取得やAI呼び出しより前に拒否する", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error("Must not fetch"); };
+  try {
+    for (const practiceTypes of [{}, { [SECOND_ID]: "read_aloud" }, { [input.knowledge_id]: "quiz" }, { [input.knowledge_id]: "read_aloud", [SECOND_ID]: "read_aloud" }]) {
+      const response = await startPractice({ request: startRequest({ knowledge_ids: [input.knowledge_id], mode: "mixed", practice_types: practiceTypes }), env });
+      assert.equal(response.status, 400);
+    }
+    const response = await startPractice({ request: startRequest({ knowledge_ids: [input.knowledge_id], mode: "instant_composition", practice_types: { [input.knowledge_id]: "read_aloud" } }), env });
+    assert.equal(response.status, 400);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test("練習履歴APIは期間と新しい順を固定して取得する", async () => {
   const originalFetch = globalThis.fetch;
   let seenUrl = "";

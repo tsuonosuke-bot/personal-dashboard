@@ -69,6 +69,18 @@ function text(value: unknown, max: number): string | null {
   return typeof value === "string" && value.trim() && value.trim().length <= max ? value.trim() : null;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** 実際に送る内容と、出力に影響する条件をまとめて照合する。 */
+export async function insightAnalysisHash(userText: string): Promise<string> {
+  const input = JSON.stringify({ version: 1, userText, system: SYSTEM_PROMPT, tool: TOOL,
+    model: QUIZ_MODEL, effort: QUIZ_EFFORT, maxTokens: QUIZ_MAX_TOKENS });
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 /** AIの出力を検証し、渡した示唆のIDだけを残す。形が崩れたテーマは捨てる。 */
 export function readThemes(input: unknown, knownIds: ReadonlySet<number>): InsightTheme[] | null {
   if (typeof input !== "object" || input === null || !Array.isArray((input as { themes?: unknown }).themes)) return null;
@@ -91,9 +103,27 @@ export function readThemes(input: unknown, knownIds: ReadonlySet<number>): Insig
 }
 
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
-  if (context.request.method !== "POST") return methodNotAllowed("POST");
-  const guard = validateInsightRequest(context.request, false);
-  if (guard) return jsonResponse({ error: guard.error }, guard.status);
+  const reading = context.request.method === "GET";
+  if (!reading && context.request.method !== "POST") return methodNotAllowed("GET, POST");
+  let force = false;
+  if (!reading) {
+    const guard = validateInsightRequest(context.request, false);
+    if (guard) return jsonResponse({ error: guard.error }, guard.status);
+    let raw: string;
+    try { raw = await context.request.text(); } catch { return jsonResponse({ error: "リクエストを読み取れませんでした。" }, 400); }
+    if (raw.length > 1_000) return jsonResponse({ error: "リクエストが大きすぎます。" }, 413);
+    if (raw.trim()) {
+      if (!context.request.headers.get("Content-Type")?.toLowerCase().startsWith("application/json")) {
+        return jsonResponse({ error: "JSON形式で送信してください。" }, 415);
+      }
+      let body: unknown;
+      try { body = JSON.parse(raw); } catch { return jsonResponse({ error: "JSONの形式が正しくありません。" }, 400); }
+      if (!isRecord(body) || Object.keys(body).length !== 1 || typeof body.force !== "boolean") {
+        return jsonResponse({ error: "再分析の指定が正しくありません。" }, 400);
+      }
+      force = body.force;
+    }
+  }
 
   const insights = await requestSupabaseRows(context.env, {
     table: "knowledge_insights",
@@ -106,6 +136,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   if (!insights.ok) return insights.response;
   const rows = (insights.rows as InsightRow[]).filter((row) => Number.isSafeInteger(row.id) && typeof row.body === "string");
   if (rows.length < 2) {
+    if (reading) return jsonResponse(null);
     return jsonResponse({ error: "まとめるには示唆が2件以上必要です。" }, 400);
   }
 
@@ -128,6 +159,26 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     ...rows.map((row) => `[${row.id}] ${titles.get(row.knowledge_id) ?? "不明なナレッジ"}: ${row.body.replace(/\s+/g, " ")}`),
   ].join("\n");
 
+  const inputHash = await insightAnalysisHash(userText);
+  const cached = await requestSupabaseRows(context.env, {
+    table: "insight_analysis_cache",
+    params: new URLSearchParams({ select: "input_hash,analysis,analyzed_at", input_hash: `eq.${inputHash}`, limit: "1" }),
+  });
+  // 保存先を読めないままAIへ再送しない。未適用のmigrationもここで止まる。
+  if (!cached.ok) return cached.response;
+  const row = cached.rows[0];
+  const knownIds = new Set(rows.map((item) => item.id));
+  const cachedThemes = isRecord(row) && isRecord(row.analysis) ? readThemes(row.analysis, knownIds) : null;
+  const usable = isRecord(row) && row.input_hash === inputHash && isRecord(row.analysis)
+    && row.analysis.analyzed_count === rows.length && cachedThemes
+    && Array.isArray(row.analysis.themes) && cachedThemes.length === row.analysis.themes.length
+    && typeof row.analyzed_at === "string" && !Number.isNaN(Date.parse(row.analyzed_at));
+  if ((reading || !force) && usable) return jsonResponse({
+    themes: cachedThemes, analyzed_count: rows.length, input_hash: inputHash,
+    analyzed_at: row.analyzed_at, reused: true, saved: true,
+  });
+  if (reading) return jsonResponse(null);
+
   const result = await callAnthropicTool(context.env, {
     model: QUIZ_MODEL,
     system: SYSTEM_PROMPT,
@@ -146,7 +197,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       reference: result.reference,
     }, result.status);
   }
-  const themes = readThemes(result.input, new Set(rows.map((row) => row.id)));
+  const themes = readThemes(result.input, knownIds);
   if (!themes) {
     return jsonResponse({
       error: "示唆のまとめに失敗しました。",
@@ -155,5 +206,13 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       action: "もう一度実行してください。",
     }, 502);
   }
-  return jsonResponse({ themes, analyzed_count: rows.length });
+  const analyzedAt = new Date().toISOString();
+  const analysis = { themes, analyzed_count: rows.length };
+  const saved = await requestSupabaseRows(context.env, {
+    table: "insight_analysis_cache", method: "POST", preferResolution: "merge-duplicates",
+    params: new URLSearchParams({ on_conflict: "input_hash" }),
+    body: { input_hash: inputHash, analysis, analyzed_at: analyzedAt },
+  });
+  return jsonResponse({ ...analysis, input_hash: inputHash, analyzed_at: analyzedAt,
+    reused: false, saved: saved.ok && saved.rows.some((item) => isRecord(item) && item.input_hash === inputHash) });
 };

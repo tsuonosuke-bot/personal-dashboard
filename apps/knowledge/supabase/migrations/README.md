@@ -4,6 +4,11 @@ These migrations target the `knowledge-db` Supabase project
 (`plwlxwidpqbunugfxjhp`). Apply them in filename order before deploying an app
 build that depends on them.
 
+- `20261022100000_insight_analysis_cache.sql` adds service-role-only storage of
+  validated insight analyses keyed by the exact input and analysis policy.
+  Apply this before releasing the #118 API changes. It does not change insights,
+  knowledge, quiz history, or speaking-practice logs.
+
 - `20260920080000_version_quiz_functions.sql` records the pre-existing quiz
   functions that were previously present only in production.
 - `20260920090000_review_fixes.sql` adds optimistic concurrency, atomic
