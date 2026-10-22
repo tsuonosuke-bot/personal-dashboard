@@ -84,6 +84,9 @@
             <details class="conditions" id="sequenceConditions">
               <summary>条件：<span id="conditionSummary">指定なし</span></summary>
               <div class="condition-grid">
+                <label><span>相手キャラ</span><select id="opponentCharacter"></select></label>
+                <label class="opponent-move-field"><span>相手の技（ガード後）</span><select id="opponentMove" disabled><option value="">相手の技を選ぶ</option></select></label>
+                <div class="opponent-move-status"><span id="opponentMoveStatus" role="status"></span><button id="opponentMoveRetry" type="button" class="ghost-button" hidden>再試行</button></div>
                 <label><span>残りDゲージ</span><select id="conditionDrive"></select></label>
                 <label><span>SAゲージ</span><select id="conditionSa"></select></label>
                 <label><span>相手の不利F</span><input id="conditionPunish" type="number" inputmode="numeric" min="1" max="99" step="1" placeholder="例：5" /></label>
@@ -129,8 +132,10 @@
               <option value="official">公式順</option>
               <option value="startup">発生の速い順</option>
               <option value="block">ガード有利の大きい順</option>
+              <option value="blockDisadvantage">ガード不利の大きい順</option>
             </select>
-            <button type="button" class="toggle-chip" id="framePunishable" aria-pressed="false">確反あり</button>
+            <button type="button" class="toggle-chip" id="framePunishable" aria-pressed="false">-4F以下</button>
+            <button type="button" class="toggle-chip" id="frameHeavyPunishable" aria-pressed="false">-6F以下</button>
             <button type="button" class="toggle-chip" id="frameCancelable" aria-pressed="false">キャンセル可</button>
           </div>
           <p class="frame-version" id="frameVersion"></p>

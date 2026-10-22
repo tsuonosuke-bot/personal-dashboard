@@ -55,8 +55,9 @@ export declare function formatAdvantage(text: string | null | undefined): string
 export declare function counterText(move: Move): { text: string; overridden: boolean };
 export declare function punishCounterText(move: Move): { text: string; overridden: boolean };
 export declare function punishLevel(move: Pick<Move, "onBlock">): "heavy" | "light" | null;
+export declare function punishWindowForMove(move: Pick<Move, "onBlock" | "blockText"> | null | undefined): number | null;
 export declare function normalizeQuery(text: string | null | undefined): string;
-export declare function searchMoves<T extends Move>(moves: T[], options?: { query?: string; category?: string; punishableOnly?: boolean; cancelableOnly?: boolean; sort?: "official" | "startup" | "block" }): T[];
+export declare function searchMoves<T extends Move>(moves: T[], options?: { query?: string; category?: string; punishableOnly?: boolean; heavyPunishableOnly?: boolean; cancelableOnly?: boolean; sort?: "official" | "startup" | "block" | "blockDisadvantage" }): T[];
 export declare function starterMove<T extends Move>(notation: string, moves: T[]): T | null;
 export declare function defaultStateName(notation: string, moves: Move[]): string | null;
 export declare function toMoveRow(input: MoveInput, sortOrder: number): { row: Record<string, unknown>; errors: string[] };

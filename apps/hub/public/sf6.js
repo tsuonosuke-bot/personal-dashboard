@@ -1,11 +1,11 @@
 import { readApiJson } from "./api-client.js";
-import { formatAdvantage, counterText, punishCounterText, punishLevel, searchMoves, starterMove, defaultStateName } from "./sf6-frames.js";
+import { formatAdvantage, counterText, punishCounterText, punishLevel, punishWindowForMove, searchMoves, starterMove, defaultStateName } from "./sf6-frames.js";
 import { ARROWS, appendFragment, appendToken, frequentFragments, parseNotation, removeLastToken } from "./sf6-notation.js";
 import { createNotationKeyboard } from "./sf6-keyboard.js";
 import { buildFlow, exitsOf } from "./sf6-graph.js";
 import {
   bestStreakOf, defaultTitle, drillPreset, findState, leadsInto, MASTERY, OPPONENT_OPTIONS, PRESET, raiseTargets, resultOf,
-  routeDrillPreset, sequencesFrom, setplaysAfter, situationUsage, sortSequences, stateFit, stateLabel, STREAK_GOAL, usableNow,
+  routeBack, routeDrillPreset, sequencesFrom, setplaysAfter, situationUsage, sortSequences, startSituationGroups, stateFit, stateLabel, STREAK_GOAL, usableNow,
 } from "./sf6-plan.js";
 
 // SF6ページ。コンボ・起き攻め・フレーム・練習メニュー・対戦振り返りの5タブ。
@@ -58,7 +58,8 @@ const state = {
   situationNear: true,
   /** 「状況から引く」の条件。situationId は状況の id（"none" は状況なし）、drive・sa・punishWindow は null なら指定なし。 */
   conditions: { situationId: null, drive: null, sa: null, ca: false, burnout: false, punishWindow: null },
-  frames: { character: "", query: "", category: "", sort: "official", punishableOnly: false, cancelableOnly: false, open: null },
+  frames: { character: "", query: "", category: "", sort: "official", punishableOnly: false, heavyPunishableOnly: false, cancelableOnly: false, open: null },
+  opponent: { character: "", moveId: null, loading: false, error: "" },
   /** キャラ名 → GET /api/sf6/moves の応答。タブやモーダルで初めて要るときに1回だけ読む。 */
   moves: new Map(),
   /** シート：{ type: "route", path, character } / { type: "routeStart", character } / { type: "situations", character }
@@ -74,8 +75,8 @@ const ids = [
   "countSequences", "countSituations", "countDrills", "countMatches",
   "situationCharacter", "situationPosition", "situationNear", "situationList", "situationArchiveFold", "situationArchiveCount", "situationArchive",
   "sequenceCharacter", "sequenceKind", "sequencePosition", "sequenceSituation", "sequenceConditions", "conditionDrive", "conditionSa", "conditionCa", "conditionBurnout",
-  "conditionPunish", "conditionSummary", "sequenceList", "sequenceArchiveFold", "sequenceArchiveCount", "sequenceArchive",
-  "frameCharacter", "frameQuery", "frameCategory", "frameSort", "framePunishable", "frameCancelable", "frameVersion", "frameTable",
+  "conditionPunish", "opponentCharacter", "opponentMove", "opponentMoveStatus", "opponentMoveRetry", "conditionSummary", "sequenceList", "sequenceArchiveFold", "sequenceArchiveCount", "sequenceArchive",
+  "frameCharacter", "frameQuery", "frameCategory", "frameSort", "framePunishable", "frameHeavyPunishable", "frameCancelable", "frameVersion", "frameTable",
   "drillList", "logList", "drillDoneFold", "drillDoneCount", "drillDone",
   "matchStats", "matchList",
   "editModal", "modalTitle", "modalClose", "editForm", "formFields", "formError", "deleteConfirm", "deleteButton", "cancelButton", "saveButton",
@@ -524,6 +525,7 @@ function renderSequences() {
   els.conditionPunish.value = punishWindow === null ? "" : String(punishWindow);
   els.conditionCa.checked = ca;
   els.conditionBurnout.checked = burnout;
+  renderPunishPicker();
   const summary = [...conditionSummaryText(), punishWindow !== null ? `相手の不利F${punishWindow}` : ""].filter(Boolean);
   els.conditionSummary.textContent = summary.length ? summary.join("・") : "指定なし";
   const mine = ofKind.filter((sequence) => !state.sequenceCharacter || sequence.character === state.sequenceCharacter);
@@ -616,6 +618,54 @@ function frameCharacters() {
   return state.data.moveSets.map((set) => set.character);
 }
 
+function renderPunishPicker() {
+  const { character, moveId, loading, error } = state.opponent;
+  const characters = frameCharacters();
+  els.opponentCharacter.innerHTML = `<option value="">相手キャラを選ぶ</option>${characters.map((name) =>
+    `<option value="${escapeHtml(name)}"${name === character ? " selected" : ""}>${escapeHtml(name)}</option>`).join("")}`;
+  els.opponentCharacter.disabled = !characters.length;
+  const moves = movesOf(character);
+  els.opponentMove.innerHTML = `<option value="">${loading ? "読み込み中…" : "相手の技を選ぶ"}</option>${moves.map((move) => {
+    const window = punishWindowForMove(move);
+    return `<option value="${move.id}"${move.id === moveId ? " selected" : ""}${window === null ? " disabled" : ""}>${escapeHtml(`${move.name} / ${move.command || ""} / ガード ${formatAdvantage(move.blockText) || "不明"}F`)}</option>`;
+  }).join("")}`;
+  els.opponentMove.disabled = loading || !moves.length;
+  const selected = moves.find((move) => move.id === moveId);
+  const parsedWindow = punishWindowForMove(selected);
+  els.opponentMoveStatus.textContent = error || (!characters.length ? "相手キャラの技データはまだ登録されていません。不利Fを直接入力できます。"
+    : character && !loading && !moves.length ? "このキャラの技データはありません。不利Fを直接入力できます。"
+    : selected && parsedWindow !== null ? `${character}：${selected.name} · 発生${parsedWindow}F以内のコンボ` : "");
+  els.opponentMoveRetry.hidden = !error;
+}
+
+async function loadOpponentMoves() {
+  const character = state.opponent.character;
+  state.opponent.loading = Boolean(character);
+  state.opponent.error = "";
+  renderPunishPicker();
+  try {
+    await ensureMoves(character);
+  } catch (error) {
+    if (state.opponent.character === character) state.opponent.error = error instanceof Error ? error.message : "技データを読み込めませんでした。";
+  } finally {
+    if (state.opponent.character === character) {
+      state.opponent.loading = false;
+      renderPunishPicker();
+    }
+  }
+}
+
+function applyOpponentMove(move) {
+  const window = punishWindowForMove(move);
+  if (window === null) return;
+  state.opponent.moveId = move.id;
+  state.conditions = { ...state.conditions, situationId: null, punishWindow: window };
+  state.sequenceKind = "combo";
+  renderTabs();
+  renderSequences();
+  els.sequenceConditions.open = true;
+}
+
 async function loadFrames() {
   const characters = frameCharacters();
   if (!characters.includes(state.frames.character)) {
@@ -651,7 +701,7 @@ function frameRowHtml(move) {
   const detail = open ? `<tr class="frame-detail"><td colspan="${WIDE_FRAMES.matches ? 6 : 4}">
       <dl>${details.filter(([, value]) => value).map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join("")}</dl>
       ${move.notes ? `<p class="memo">${escapeHtml(move.notes)}</p>` : ""}
-      ${level ? `<button type="button" class="ghost-button find-punish" data-find-punish="${move.id}">確反コンボを探す</button>` : ""}
+      ${level && punishWindowForMove(move) >= 4 ? `<button type="button" class="ghost-button find-punish" data-find-punish="${move.id}">確反コンボを探す</button>` : ""}
     </td></tr>` : "";
   return `<tr class="frame-row${open ? " open" : ""}">
     <td><button type="button" class="frame-name" data-frame-row="${move.id}" aria-expanded="${open}"><span>${escapeHtml(move.name)}</span>${move.command ? notationHtml(move.command, true) : ""}</button></td>
@@ -672,6 +722,7 @@ function renderFrames() {
   });
   els.frameSort.value = state.frames.sort;
   els.framePunishable.setAttribute("aria-pressed", String(state.frames.punishableOnly));
+  els.frameHeavyPunishable.setAttribute("aria-pressed", String(state.frames.heavyPunishableOnly));
   els.frameCancelable.setAttribute("aria-pressed", String(state.frames.cancelableOnly));
   if (!characters.length) {
     els.frameVersion.textContent = "";
@@ -699,15 +750,12 @@ function renderFrames() {
 /** ガードした相手の技から、確定反撃のコンボを引く（不利F＝ガード時の不利）。 */
 function findPunish(moveId) {
   const move = movesOf(state.frames.character).find((entry) => entry.id === moveId);
-  if (!move || move.onBlock === null) return;
-  const punish = state.data.situations.find((situation) => situation.presetKey === PRESET.punish);
-  state.conditions = { ...state.conditions, situationId: punish?.id ?? null, punishWindow: Math.abs(move.onBlock) };
+  if (punishWindowForMove(move) === null) return;
+  state.opponent = { character: state.frames.character, moveId, loading: false, error: "" };
   state.sequenceCharacter = stored("sf6-character", state.sequenceCharacter);
-  state.sequenceKind = "combo";
   state.sequencePosition = "";
   selectTab("sequences");
-  renderSequences();
-  els.sequenceConditions.open = true;
+  applyOpponentMove(move);
   window.scrollTo({ top: 0 });
 }
 
@@ -1076,7 +1124,7 @@ function routeCardHtml({ sequence, via, fit }, ended = false) {
   const steps = sequence.results.filter((result) => byId.get(result.nextSituationId)).map((result) =>
     `<button type="button" class="result-line" data-route-step="${sequence.id}|${result.kind}|${result.opponentAction || ""}">${escapeHtml(resultLabel(result))}${result.outcome ? ` ${OUTCOME_MARKS[result.outcome]}` : ""} → ${escapeHtml(situationText(byId.get(result.nextSituationId)))} ›</button>`).join("");
   const starts = startStatesOf(sequence);
-  return `<article class="card route-card${usable ? "" : " dim"}">
+  return `<article class="card route-card${usable ? "" : " dim"}" data-route-sequence="${sequence.id}" tabindex="-1">
     <div class="card-head">
       <h3>${escapeHtml(sequence.title)}${sequence.startup !== null ? ` <small>発生${sequence.startup}F</small>` : ""}</h3>
       ${usable ? "" : '<span class="meta">条件外</span>'}
@@ -1097,7 +1145,7 @@ function renderRoute() {
   els.sheetTitle.textContent = "ルート";
   const crumbs = path.map((step, index) => ("situationId" in step
     ? `<button type="button" class="crumb" data-route-back="${index}"${index === path.length - 1 ? ' aria-current="step"' : ""}>${escapeHtml(situationText(byId.get(step.situationId)) || "削除された状況")}</button>`
-    : `<span class="crumb-sequence"${index === path.length - 1 ? ' aria-current="step"' : ""}>${escapeHtml(sequences.get(step.sequenceId)?.title || "")}</span>`)).join('<span class="crumb-sep">›</span>');
+    : `<button type="button" class="crumb crumb-sequence" data-route-back="${index}"${index === path.length - 1 ? ' aria-current="step"' : ""}>${escapeHtml(sequences.get(step.sequenceId)?.title || "削除された手順")}</button>`)).join('<span class="crumb-sep">›</span>');
   const summary = conditionSummaryText();
   const sequenceCount = path.filter((step) => "sequenceId" in step).length;
   const drillButton = sequenceCount
@@ -1301,13 +1349,25 @@ function formPosition() {
 
 // --- 始動の状況（コンボ：きっかけ＋局面のトグルチップ） ---
 
-function startChipsHtml(selected) {
-  const character = formCharacter();
-  const list = state.data.situations.filter((situation) => selected.includes(situation.id) || (!situation.archived
-    && (situation.kind === "trigger" ? situation.character === null || situation.character === character : situation.character === character)));
-  // きっかけを先に、局面は有利Fの大きい順
-  list.sort((a, b) => (a.kind === b.kind ? (a.kind === "state" ? byAdvantage(a, b) : a.id - b.id) : a.kind === "trigger" ? -1 : 1));
-  return list.map((situation) => `<button type="button" class="toggle-chip${situation.kind === "state" ? " state" : ""}" data-start-id="${situation.id}" aria-pressed="${selected.includes(situation.id)}">${escapeHtml(situationText(situation))}</button>`).join("");
+function startChipsHtml(selected, character = formCharacter()) {
+  const groups = startSituationGroups(state.data.situations, state.data.sequences, character, selected, 2);
+  const chip = (situation, pressed = false) => `<button type="button" class="toggle-chip${situation.kind === "state" ? " state" : ""}" data-start-id="${situation.id}" aria-pressed="${pressed}">${escapeHtml(situationText(situation))}${pressed ? ' <span aria-hidden="true">×</span>' : ""}</button>`;
+  const group = (key, label, entries) => entries.visible.length || entries.more.length ? `<section class="start-group" data-start-group="${key}" aria-label="${label}">
+    <span class="start-label">${label}</span><div class="toggle-chips">${entries.visible.map((entry) => chip(entry)).join("")}</div>
+    ${entries.more.length ? `<details class="start-more"><summary>すべて表示（${entries.more.length}）</summary><div class="toggle-chips">${entries.more.map((entry) => chip(entry)).join("")}</div></details>` : ""}</section>` : "";
+  return `${groups.selected.length ? `<section class="start-group" aria-label="選択中"><span class="start-label">選択中（${groups.selected.length}）</span><div class="toggle-chips selected-starts">${groups.selected.map((entry) => chip(entry, true)).join("")}</div></section>` : ""}
+    ${group("trigger", "きっかけ", groups.triggers)}${group("state", "局面", groups.states)}`;
+}
+
+function renderStartChips(selected, focusId = null) {
+  const chips = document.getElementById("startChips");
+  const openGroups = [...chips.querySelectorAll("[data-start-group]")].filter((group) => group.querySelector("details")?.open).map((group) => group.dataset.startGroup);
+  chips.innerHTML = startChipsHtml(selected);
+  openGroups.forEach((key) => {
+    const details = chips.querySelector(`[data-start-group="${key}"] details`);
+    if (details) details.open = true;
+  });
+  if (focusId !== null) chips.querySelector(`[data-start-id="${focusId}"]`)?.focus({ preventScroll: true });
 }
 
 function selectedStartChips() {
@@ -1530,7 +1590,7 @@ function fieldHtml(field, value, values) {
     case "startChips":
       return `<div class="chip-field" data-field="${field.key}">
         <span class="field-label">${escapeHtml(field.label)} <b>必須</b></span>
-        <div class="toggle-chips" id="startChips">${startChipsHtml(value || [])}</div>
+        <div class="start-groups" id="startChips">${startChipsHtml(value || [], values.character || "")}</div>
         <div class="add-situation"><input id="newSituation" maxlength="60" placeholder="＋ 状況を追加（例：昇龍ガード後）" /><button type="button" class="secondary-button small" data-add-situation>追加</button></div>
       </div>`;
     case "startStates":
@@ -1901,7 +1961,25 @@ els.sequenceSituation.addEventListener("change", () => {
   state.conditions.situationId = value === "" ? null : value === "none" ? "none" : Number(value);
   renderSequences();
 });
-els.sequenceConditions.addEventListener("change", () => {
+els.opponentCharacter.addEventListener("change", () => {
+  if (state.opponent.moveId !== null) state.conditions.punishWindow = null;
+  state.opponent = { character: els.opponentCharacter.value, moveId: null, loading: false, error: "" };
+  renderSequences();
+  loadOpponentMoves();
+});
+els.opponentMove.addEventListener("change", () => {
+  const move = movesOf(state.opponent.character).find((entry) => entry.id === Number(els.opponentMove.value));
+  if (move) applyOpponentMove(move);
+  else {
+    state.opponent.moveId = null;
+    state.conditions.punishWindow = null;
+    renderSequences();
+  }
+});
+els.opponentMoveRetry.addEventListener("click", loadOpponentMoves);
+function readSequenceConditions(event) {
+  if (event.target === els.opponentCharacter || event.target === els.opponentMove) return;
+  if (event.target === els.conditionPunish) state.opponent.moveId = null;
   const punish = Number(els.conditionPunish.value);
   state.conditions.drive = els.conditionDrive.value === "" ? null : Number(els.conditionDrive.value);
   state.conditions.sa = els.conditionSa.value === "" ? null : Number(els.conditionSa.value);
@@ -1909,7 +1987,9 @@ els.sequenceConditions.addEventListener("change", () => {
   state.conditions.ca = els.conditionCa.checked;
   state.conditions.burnout = els.conditionBurnout.checked;
   renderSequences();
-});
+}
+els.sequenceConditions.addEventListener("change", readSequenceConditions);
+els.conditionPunish.addEventListener("input", readSequenceConditions);
 WIDE_FRAMES.addEventListener("change", () => { if (state.data) renderFrames(); });
 els.frameCharacter.addEventListener("change", () => {
   state.frames.character = els.frameCharacter.value;
@@ -1932,6 +2012,12 @@ els.frameCategory.addEventListener("click", (event) => {
 });
 els.framePunishable.addEventListener("click", () => {
   state.frames.punishableOnly = !state.frames.punishableOnly;
+  state.frames.heavyPunishableOnly = false;
+  renderFrames();
+});
+els.frameHeavyPunishable.addEventListener("click", () => {
+  state.frames.heavyPunishableOnly = !state.frames.heavyPunishableOnly;
+  state.frames.punishableOnly = false;
   renderFrames();
 });
 els.frameCancelable.addEventListener("click", () => {
@@ -1996,6 +2082,7 @@ async function onAction(event) {
     state.sequenceKind = "";
     state.sequencePosition = "";
     state.conditions = { situationId: null, drive: null, sa: null, ca: false, burnout: false, punishWindow: null };
+    state.opponent.moveId = null;
     renderTabs();
     renderSequences();
     const card = document.getElementById(`sequence-${dataset.gotoSequence}`);
@@ -2015,8 +2102,17 @@ async function onAction(event) {
     renderSheet();
     els.sheet.querySelector(".sheet").scrollTop = 0;
   } else if (dataset.routeBack !== undefined) {
-    state.sheet.path = state.sheet.path.slice(0, Number(dataset.routeBack) + 1);
+    const back = routeBack(state.sheet.path, Number(dataset.routeBack));
+    if (!back?.path.length) return;
+    state.sheet.path = back.path;
     renderSheet();
+    if (back.sequenceId !== null) {
+      const card = els.sheetBody.querySelector(`[data-route-sequence="${back.sequenceId}"]`);
+      card?.scrollIntoView({ block: "center" });
+      card?.focus({ preventScroll: true });
+      card?.classList.add("flash");
+      setTimeout(() => card?.classList.remove("flash"), 1200);
+    }
   } else if (dataset.routeStart) {
     openRoute([{ situationId: Number(dataset.routeStart) }], state.sheet.character);
   } else if (dataset.routeDrill !== undefined) {
@@ -2130,7 +2226,7 @@ els.formFields.addEventListener("change", (event) => {
   if (target.closest("[data-picker]")) onPickerChange(target);
   if (target.id === "field-character") {
     const chipsEl = document.getElementById("startChips");
-    if (chipsEl) chipsEl.innerHTML = startChipsHtml(selectedStartChips());
+    if (chipsEl) renderStartChips(selectedStartChips());
     if (state.editing.resource === "sequences") prepareMoves();
   }
   syncConditional(state.editing.resource);
@@ -2138,6 +2234,9 @@ els.formFields.addEventListener("change", (event) => {
 });
 els.formFields.addEventListener("input", (event) => {
   if (event.target.id === "field-notation" || event.target.id === "field-startup") refreshNotationAssist();
+  else if (event.target.id === "field-character") {
+    if (document.getElementById("startChips")) renderStartChips(selectedStartChips());
+  }
   else if (event.target.closest("[data-picker]")) onPickerChange(event.target);
 });
 const notationKeyboard = createNotationKeyboard({
@@ -2175,12 +2274,16 @@ els.formFields.addEventListener("click", async (event) => {
   else if (dataset.fragment) editNotation((text) => appendFragment(text, dataset.fragment));
   else if (dataset.palette === "backspace") editNotation(removeLastToken);
   else if (dataset.palette === "clear") editNotation(() => "");
-  else if (dataset.startId) button.setAttribute("aria-pressed", String(button.getAttribute("aria-pressed") !== "true"));
+  else if (dataset.startId) {
+    const id = Number(dataset.startId);
+    const selected = selectedStartChips();
+    renderStartChips(selected.includes(id) ? selected.filter((entry) => entry !== id) : [...selected, id], id);
+  }
   else if (dataset.addSituation !== undefined) {
     const selected = selectedStartChips();
     const added = await addTrigger(document.getElementById("newSituation"));
     if (!added) return;
-    document.getElementById("startChips").innerHTML = startChipsHtml([...new Set([...selected, added.id])]);
+    renderStartChips([...new Set([...selected, added.id])], added.id);
   } else if (dataset.addStart !== undefined) {
     if (!addStartFromPicker()) showFormError("有利Fを入れるか、一覧から選んでください。");
   } else if (dataset.removeStart !== undefined) {

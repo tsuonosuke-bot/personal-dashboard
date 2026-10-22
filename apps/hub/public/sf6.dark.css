@@ -320,6 +320,9 @@ html[data-theme="dark"] {
   border-radius: var(--radius);
   background: var(--bg-subtle);
 }
+:root[data-theme="dark"] .opponent-move-status {
+  color: var(--muted);
+}
 :root[data-theme="dark"] .situations button,
 :root[data-theme="dark"] .situations span {
   border: 0;
@@ -409,6 +412,12 @@ html[data-theme="dark"] {
   color: var(--muted);
 }
 :root[data-theme="dark"] .field-hint {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .start-label {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .start-more summary {
   color: var(--muted);
 }
 :root[data-theme="dark"] .toggle-chip {
