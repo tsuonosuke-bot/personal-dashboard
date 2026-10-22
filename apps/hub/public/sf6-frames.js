@@ -144,14 +144,17 @@ export function starterMove(notation, moves) {
   return null;
 }
 
-/** 新しい局面の名前の候補：レシピの最後の技の名前＋「締め後」（例「強エアニースマッシュ締め後」）。 */
-export function defaultStateName(notation, moves) {
+/** 移行時と同じく手順名の最後の語＋「締め後」。名前が空ならレシピの締め技を使う。 */
+export function defaultStateName(notation, moves, title = "") {
+  const ending = String(title ?? "").trim().split(/\s+/).filter(Boolean).at(-1);
+  const nameAfter = (name) => `${[...name].slice(0, 57).join("")}締め後`;
+  if (ending) return nameAfter(ending);
   const tokens = String(notation ?? "").trim().split(/\s+/).filter(Boolean);
   for (let end = tokens.length; end > 0; end -= 1) {
     for (const length of [2, 1]) {
       if (end - length < 0) continue;
       const move = moveByCommand(tokens.slice(end - length, end).join(" "), moves);
-      if (move) return `${move.name.replace(/[（(].*$/, "").replace(/\s+/g, "")}締め後`.slice(0, 60);
+      if (move) return nameAfter(move.name.replace(/[（(].*$/, "").replace(/\s+/g, ""));
     }
   }
   return null;

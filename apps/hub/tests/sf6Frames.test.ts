@@ -50,6 +50,13 @@ test("カウンターはヒット+2F、パニカンは+4F。ダウンはD、備�
   assert.deepEqual(counterText(move({ hitText: null, onHit: null })), { text: "", overridden: false });
 });
 
+test("条件付きの個別性能は、カウンターとパニカンでそれぞれ条件ごと表示する", () => {
+  const conditional = move({ counterOverride: "追撃可能（地上のみ）", punishCounterOverride: "よろけ（密着時のみ）" });
+  assert.deepEqual(counterText(conditional), { text: "追撃可能（地上のみ）", overridden: true });
+  assert.deepEqual(punishCounterText(conditional), { text: "よろけ（密着時のみ）", overridden: true });
+  assert.deepEqual(punishCounterText({ ...conditional, punishCounterOverride: null }), { text: "+8", overridden: false });
+});
+
 test("確反マークは-4〜-5Fが light、-6F以下が heavy", () => {
   assert.equal(punishLevel({ onBlock: -3 }), null);
   assert.equal(punishLevel({ onBlock: -4 }), "light");
@@ -103,6 +110,17 @@ test("レシピの先頭の技を探す。溜めなど2語の一致を優先し�
   assert.equal(defaultStateName("前ステ 投げ", moves), null);
 });
 
+test("局面の候補名は移行時と同じ手順名の最後の語を優先し、空欄なら締め技に戻る", () => {
+  const notation = "5弱P > 5弱P xx 623強K";
+  assert.equal(defaultStateName(notation, moves, "確認ルート 強ニー"), "強ニー締め後");
+  assert.equal(defaultStateName(notation, [], "  確認ルート\t強ニー　"), "強ニー締め後");
+  assert.equal(defaultStateName(notation, moves, "　 "), "強ニーアッパー締め後");
+  assert.equal(defaultStateName("前ステ 投げ", [], ""), null);
+  const longName = defaultStateName(notation, moves, "🥊".repeat(70))!;
+  assert.equal([...longName].length, 60);
+  assert.ok(longName.endsWith("締め後"));
+});
+
 test("投入用のJSONを表の列に直し、問題があれば errors に入れる", () => {
   const { row, errors } = toMoveRow({
     category: "special", name: "強 ニーアッパー", command: "623強K", startup: "9", active: "9-12", recovery: "40",
@@ -122,6 +140,19 @@ test("投入用のJSONを表の列に直し、問題があれば errors に入�
   assert.match(toMoveRow({ category: "normal", name: "" }, 1).errors.join("\n"), /技名/);
 });
 
+test("投入時の個別性能は条件を含め40字まで。両方の列で上限を検証する", () => {
+  const override = "条".repeat(34) + "（地上のみ）";
+  assert.equal([...override].length, 40);
+  const { row, errors } = toMoveRow({ category: "normal", name: "テスト技", counterOverride: override, punishCounterOverride: override }, 1);
+  assert.deepEqual(errors, []);
+  assert.equal(row.counter_override, override);
+  assert.equal(row.punish_counter_override, override);
+  const failed = toMoveRow({ category: "normal", name: "テスト技", counterOverride: override + "字", punishCounterOverride: override + "字" }, 1);
+  assert.equal(failed.errors.length, 2);
+  assert.match(failed.errors[0], /counterOverrideが40字を超えています/);
+  assert.match(failed.errors[1], /punishCounterOverrideが40字を超えています/);
+});
+
 test("投入スクリプトは検証してから入れ替えのSQLを出し、問題があれば一覧を出して止まる", async () => {
   const { execFile } = await import("node:child_process");
   const { mkdtemp, writeFile } = await import("node:fs/promises");
@@ -136,7 +167,7 @@ test("投入スクリプトは検証してから入れ替えのSQLを出し、�
   const input = {
     character: "テスト'キャラ", dataVersion: "Ver.0.0001", sourceUrl: "https://www.streetfighter.com/6/ja-jp/character/test/frame", checkedOn: "2026-10-12",
     moves: [
-      { category: "normal", name: "立ち弱P", command: "5弱P", startup: "4", hit: "+4", block: "-1", cancel: "C" },
+      { category: "normal", name: "立ち弱P", command: "5弱P", startup: "4", hit: "+4", block: "-1", cancel: "C", counterOverride: "追撃可能（地上のみ）", punishCounterOverride: "よろけ（密着時のみ）" },
       { category: "super", name: "SA1", command: "236236K ディレイ", startup: "9", hit: "D", block: "-30", punishCounterOverride: null },
     ],
   };
@@ -147,6 +178,7 @@ test("投入スクリプトは検証してから入れ替えのSQLを出し、�
   assert.match(ok.stdout, /insert into public\.sf6_move_sets .*\n.*values \('テスト''キャラ', 'Ver\.0\.0001'/);
   assert.match(ok.stdout, /delete from public\.sf6_moves where character = 'テスト''キャラ';/);
   assert.match(ok.stdout, /\('テスト''キャラ', 1, 'normal', '立ち弱P', '5弱P', '4', null, null, '\+4', '-1', 'C',/);
+  assert.match(ok.stdout, /'追撃可能（地上のみ）', 'よろけ（密着時のみ）'\)/);
   assert.match(ok.stdout, /, 9, null, true, -30, null, null\);\n$/);
   assert.match(ok.stderr, /ディレイ は文字のまま/);
   assert.match(ok.stderr, /normal 1 \/ unique 0 \/ special 0 \/ super 1/);

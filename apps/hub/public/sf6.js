@@ -410,7 +410,7 @@ function resultLinesHtml(sequence, kinds) {
 function drillButtonHtml(sequence) {
   if (sequence.archived) return "";
   return activeDrillFor(sequence.id)
-    ? '<span class="linked">練習中</span>'
+    ? '<span class="linked">練習メニューにあり</span>'
     : `<button type="button" class="ghost-button" data-drill-from-sequence="${sequence.id}">練習に追加</button>`;
 }
 
@@ -694,6 +694,9 @@ function frameRowHtml(move) {
   const level = punishLevel(move);
   const counter = counterText(move);
   const punish = punishCounterText(move);
+  const overrides = [["カウンター", counter], ["パニカン", punish]]
+    .filter(([, result]) => result.overridden)
+    .map(([label, result]) => `<div><span>${label}</span> ${bonusHtml(result, move.notes)}</div>`).join("");
   const details = [
     ...FRAME_DETAILS.map(([key, label]) => [label, move[key] ? escapeHtml(move[key]) : ""]),
   ];
@@ -704,7 +707,7 @@ function frameRowHtml(move) {
       ${level && punishWindowForMove(move) >= 4 ? `<button type="button" class="ghost-button find-punish" data-find-punish="${move.id}">確反コンボを探す</button>` : ""}
     </td></tr>` : "";
   return `<tr class="frame-row${open ? " open" : ""}">
-    <td><button type="button" class="frame-name" data-frame-row="${move.id}" aria-expanded="${open}"><span>${escapeHtml(move.name)}</span>${move.command ? notationHtml(move.command, true) : ""}</button></td>
+    <td><button type="button" class="frame-name" data-frame-row="${move.id}" aria-expanded="${open}"><span>${escapeHtml(move.name)}</span>${move.command ? notationHtml(move.command, true) : ""}</button>${overrides ? `<div class="frame-overrides">${overrides}</div>` : ""}</td>
     <td class="num">${escapeHtml(move.startupText || "")}</td>
     <td class="num${level ? ` punish ${level}` : ""}">${escapeHtml(formatAdvantage(move.blockText))}</td>
     <td class="num">${escapeHtml(formatAdvantage(move.hitText))}</td>
@@ -1296,7 +1299,7 @@ const FORMS = {
       { key: "counterSetting", label: "カウンター", type: "select", options: { "": "指定なし", ...COUNTER_SETTINGS }, half: true },
       { key: "recoverySetting", label: "受け身", type: "select", options: { "": "指定なし", ...RECOVERY_SETTINGS }, half: true },
       { key: "reversalRecorded", label: "無敵技を録画して再生する", type: "checkbox" },
-      { key: "status", label: "状態", type: "select", options: { active: "練習中", done: "完了" }, editOnly: true },
+      { key: "status", label: "状態", type: "select", options: { active: "進行中", done: "完了" }, editOnly: true },
     ],
     defaults: () => ({
       title: "", detail: null, sequenceIds: [], status: "active",
@@ -1429,8 +1432,9 @@ function pickerKey(picker) {
 
 function newStateName(picker, key) {
   const notation = document.getElementById("field-notation")?.value || "";
-  const fromMoves = picker.dataset.picker === "hit" ? defaultStateName(notation, movesOf(key.character)) : null;
-  return fromMoves || stateLabel({ kind: "state", ...key });
+  const title = document.getElementById("field-title")?.value || "";
+  const name = picker.dataset.picker === "hit" ? defaultStateName(notation, movesOf(key.character), title) : null;
+  return name || stateLabel({ kind: "state", ...key });
 }
 
 /** ピッカーの値：一覧で選んだ状況の id、数値に合う既存の局面の id、または新しい局面 {state}。空なら null。 */
@@ -2144,7 +2148,7 @@ async function onAction(event) {
     openModal("logs", null, { drillId: Number(dataset.log) });
     els.modalTitle.textContent = `記録：${find("drills", dataset.log).title}`;
   } else if (dataset.reopen) {
-    await patch("drills", find("drills", dataset.reopen), { status: "active" }, "練習中に戻しました");
+    await patch("drills", find("drills", dataset.reopen), { status: "active" }, "進行中に戻しました");
   } else if (dataset.deleteLog) {
     await deleteItem("logs", Number(dataset.deleteLog), "この練習記録");
   } else if (dataset.drillFromMatch) {
@@ -2234,6 +2238,7 @@ els.formFields.addEventListener("change", (event) => {
 });
 els.formFields.addEventListener("input", (event) => {
   if (event.target.id === "field-notation" || event.target.id === "field-startup") refreshNotationAssist();
+  else if (event.target.id === "field-title") refreshPickers();
   else if (event.target.id === "field-character") {
     if (document.getElementById("startChips")) renderStartChips(selectedStartChips());
   }
