@@ -1,6 +1,7 @@
 import { readApiJson } from "./api-client.js";
 import { formatAdvantage, counterText, punishCounterText, punishLevel, searchMoves, starterMove, defaultStateName } from "./sf6-frames.js";
 import { ARROWS, appendFragment, appendToken, frequentFragments, parseNotation, removeLastToken } from "./sf6-notation.js";
+import { createNotationKeyboard } from "./sf6-keyboard.js";
 import { buildFlow, exitsOf } from "./sf6-graph.js";
 import {
   bestStreakOf, defaultTitle, drillPreset, findState, leadsInto, MASTERY, OPPONENT_OPTIONS, PRESET, raiseTargets, resultOf,
@@ -195,6 +196,7 @@ function paletteHtml(withMoves) {
     <div class="pal-row">${PALETTE.motions.map(([token, label]) => key(token, label, "motion")).join("")}</div>
     <div class="pal-row">${PALETTE.links.map((token) => key(token, LINK_LABELS[token] || token, "link")).join("")}</div>
     <div class="pal-row pal-edit">
+      <button type="button" class="pal-key edit" data-palette="keyboard">⌨ キーボード入力</button>
       <button type="button" class="pal-key edit" data-palette="backspace">⌫ 1つ戻す</button>
       <button type="button" class="pal-key edit" data-palette="clear">クリア</button>
     </div>
@@ -1517,7 +1519,8 @@ function fieldHtml(field, value, values) {
     case "notation":
       return `<div class="notation-field" data-field="${field.key}">
         <span class="field-label">${escapeHtml(field.label)} <b>必須</b></span>
-        <div class="notation-preview" id="notationPreview" aria-live="polite"></div>
+        <div class="notation-preview" id="notationPreview" tabindex="0" role="group" aria-label="レシピのキーボード入力" aria-describedby="notationKeyboardHelp" aria-live="polite"></div>
+        <small class="notation-keyboard-hint" id="notationKeyboardHelp">矢印 / 1〜9：方向 · U I O：弱中強P · J K L：弱中強K · Space：つなぎ · X：キャンセル <a href="/help/#sf6-keyboard" target="_blank" rel="noopener">キー一覧</a></small>
         <div class="fragments" id="notationFragments" hidden></div>
         ${paletteHtml(field.moves)}
         <details class="notation-raw"><summary>文字で直接編集</summary>
@@ -1665,7 +1668,7 @@ function refreshNotationAssist() {
   const input = document.getElementById("field-notation");
   if (!input || !state.editing) return;
   const preview = document.getElementById("notationPreview");
-  preview.innerHTML = input.value.trim() ? notationHtml(input.value) : '<p class="notation-empty">下のボタンを押すとここに手順が並びます</p>';
+  preview.innerHTML = input.value.trim() ? notationHtml(input.value) : '<p class="notation-empty">ここを選んでキー入力 / 下のボタンで入力</p>';
   const fragments = document.getElementById("notationFragments");
   fragments.innerHTML = fragmentsHtml(formCharacter());
   fragments.hidden = !fragments.innerHTML;
@@ -1697,9 +1700,11 @@ function openModal(resource, item = null, preset = {}) {
   state.editing = { resource, item, values, startRefs: [...(values.starts || [])] };
   els.modalTitle.textContent = `${form.title(values)}を${item ? "編集" : "追加"}`;
   const fields = visibleFields(resource, values, Boolean(item));
-  const main = fields.filter((field) => !field.more).map((field) => fieldHtml(field, values[field.key], values)).join("");
-  const more = fields.filter((field) => field.more).map((field) => fieldHtml(field, values[field.key], values)).join("");
-  els.formFields.innerHTML = `${main}${more ? `<details class="form-more"><summary>詳細</summary><div class="form-grid">${more}</div></details>` : ""}`;
+  const isCombo = resource === "sequences" && values.kind === "combo";
+  const isMore = (field) => field.more || (isCombo && !field.required);
+  const main = fields.filter((field) => !isMore(field)).map((field) => fieldHtml(field, values[field.key], values)).join("");
+  const more = fields.filter(isMore).map((field) => fieldHtml(field, values[field.key], values)).join("");
+  els.formFields.innerHTML = `${main}${more ? `<details class="form-more"><summary>${isCombo ? "任意項目" : "詳細"}</summary><div class="form-grid">${more}</div></details>` : ""}`;
   els.formError.hidden = true;
   els.deleteConfirm.hidden = true;
   // 初期の状況は削除できない（アーカイブだけ）
@@ -1717,6 +1722,7 @@ function openModal(resource, item = null, preset = {}) {
 }
 
 function closeModal() {
+  notationKeyboard.reset();
   els.editModal.hidden = true;
   state.editing = null;
 }
@@ -2134,7 +2140,23 @@ els.formFields.addEventListener("input", (event) => {
   if (event.target.id === "field-notation" || event.target.id === "field-startup") refreshNotationAssist();
   else if (event.target.closest("[data-picker]")) onPickerChange(event.target);
 });
+const notationKeyboard = createNotationKeyboard({
+  read: () => document.getElementById("field-notation")?.value || "",
+  write: (text) => editNotation(() => text),
+});
+els.formFields.addEventListener("keyup", (event) => notationKeyboard.keyup(event));
+els.formFields.addEventListener("focusout", (event) => {
+  if (event.target.id === "notationPreview") notationKeyboard.reset();
+});
+window.addEventListener("blur", () => notationKeyboard.reset());
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) notationKeyboard.reset();
+});
 els.formFields.addEventListener("keydown", (event) => {
+  if (event.target.id === "notationPreview" && !els.editModal.hidden && state.editing?.resource === "sequences") {
+    if (notationKeyboard.keydown(event)) event.preventDefault();
+    return;
+  }
   if (event.key !== "Enter") return;
   if (event.target.id === "newSituation") {
     event.preventDefault();
@@ -2149,6 +2171,7 @@ els.formFields.addEventListener("click", async (event) => {
   if (!button || !state.editing) return;
   const { dataset } = button;
   if (dataset.token) editNotation((text) => appendToken(text, dataset.token));
+  else if (dataset.palette === "keyboard") document.getElementById("notationPreview").focus();
   else if (dataset.fragment) editNotation((text) => appendFragment(text, dataset.fragment));
   else if (dataset.palette === "backspace") editNotation(removeLastToken);
   else if (dataset.palette === "clear") editNotation(() => "");
