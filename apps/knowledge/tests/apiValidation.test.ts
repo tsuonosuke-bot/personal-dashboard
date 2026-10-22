@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  parseDailyReviewStatus, parseKnowledge, parsePageEnvelope, parseQuizLog, parseSpeakingPracticeStart,
+  parseDailyReviewStatus, parseInsightAnalysis, parseKnowledge, parsePageEnvelope, parseQuizLog, parseSpeakingPracticeStart,
 } from "../src/lib/apiValidation.ts";
 import { ApiError, getKnowledge, runReviewBatch } from "../src/lib/api.ts";
 
@@ -138,6 +138,28 @@ test("AI英会話出題の必須項目と重複IDを検証する", () => {
     () => parseSpeakingPracticeStart({ items: [{ ...item, target_en: "" }] }),
     /target_en/,
   );
+});
+
+test("英会話の部分結果は生成済みと不足分が依頼内容を過不足なく満たす場合だけ受理する", () => {
+  const ids = ["first", "second"];
+  const item = { knowledge_id: ids[0], practice_type: "instant_composition", prompt_ja: "資料を確認してください。", target_en: "Please review the meeting materials." };
+  const partial = { items: [item], partial: true, requested_count: 2, missing_knowledge_ids: [ids[1]] };
+  assert.deepEqual(parseSpeakingPracticeStart(partial, ids), partial);
+  for (const invalid of [
+    { ...partial, requested_count: 3 }, { ...partial, partial: false },
+    { ...partial, missing_knowledge_ids: [ids[0]] }, { ...partial, missing_knowledge_ids: [ids[1], ids[1]], requested_count: 3 },
+    { ...partial, missing_knowledge_ids: ["unknown"] }, { ...partial, missing_knowledge_ids: [] },
+    { items: [item] }, { items: [{ ...item, knowledge_id: "unknown" }, { ...item, knowledge_id: ids[1] }] },
+  ]) assert.throws(() => parseSpeakingPracticeStart(invalid, ids));
+});
+
+test("示唆のまとめの保存状態は全項目が正しい場合だけ受理する", () => {
+  const result = { themes: [{ title: "依頼", guiding_question: "依頼には？", summary: "期限を添える", importance: "共通する", insight_ids: [1, 2] }],
+    analyzed_count: 2, input_hash: "a".repeat(64), analyzed_at: "2026-10-22T00:00:00.000Z", reused: true, saved: true };
+  assert.deepEqual(parseInsightAnalysis(result), result);
+  for (const invalid of [{ input_hash: "x" }, { analyzed_at: "bad-date" }, { reused: 1 }, { saved: undefined }]) {
+    assert.throws(() => parseInsightAnalysis({ ...result, ...invalid }), /保存状態/);
+  }
 });
 
 test("固定上限で切らず、全ページのナレッジを取得する", async () => {

@@ -1,7 +1,7 @@
 import type {
   DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizLog, QuizVerdict,
   PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary, ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
-  SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart,
+  SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart, SpeakingPracticeType,
   SpeakingPracticeWrite, EmbeddingBatchSummary, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType, QuestionMaterials, RelatedItem, NoteTopic, ThemeNote,
 } from "../types";
 import {
@@ -276,10 +276,16 @@ export async function deleteInsight(id: number): Promise<void> {
   });
 }
 
-export async function analyzeInsights(): Promise<InsightAnalysis> {
+export async function getInsightAnalysis(): Promise<InsightAnalysis | null> {
+  const data = await requestJson("/api/insights/analyze", { method: "GET" });
+  return data === null ? null : parseInsightAnalysis(data);
+}
+
+export async function analyzeInsights(force = false): Promise<InsightAnalysis> {
   const data = await requestJson("/api/insights/analyze", {
     method: "POST",
-    headers: { "X-Dashboard-Action": "knowledge-insight" },
+    headers: { "X-Dashboard-Action": "knowledge-insight", "Content-Type": "application/json" },
+    body: JSON.stringify({ force }),
   });
   return parseInsightAnalysis(data);
 }
@@ -444,6 +450,7 @@ export async function recordSpeakingPractice(
 export async function startSpeakingPractice(
   knowledgeIds: string[],
   mode: SpeakingPracticeMode,
+  practiceTypes?: Record<string, SpeakingPracticeType>,
 ): Promise<SpeakingPracticeStart> {
   const data = await requestJson("/api/speaking-practice/start", {
     method: "POST",
@@ -451,9 +458,9 @@ export async function startSpeakingPractice(
       "Content-Type": "application/json",
       "X-Dashboard-Action": "speaking-practice",
     },
-    body: JSON.stringify({ knowledge_ids: knowledgeIds, mode }),
+    body: JSON.stringify({ knowledge_ids: knowledgeIds, mode, ...(practiceTypes ? { practice_types: practiceTypes } : {}) }),
   });
-  return parseSpeakingPracticeStart(data);
+  return parseSpeakingPracticeStart(data, knowledgeIds);
 }
 
 async function writeKnowledge(

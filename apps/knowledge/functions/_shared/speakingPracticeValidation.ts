@@ -20,6 +20,8 @@ export interface SpeakingPracticeInput {
 export interface SpeakingPracticeStartInput {
   knowledge_ids: string[];
   mode: "mixed" | "instant_composition" | "read_aloud";
+  /** 不足分の再依頼でも、最初に割り当てた練習種別を保つ。 */
+  practice_types?: Record<string, "instant_composition" | "read_aloud">;
 }
 
 type ValidationResult =
@@ -109,7 +111,7 @@ export function validateSpeakingPracticeStartInput(
   input: unknown,
 ): { ok: true; value: SpeakingPracticeStartInput } | { ok: false; error: string } {
   if (!isRecord(input)) return { ok: false, error: "入力内容の形式が正しくありません。" };
-  const allowed = new Set(["knowledge_ids", "mode"]);
+  const allowed = new Set(["knowledge_ids", "mode", "practice_types"]);
   const unknown = Object.keys(input).find((key) => !allowed.has(key));
   if (unknown) return { ok: false, error: `出題に使えない項目が含まれています: ${unknown}` };
   if (!Array.isArray(input.knowledge_ids) || input.knowledge_ids.length < 1 || input.knowledge_ids.length > MAX_START_ITEMS) {
@@ -125,8 +127,15 @@ export function validateSpeakingPracticeStartInput(
   if (typeof input.mode !== "string" || !PRACTICE_MODES.has(input.mode)) {
     return { ok: false, error: "練習モードが正しくありません。" };
   }
+  const types = input.practice_types;
+  if (types !== undefined && (!isRecord(types) || Object.keys(types).length !== ids.length
+    || !ids.every((id) => typeof types[id] === "string" && PRACTICE_TYPES.has(types[id] as string)
+      && (input.mode === "mixed" || types[id] === input.mode)))) {
+    return { ok: false, error: "再試行する練習種別が正しくありません。" };
+  }
   return {
     ok: true,
-    value: { knowledge_ids: ids, mode: input.mode as SpeakingPracticeStartInput["mode"] },
+    value: { knowledge_ids: ids, mode: input.mode as SpeakingPracticeStartInput["mode"],
+      ...(types === undefined ? {} : { practice_types: types as SpeakingPracticeStartInput["practice_types"] }) },
   };
 }

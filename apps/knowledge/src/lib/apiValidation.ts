@@ -587,7 +587,7 @@ export function parseSpeakingPracticeLog(value: unknown): SpeakingPracticeLog {
   };
 }
 
-export function parseSpeakingPracticeStart(value: unknown): SpeakingPracticeStart {
+export function parseSpeakingPracticeStart(value: unknown, requestedIds?: readonly string[]): SpeakingPracticeStart {
   const entity = "英会話出題";
   if (!isRecord(value) || !Array.isArray(value.items) || value.items.length < 1 || value.items.length > 15) {
     return fail(entity);
@@ -600,6 +600,7 @@ export function parseSpeakingPracticeStart(value: unknown): SpeakingPracticeStar
     const prompt = stringValue(entry, "prompt_ja", entity).trim();
     const target = stringValue(entry, "target_en", entity).trim();
     if (seen.has(knowledgeId)) return fail(entity, "knowledge_id");
+    if (requestedIds && !requestedIds.includes(knowledgeId)) return fail(entity, "knowledge_id");
     seen.add(knowledgeId);
     if (!SPEAKING_PRACTICE_TYPE_VALUES.has(type as SpeakingPracticeType)) {
       return fail(entity, "practice_type");
@@ -612,7 +613,18 @@ export function parseSpeakingPracticeStart(value: unknown): SpeakingPracticeStar
       target_en: target,
     };
   });
-  return { items };
+  if (value.partial === undefined && value.requested_count === undefined && value.missing_knowledge_ids === undefined) {
+    if (requestedIds && items.length !== requestedIds.length) return fail(entity, "items");
+    return { items };
+  }
+  const missing = value.missing_knowledge_ids;
+  if (value.partial !== true || !Array.isArray(missing) || missing.length === 0
+    || !missing.every((id) => typeof id === "string" && id.trim() && !seen.has(id) && (!requestedIds || requestedIds.includes(id)))
+    || new Set(missing).size !== missing.length
+    || value.requested_count !== items.length + missing.length
+    || (requestedIds && value.requested_count !== requestedIds.length)
+    || Number(value.requested_count) > 15) return fail(entity, "partial");
+  return { items, partial: true, requested_count: value.requested_count as number, missing_knowledge_ids: missing as string[] };
 }
 
 export function parseKnowledgeInsight(value: unknown): KnowledgeInsight {
@@ -679,5 +691,12 @@ export function parseInsightAnalysis(value: unknown): InsightAnalysis {
       insight_ids: ids as number[],
     };
   });
-  return { themes, analyzed_count: analyzedCount };
+  if (value.input_hash === undefined && value.analyzed_at === undefined && value.reused === undefined && value.saved === undefined) {
+    return { themes, analyzed_count: analyzedCount };
+  }
+  if (typeof value.input_hash !== "string" || !/^[0-9a-f]{64}$/.test(value.input_hash)
+    || typeof value.analyzed_at !== "string" || Number.isNaN(Date.parse(value.analyzed_at))
+    || typeof value.reused !== "boolean" || typeof value.saved !== "boolean") return fail(entity, "保存状態");
+  return { themes, analyzed_count: analyzedCount, input_hash: value.input_hash,
+    analyzed_at: value.analyzed_at, reused: value.reused, saved: value.saved };
 }

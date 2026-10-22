@@ -226,7 +226,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   const validated = validateSpeakingPracticeStartInput(body);
   if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
 
-  const { knowledge_ids: ids, mode } = validated.value;
+  const { knowledge_ids: ids, mode, practice_types: types } = validated.value;
   const rows = await requestSupabaseRows(context.env, {
     table: "knowledge",
     params: new URLSearchParams({
@@ -249,40 +249,45 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
 
   const sources: PracticeSource[] = ids.map((id, index) => ({
     ...byId.get(id)!,
-    practice_type: practiceType(mode, index),
+    practice_type: types?.[id] ?? practiceType(mode, index),
   }));
   const first = await generate(context.env, sources);
   if (!first.ok) return first.response;
-  const generatedById = first.byId;
-
   const issueFor = (source: PracticeSource): string | null => first.duplicateIds.has(source.id)
     ? "AIが同じナレッジを重複して返しました。"
-    : generationIssue(source, generatedById.get(source.id));
+    : generationIssue(source, first.byId.get(source.id));
   const needsRetry = sources.filter((source) => issueFor(source) !== null);
+  const generatedById = new Map(sources.filter((source) => issueFor(source) === null)
+    .map((source) => [source.id, first.byId.get(source.id)!]));
+  let retryFailure: Response | null = null;
+  const details: string[] = [];
   if (needsRetry.length > 0) {
     const previousErrors = new Map(needsRetry.map((source) => [source.id, issueFor(source)!]));
     const retry = await generate(context.env, needsRetry, previousErrors);
-    if (!retry.ok) return retry.response;
-    for (const source of needsRetry) generatedById.delete(source.id);
-    for (const [id, item] of retry.byId) generatedById.set(id, item);
-    const retryIssues = new Set(retry.duplicateIds);
-    const details = needsRetry.flatMap((source, index) => {
-      const issue = retryIssues.has(source.id)
-        ? "AIが同じナレッジを重複して返しました。"
-        : generationIssue(source, generatedById.get(source.id));
-      return issue ? [`${index + 1}件目「${source.title.slice(0, 60)}」: ${issue}`] : [];
-    });
-    if (details.length > 0) {
-      return jsonResponse({
-        error: "英会話の例文生成に失敗しました。",
-        stage: "AI応答の確認",
-        reason: `再生成後も${details.length}件が出題条件を満たしませんでした。`,
-        action: "同じ条件でもう一度開始してください。",
-        details,
-      }, 502);
+    if (!retry.ok) retryFailure = retry.response;
+    else {
+      // 再依頼したIDだけを検証して加える。初回の有効な例文は上書きしない。
+      for (const [index, source] of needsRetry.entries()) {
+        const item = retry.byId.get(source.id);
+        const issue = retry.duplicateIds.has(source.id)
+          ? "AIが同じナレッジを重複して返しました。" : generationIssue(source, item);
+        if (issue) details.push(`${index + 1}件目「${source.title.slice(0, 60)}」: ${issue}`);
+        else generatedById.set(source.id, item!);
+      }
     }
   }
 
-  const items = sources.map((source) => generatedById.get(source.id)!);
-  return jsonResponse({ items });
+  const items = sources.flatMap((source) => generatedById.get(source.id) ?? []);
+  if (items.length === 0) {
+    if (retryFailure) return retryFailure;
+    return jsonResponse({
+      error: "英会話の例文生成に失敗しました。", stage: "AI応答の確認",
+      reason: `再生成後も${details.length}件が出題条件を満たしませんでした。`,
+      action: "同じ条件でもう一度開始してください。", details,
+    }, 502);
+  }
+  const missingIds = sources.filter((source) => !generatedById.has(source.id)).map((source) => source.id);
+  return jsonResponse(missingIds.length ? {
+    items, partial: true, requested_count: sources.length, missing_knowledge_ids: missingIds,
+  } : { items });
 };

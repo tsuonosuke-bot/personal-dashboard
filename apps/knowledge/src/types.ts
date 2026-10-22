@@ -257,6 +257,9 @@ export interface SpeakingPracticePrompt {
 
 export interface SpeakingPracticeStart {
   items: SpeakingPracticePrompt[];
+  partial?: boolean;
+  requested_count?: number;
+  missing_knowledge_ids?: string[];
 }
 
 export interface SpeakingPracticeLog {
@@ -378,4 +381,8 @@ export interface InsightTheme {
 export interface InsightAnalysis {
   themes: InsightTheme[];
   analyzed_count: number;
+  input_hash?: string;
+  analyzed_at?: string;
+  reused?: boolean;
+  saved?: boolean;
 }

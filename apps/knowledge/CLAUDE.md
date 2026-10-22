@@ -252,6 +252,8 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `POST /api/speaking-practice`: 検証済みの1練習を`attempt_id`で冪等記録
 - `POST /api/speaking-practice/start`: 選んだ英語ナレッジ（`knowledge_ids`）ごとに、Claude APIで練習用の英語例文（4〜20語）と
   日本語訳を作って返す。アクティブな英語ナレッジ以外は400。この時点では何も記録しない
+  - 不足・不正な項目だけを1回再生成し、失敗しても有効な例文が1件以上あれば部分成功（`partial`・`requested_count`・`missing_knowledge_ids`）で返す。
+    画面は作れた件数で開始するか、不足IDだけを再試行するか選べる。作成済みの例文は再依頼・上書きしない
 - `POST /api/inbox`: 採点結果から「あとで深掘り」したい点を`idea_inbox`へ1件登録する（`status=pending`、
   `source=knowledge-quiz`）。出典ナレッジはIDで引き直してタイトルを添え、他の列や任意内容は受け付けない
 - `POST /api/grading-report`: 「採点がおかしい」の報告を問題・回答・AIの採点と講評つきで`idea_inbox`へ1件登録する
@@ -260,8 +262,11 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `GET /api/insights`: 示唆の明示した列を新しい順に制限付きページング
 - `POST /api/insights`: 存在を確認したナレッジに示唆を1件追加
 - `PATCH /api/insights/:id` / `DELETE /api/insights/:id`: 示唆1件の編集・削除。編集は`updated_at`で競合を検出して409
-- `POST /api/insights/analyze`: 新しい順に最大300件の示唆とナレッジ名だけをClaude APIへ送り、複数のナレッジに
-  共通するテーマを返す。根拠IDは渡した示唆に限り、結果は保存しない
+- `GET /api/insights/analyze`: 現在の入力と分析条件に一致する保存済みのまとめ、またはnullを返す。AIは呼ばない
+- `POST /api/insights/analyze`: 新しい順に最大300件の示唆とナレッジ名・カテゴリから共通するテーマを返す。
+  実際の入力・プロンプト・出力形式・モデル・effort・トークン上限のSHA-256をキーに `insight_analysis_cache` へ保存し、一致する結果を再利用。
+  `{force:true}` の明示的な再分析だけは一致する結果があってもAIを呼ぶ。根拠IDは渡した示唆に限る。
+  保存先の読取エラーではAIを呼ばず、生成後の保存失敗は結果と `saved:false` を返す（結果を失わない）
 - `GET/POST /api/insight-groups`、`PATCH/DELETE /api/insight-groups/:id`: 手動で問いグループを取得・作成・編集・削除する。編集・削除は `updated_at` で競合を検出する
 - `GET/POST/DELETE /api/insight-group-members`: 示唆ID単位の所属を取得・追加・解除する。示唆本文には触れない
 - `GET /api/review-queue/status`: 出題待ち・採点待ち・採点エラー・未確認・生成を保留中（`generation_held`）の件数、
