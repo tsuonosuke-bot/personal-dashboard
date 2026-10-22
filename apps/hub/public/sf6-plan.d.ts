@@ -32,6 +32,7 @@ export interface PlanSequence {
   archived: boolean;
   starts: number[];
   results: PlanResult[];
+  updatedAt?: string;
 }
 
 export interface PlanConditions {
@@ -71,6 +72,8 @@ export declare const OPPONENT_OPTIONS: string[];
 export declare function usesDrive(notation: string): boolean;
 export declare function usableNow(sequence: PlanSequence, conditions: PlanConditions): boolean;
 export declare function sortSequences<T extends PlanSequence>(list: T[], conditions: PlanConditions, situationsById: Map<number, PlanSituation>): T[];
+export declare function startSituationGroups<T extends PlanSituation>(situations: T[], sequences: PlanSequence[], character: string, selected?: number[], limit?: number): { selected: T[]; triggers: { visible: T[]; more: T[] }; states: { visible: T[]; more: T[] } };
+export declare function routeBack(path: RouteStep[], index: number): { path: RouteStep[]; sequenceId: number | null } | null;
 export declare function stateLabel(situation: PlanSituation): string;
 export declare function findState<T extends PlanSituation>(situations: T[], key: { character: string; advantage: number; position: string; recovery: string | null }): T | null;
 export declare function stateFit(from: PlanSituation, to: PlanSituation): Fit | null;

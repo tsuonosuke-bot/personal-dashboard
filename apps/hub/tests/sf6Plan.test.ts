@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { appendToken, parseNotation } from "../public/sf6-notation.js";
 import {
-  bestStreakOf, defaultTitle, drillPreset, findState, leadsInto, raiseTargets, routeDrillPreset, sequencesFrom, setplaysAfter,
-  shouldRaiseMastery, situationUsage, sortSequences, stateFit, stateLabel, usableNow, usesDrive,
-  type PlanSequence, type PlanSituation,
+  bestStreakOf, defaultTitle, drillPreset, findState, leadsInto, raiseTargets, routeBack, routeDrillPreset, sequencesFrom, setplaysAfter,
+  shouldRaiseMastery, situationUsage, sortSequences, startSituationGroups, stateFit, stateLabel, usableNow, usesDrive,
+  type PlanSequence, type PlanSituation, type RouteStep,
 } from "../public/sf6-plan.js";
 
 const situation = (overrides: Partial<PlanSituation> = {}): PlanSituation => ({
@@ -63,7 +63,7 @@ test("バーンアウト中は、Dゲージ0でもDR・DI・パリィ・OD必殺
   assert.equal(usableNow(sequence({ driveCost: 1, notation: "5中P" }), { burnout: true }), false);
 });
 
-test("確定反撃は発生の速い順、不利Fを入れたらダメージ順、条件なしは登録順", () => {
+test("確定反撃と不利F指定は発生の速い順、ほかの条件はダメージ順、条件なしは登録順", () => {
   const byId = new Map([[1, punish], [2, confirm]]);
   const list = [
     sequence({ id: 1, startup: 7, damage: 3000 }),
@@ -71,12 +71,49 @@ test("確定反撃は発生の速い順、不利Fを入れたらダメージ順�
     sequence({ id: 3, startup: 4, damage: 1200 }),
   ];
   assert.deepEqual(sortSequences(list, { situationId: 1 }, byId).map((entry) => entry.id), [3, 1, 2]);
-  assert.deepEqual(sortSequences(list, { situationId: 1, punishWindow: 7 }, byId).map((entry) => entry.id), [2, 1, 3]);
+  assert.deepEqual(sortSequences(list, { situationId: 1, punishWindow: 7 }, byId).map((entry) => entry.id), [3, 1, 2]);
+  assert.deepEqual(sortSequences(list, { punishWindow: 7 }, byId).map((entry) => entry.id), [3, 1, 2]);
   assert.deepEqual(sortSequences(list, { situationId: 2 }, byId).map((entry) => entry.id), [2, 1, 3]);
   assert.deepEqual(sortSequences(list, {}, byId).map((entry) => entry.id), [1, 2, 3]);
-  // 不利F5：発生5F以下だけがダメージ順で残る（A3）
+  // 不利F5：発生5F以下だけが残る（A3）
   const window = list.filter((entry) => usableNow(entry, { punishWindow: 5 }));
   assert.deepEqual(sortSequences(window, { punishWindow: 5 }, byId).map((entry) => entry.id), [3]);
+});
+
+test("始動の候補は選択中を分け、同じキャラの最近の始動を優先し、残りを折りたたむ", () => {
+  const situations = [punish, confirm, counter, situation({ id: 4 }),
+    ...Array.from({ length: 7 }, (_, index) => state(index + 10, 20)),
+    state(20, 30, { character: "リュウ" }), state(21, 30, { archived: true }),
+    state(22, 30, { archived: true }), situation({ id: 23, character: "リュウ" }),
+  ];
+  const sequences = [
+    sequence({ id: 1, starts: [14, 15], updatedAt: "2026-10-20T00:00:00Z" }),
+    sequence({ id: 2, starts: [16, 13], updatedAt: "2026-10-22T00:00:00Z" }),
+    sequence({ id: 3, starts: [12], archived: true, updatedAt: "2026-10-23T00:00:00Z" }),
+  ];
+  const groups = startSituationGroups(situations, sequences, "ケン", [2, 10, 21, 20, 23]);
+  assert.deepEqual(groups.selected.map((entry) => entry.id), [2, 10, 21]);
+  assert.deepEqual(groups.triggers.visible.map((entry) => entry.id), [1, 3, 4]);
+  assert.deepEqual(groups.states.visible.map((entry) => entry.id), [16, 13, 14]);
+  assert.deepEqual(groups.states.more.map((entry) => entry.id), [15, 11, 12]);
+  assert.deepEqual(startSituationGroups(situations, sequences, "", [10]).states.visible, []);
+  assert.deepEqual(situations.slice(-4).map((entry) => entry.id), [20, 21, 22, 23]);
+});
+
+test("道のりの手順へ戻ると直前の状況で候補を再表示し、後続を練習の対象から外す", () => {
+  const path: RouteStep[] = [{ situationId: 1 }, { sequenceId: 10, resultKind: "hit" }, { situationId: 2 },
+    { sequenceId: 11, resultKind: "guard" }, { situationId: 3 }, { sequenceId: 12, resultKind: null }];
+  assert.deepEqual(routeBack(path, 1), { path: [{ situationId: 1 }], sequenceId: 10 });
+  assert.deepEqual(routeBack(path, 2), { path: path.slice(0, 3), sequenceId: null });
+  assert.deepEqual(routeBack(path, 5), { path: path.slice(0, 5), sequenceId: 12 });
+  const back = routeBack(path, 3)!;
+  assert.equal(back.sequenceId, 11);
+  assert.equal(back.path.length, 3);
+  const drills = routeDrillPreset(back.path, new Map([[10, sequence({ id: 10 })], [11, sequence({ id: 11 })]]), new Map());
+  assert.deepEqual(drills.sequenceIds, [10]);
+  assert.equal(routeBack(path, -1), null);
+  assert.equal(routeBack(path, 6), null);
+  assert.equal(path.length, 6);
 });
 
 test("局面の表示と、同じキャラ・有利F・位置・ダウンの局面の再利用", () => {

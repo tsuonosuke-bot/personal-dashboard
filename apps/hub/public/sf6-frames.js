@@ -23,15 +23,18 @@ function clean(text) {
 }
 
 /**
- * 公式の表記を数値にする。"+4"→4、"D"→ダウン、"-12～-1"→最小値（不利が大きい方）と幅、発生の "2-4"→2、空や "-"→null。
+ * 公式の表記を数値にする。"+4"→4、"D"→ダウン、"-12～-1"→最小値と幅、発生の "2-4"→2、"6+0"→6。
+ * 符号付きの値の前にある注記 "※-2" は-2。注記番号だけの "※1"、空や "-" はnull。
  * 読めない表記は value が null（knockdown も false）。
  */
 export function parseFrameText(text, kind) {
-  const value = clean(text);
+  const value = clean(text).replace(/^※(?=[+-]\d)/, "");
   const result = { value: null, min: null, max: null, knockdown: false };
   if (EMPTY_TEXT.has(value)) return result;
   if (value === "D") return { ...result, knockdown: true };
   if (kind === "startup") {
+    const split = value.match(/^(\d+)\s*\+\s*(\d+)$/);
+    if (split) return { ...result, value: Number(split[1]) + Number(split[2]) };
     const match = value.match(/^(\d+)(?:\s*[-~]\s*\d+)?$/);
     return match ? { ...result, value: Number(match[1]) } : result;
   }
@@ -54,7 +57,7 @@ export function formatAdvantage(text) {
   const parsed = parseFrameText(text, "advantage");
   if (parsed.knockdown) return "D";
   if (parsed.min !== null) return `${signed(parsed.min)}～${signed(parsed.max)}`;
-  if (parsed.value !== null) return signed(parsed.value);
+  if (parsed.value !== null) return `${clean(text).startsWith("※") ? "※" : ""}${signed(parsed.value)}`;
   return clean(text);
 }
 
@@ -84,6 +87,14 @@ export function punishLevel(move) {
   return move.onBlock <= PUNISHABLE_AT ? "light" : null;
 }
 
+/** ガードした技から使える発生F。幅のある技は不利が小さい側を使い、不明・有利・五分は判定しない。 */
+export function punishWindowForMove(move) {
+  if (!move) return null;
+  const parsed = parseFrameText(move.blockText, "advantage");
+  const block = parsed.max ?? parsed.value ?? (clean(move.blockText) === "" ? move.onBlock : null);
+  return Number.isInteger(block) && block < 0 ? -block : null;
+}
+
 /** 検索用に表記をそろえる：全角半角（NFKC）・カタカナ→ひらがな・小文字・空白除去。 */
 export function normalizeQuery(text) {
   return String(text ?? "")
@@ -97,16 +108,18 @@ function byOfficialOrder(a, b) {
   return a.sortOrder - b.sortOrder;
 }
 
-/** 技名・コマンドの一部、カテゴリ、確反あり、キャンセル可で絞り、公式順・発生順・ガード有利順に並べる。 */
+/** 技名・コマンドの一部、カテゴリ、確反の段階、キャンセル可で絞り、公式順・発生順・ガード有利/不利順に並べる。 */
 export function searchMoves(moves, options = {}) {
-  const { query = "", category = "", punishableOnly = false, cancelableOnly = false, sort = "official" } = options;
+  const { query = "", category = "", punishableOnly = false, heavyPunishableOnly = false, cancelableOnly = false, sort = "official" } = options;
   const needle = normalizeQuery(query);
   const list = moves.filter((move) => (!category || move.category === category)
     && (!needle || normalizeQuery(move.name).includes(needle) || normalizeQuery(move.command).includes(needle))
     && (!punishableOnly || punishLevel(move) !== null)
+    && (!heavyPunishableOnly || punishLevel(move) === "heavy")
     && (!cancelableOnly || clean(move.cancelText) !== ""));
   if (sort === "startup") return list.sort((a, b) => (a.startup ?? Infinity) - (b.startup ?? Infinity) || byOfficialOrder(a, b));
   if (sort === "block") return list.sort((a, b) => (b.onBlock ?? -Infinity) - (a.onBlock ?? -Infinity) || byOfficialOrder(a, b));
+  if (sort === "blockDisadvantage") return list.sort((a, b) => (a.onBlock ?? Infinity) - (b.onBlock ?? Infinity) || byOfficialOrder(a, b));
   return list.sort(byOfficialOrder);
 }
 

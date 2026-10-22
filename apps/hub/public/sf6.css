@@ -144,6 +144,10 @@ main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px
 .conditions summary span { color: var(--ink); }
 .condition-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); align-items: end; gap: 8px; padding: 8px; border-radius: var(--radius); background: var(--bg-subtle); }
 .condition-grid select { height: 36px; }
+.opponent-move-field { min-width: 0; }
+.opponent-move-field select { width: 100%; min-width: 0; text-overflow: ellipsis; }
+.opponent-move-status { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
+.opponent-move-status:has(span:empty):has(button[hidden]) { display: none; }
 .situations { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .situations button, .situations span { min-height: 24px; padding: 2px 8px; border: 0; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; }
 .situations button:hover { background: var(--accent); color: #fff; }
@@ -181,6 +185,13 @@ main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px
 .field-hint { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; font-weight: 500; }
 .chip-field .field-hint { margin-top: -2px; }
 .toggle-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.start-groups { display: grid; gap: 6px; }
+.start-group { display: grid; gap: 4px; min-width: 0; }
+.start-label { color: var(--muted); font-size: 12px; font-weight: 600; }
+.start-more summary { min-height: 28px; color: var(--muted); font-size: 12px; cursor: pointer; }
+.start-more[open] > .toggle-chips { margin-top: 4px; max-height: 160px; overflow-y: auto; }
+.selected-starts { max-height: 100px; overflow-y: auto; }
+.start-group .toggle-chip { height: auto; text-align: left; overflow-wrap: anywhere; }
 .toggle-chip { min-height: 32px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--bg); font-size: 12px; font-weight: 600; }
 .toggle-chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .add-situation { display: flex; gap: 6px; }

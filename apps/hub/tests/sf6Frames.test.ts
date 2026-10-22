@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  counterText, defaultStateName, formatAdvantage, normalizeQuery, parseFrameText, punishCounterText, punishLevel, searchMoves,
+  counterText, defaultStateName, formatAdvantage, normalizeQuery, parseFrameText, punishCounterText, punishLevel, punishWindowForMove, searchMoves,
   starterMove, toMoveRow, type Move,
 } from "../public/sf6-frames.js";
 
@@ -27,6 +27,11 @@ test("公式の表記を数値にする（符号・ダウン・幅・発生の�
   assert.deepEqual(parseFrameText("-12～-1", "advantage"), { value: -12, min: -12, max: -1, knockdown: false });
   assert.deepEqual(parseFrameText("-12~-1", "advantage"), { value: -12, min: -12, max: -1, knockdown: false });
   assert.equal(parseFrameText("2-4", "startup").value, 2);
+  assert.equal(parseFrameText("3+2", "startup").value, 5);
+  assert.equal(parseFrameText("3 + 0", "startup").value, 3);
+  assert.equal(parseFrameText("※-2", "advantage").value, -2);
+  assert.equal(parseFrameText("※1", "advantage").value, null);
+  assert.equal(formatAdvantage("※-2"), "※-2");
   assert.equal(parseFrameText("", "advantage").value, null);
   assert.equal(parseFrameText(null, "startup").value, null);
   assert.equal(parseFrameText("全体 18", "startup").value, null);
@@ -51,6 +56,31 @@ test("確反マークは-4〜-5Fが light、-6F以下が heavy", () => {
   assert.equal(punishLevel({ onBlock: -5 }), "light");
   assert.equal(punishLevel({ onBlock: -6 }), "heavy");
   assert.equal(punishLevel({ onBlock: null }), null);
+});
+
+test("相手の技から不利Fを求める。幅は安全側、不明・五分・有利は自動判定しない", () => {
+  assert.equal(punishWindowForMove(move({ blockText: "-6", onBlock: -6 })), 6);
+  assert.equal(punishWindowForMove(moves[3]), 2);
+  assert.equal(punishWindowForMove(move({ blockText: "-12～-6", onBlock: -12 })), 6);
+  for (const blockText of ["0", "+2", "-6～+1", "-", "距離による"]) {
+    assert.equal(punishWindowForMove(move({ blockText, onBlock: -6 })), null);
+  }
+  assert.equal(punishWindowForMove(move({ blockText: null, onBlock: -5 })), 5);
+  assert.equal(punishWindowForMove(move({ blockText: null, onBlock: null })), null);
+  assert.equal(punishWindowForMove(null), null);
+});
+
+test("-6F以下の絞り込みとガード不利順は、境界・不明値・同値を扱い、元データを変えない", () => {
+  const input = [
+    move({ sortOrder: 1, onBlock: null }), move({ sortOrder: 2, onBlock: -5 }),
+    move({ sortOrder: 3, onBlock: -6 }), move({ sortOrder: 4, onBlock: -46 }),
+    move({ sortOrder: 5, onBlock: -42 }), move({ sortOrder: 6, onBlock: -6 }),
+    move({ sortOrder: 7, onBlock: 2 }),
+  ];
+  assert.deepEqual(searchMoves(input, { heavyPunishableOnly: true }).map((entry) => entry.sortOrder), [3, 4, 5, 6]);
+  assert.deepEqual(searchMoves(input, { sort: "blockDisadvantage" }).map((entry) => entry.sortOrder), [4, 5, 3, 6, 2, 7, 1]);
+  assert.deepEqual(searchMoves(input, { heavyPunishableOnly: true, sort: "blockDisadvantage" }).map((entry) => entry.sortOrder), [4, 5, 3, 6]);
+  assert.deepEqual(input.map((entry) => entry.sortOrder), [1, 2, 3, 4, 5, 6, 7]);
 });
 
 test("技名（カタカナ・ひらがな）とコマンドで絞り、カテゴリ・確反・キャンセルと3つの並べ替え", () => {

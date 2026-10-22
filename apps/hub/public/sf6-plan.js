@@ -58,18 +58,42 @@ function byDamage(a, b) {
 }
 
 /**
- * 一覧の並び順。相手の不利Fを入れたときはダメージ順（不利F以内で一番減るもの）、確定反撃だけを選んだときは発生の速い順、
+ * 一覧の並び順。相手の不利Fか確定反撃を選んだときは発生の速い順（同じ発生ならダメージ順）、
  * ほかの条件があればダメージ順、なければ渡された順（登録順）。
  */
 export function sortSequences(list, conditions, situationsById) {
   const { situationId = null, drive = null, sa = null, burnout = false, punishWindow = null } = conditions;
   const sorted = [...list];
-  if (punishWindow !== null) return sorted.sort(byDamage);
-  if (situationId !== null && situationsById.get(situationId)?.presetKey === PRESET.punish) {
-    return sorted.sort((a, b) => (a.startup ?? Infinity) - (b.startup ?? Infinity));
+  if (punishWindow !== null || (situationId !== null && situationsById.get(situationId)?.presetKey === PRESET.punish)) {
+    return sorted.sort((a, b) => (a.startup ?? Infinity) - (b.startup ?? Infinity) || byDamage(a, b));
   }
   if (situationId !== null || drive !== null || sa !== null || burnout) return sorted.sort(byDamage);
   return sorted;
+}
+
+/** 始動の候補。選択中を先頭に集め、同じキャラで最近保存した手順の始動を優先して各種類を折りたたむ。 */
+export function startSituationGroups(situations, sequences, character, selected = [], limit = 3) {
+  const selectedIds = new Set(selected);
+  const available = situations.filter((situation) => (situation.character === character || (situation.kind === "trigger" && situation.character === null))
+    && (!situation.archived || selectedIds.has(situation.id)));
+  const recent = [...sequences].filter((sequence) => sequence.character === character && !sequence.archived)
+    .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))
+    .flatMap((sequence) => sequence.starts);
+  const ranks = new Map([...new Set(recent)].map((id, index) => [id, index]));
+  const group = (kind) => {
+    const list = available.filter((situation) => situation.kind === kind && !selectedIds.has(situation.id))
+      .sort((a, b) => (ranks.get(a.id) ?? Infinity) - (ranks.get(b.id) ?? Infinity) || a.id - b.id);
+    return { visible: list.slice(0, limit), more: list.slice(limit) };
+  };
+  return { selected: available.filter((situation) => selectedIds.has(situation.id)), triggers: group("trigger"), states: group("state") };
+}
+
+/** 道のりの状況・手順へ戻る。手順の場合は、選んだ直前の状況まで戻してそのカードを表示する。 */
+export function routeBack(path, index) {
+  const step = path[index];
+  if (!step || !Number.isInteger(index) || index < 0) return null;
+  if ("situationId" in step) return { path: path.slice(0, index + 1), sequenceId: null };
+  return { path: path.slice(0, index), sequenceId: step.sequenceId };
 }
 
 function frames(value) {
