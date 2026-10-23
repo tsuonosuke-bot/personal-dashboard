@@ -27,3 +27,11 @@ export async function readApiJson(response) {
     throw new Error("サーバーから想定外の応答を受信しました。再試行してください。");
   }
 }
+
+/** Run a page request without altering its headers, body or conflict-check values. */
+export async function requestApiJson(url, init, errorFor) {
+  const response = await fetch(url, init);
+  const payload = await readApiJson(response);
+  if (!response.ok) throw errorFor(payload);
+  return payload;
+}

@@ -1,0 +1,38 @@
+// 呼び出しごとに独立した画面状態を作る。DOM参照は初期化時に受け取る。
+export function createProjectState() {
+  return {
+    data: null,
+    view: "active",
+    attentionOnly: false,
+    search: "",
+    sort: "recommended",
+    /** 詳細で表示中の完了Actionの件数。Projectを開き直すと先頭10件に戻す。 */
+    completedShown: 10,
+    selectedId: null,
+    editorMode: "create",
+    resolveProjectId: null,
+    /** 詳細で編集フォームを開いているActionのID（#153）。 */
+    editingActionId: null,
+    /** 詳細で編集フォームを開いているマイルストンのID（#161）。 */
+    editingMilestoneId: null,
+    /** 「まとめて追加」を開いたままにするか。 */
+    bulkOpen: false,
+  };
+}
+
+export function projectsElements(document) {
+  const ids = [
+    "sourceBadge", "refreshButton", "addProjectButton", "activeCount", "attentionCount", "waitingCount", "completedCount",
+    "activeTabCount", "waitingTabCount", "completedTabCount", "reviewTabCount", "filtersBar", "resultLine", "searchInput", "sortSelect", "clearFilters", "resultCount",
+    "loadingState", "errorState", "errorMessage", "retryButton", "projectList",
+    "projectModal", "projectBackdrop", "projectClose", "projectCancel", "projectForm", "projectEditorKicker", "projectEditorTitle",
+    "projectTitleInput", "projectOutcomeInput", "projectThemeInput", "projectTargetInput", "projectNextActionField",
+    "projectNextActionInput", "projectFormHint", "projectFormError", "projectSave",
+    "detailModal", "detailBackdrop", "detailClose", "detailKicker", "detailTitle", "detailBody",
+    "resolveModal", "resolveBackdrop", "resolveClose", "resolveCancel", "resolveForm", "completedActionText",
+    "continueFields", "queuedActionSelect", "newNextActionField", "newNextActionInput", "waitingFields",
+    "waitingForInput", "waitingReviewInput", "holdFields", "holdReviewInput", "resolveFormError", "resolveSave", "toast",
+  ];
+  const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
+  return els;
+}

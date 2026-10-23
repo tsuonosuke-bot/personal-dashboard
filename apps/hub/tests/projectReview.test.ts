@@ -1,3 +1,4 @@
+import { readClientScript } from "./clientScript.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -64,7 +65,7 @@ test("最終更新はProject・Action・マイルストンのうち最も新し�
 test("Projects画面に週次レビューのタブを置き、期限超過・要確認・見直し日・停滞・今週の完了をまとめる", async () => {
   const [html, script, css] = await Promise.all([
     readFile(new URL("../public/projects/index.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/projects.js", import.meta.url), "utf8"),
+    readClientScript("projects"),
     readFile(new URL("../public/projects.css", import.meta.url), "utf8"),
   ]);
   assert.match(html, /data-view="review">週次レビュー <b id="reviewTabCount">/);

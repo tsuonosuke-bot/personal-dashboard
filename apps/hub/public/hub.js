@@ -1,12 +1,14 @@
+import { escapeHtml } from "./shared/html.js";
 import { readApiJson } from "./api-client.js";
 import { renderJournalTrendHtml } from "./journal-trend.js";
 import { createTodayPanel } from "./today-panel.js";
+import { renderLearningStages } from "./learning-stages.js";
 
 const ids = [
   "sourceBadge", "refreshButton", "quickAddMenu", "dateLabel", "updatedLabel",
   "compassLink", "projectsLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "projectsMeta", "writingMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
   "batchAlert", "batchAlertList", "loadingState", "errorState", "errorMessage", "todayPanel",
-  "retryButton", "hubContent", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
+  "retryButton", "hubContent", "learningStages", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
   "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "journalTrend", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
 ];
 
@@ -16,14 +18,6 @@ const today = createTodayPanel(els.todayPanel);
 let focusItems = [];
 let focusReturnTarget = null;
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
 
 function formatYen(value) {
   if (value === null || value === undefined) return "—";
@@ -421,6 +415,7 @@ async function loadHub() {
     renderNavigation(payload.navigation);
     today.setNavigation(payload.navigation);
     renderSummary(payload.summary, payload.navigation);
+    els.learningStages.innerHTML = renderLearningStages(payload.summary, availability);
     renderFocus(payload.focus || [], availability.focus);
     renderInbox(payload.inbox || [], availability.inbox);
     renderExpenses(payload.recentExpenses, availability.expenses);

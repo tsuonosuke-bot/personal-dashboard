@@ -1,3 +1,4 @@
+import { escapeHtml } from "./shared/html.js";
 import { readApiJson } from "./api-client.js";
 
 const statusMeta = {
@@ -16,11 +17,6 @@ const els = Object.fromEntries([
   "saveButton", "toast", "addTopicButton", "addGuideModal", "addGuideBackdrop", "addGuideClose", "addGuideCancel",
 ].map((id) => [id, document.getElementById(id)]));
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
-}
 
 function formatDate(value, includeTime = false) {
   if (!value) return "未設定";
