@@ -1,3 +1,4 @@
+import { readClientScript } from "./clientScript.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -464,7 +465,7 @@ test("SF6ページは共通ヘッダー・タブバー・テーマカラーを�
     readFile(new URL("../public/sf6/index.html", import.meta.url), "utf8"),
     readFile(new URL("../public/sf6.css", import.meta.url), "utf8"),
     readFile(new URL("../public/dashboard-shell.css", import.meta.url), "utf8"),
-    readFile(new URL("../public/sf6.js", import.meta.url), "utf8"),
+    readClientScript("sf6"),
     readFile(new URL("../public/static/tabbar.js", import.meta.url), "utf8"),
   ]);
   assert.match(html, /<script src="\/theme\.js"><\/script>\s*<link rel="stylesheet" href="\/sf6\.css" \/>\s*<link rel="stylesheet" href="\/sf6\.dark\.css" \/>/);

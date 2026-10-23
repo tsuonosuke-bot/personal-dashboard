@@ -1,3 +1,5 @@
+import { escapeHtml } from "../shared/html.js";
+export { escapeHtml };
 // 共通部品: 日付・HTMLエスケープ・ToDoの期限表示・トースト・接続状態の表示。
 import { els } from "./state.js";
 import { splitInboxSource } from "./inbox-source.js";
@@ -27,14 +29,6 @@ export function sourceTextMarkup(content) {
   return `<p>${escapeHtml(body)}</p>${source ? `<p class="source-context-origin">${sourceChipMarkup(source, { link: false })}</p>` : ""}`;
 }
 
-export function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
 
 export function formatDate(value, includeTime = false) {
   if (!value) return "日時不明";

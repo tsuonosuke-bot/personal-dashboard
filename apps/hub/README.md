@@ -225,6 +225,8 @@ PreviewとProductionの両方に、次の環境変数を設定します。
 
 ## 検証
 
+クライアントの責務と追加時の検査は [クライアントモジュール](docs/client-modules.md)、画面・データ・チャット操作の対応は [学習の4段階](docs/learning-stages.md) を参照してください。
+
 ```powershell
 npm test
 npm run check

@@ -577,6 +577,26 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .section-action:hover {
   border-color: var(--green);
 }
+:root[data-theme="dark"] .learning-stages > li {
+  border-left: 1px solid var(--line);
+}
+:root[data-theme="dark"] .learning-stage-heading > span {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .learning-stages p {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .learning-stage-links a {
+  color: var(--green);
+  text-decoration: none;
+}
+:root[data-theme="dark"] .learning-stage-links a:hover {
+  text-decoration: underline;
+}
+:root[data-theme="dark"] .learning-stage-links a:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
 :root[data-theme="dark"] .focus-panel {
   background: linear-gradient(125deg, #292929, #221f19);
 }

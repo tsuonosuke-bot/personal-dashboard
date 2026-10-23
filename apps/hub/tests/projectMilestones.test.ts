@@ -1,3 +1,4 @@
+import { readClientScript } from "./clientScript.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -236,12 +237,12 @@ test("migrationはマイルストン表と同じProjectに限る外部キーを�
 
 test("Project詳細はマイルストンごとにタスクをまとめ、追加・編集・達成・並べ替え・まとめて追加ができる", async () => {
   const [script, css, exportSnapshot] = await Promise.all([
-    readFile(new URL("../public/projects.js", import.meta.url), "utf8"),
+    readClientScript("projects"),
     readFile(new URL("../public/projects.css", import.meta.url), "utf8"),
     readFile(new URL("../functions/_shared/exportSnapshot.ts", import.meta.url), "utf8"),
   ]);
   assert.match(script, /"X-Dashboard-Action": "project-milestone-update"/);
-  assert.match(script, /fetch\("\/api\/project-milestones"/);
+  assert.match(script, /projectRequest\("\/api\/project-milestones"/);
   for (const operation of ["move_up", "move_down", "delete"]) assert.match(script, new RegExp(`data-milestone-op="${operation}"`));
   assert.match(script, /data-milestone-op="\$\{done \? "reopen" : "complete"\}"/);
   assert.match(script, /operation: "addBulk"/);

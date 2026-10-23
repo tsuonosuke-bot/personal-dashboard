@@ -1,3 +1,4 @@
+import { readClientScript } from "./clientScript.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -202,7 +203,7 @@ test("migrationは着手日・並び順を追加し、next の1件制約を残�
 
 test("Project詳細で、あとで行うActionを並べ替え・今やる・完了・編集でき、日付をチップで示す", async () => {
   const [script, css] = await Promise.all([
-    readFile(new URL("../public/projects.js", import.meta.url), "utf8"),
+    readClientScript("projects"),
     readFile(new URL("../public/projects.css", import.meta.url), "utf8"),
   ]);
   assert.match(script, /"X-Dashboard-Action": "project-action-update"/);

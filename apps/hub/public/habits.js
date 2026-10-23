@@ -1,3 +1,4 @@
+import { escapeHtml } from "./shared/html.js";
 import { readApiJson } from "./api-client.js";
 
 const state = {
@@ -25,14 +26,6 @@ const cadenceLabels = { daily: "毎日", weekdays: "平日", weekly: "毎週", f
 const statusLabels = { active: "有効", paused: "休止", archived: "アーカイブ" };
 const dayLabels = ["日", "月", "火", "水", "木", "金", "土"];
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
 
 function formatDay(value, includeYear = false) {
   const date = new Date(`${value}T00:00:00+09:00`);

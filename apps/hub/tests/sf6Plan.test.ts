@@ -1,3 +1,4 @@
+import { readClientScript } from "./clientScript.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -228,7 +229,7 @@ test("起き攻めの手順に移動・タイミングの基準を使える", ()
 test("SF6ページは5タブ（状況・コンボと起き攻めは手順に統合・フレームあり・注意点なし）で、バーンアウトの手入力と「注意点にする」がない", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("../public/sf6/index.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/sf6.js", import.meta.url), "utf8"),
+    readClientScript("sf6"),
   ]);
   assert.deepEqual([...html.matchAll(/data-tab="([a-z]+)"/g)].map((match) => match[1]), ["sequences", "situations", "frames", "drills", "matches"]);
   // 手順タブは種類（すべて・コンボ・起き攻め）で絞り込む

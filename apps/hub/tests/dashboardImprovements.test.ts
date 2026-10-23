@@ -1,3 +1,4 @@
+import { readClientScript } from "./clientScript.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -31,7 +32,7 @@ test("Hubは4つの直接追加と3種類の書き出しと接続状態を案内
   const [html, compass, projects, migration] = await Promise.all([
     readFile(new URL("../public/index.html", import.meta.url), "utf8"),
     readCompassScript(),
-    readFile(new URL("../public/projects.js", import.meta.url), "utf8"),
+    readClientScript("projects"),
     readFile(new URL("../supabase/migrations/202609220005_connection_status.sql", import.meta.url), "utf8"),
   ]);
   assert.match(html, /id="quickAddMenu"/);

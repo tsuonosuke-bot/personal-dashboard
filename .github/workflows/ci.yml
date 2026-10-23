@@ -28,6 +28,7 @@ jobs:
 
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run check:client -w apps/hub
       - run: npm test
       - run: npm run theme:check
       - run: npm run build

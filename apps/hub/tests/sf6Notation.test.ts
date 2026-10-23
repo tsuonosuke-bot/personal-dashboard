@@ -1,3 +1,4 @@
+import { readClientScript } from "./clientScript.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -56,7 +57,7 @@ test("よく使う出だしは>またはxxで区切った最初の1〜2区間か
 
 test("コンボの入力欄はパレットとプレビューを持ち、文字の直接編集も残す", async () => {
   const [script, help] = await Promise.all([
-    readFile(new URL("../public/sf6.js", import.meta.url), "utf8"),
+    readClientScript("sf6"),
     readFile(new URL("../public/help/index.html", import.meta.url), "utf8"),
   ]);
   assert.match(script, /type: "notation"/);

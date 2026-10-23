@@ -1,3 +1,4 @@
+import { readClientScript } from "./clientScript.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -6,7 +7,7 @@ import { readCompassScript } from "./compassScript.ts";
 test("Projects page keeps the goal, current action, waiting, and review loop visible", async () => {
   const [html, script, css] = await Promise.all([
     readFile(new URL("../public/projects/index.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/projects.js", import.meta.url), "utf8"),
+    readClientScript("projects"),
     readFile(new URL("../public/projects.css", import.meta.url), "utf8"),
   ]);
   assert.match(html, /<h1>Projects<\/h1>/);
@@ -17,9 +18,9 @@ test("Projects page keeps the goal, current action, waiting, and review loop vis
   assert.match(html, /value="complete"/);
   assert.match(html, /value="waiting"/);
   assert.match(html, /value="on_hold"/);
-  assert.match(script, /fetch\("\/api\/projects"/);
-  assert.match(script, /fetch\("\/api\/project-actions"/);
-  assert.match(script, /fetch\("\/api\/project-items"/);
+  assert.match(script, /projectRequest\("\/api\/projects"/);
+  assert.match(script, /projectRequest\("\/api\/project-actions"/);
+  assert.match(script, /projectRequest\("\/api\/project-items"/);
   assert.match(script, /"X-Dashboard-Action": "project-action-resolve"/);
   assert.match(script, /originalUpdatedAt: project\.nextAction\.updatedAt/);
   assert.match(script, /\/compass\/\?view=\$\{view\}&id=\$\{item\.sourceId\}/);
@@ -74,7 +75,7 @@ test("Projects remains a separate build entry", async () => {
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
   assert.match(vite, /projects: resolve\(import\.meta\.dirname, "public\/projects\/index\.html"\)/);
-  assert.match(packageJson, /node --check public\/projects\.js/);
+  assert.match(packageJson, /"check:client": "node scripts\/check-client\.mjs"/);
 });
 
 test("Projects release stays migration-first and has a read-only verification query", async () => {
@@ -96,7 +97,7 @@ test("Projects release stays migration-first and has a read-only verification qu
 test("Project一覧は目標日・再確認日・更新順に並べ替えられ、要確認の扱いを並び順ごとにヘルプで示す", async () => {
   const [html, script, help] = await Promise.all([
     readFile(new URL("../public/projects/index.html", import.meta.url), "utf8"),
-    readFile(new URL("../public/projects.js", import.meta.url), "utf8"),
+    readClientScript("projects"),
     readFile(new URL("../public/help/index.html", import.meta.url), "utf8"),
   ]);
   assert.match(html, /<select id="sortSelect">[\s\S]*value="recommended">おすすめ（要確認を先に）[\s\S]*value="target">目標日が近い順[\s\S]*value="review">再確認日が近い順[\s\S]*value="updated">更新が新しい順/);
@@ -107,12 +108,12 @@ test("Project一覧は目標日・再確認日・更新順に並べ替えられ�
   assert.match(script, /if \(sort === "target"\) return \[\.\.\.projects\]\.sort\(byDate\("targetOn"\)\)/);
   assert.match(script, /if \(sort === "review"\) return \[\.\.\.projects\]\.sort\(byDate\("reviewOn"\)\)/);
   // 未設定の日付は最後、同じ日付なら要確認を先に
-  assert.match(script, /if \(a !== b\) return a \? -1 : 1;\n    if \(left\.needsAttention !== right\.needsAttention\)/);
+  assert.match(script, /if \(a !== b\) return a \? -1 : 1;\s+if \(left\.needsAttention !== right\.needsAttention\)/);
   assert.match(help, /要確認も日付どおりに並び、バッジで見分けます/);
 });
 
 test("Project詳細の完了履歴は10件ずつ、またはすべてを表示して古い履歴までたどれる", async () => {
-  const script = await readFile(new URL("../public/projects.js", import.meta.url), "utf8");
+  const script = await readClientScript("projects");
   assert.doesNotMatch(script, /completed\.slice\(0, 10\)/);
   assert.match(script, /const shownCompleted = completed\.slice\(0, state\.completedShown\)/);
   assert.match(script, /data-completed-more="\$\{COMPLETED_PAGE\}"/);
