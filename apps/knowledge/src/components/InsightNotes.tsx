@@ -3,6 +3,7 @@ import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
 import type { KnowledgeInsight } from "../types";
 import { QuestionChips, QuestionPicker } from "./InsightQuestions";
+import { InsightAction } from "./InsightAction";
 
 const MAX_INSIGHT_CHARS = 1_000;
 
@@ -88,6 +89,7 @@ function InsightNote({
           {groupStore && choosingQuestion && (
             <QuestionPicker store={groupStore} insightId={insight.id} onDone={() => setChoosingQuestion(false)} />
           )}
+          <InsightAction sourceType="insight" sourceId={String(insight.id)} />
         </>
       )}
       {error && <p className="quiz-edit-error" role="alert">{error}</p>}

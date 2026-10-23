@@ -3,6 +3,7 @@ import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import { dashboardRoutePath } from "../lib/dashboardRoute";
 import type { InsightGroup, Knowledge, KnowledgeInsight } from "../types";
 import { QuestionMaterialsPanel } from "./QuestionMaterialsPanel";
+import { InsightAction } from "./InsightAction";
 
 interface Props {
   knowledge: Knowledge[];
@@ -232,6 +233,7 @@ export function InsightGroupsPanel({ knowledge, insights, store, initialGroupId 
                         <li key={item.id}>
                           <p>{item.body}</p>
                           <div className="insight-group-source">{sourceLink(item)} <span>{knowledgeById.get(item.knowledge_id)?.category}</span></div>
+                          <InsightAction sourceType="insight" sourceId={String(item.id)} />
                           <button className="text-button" type="button" onClick={() => void changeMembership(item.id, false)} disabled={busy}>この問いから外す</button>
                         </li>
                       ))}

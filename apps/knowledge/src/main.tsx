@@ -1,12 +1,13 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import { ActionSourceView } from "./components/ActionSourceView";
 import "./index.css";
 import "./index.dark.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    {new URL(window.location.href).searchParams.get("view") === "action-source" ? <ActionSourceView /> : <App />}
   </StrictMode>,
 );
 

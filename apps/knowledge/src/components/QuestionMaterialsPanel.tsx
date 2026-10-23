@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { changeQuestionMaterial, getQuestionMaterials } from "../lib/api";
 import { dashboardRoutePath } from "../lib/dashboardRoute";
 import type { QuestionMaterials, SemanticSearchResult, SemanticSourceType } from "../types";
+import { InsightAction } from "./InsightAction";
 
 interface Props {
   groupId: number;
@@ -122,6 +123,7 @@ export function QuestionMaterialsPanel({ groupId, question, memberCount, busy, o
                       )}
                       <button type="button" className="text-button" onClick={() => void change("exclude", type, item.source_id)} disabled={disabled}>外す</button>
                     </div>
+                    {type !== "knowledge" && <InsightAction sourceType={type} sourceId={item.source_id} />}
                   </li>
                 ))}
               </ul>

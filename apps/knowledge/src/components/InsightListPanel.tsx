@@ -5,6 +5,7 @@ import { useInsightAnalysis } from "../hooks/useInsightAnalysis";
 import { dashboardRoutePath } from "../lib/dashboardRoute";
 import type { Knowledge, KnowledgeInsight } from "../types";
 import { QuestionChips, ThemeToQuestion } from "./InsightQuestions";
+import { InsightAction } from "./InsightAction";
 
 interface Props {
   knowledge: Knowledge[];
@@ -129,6 +130,7 @@ export function InsightListPanel({ knowledge, store, groupStore }: Props) {
                     <p>{note.body}</p>
                     <QuestionChips store={groupStore} insightId={note.id} />
                     <div className="insight-note-meta"><span>{formatDate(note.created_at)}</span></div>
+                    <InsightAction sourceType="insight" sourceId={String(note.id)} />
                   </li>
                 ))}
               </ul>

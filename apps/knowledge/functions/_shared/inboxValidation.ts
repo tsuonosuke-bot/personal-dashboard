@@ -11,7 +11,7 @@ export interface DeepDiveInput {
 
 type Result<T> = { ok: true; value: T } | { ok: false; status: number; error: string };
 
-export function validateInboxRequest(request: Request): { status: number; error: string } | null {
+export function validateInboxRequest(request: Request, actionHeader = INBOX_ACTION_HEADER): { status: number; error: string } | null {
   let expectedOrigin: string;
   try {
     expectedOrigin = new URL(request.url).origin;
@@ -19,7 +19,7 @@ export function validateInboxRequest(request: Request): { status: number; error:
     return { status: 400, error: "リクエストURLが正しくありません。" };
   }
   if (request.headers.get("Origin") !== expectedOrigin) return { status: 403, error: "許可されていない送信元です。" };
-  if (request.headers.get("X-Dashboard-Action") !== INBOX_ACTION_HEADER) {
+  if (request.headers.get("X-Dashboard-Action") !== actionHeader) {
     return { status: 403, error: "Inbox登録用ヘッダーがありません。" };
   }
   const contentType = request.headers.get("Content-Type")?.toLowerCase() ?? "";

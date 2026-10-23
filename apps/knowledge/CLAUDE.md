@@ -259,6 +259,11 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 - `POST /api/grading-report`: 「採点がおかしい」の報告を問題・回答・AIの採点と講評つきで`idea_inbox`へ1件登録する
   （`status=pending`、`source=knowledge-grading-report`、1行目は「採点がおかしい: タイトル」）。専用テーブルは無く、
   あとからIdeaの未整理Inboxか`source`での絞り込みで見直す。採点結果・復習予定は変えない
+- `GET /api/insight-actions?sourceType=insight|journal&sourceId=<id>`: 行動の出典をIDで1件取得する。
+  示唆は `knowledge_insights` と元ナレッジのタイトル、日記は `daily_journal` の日付と要約だけを読む。
+- `POST /api/insight-actions`: 行動（1〜500文字）と出典の種類・IDだけを受け付け、本文をDBから引き直して
+  `idea_inbox` へ登録（`status=pending`, `source=knowledge-insight-action`）。登録時の引用（最大1,000文字）と
+  出典リンク用の末尾行を残す。AI・復習・元の示唆や日記は更新しない。スキーマ変更なし。
 - `GET /api/insights`: 示唆の明示した列を新しい順に制限付きページング
 - `POST /api/insights`: 存在を確認したナレッジに示唆を1件追加
 - `PATCH /api/insights/:id` / `DELETE /api/insights/:id`: 示唆1件の編集・削除。編集は`updated_at`で競合を検出して409

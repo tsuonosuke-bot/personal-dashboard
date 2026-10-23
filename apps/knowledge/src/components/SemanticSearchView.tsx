@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { getSemanticIndexStatus, runEmbeddingBatch, searchSemantic } from "../lib/api";
+import { InsightAction } from "./InsightAction";
 import type {
   EmbeddingBatchSummary, Knowledge, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType,
 } from "../types";
@@ -200,6 +201,7 @@ export function SemanticSearchView({ knowledge, onOpenKnowledge, onExit }: Props
                         ナレッジを開く
                       </button>
                     )}
+                    {item.source_type !== "knowledge" && <InsightAction sourceType={item.source_type} sourceId={item.source_id} />}
                   </li>
                 );
               })}

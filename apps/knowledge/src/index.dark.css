@@ -1777,3 +1777,20 @@
 :root[data-theme="dark"] .review-edit-footer .review-archive {
   color: var(--red);
 }
+:root[data-theme="dark"] .insight-action > button {
+  color: var(--accent);
+}
+:root[data-theme="dark"] .insight-action-form {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+}
+:root[data-theme="dark"] .insight-action-form small {
+  color: var(--text-secondary);
+}
+:root[data-theme="dark"] .insight-action-saved {
+  color: var(--text-secondary);
+}
+:root[data-theme="dark"] .insight-action-saved a {
+  color: var(--accent);
+}
