@@ -7,6 +7,7 @@ import {
   type GoogleCalendarListedEvent,
 } from "./googleCalendar.ts";
 import { supabaseHeaders } from "./supabaseAuth.ts";
+import { projectTodoRpc } from "./projectActionTodos.ts";
 
 export const CALENDAR_SYNC_WINDOW_DAYS = 90;
 
@@ -211,17 +212,17 @@ export async function syncCalendarToTodos(env: DashboardEnv, now = new Date()): 
       body: JSON.stringify(update.changes),
     });
   }
+  let deleted = 0;
   if (plan.deletes.length) {
-    const endpoint = restEndpoint(env, "scheduled_actions");
-    endpoint.searchParams.set("id", `in.(${plan.deletes.join(",")})`);
-    endpoint.searchParams.set("status", "eq.pending");
-    await rest(env, endpoint, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+    const count = await projectTodoRpc(env, "delete_unlinked_scheduled_actions", { p_ids: plan.deletes, p_synced_at: now.toISOString() });
+    if (!Number.isSafeInteger(count) || Number(count) < 0 || Number(count) > plan.deletes.length) throw new DashboardError("SUPABASE_RESPONSE_INVALID", "Invalid cancellation result.");
+    deleted = Number(count);
   }
   return {
     listed: listing.events.length,
     inserted: plan.inserts.length,
     updated: plan.updates.length,
-    deleted: plan.deletes.length,
+    deleted,
     complete: listing.complete,
   };
 }

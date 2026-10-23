@@ -6,12 +6,13 @@ import {
 } from "./googleCalendar.ts";
 import { publicProjectError } from "./projects.ts";
 import { connection, isPlainObject, supabaseFetch, type SupabaseConnection } from "./wantRouting.ts";
+import { sf6SavePayload, validateSf6Fields } from "./sf6.ts";
 
 // Inboxの振り分けは inbox-route-v1 契約のDB関数に集約している。
 // ここはブラウザの要求を形だけ確かめてRPCへ渡し、外部作成（Google Calendar）だけを担う。
 export const INBOX_ROUTE_CONTRACT = "inbox-route-v1";
 export const INBOX_ROUTE_ACTION_HEADER = "inbox-route";
-const MAX_REQUEST_CHARS = 12_000;
+const MAX_REQUEST_CHARS = 24_000;
 
 export const INBOX_EXITS = [
   "calendar",
@@ -28,6 +29,7 @@ export const INBOX_EXITS = [
   "project_create",
   "project_link",
   "close",
+  "sf6",
 ] as const;
 
 type InboxExit = typeof INBOX_EXITS[number];
@@ -61,6 +63,7 @@ export interface InboxRouteResult {
     destination_data: Record<string, unknown>;
   } | null;
   project_id: number | null;
+  sf6?: { resource: string; id: number; url: string; deleted: boolean };
 }
 
 // DB関数が raise する message と、公開用のエラーコード・HTTPステータスの対応
@@ -77,6 +80,10 @@ const RPC_ERRORS: Record<string, [string, number]> = {
   PROJECT_SOURCE_CONFLICT: ["PROJECT_SOURCE_CONFLICT", 409],
   PROJECT_SOURCE_ALREADY_LINKED: ["PROJECT_SOURCE_ALREADY_LINKED", 409],
   PROJECT_SOURCE_INVALID: ["PROJECT_SOURCE_INVALID", 400],
+  SF6_SITUATION_MISSING: ["SF6_REFERENCE_MISSING", 409],
+  SF6_SITUATION_CHARACTER: ["SF6_SITUATION_CHARACTER", 400],
+  SF6_STARTS_REQUIRED: ["SF6_STARTS_REQUIRED", 400],
+  SF6_DUPLICATE: ["SF6_DUPLICATE", 409],
 };
 
 function isUuid(value: string): boolean {
@@ -138,12 +145,25 @@ export async function readInboxRouteInput(request: Request): Promise<ValidationR
   if (value.exit === "calendar" && !parseCalendarSchedule(value.params.calendar)) {
     return { ok: false, status: 400, error: "Google Calendarへ登録する日付と時間を確認してください。" };
   }
+  if (value.exit === "sf6") {
+    const { expected, resource, fields } = value.params;
+    if (Object.keys(value.params).some((key) => !["expected", "resource", "fields"].includes(key))
+      || !isPlainObject(expected) || Object.keys(expected).some((key) => !["content", "result"].includes(key))
+      || typeof expected.content !== "string" || !(expected.result === null || typeof expected.result === "string")
+      || !["situations", "sequences", "drills"].includes(String(resource)) || !isPlainObject(fields)) {
+      return { ok: false, status: 400, error: "SF6への登録内容を確認してください。" };
+    }
+    const checked = validateSf6Fields(resource as "situations" | "sequences" | "drills", fields);
+    if (!checked.ok) return checked;
+    if (resource === "situations" && checked.value.kind !== "state") return { ok: false, status: 400, error: "局面のキャラと有利Fを入力してください。" };
+    value.params = { expected, resource, fields: checked.value };
+  }
   return {
     ok: true,
     value: {
       inboxId: Number(value.inboxId),
       exit: value.exit as InboxExit,
-      params: value.params,
+      params: value.params as Record<string, unknown>,
       idempotencyKey: value.idempotencyKey,
     },
   };
@@ -188,6 +208,14 @@ export async function routeInbox(env: DashboardEnv, input: InboxRouteInput): Pro
   const connectionInfo = connection(env);
   if (input.exit === "calendar") await assertGoogleCalendarConnected(env);
 
+  if (input.exit === "sf6") {
+    const resource = input.params.resource as "situations" | "sequences" | "drills";
+    return callRpc(connectionInfo, "route_inbox_sf6", {
+      p_inbox_id: input.inboxId,
+      p_params: { expected: input.params.expected, resource, payload: sf6SavePayload(resource, input.params.fields as Record<string, unknown>) },
+      p_idempotency_key: input.idempotencyKey,
+    });
+  }
   const result = await callRpc(connectionInfo, "route_inbox_item", {
     p_inbox_id: input.inboxId,
     p_exit: input.exit,
@@ -231,6 +259,15 @@ export async function routeInbox(env: DashboardEnv, input: InboxRouteInput): Pro
 }
 
 export function publicInboxRouteError(error: unknown) {
+  if (error instanceof DashboardError && error.code.startsWith("SF6_")) {
+    const messages: Record<string, string> = {
+      SF6_REFERENCE_MISSING: "参照先の局面・手順が削除されています。最新の一覧を確認してください。",
+      SF6_SITUATION_CHARACTER: "局面と手順のキャラが一致していません。",
+      SF6_STARTS_REQUIRED: "始動の状況を1つ以上選んでください。",
+      SF6_DUPLICATE: "同じ局面・名前が既に登録されています。既存の記録を確認してください。",
+    };
+    return { code: error.code, status: error.status || 400, message: messages[error.code] || "SF6の入力内容を確認してください。" };
+  }
   if (error instanceof DashboardError && error.code.startsWith("PROJECT_")) return publicProjectError(error);
   return publicError(error);
 }

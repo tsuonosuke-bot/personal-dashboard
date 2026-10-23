@@ -1,7 +1,8 @@
 import { escapeHtml } from "../shared/html.js";
+import { compassHistoryPath } from "../compass-routing.js";
 // Projectsの一覧・レビュー・詳細の描画。変更操作はcontrollerから渡されたコールバックに委ねる。
 
-export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo, state, els, reviewData, STALE_DAYS, sortProjects, projectsForView, getProject, closeDetail, completedDate, COMPLETED_PAGE, openProjectEditor, openResolve, saveProjectAction, updateAction, updateMilestone, saveBulkActions, processRelatedItem }) {
+export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo, state, els, reviewData, STALE_DAYS, sortProjects, projectsForView, getProject, closeDetail, completedDate, COMPLETED_PAGE, openProjectEditor, openResolve, saveProjectAction, updateAction, updateMilestone, saveBulkActions, processRelatedItem, openActionTodo, unlinkActionTodo }) {
   const statusLabels = {
     active: "進行中",
     waiting: "確認待ち",
@@ -19,6 +20,11 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
 
   /** Actionの着手日・期日を短いチップにする。期限超過・3日以内・着手日到来を色で分ける（#153）。 */
   function actionDateChips(action, today) {
+    if (action.linkedTodo) {
+      const todo = action.linkedTodo;
+      const time = todo.schedule.allDay ? "終日" : `${todo.schedule.startTime}〜${todo.schedule.endTime}`;
+      return `<span class="date-chips"><span class="date-chip${todo.status === "pending" && todo.schedule.date < today ? " overdue" : ""}">予定 ${displayDate(todo.schedule.date)} ${escapeHtml(time)}</span>${todo.calendarState !== "confirmed" ? '<span class="date-chip warn">Calendar要確認</span>' : ""}</span>`;
+    }
     const chips = [];
     if (action.startOn) {
       const ready = action.startOn <= today;
@@ -31,6 +37,12 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
       chips.push(`<span class="date-chip${tone}">期日 ${displayDate(action.dueOn)}（${note}）</span>`);
     }
     return chips.length ? `<span class="date-chips">${chips.join("")}</span>` : "";
+  }
+
+  function todoLinkControls(action, project) {
+    const todo = action.linkedTodo;
+    if (todo) return `<div class="project-todo-link"><a href="${escapeHtml(compassHistoryPath("todos", todo.id))}">ToDo: ${escapeHtml(todo.title)} · ${todo.status === "completed" ? "完了" : todo.status === "skipped" ? "見送り" : "未実施"}</a><button type="button" data-action-todo-unlink="${action.id}">紐づけを解除</button></div>`;
+    return ["completed", "dropped"].includes(project.status) ? "" : `<div class="project-todo-link"><button type="button" data-action-todo-link="${action.id}">既存ToDoと紐づける</button></div>`;
   }
 
   function statusBadge(project) {
@@ -99,13 +111,13 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
       ? `<div class="review-rows">${rows}</div>` : `<p class="review-empty">✓ ${empty}</p>`}</section>`;
   }
 
-  function reviewRow(project, main, chips) {
-    return `<button class="review-row" type="button" data-detail="${project.id}"><span><strong>${main}</strong><small>${escapeHtml(project.title)}</small></span><span class="date-chips">${chips}</span></button>`;
+  function reviewRow(project, main, chips, detail = project.title) {
+    return `<button class="review-row" type="button" data-detail="${project.id}"><span><strong>${main}</strong><small>${escapeHtml(detail)}</small></span><span class="date-chips">${chips}</span></button>`;
   }
 
   function renderReview() {
     const data = reviewData();
-    els.resultCount.textContent = `見直し ${data.pending}件`;
+    els.resultCount.textContent = `見直し項目 ${data.pending}件`;
     const attentionReason = (project) => {
       const unprocessed = project.items.filter((item) => item.treatment === "unprocessed").length;
       return [project.status === "active" && !project.actions.some((action) => ["next", "queued", "waiting"].includes(action.status)) ? "次の一手が未設定" : null,
@@ -113,6 +125,10 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
     };
     const doneCount = data.doneThisWeek.reduce((total, entry) => total + entry.actions.length, 0);
     els.projectList.innerHTML = `<div class="review-board">
+      ${reviewSection("目標期限を過ぎたProject", "目標日の古い順", data.targetOverdue.length,
+        data.targetOverdue.map((project) => reviewRow(project, escapeHtml(project.title),
+          `<span class="date-chip overdue">目標 ${displayDate(project.targetOn)}（${dayDiff(project.targetOn, data.today)}日超過）</span><span class="date-chip">${statusLabels[project.status]}</span>`, `完了条件: ${project.outcome}`)).join(""),
+        "目標期限を過ぎたProjectはありません")}
       ${reviewSection("期限超過のタスク", "期日を過ぎた未完了のタスク", data.overdue.length,
         data.overdue.map(({ project, action }) => reviewRow(project, escapeHtml(action.content),
           `<span class="date-chip overdue">期日 ${displayDate(action.dueOn)}（${dayDiff(action.dueOn, data.today)}日超過）</span>`)).join(""),
@@ -189,8 +205,7 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
       : "";
     return `<form class="action-edit-form" data-action-edit="${action.id}">
       <label class="action-edit-content"><span>内容</span><input name="content" maxlength="500" required value="${escapeHtml(action.content)}" /></label>
-      <label><span>着手日</span><input name="startOn" type="date" value="${escapeHtml(action.startOn || "")}" /></label>
-      <label><span>期日</span><input name="dueOn" type="date" value="${escapeHtml(action.dueOn || "")}" /></label>
+      ${action.linkedTodo ? `<div class="action-edit-content">${actionDateChips(action, todayTokyo())}<a href="${escapeHtml(compassHistoryPath("todos", action.linkedTodo.id))}">ToDoで日時を変更</a></div>` : `<label><span>着手日</span><input name="startOn" type="date" value="${escapeHtml(action.startOn || "")}" /></label><label><span>期日</span><input name="dueOn" type="date" value="${escapeHtml(action.dueOn || "")}" /></label>`}
       ${milestoneField}
       <div class="action-edit-buttons">
         ${cancellable ? `<button class="danger-link" type="button" data-action-op="cancel" data-action-id="${action.id}">このActionを取り消す</button>` : ""}
@@ -217,7 +232,7 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
         <button type="button" data-action-op="move_up" data-action-id="${action.id}" aria-label="上へ移動" ${index === 0 ? "disabled" : ""}>↑</button>
         <button type="button" data-action-op="move_down" data-action-id="${action.id}" aria-label="下へ移動" ${index === count - 1 ? "disabled" : ""}>↓</button>
       </div>
-      <div class="task-main"><span>${escapeHtml(action.content)}</span>${actionDateChips(action, today)}${late}</div>
+      <div class="task-main"><span>${escapeHtml(action.content)}</span>${actionDateChips(action, today)}${late}${todoLinkControls(action, project)}</div>
       <div class="task-buttons">
         ${pin}
         <button type="button" data-action-op="complete" data-action-id="${action.id}">完了</button>
@@ -307,7 +322,7 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
     const current = next && state.editingActionId === next.id
       ? `<div class="detail-next editing" data-action-row="${next.id}">${actionEditForm(next, false, project)}<p class="form-error" data-action-error="${next.id}" role="alert" hidden></p></div>`
       : next
-      ? `<div class="detail-next" data-action-row="${next.id}">${nextMilestone ? `<small class="detail-next-milestone">${escapeHtml(nextMilestone.title)}</small>` : ""}<strong>${escapeHtml(next.content)}</strong>${actionDateChips(next, today)}<div class="detail-next-buttons"><button id="detailResolveButton" type="button">完了して次を決める</button><button class="quiet" type="button" data-action-edit-open="${next.id}">編集</button></div><p class="form-error" data-action-error="${next.id}" role="alert" hidden></p></div>`
+      ? `<div class="detail-next" data-action-row="${next.id}">${nextMilestone ? `<small class="detail-next-milestone">${escapeHtml(nextMilestone.title)}</small>` : ""}<strong>${escapeHtml(next.content)}</strong>${actionDateChips(next, today)}${todoLinkControls(next, project)}<div class="detail-next-buttons"><button id="detailResolveButton" type="button">完了して次を決める</button><button id="detailSkipButton" type="button">見送って次を決める</button><button class="quiet" type="button" data-action-edit-open="${next.id}">編集</button></div><p class="form-error" data-action-error="${next.id}" role="alert" hidden></p></div>`
       : project.status === "waiting"
         ? `<div class="detail-next"><strong>${escapeHtml(project.waitingFor)}を待っています。${displayDate(project.reviewOn)}に再確認します。</strong></div>`
         : project.status === "on_hold"
@@ -339,13 +354,15 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
     const shownCompleted = completed.slice(0, state.completedShown);
     const remainingCompleted = completed.length - shownCompleted.length;
     const completedRows = completed.length
-      ? `<div class="action-list">${shownCompleted.map((action) => `<div class="action-row"><span>${escapeHtml(action.content)}</span><small>${action.completedAt ? `完了 ${completedDate(action.completedAt)}` : "完了"}</small></div>`).join("")}</div>${remainingCompleted > 0
+      ? `<div class="action-list">${shownCompleted.map((action) => `<div class="action-row"><div><span>${escapeHtml(action.content)}</span>${todoLinkControls(action, project)}</div><small>${action.completedAt ? `完了 ${completedDate(action.completedAt)}` : "完了"}</small></div>`).join("")}</div>${remainingCompleted > 0
         ? `<div class="history-more"><button type="button" data-completed-more="${COMPLETED_PAGE}">さらに${Math.min(COMPLETED_PAGE, remainingCompleted)}件表示</button><button type="button" data-completed-more="all">すべて表示（残り${remainingCompleted}件）</button></div>`
         : ""}`
       : '<p class="empty-detail">完了したActionはまだありません。</p>';
     const relatedRows = project.items.length
       ? `<div class="related-list">${project.items.map(relatedItemRow).join("")}</div>`
       : '<p class="empty-detail">Inbox／Wantから関連づけた項目はまだありません。</p>';
+    const otherActions = project.actions.filter((action) => ["waiting", "cancelled"].includes(action.status));
+    const otherRows = otherActions.length ? `<section class="detail-section"><header><h3>確認待ち・取り消し済みのタスク</h3></header>${otherActions.map((action) => `<div class="action-row"><div>${escapeHtml(action.content)}${todoLinkControls(action, project)}</div><small>${action.status === "waiting" ? "確認待ち" : "取り消し"}</small></div>`).join("")}</section>` : "";
     const meta = [
       `<span>状態: ${statusLabels[project.status]}</span>`,
       project.theme ? `<span>テーマ: ${escapeHtml(project.theme)}</span>` : null,
@@ -362,6 +379,7 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
       <section class="detail-section"><header><h3>道筋とあとで行うAction</h3><small>マイルストン${project.milestones.length}件 · 候補${queued.length}件</small></header>${queuedRows}${actionForm}${bulkAddForm(project)}${addMilestone}</section>
       <section class="detail-section"><header><h3>関連するInbox／Wants</h3><small>${project.items.length}件</small></header>${relatedRows}</section>
       <section class="detail-section" id="completedHistory"><header><h3>完了履歴</h3><small>${completed.length}件${completed.length > shownCompleted.length ? `中 ${shownCompleted.length}件を表示` : ""}</small></header>${completedRows}</section>`;
+    els.detailBody.insertAdjacentHTML("beforeend", otherRows);
 
     els.detailBody.querySelectorAll("[data-completed-more]").forEach((button) => button.addEventListener("click", () => {
       state.completedShown = button.dataset.completedMore === "all" ? Infinity : state.completedShown + COMPLETED_PAGE;
@@ -385,8 +403,8 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
       const action = project.actions.find((candidate) => candidate.id === Number(form.dataset.actionEdit));
       updateAction(project.id, Number(form.dataset.actionEdit), "edit", {
         content: String(data.get("content") || ""),
-        startOn: String(data.get("startOn") || "") || null,
-        dueOn: String(data.get("dueOn") || "") || null,
+        startOn: action?.linkedTodo ? action.storedStartOn ?? null : String(data.get("startOn") || "") || null,
+        dueOn: action?.linkedTodo ? action.storedDueOn ?? null : String(data.get("dueOn") || "") || null,
         // マイルストンの欄がない（マイルストン未作成）ときは今の値を保つ
         milestoneId: data.has("milestoneId") ? Number(data.get("milestoneId")) || null : action?.milestoneId ?? null,
       });
@@ -421,6 +439,9 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
       if (operation === "cancel" && !window.confirm("このActionを取り消しますか？")) return;
       updateAction(project.id, Number(button.dataset.actionId), operation);
     }));
+    els.detailBody.querySelector("#detailSkipButton")?.addEventListener("click", () => openResolve(project, "cancelled"));
+    els.detailBody.querySelectorAll("[data-action-todo-link]").forEach((button) => button.addEventListener("click", () => openActionTodo(project.id, Number(button.dataset.actionTodoLink))));
+    els.detailBody.querySelectorAll("[data-action-todo-unlink]").forEach((button) => button.addEventListener("click", () => unlinkActionTodo(project.id, Number(button.dataset.actionTodoUnlink))));
     els.detailBody.querySelectorAll("[data-project-item-action]").forEach((form) => form.addEventListener("submit", (event) => {
       event.preventDefault();
       const input = form.querySelector("input");

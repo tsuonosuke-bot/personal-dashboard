@@ -65,6 +65,12 @@ export interface QuizLog {
   review_queue_id: number | null;
 }
 
+/** 新規更新数と、DBの再読取で確認済みと検証できたIDは区別する。 */
+export interface ReviewConfirmation {
+  confirmed: number;
+  confirmedIds: number[];
+}
+
 /** 復習キューの件数と、直近の生成・採点バッチの結果。 */
 export interface ReviewQueueStatus {
   ready_total: number;

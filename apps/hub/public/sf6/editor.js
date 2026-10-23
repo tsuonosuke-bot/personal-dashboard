@@ -5,8 +5,9 @@ import { DRIVE_STEPS, SA_LEVELS, POSITIONS, AIMS, END_PURPOSES, LAYERINGS, SITUA
 import { MASTERY, STREAK_GOAL, startSituationGroups, stateLabel, findState, OPPONENT_OPTIONS, defaultTitle, situationUsage } from "../sf6-plan.js";
 import { defaultStateName, starterMove } from "../sf6-frames.js";
 import { frequentFragments } from "../sf6-notation.js";
+import { readSf6TextValue } from "./text.js";
 
-export function createSf6Editor({ state, situationText, els, findSituation, byAdvantage, situationOptionsHtml, movesOf, findSequence, ensureMoves, getNotationKeyboard, send, applySaved, render, showToast, load, removeItem }) {
+export function createSf6Editor({ state, situationText, els, findSituation, byAdvantage, situationOptionsHtml, movesOf, findSequence, ensureMoves, getNotationKeyboard, send, applySaved, render, showToast, load, removeItem, inboxFlow }) {
   // ---------- 編集モーダル ----------
 
   const MASTERY_OPTIONS = Object.fromEntries(MASTERY.map((label, level) => [level, label]));
@@ -42,7 +43,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
         { key: "saCost", label: "SA", type: "select", options: SA_LEVELS, numeric: true, half: true, more: true, kinds: ["setplay"] },
         { key: "position", label: "位置", type: "select", options: POSITIONS, more: true, kinds: ["setplay"] },
         { key: "mastery", label: "習得度", type: "select", options: MASTERY_OPTIONS, numeric: true, more: true },
-        { key: "memo", label: "メモ", type: "textarea", max: 2000, rows: 2, placeholder: "コツ・ヒット確認やタイミングの目安など", more: true },
+        { key: "memo", label: "メモ", type: "textarea", max: 2000, rows: 2, preserveWhitespace: true, placeholder: "コツ・ヒット確認やタイミングの目安など", more: true },
         { key: "archived", label: "アーカイブ（一覧から隠す）", type: "checkbox", editOnly: true, more: true },
       ],
       defaults: (preset = {}) => ({
@@ -60,7 +61,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
         { key: "advantage", label: "有利F", type: "number", min: -99, max: 300, nullable: true, required: true, hint: FRAME_HINT, showIf: (values) => values.kind === "state" },
         { key: "position", label: "位置", type: "select", options: POSITIONS, half: true, showIf: (values) => values.kind === "state" },
         { key: "recovery", label: "ダウン", type: "select", options: { "": "未設定", ...RECOVERIES }, half: true, showIf: (values) => values.kind === "state" },
-        { key: "memo", label: "メモ", type: "textarea", max: 2000, rows: 2 },
+        { key: "memo", label: "メモ", type: "textarea", max: 2000, rows: 2, preserveWhitespace: true },
         { key: "archived", label: "アーカイブ（一覧から隠す）", type: "checkbox", editOnly: true },
       ],
       defaults: () => ({ character: null, kind: "trigger", name: "", advantage: null, position: "anywhere", recovery: null, memo: null, archived: false }),
@@ -69,7 +70,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       title: () => "練習メニュー",
       fields: [
         { key: "title", label: "練習すること", type: "text", max: 200, required: true, placeholder: "例：中足ラッシュをヒット確認" },
-        { key: "detail", label: "やり方・目標", type: "textarea", max: 2000, rows: 2, placeholder: "例：ランダムガードで10回連続" },
+        { key: "detail", label: "やり方・目標", type: "textarea", max: 2000, rows: 2, preserveWhitespace: true, placeholder: "例：ランダムガードで10回連続" },
         { key: "sequenceIds", label: "練習する対象", type: "target" },
         { key: "guardSetting", label: "ガード", type: "select", options: { "": "指定なし", ...GUARD_SETTINGS }, half: true },
         { key: "counterSetting", label: "カウンター", type: "select", options: { "": "指定なし", ...COUNTER_SETTINGS }, half: true },
@@ -115,7 +116,8 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
   /** 今のモーダルで出す項目（種類・追加/編集で絞る）。 */
   function visibleFields(resource, values, isEdit) {
     return FORMS[resource].fields.filter((field) => (!field.kinds || field.kinds.includes(values.kind))
-      && !(field.editOnly && !isEdit) && !(field.addOnly && isEdit));
+      && !(field.editOnly && !isEdit) && !(field.addOnly && isEdit)
+      && !(state.editing?.inboxSource && resource === "situations" && field.key === "kind"));
   }
 
   function formCharacter() {
@@ -480,7 +482,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       if (!input) continue;
       if (field.type === "checkbox") values[field.key] = input.checked;
       else if (field.type === "number" || field.numeric) values[field.key] = input.value === "" ? null : Number(input.value);
-      else values[field.key] = input.value.trim() || null;
+      else values[field.key] = readSf6TextValue(input.value, base[field.key], field.preserveWhitespace);
     }
     if (resource === "sequences") values.results = readResults(base);
     return values;
@@ -534,10 +536,10 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     ensureMoves(character).then((data) => { if (data && state.editing) refreshNotationAssist(); }).catch(() => {});
   }
 
-  function openModal(resource, item = null, preset = {}) {
+  function openModal(resource, item = null, preset = {}, inboxSource = null) {
     const form = FORMS[resource];
     const values = item ? { ...item } : { ...form.defaults(preset), ...preset };
-    state.editing = { resource, item, values, startRefs: [...(values.starts || [])] };
+    state.editing = { resource, item, values, startRefs: [...(values.starts || [])], inboxSource };
     els.modalTitle.textContent = `${form.title(values)}を${item ? "編集" : "追加"}`;
     const fields = visibleFields(resource, values, Boolean(item));
     const isCombo = resource === "sequences" && values.kind === "combo";
@@ -545,6 +547,10 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     const main = fields.filter((field) => !isMore(field)).map((field) => fieldHtml(field, values[field.key], values)).join("");
     const more = fields.filter(isMore).map((field) => fieldHtml(field, values[field.key], values)).join("");
     els.formFields.innerHTML = `${main}${more ? `<details class="form-more"><summary>${isCombo ? "任意項目" : "詳細"}</summary><div class="form-grid">${more}</div></details>` : ""}`;
+    fields.filter((field) => field.preserveWhitespace).forEach((field) => {
+      const input = document.getElementById(`field-${field.key}`);
+      if (input) input.value = values[field.key] || "";
+    });
     els.formError.hidden = true;
     els.deleteConfirm.hidden = true;
     // 初期の状況は削除できない（アーカイブだけ）
@@ -556,15 +562,21 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     refreshPickers();
     if (resource === "sequences") prepareMoves();
     els.editModal.hidden = false;
+    inboxFlow?.onOpened(state.editing);
     const first = els.formFields.querySelector("input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=date]), textarea");
     // スマホで勝手にキーボードが開かないよう、フォーカスはPC幅のときだけ
     if (first && window.matchMedia("(min-width: 681px)").matches) first.focus();
   }
 
-  function closeModal() {
+  function closeModal(force = false) {
+    if (state.saving && force !== true) return;
     getNotationKeyboard().reset();
     els.editModal.hidden = true;
     state.editing = null;
+  }
+
+  function readDraft() {
+    return readForm(state.editing.resource, state.editing.values);
   }
 
   function validate(resource, values) {
@@ -572,6 +584,9 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       const wrapper = els.formFields.querySelector(`[data-show-if="${field.key}"]`);
       if (wrapper?.hidden) continue;
       const value = values[field.key];
+      if (typeof value === "string" && field.max && [...value].length > field.max) {
+        return `「${field.label}」は${field.max}文字以内にしてください。元Inboxの全文は元記録に残ります。`;
+      }
       if (field.required && (value === null || value === "" || (Array.isArray(value) && value.length === 0))) {
         if (field.type === "startChips") return "始動の状況を1つ以上選んでください。";
         if (field.type === "startStates") return "起点の局面を1つ以上追加してください。";
@@ -608,7 +623,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
   async function submitModal(event) {
     event.preventDefault();
     if (!state.editing || state.saving) return;
-    const { resource, item } = state.editing;
+    const { resource, item, inboxSource } = state.editing;
     if (resource === "sequences" && state.editing.values.kind === "setplay") addStartFromPicker();
     const values = readForm(resource, state.editing.values);
     normalizeValues(resource, values);
@@ -620,7 +635,14 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     const fields = Object.fromEntries(Object.keys(FORMS[resource].defaults(values)).map((key) => [key, values[key]]));
     state.saving = true;
     els.saveButton.disabled = true;
+    els.cancelButton.disabled = true;
+    els.modalClose.disabled = true;
+    els.inboxContext?.querySelectorAll("select").forEach((select) => { select.disabled = true; });
     try {
+      if (inboxSource && !item) {
+        await inboxFlow.save(resource, fields, inboxSource);
+        return;
+      }
       const saved = item
         ? await send("PATCH", resource, { id: item.id, updatedAt: item.updatedAt, ...fields })
         : await send("POST", resource, fields);
@@ -630,7 +652,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       } else applySaved(resource, saved);
       if (resource === "sequences" && fields.character) store("sf6-character", fields.character);
       if (resource === "matches") store("sf6-character", fields.myCharacter);
-      closeModal();
+      closeModal(true);
       render();
       showToast(item ? "保存しました" : "追加しました");
     } catch (error) {
@@ -638,6 +660,9 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     } finally {
       state.saving = false;
       els.saveButton.disabled = false;
+      els.cancelButton.disabled = false;
+      els.modalClose.disabled = false;
+      els.inboxContext?.querySelectorAll("select").forEach((select) => { select.disabled = false; });
     }
   }
 
@@ -682,5 +707,5 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     return usage.starts + usage.results > 0;
   }
 
-  return { FORMS, renderStartChips, selectedStartChips, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, showFormError, submitModal, deleteItem, confirmSituationDelete };
+  return { FORMS, renderStartChips, selectedStartChips, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete };
 }

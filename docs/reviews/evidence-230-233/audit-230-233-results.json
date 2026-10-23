@@ -1,0 +1,70 @@
+{
+  "database": "review_audit_1792747396985",
+  "version": "PostgreSQL 18.4",
+  "migrationHashes": {
+    "202610230001_project_action_todos.sql": "a1de5bb78b1f6b9a1501ca9f0863688ca18909443db8d9405eefd1336b60c5ca",
+    "202610230002_inbox_sf6_routes.sql": "d4b32dcb69b64ac378c73aeb199cc5b6a140668c7ccc7e102f8d5fc54542a94e"
+  },
+  "results": [
+    {
+      "name": "contract preserves every previous exit and adds SF6",
+      "pass": true
+    },
+    {
+      "name": "SF6 situations: atomic save, raw text, source snapshot and idempotent replay",
+      "pass": true
+    },
+    {
+      "name": "SF6 sequences: atomic save, raw text, source snapshot and idempotent replay",
+      "pass": true
+    },
+    {
+      "name": "SF6 drills: atomic save, raw text, source snapshot and idempotent replay",
+      "pass": true
+    },
+    {
+      "name": "SF6 setplay uses existing sequence validation and child save",
+      "pass": true
+    },
+    {
+      "name": "SF6 unknown database payload field rejected with no partial save",
+      "pass": true
+    },
+    {
+      "name": "SF6 stale source snapshot rejected with no target",
+      "pass": true
+    },
+    {
+      "name": "SF6 failed sequence rolls back inline states and child rows",
+      "pass": true
+    },
+    {
+      "name": "SF6 differently named inline starts resolving to one state are rejected atomically",
+      "pass": true
+    },
+    {
+      "name": "deleted SF6 target and deleted Inbox never recreate target on replay",
+      "pass": true
+    },
+    {
+      "name": "SF6 anonymous roles cannot execute routing or read relations",
+      "pass": true
+    },
+    {
+      "name": "SF6 parallel same-Inbox requests create one target (10 pairs)",
+      "pass": true
+    },
+    {
+      "name": "SF6 same-key different-Inbox race rolls back losing target (10 pairs)",
+      "pass": true
+    },
+    {
+      "name": "Knowledge 1,098 full-result confirm, partial failure, remaining-only retry and unchanged grading",
+      "pass": true
+    },
+    {
+      "name": "Knowledge synchronous double-submit guard and failed reload cannot report verified completion",
+      "pass": true
+    }
+  ]
+}

@@ -125,6 +125,7 @@ export function todoRequestBody(item, command, schedule = null) {
       calendarEtag: item.calendarEtag,
       schedule: item.schedule,
     },
+    ...(item.linkedProjectAction ? { projectAction: { id: item.linkedProjectAction.id, updatedAt: item.linkedProjectAction.updatedAt } } : {}),
   };
 }
 

@@ -412,3 +412,12 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 .flow-detail { margin-top: 10px; }
 .flow-exits { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
 .flow-exits .unset { color: var(--accent); }
+.inbox-context, .inbox-status { margin: 0 0 14px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius, 6px); font-size: 12px; overflow-wrap: anywhere; }
+.inbox-context label { display: grid; gap: 5px; margin-bottom: 8px; }
+.inbox-context select { width: 100%; min-width: 0; }
+.inbox-context details { margin-top: 8px; }
+.inbox-original { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 180px; overflow-y: auto; }
+.inbox-boundary { width: 100%; margin: 0 0 6px; color: var(--muted); font-size: 12px; }
+.form-actions:has(.inbox-boundary:not([hidden])) { flex-wrap: wrap; }
+.inbox-status p { margin: 0 0 6px; }
+.inbox-status a { margin-right: 10px; }

@@ -1,0 +1,38 @@
+/* Generated from project-todo-link.css by scripts/build-dark-theme.mjs. Do not edit. */
+:root[data-theme="dark"] .project-todo-dialog {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="dark"] .project-todo-dialog::backdrop {
+  background: color-mix(in srgb, var(--text--light, var(--text)) 50%, transparent);
+}
+:root[data-theme="dark"] .project-todo-dialog button {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+}
+:root[data-theme="dark"] .project-todo-dialog button.primary {
+  color: var(--bg--light, var(--bg));
+  background: var(--page-accent--light, var(--page-accent));
+  border-color: var(--page-accent);
+}
+:root[data-theme="dark"] .project-todo-form select,
+:root[data-theme="dark"] .project-todo-form input:not([type=radio]),
+:root[data-theme="dark"] .project-todo-form textarea {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="dark"] .project-todo-preview {
+  border-block: 1px solid var(--border);
+}
+:root[data-theme="dark"] .project-todo-resolution {
+  border: 1px solid var(--border);
+}
+:root[data-theme="dark"] .project-todo-link a {
+  color: var(--page-accent);
+}

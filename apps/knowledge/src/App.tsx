@@ -16,7 +16,7 @@ import { useKnowledgeData } from "./hooks/useKnowledgeData";
 import { useInsights } from "./hooks/useInsights";
 import { useInsightGroups } from "./hooks/useInsightGroups";
 import { useReviewQueueStatus } from "./hooks/useReviewQueueStatus";
-import { confirmReviewResults } from "./lib/api";
+import { confirmReviewResultsDetailed } from "./lib/api";
 import { dashboardRoutePath, parseDashboardRoute, type OrganizeTab } from "./lib/dashboardRoute";
 import { DEFAULT_FILTERS, listStatePath, parseListState, sameListState, type ListState } from "./lib/listState";
 import { missesToReview } from "./lib/learningSummary";
@@ -242,8 +242,9 @@ export default function App() {
   };
 
   const confirmMiss = async (quizLogId: number) => {
-    await confirmReviewResults([quizLogId]);
-    markConfirmed([quizLogId]);
+    const receipt = await confirmReviewResultsDetailed([quizLogId]);
+    if (!receipt.confirmedIds.includes(quizLogId)) throw new Error("確認状態を取得できませんでした。学習ログを再読み込みしてください。");
+    markConfirmed(receipt.confirmedIds);
     void reviewQueue.refresh();
   };
 
@@ -389,9 +390,11 @@ export default function App() {
     }
   };
 
-  const reloadAfterReview = async () => {
-    await Promise.all([reload(), dailyReview.refresh(), reviewQueue.refresh()]);
+  const reloadAfterConfirmation = async () => {
+    const [loaded] = await Promise.all([reload(), Promise.allSettled([dailyReview.refresh(), reviewQueue.refresh()])]);
+    return loaded;
   };
+  const reloadAfterReview = async () => { await reloadAfterConfirmation(); };
 
   const openNew = () => {
     setActionError(null);
@@ -592,7 +595,7 @@ export default function App() {
           onExit={() => setLogOpen(false)}
           initialUnconfirmedOnly={logUnconfirmedOnly}
           onKnowledgeUpdate={updateKnowledge}
-          onReload={reloadAfterReview}
+          onReload={reloadAfterConfirmation}
           insightStore={insightStore}
           insightGroupStore={insightGroupStore}
           onOpenKnowledge={(id) => {

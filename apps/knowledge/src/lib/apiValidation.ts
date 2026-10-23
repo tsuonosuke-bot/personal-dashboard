@@ -1,6 +1,6 @@
 import type {
   DailyReviewCategoryCount, DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeKind, KnowledgePriority, Mastery, MasteryHistoryEvent, QuizFormat,
-  QuizLog, QuizVerdict, PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary,
+  QuizLog, QuizVerdict, PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary, ReviewConfirmation,
   ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   RelearningStage, SpeakingPracticeLog, SpeakingPracticePrompt, SpeakingPracticeRating,
   SpeakingPracticeStart, SpeakingPracticeType,
@@ -33,6 +33,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function fail(entity: string, field?: string): never {
   throw new Error(`APIから受信した${entity}${field ? `の${field}` : ""}が正しくありません。`);
+}
+
+/** 要求していないID・重複・欠落した詳細応答を成功として扱わない。 */
+export function parseReviewConfirmation(value: unknown, requestedIds: readonly number[]): ReviewConfirmation {
+  const requested = new Set(requestedIds);
+  if (!isRecord(value) || !Number.isSafeInteger(value.confirmed)
+    || (value.confirmed as number) < 0 || (value.confirmed as number) > requested.size
+    || !Array.isArray(value.confirmedIds)
+    || value.confirmedIds.some((id) => !Number.isSafeInteger(id) || !requested.has(id))
+    || new Set(value.confirmedIds).size !== value.confirmedIds.length) return fail("確認結果");
+  return { confirmed: value.confirmed as number, confirmedIds: value.confirmedIds as number[] };
 }
 
 function stringValue(record: Record<string, unknown>, field: string, entity: string): string {

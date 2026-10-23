@@ -122,8 +122,9 @@ test("ダッシュボードは今日の学習・講評の見直し・進み具�
   ]);
   assert.match(app, /<TodayLearningPanel/);
   assert.match(app, /<MissedReviewSheet/);
-  assert.match(app, /confirmReviewResults\(\[quizLogId\]\)/);
-  assert.match(app, /markConfirmed\(\[quizLogId\]\)/);
+  assert.match(app, /confirmReviewResultsDetailed\(\[quizLogId\]\)/);
+  assert.match(app, /if \(!receipt\.confirmedIds\.includes\(quizLogId\)\) throw/);
+  assert.match(app, /markConfirmed\(receipt\.confirmedIds\)/);
   assert.doesNotMatch(app, /StatsCards|ReviewInsights|DailyReviewPanel/);
   assert.match(charts, /<MemoryHoldChart/);
   assert.match(charts, /<WeeklyAccuracyChart/);

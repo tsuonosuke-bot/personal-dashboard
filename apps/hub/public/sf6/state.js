@@ -36,7 +36,7 @@ export function sf6Elements(document) {
     "frameCharacter", "frameQuery", "frameCategory", "frameSort", "framePunishable", "frameHeavyPunishable", "frameCancelable", "frameVersion", "frameTable",
     "drillList", "logList", "drillDoneFold", "drillDoneCount", "drillDone",
     "matchStats", "matchList",
-    "editModal", "modalTitle", "modalClose", "editForm", "formFields", "formError", "deleteConfirm", "deleteButton", "cancelButton", "saveButton",
+    "editModal", "modalTitle", "modalClose", "editForm", "formFields", "formError", "deleteConfirm", "deleteButton", "cancelButton", "saveButton", "inboxContext", "inboxBoundary", "inboxStatus",
     "sheet", "sheetTitle", "sheetClose", "sheetBody",
     "characterOptions", "toast",
   ];

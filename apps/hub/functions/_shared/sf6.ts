@@ -13,7 +13,7 @@ import { supabaseHeaders } from "./supabaseAuth.ts";
  * readOnly: 読むだけの項目（入力で送られてきたら400）。
  */
 type FieldSpec = { key: string; column: string; optional?: true | "update"; readOnly?: true } & (
-  | { type: "text"; max: number; required?: boolean }
+  | { type: "text"; max: number; required?: boolean; preserveWhitespace?: true }
   | { type: "int"; min: number; max: number; nullable?: boolean }
   | { type: "half"; min: number; max: number }
   | { type: "enum"; values: readonly string[]; nullable?: boolean }
@@ -84,7 +84,7 @@ export const SF6_RESOURCES = {
       { key: "advantage", column: "advantage", type: "int", min: -99, max: 300, nullable: true },
       { key: "position", column: "position", type: "enum", values: SF6_POSITIONS },
       { key: "recovery", column: "recovery", type: "enum", values: SF6_RECOVERIES, nullable: true },
-      { key: "memo", column: "memo", type: "text", max: LONG_MAX },
+      { key: "memo", column: "memo", type: "text", max: LONG_MAX, preserveWhitespace: true },
       { key: "archived", column: "archived", type: "bool" },
     ],
     check: (value) => {
@@ -115,7 +115,7 @@ export const SF6_RESOURCES = {
       { key: "aim", column: "aim", type: "enum", values: SF6_AIMS, nullable: true },
       { key: "endPurpose", column: "end_purpose", type: "enum", values: SF6_END_PURPOSES, nullable: true },
       { key: "mastery", column: "mastery", type: "int", min: 0, max: 3 },
-      { key: "memo", column: "memo", type: "text", max: LONG_MAX },
+      { key: "memo", column: "memo", type: "text", max: LONG_MAX, preserveWhitespace: true },
       { key: "archived", column: "archived", type: "bool" },
       { key: "starts", column: "starts", type: "situationRefs", maxItems: 12, optional: "update" },
       { key: "results", column: "results", type: "results", maxItems: 12, optional: "update" },
@@ -134,7 +134,7 @@ export const SF6_RESOURCES = {
     order: "created_at.asc",
     fields: [
       { key: "title", column: "title", type: "text", max: 200, required: true },
-      { key: "detail", column: "detail", type: "text", max: LONG_MAX },
+      { key: "detail", column: "detail", type: "text", max: LONG_MAX, preserveWhitespace: true },
       { key: "sequenceIds", column: "sequence_ids", type: "refs", maxItems: 8 },
       { key: "status", column: "status", type: "enum", values: SF6_DRILL_STATUSES },
       { key: "guardSetting", column: "guard_setting", type: "enum", values: SF6_GUARD_SETTINGS, nullable: true, optional: true },
@@ -326,8 +326,8 @@ function readField(field: FieldSpec, raw: unknown): { ok: true; value: unknown }
     case "text": {
       if (raw === null || raw === undefined) return field.required ? { ok: false } : { ok: true, value: null };
       if (typeof raw !== "string") return { ok: false };
-      const value = raw.trim();
-      if (!value) return field.required ? { ok: false } : { ok: true, value: null };
+      const value = field.preserveWhitespace ? raw : raw.trim();
+      if (!raw.trim()) return field.required ? { ok: false } : { ok: true, value: null };
       return [...value].length <= field.max ? { ok: true, value } : { ok: false };
     }
     case "int":
@@ -389,6 +389,7 @@ export function validateSf6Fields(
   body: Record<string, unknown>,
   mode: "create" | "update" = "create",
 ): ValidationResult<Record<string, unknown>> {
+  if (!onlyKeys(body, writableKeys(resource))) return { ok: false, status: 400, error: INVALID };
   const { fields, check } = spec(resource);
   const value: Record<string, unknown> = {};
   for (const field of fields) {
@@ -626,10 +627,22 @@ export function toSf6Item(resource: Sf6Resource, row: unknown): Record<string, u
   return item;
 }
 
-function columnsOf(resource: Sf6Resource, fields: Record<string, unknown>): Record<string, unknown> {
+export function columnsOf(resource: Sf6Resource, fields: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(columnFields(resource)
     .filter((field) => !field.readOnly && field.key in fields)
     .map((field) => [field.column, fields[field.key]]));
+}
+
+/** Ordinary SF6 saves and Inbox routing share the exact column/child conversion. */
+export function sf6SavePayload(resource: Sf6Resource, fields: Record<string, unknown>) {
+  const results = fields.results as Sf6ResultInput[] | undefined;
+  return {
+    row: columnsOf(resource, fields),
+    starts: "starts" in fields ? fields.starts : null,
+    results: results === undefined ? null : results.map((result) => ({
+      kind: result.kind, opponent_action: result.opponentAction, outcome: result.outcome, next: result.next,
+    })),
+  };
 }
 
 export async function loadSf6(env: DashboardEnv, now = new Date()) {
@@ -658,15 +671,13 @@ async function fetchItem(info: Connection, resource: Sf6Resource, id: number) {
  * starts / results を省いた編集では子表を変えない。
  */
 async function saveSequence(info: Connection, id: number | null, updatedAt: string | null, fields: Record<string, unknown>) {
-  const results = fields.results as Sf6ResultInput[] | undefined;
+  const payload = sf6SavePayload("sequences", fields);
   const savedId = await rpc(info, "sf6_save_sequence", {
     p_id: id,
     p_updated_at: updatedAt,
-    p_row: columnsOf("sequences", fields),
-    p_starts: "starts" in fields ? fields.starts : null,
-    p_results: results === undefined ? null : results.map((result) => ({
-      kind: result.kind, opponent_action: result.opponentAction, outcome: result.outcome, next: result.next,
-    })),
+    p_row: payload.row,
+    p_starts: payload.starts,
+    p_results: payload.results,
   });
   const [item, situations] = await Promise.all([fetchItem(info, "sequences", savedId), fetchAll(info, "situations")]);
   return { item, situations: situations.map((row) => toSf6Item("situations", row)).filter((entry) => entry !== null) };

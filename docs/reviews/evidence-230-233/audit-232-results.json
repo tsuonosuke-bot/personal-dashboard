@@ -1,0 +1,91 @@
+{
+  "database": "review_audit_1792747537028",
+  "version": "PostgreSQL 18.4",
+  "migrationHash": "a1de5bb78b1f6b9a1501ca9f0863688ca18909443db8d9405eefd1336b60c5ca",
+  "results": [
+    {
+      "name": "manual link, original dates retained, same-pair replay, other pair rejected",
+      "pass": true
+    },
+    {
+      "name": "missing Next resolution rolls back both sides",
+      "pass": true
+    },
+    {
+      "name": "complete Next: continue",
+      "pass": true
+    },
+    {
+      "name": "complete Next: complete",
+      "pass": true
+    },
+    {
+      "name": "complete Next: waiting",
+      "pass": true
+    },
+    {
+      "name": "complete Next: on_hold",
+      "pass": true
+    },
+    {
+      "name": "skip Next: continue",
+      "pass": true
+    },
+    {
+      "name": "skip Next: complete",
+      "pass": true
+    },
+    {
+      "name": "skip Next: waiting",
+      "pass": true
+    },
+    {
+      "name": "skip Next: on_hold",
+      "pass": true
+    },
+    {
+      "name": "ToDo reopen queues Action without creating another Next",
+      "pass": true
+    },
+    {
+      "name": "closed Project rejects reopen, explicit unlink enables independent ToDo reopen",
+      "pass": true
+    },
+    {
+      "name": "pending ToDo links completed Action as queued; completed ToDo resolves Next atomically",
+      "pass": true
+    },
+    {
+      "name": "stale unlinked request and legacy Action wrapper cannot bypass link",
+      "pass": true
+    },
+    {
+      "name": "Project queued completion updates ToDo; direct linked date edit rejected",
+      "pass": true
+    },
+    {
+      "name": "Calendar cancellation keeps linked ToDo and deletes unlinked pending ToDo",
+      "pass": true
+    },
+    {
+      "name": "anonymous roles cannot execute new write RPCs or read link table",
+      "pass": true
+    },
+    {
+      "name": "parallel links to one ToDo select one winner without duplicate or deadlock (20 pairs)",
+      "pass": true
+    },
+    {
+      "name": "parallel linked completion and unlink preserve consistent state (20 pairs)",
+      "pass": true
+    },
+    {
+      "name": "parallel Calendar cancellation and link never delete a successful link (20 pairs)",
+      "pass": true
+    },
+    {
+      "name": "parallel milestone deletion and linked Action completion follow one lock order (20 pairs)",
+      "pass": true
+    }
+  ]
+}

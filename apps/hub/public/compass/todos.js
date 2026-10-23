@@ -5,6 +5,7 @@ import { hideDrawer } from "./drawer.js";
 import { dateOffset, escapeHtml, formatCalendarSchedule, nextWeekendDate, setDrawerTitle, showToast, todayInTokyo, todoTiming, todoTimingLabel } from "./format.js";
 import { statusLabel, syncCompassRoute } from "./list.js";
 import { els, state } from "./state.js";
+import { chooseTodoNextResolution, openProjectTodoLink, unlinkProjectTodo } from "../shared/project-todo-link.js";
 
 export async function refreshGoogleCalendarConnection(statusElement, submitButton) {
   statusElement.className = "integration-status loading";
@@ -65,12 +66,17 @@ export function renderTodoDrawer(item) {
        ${!synced && (item.calendarState === "missing" || item.calendarState === "cancelled") ? '<button class="secondary-action" id="recreateTodoButton" type="button">新しい予定として再作成</button>' : ""}
        <button class="close-action" id="skipTodoButton" type="button">見送る</button>`
     : `<button class="secondary-action" id="reopenTodoButton" type="button">未実施に戻す</button>`;
+  const linked = item.linkedProjectAction;
+  const projectLink = linked
+    ? `<div class="detail-section"><span>Projectタスク</span><p><a href="/projects/?id=${linked.projectId}">${escapeHtml(linked.projectTitle)}</a> · ${escapeHtml(linked.content)}</p><button type="button" id="unlinkProjectTodoButton">紐づけを解除</button></div>`
+    : '<div class="detail-section"><button type="button" id="linkProjectTodoButton">Projectタスクと紐づける</button></div>';
   els.drawerBody.innerHTML = `<div class="detail-grid">
       <div class="detail-box"><span>Status</span><strong>${escapeHtml(item.status === "pending" ? todoTimingLabel(item) : statusLabel(item.status, "todos"))}</strong></div>
       <div class="detail-box"><span>Schedule</span><strong>${escapeHtml(formatCalendarSchedule(item.schedule))}</strong></div>
     </div>
     ${item.detail ? `<div class="detail-section"><span>補足</span><p>${escapeHtml(item.detail)}</p></div>` : ""}
     <div class="detail-section todo-source"><span>元の記録</span><p>${synced ? "Google Calendarから自動で取り込んだ予定" : `Want · ${item.sourceWantId}${item.sourceInboxId ? ` / Inbox · ${item.sourceInboxId}` : ""}`}</p></div>
+    ${projectLink}
     <div class="todo-notice ${item.status === "pending" && todoTiming(item) === "overdue" ? "attention" : ""}">${escapeHtml(todoCalendarNotice(item))}</div>
     <label class="form-field todo-note" for="todoNote"><span>実施メモ <small>空欄可</small></span><textarea id="todoNote" rows="4" maxlength="2000" placeholder="実施結果や見送り理由">${escapeHtml(item.note || "")}</textarea></label>
     <div class="drawer-actions">${calendarLink}${actions}</div>
@@ -80,6 +86,12 @@ export function renderTodoDrawer(item) {
   document.getElementById("reopenTodoButton")?.addEventListener("click", () => changeTodoStatus(item, "reopen"));
   document.getElementById("rescheduleTodoButton")?.addEventListener("click", () => renderTodoRescheduleForm(item));
   document.getElementById("recreateTodoButton")?.addEventListener("click", () => renderTodoRescheduleForm(item, "recreate"));
+  const reloadLink = async () => { hideDrawer(); await loadTodos(true); showToast("ToDoとProjectの紐づけを更新しました。"); };
+  document.getElementById("linkProjectTodoButton")?.addEventListener("click", () => openProjectTodoLink({ todo: item, onSuccess: reloadLink }));
+  document.getElementById("unlinkProjectTodoButton")?.addEventListener("click", async () => {
+    try { await unlinkProjectTodo(linked, item, reloadLink); }
+    catch (error) { setTodoActionError(error.message); }
+  });
 }
 
 function setTodoActionError(message) {
@@ -101,6 +113,8 @@ function todoRequestBody(item, command, options = {}) {
       calendarEtag: item.calendarEtag,
       schedule: item.schedule,
     },
+    projectAction: item.linkedProjectAction ? { id: item.linkedProjectAction.id, updatedAt: item.linkedProjectAction.updatedAt } : null,
+    resolution: options.resolution ?? null,
   };
 }
 
@@ -127,14 +141,21 @@ async function changeTodoStatus(item, command) {
   const note = document.getElementById("todoNote")?.value.trim() || null;
   button.disabled = true;
   setTodoActionError("");
-  try {
-    await sendTodoUpdate(item, command, { note });
+  const save = async (resolution = null) => {
+    await sendTodoUpdate(item, command, { note, resolution });
     hideDrawer();
     syncCompassRoute("todos", null, "replace", ["overdue", "today", "upcoming"].includes(state.metricFilter) ? state.metricFilter : null);
     await loadTodos(true);
     showToast(command === "complete" ? "ToDoを完了しました。" : command === "skip" ? "ToDoを見送りにしました。" : "ToDoを未実施に戻しました。");
+  };
+  try {
+    if (item.linkedProjectAction?.status === "next" && ["complete", "skip"].includes(command)) {
+      await chooseTodoNextResolution(item.linkedProjectAction, command, save);
+    } else await save();
   } catch (error) {
     setTodoActionError(error instanceof Error ? error.message : "ToDoを更新できませんでした。");
+    if (button.isConnected) button.disabled = false;
+  } finally {
     if (button.isConnected) button.disabled = false;
   }
 }

@@ -8,6 +8,7 @@ import {
   updateKnowledge as updateKnowledgeApi,
 } from "../lib/api";
 import type { Knowledge, KnowledgeDraft, QuizLog } from "../types";
+import type { ReviewLogReloadResult } from "../lib/reviewConfirmation";
 
 /** 自動タグ（#93）をナレッジごとにまとめる。一覧APIは近い順に返す。 */
 function groupAutoTags(rows: { knowledge_id: string; tag: string }[]): Map<string, string[]> {
@@ -28,7 +29,7 @@ export function useKnowledgeData() {
   const listsRef = useRef<Knowledge[]>([]);
   listsRef.current = [...knowledge, ...archivedKnowledge];
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (): Promise<ReviewLogReloadResult> => {
     setLoading(true);
     setError(null);
     try {
@@ -43,8 +44,11 @@ export function useKnowledgeData() {
       setKnowledge(nextKnowledge.filter((item) => !item.archived));
       setArchivedKnowledge(nextKnowledge.filter((item) => item.archived));
       setQuizLog(nextQuizLog);
+      return { ok: true, quizLog: nextQuizLog };
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+      return { ok: false, error: message };
     } finally {
       setLoading(false);
     }

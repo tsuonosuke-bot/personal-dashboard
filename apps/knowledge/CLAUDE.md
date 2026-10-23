@@ -283,7 +283,9 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
   それ以外は採点待ち
 - `POST /api/review-queue/retry`: 採点エラーの回答を採点待ちへ戻す
 - `POST /api/review-queue/discard`: 出題待ちのおかしな問題を取り下げる
-- `POST /api/review-queue/confirm`: 採点結果（`quiz_log_ids`）を確認済みにする
+- `POST /api/review-queue/confirm`: 採点結果（`quiz_log_ids`、1〜200件）を確認済みにする。
+  `{ confirmed, confirmedIds }` を返す。`confirmed` はRPCの新規更新数、`confirmedIds` はRPC後のDB読取で
+  確認済みと検証できた要求ID（他画面で確認されたものも含む）。件数だけで要求全件の成功とみなさない
 - `GET /api/review-queue/pending`: 採点待ち・採点中・採点エラーの回答を新しい順に最大200件返す（正解の選択肢は返さない）
 - `GET /api/status`: 接続先ホスト、適用済みmigration（`dashboard_schema_versions`）、認証方式、生成・採点バッチの状態
 - `GET /api/export`: `knowledge` / `quiz_log` / `speaking_practice_log` を全件、明示した列でJSONにして返す（`knowledge-export.v1`、読み取り専用）
@@ -478,6 +480,10 @@ public/
 - 学習ログの「問題を作れなかったカード」（`GenerationHoldsPanel`）は、出典を直してもらうための欄なので、
   「ナレッジを開く」は編集できる詳細（Appの `selected`）で開く。採点結果の出典（読み取り専用）とは分ける
 - 学習ログで「問題と講評を見る」を開いた採点結果は確認済みになる（`confirm_review_results`）。
+- 学習ログの一括確認は検索条件に一致する未確認の全ページが対象。現ページ30件だけの操作は設けない。
+  `reviewConfirmation` の固定ID集合・200件分割・同期ロックを単票確認と共有する。チャンク成功ごとに表示へ反映し、
+  部分失敗後は全ログを再取得して残る未確認だけを再送する。`useKnowledgeData.reload` の成否結果と最新全ログで
+  対象を照合し、再取得失敗は完了と断定しない。未存在/対象外は確認済みと区別する。
   一覧からは消さず、その場では「未確認」の印だけを外す
 
 ## デプロイと閲覧制限

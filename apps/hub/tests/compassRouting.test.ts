@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { compassRoutePath, parseCompassRoute } from "../public/compass-routing.js";
+import { compassHistoryPath, compassRouteAllowsClosed, compassRoutePath, parseCompassRoute } from "../public/compass-routing.js";
 
 test("Compass direct route accepts a positive record id with an explicit view", () => {
   assert.deepEqual(parseCompassRoute("https://hub.example/compass/?view=wants&id=42"), {
@@ -90,4 +90,37 @@ test("Inboxの詳細URLはviewを付けて書き、そのまま開き直せる",
   assert.equal(path, "/compass/?view=inbox&id=192");
   assert.deepEqual(parseCompassRoute(`https://hub.example${path}`), { view: "inbox", id: 192, filter: null, error: null });
   assert.equal(compassRoutePath(`https://hub.example${path}`, "inbox"), "/compass/");
+});
+
+test("明示的な相互リンクだけが整理済みInboxと完了・見送りToDoの詳細を開く", () => {
+  for (const view of ["inbox", "todos"] as const) {
+    const path = compassHistoryPath(view, 12);
+    assert.equal(path, `/compass/?view=${view}&id=12&history=1`);
+    const route = parseCompassRoute(`https://hub.example${path}`);
+    assert.deepEqual(route, { view, id: 12, filter: null, error: null, history: true });
+    for (const status of view === "inbox" ? ["done", "skipped", "completed", "closed", "cancelled"] : ["completed", "skipped"]) {
+      assert.equal(compassRouteAllowsClosed(route, status), true);
+      assert.equal(compassRouteAllowsClosed(parseCompassRoute(`https://hub.example/compass/?view=${view}&id=12`), status), false,
+        "従来のHub/Todayリンクは完了後に一覧へ戻る");
+    }
+    assert.equal(compassRouteAllowsClosed(route, "archived"), false, "アーカイブの新しい再開導線へ広げない");
+  }
+});
+
+test("履歴指定は有効なInbox/ToDo詳細に限り、Wants・一覧・壊れた値には適用しない", () => {
+  for (const query of ["history=1", "view=inbox&history=1", "view=todos&filter=today&history=1", "view=wants&id=12&history=1",
+    "view=unknown&id=12&history=1", "view=inbox&id=-1&history=1", "view=inbox&id=12&history=true", "view=inbox&id=12&history=0"]) {
+    const route = parseCompassRoute(`https://hub.example/compass/?${query}`);
+    assert.equal(route.error, "invalid-target", query);
+    assert.equal(compassRouteAllowsClosed(route, "done"), false);
+  }
+  assert.throws(() => compassHistoryPath("inbox", 0), /Invalid history/);
+});
+
+test("詳細を閉じたりタブ・条件を変えると履歴指定を除き、無関係なcallback値を保つ", () => {
+  const href = "https://hub.example/compass/?calendar=connected&view=todos&id=12&history=1#source";
+  assert.equal(compassRoutePath(href, "todos"), "/compass/?calendar=connected&view=todos#source");
+  assert.equal(compassRoutePath(href, "inbox", 15), "/compass/?calendar=connected&view=inbox&id=15#source");
+  assert.equal(compassRoutePath(href, "todos", null, "today"), "/compass/?calendar=connected&view=todos&filter=today#source");
+  assert.equal(compassRoutePath(href, "todos", 12, null, true), "/compass/?calendar=connected&view=todos&id=12&history=1#source");
 });

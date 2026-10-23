@@ -1,5 +1,5 @@
 // 一覧・タブ・まとめ・件数、ビューの切り替えとURLとの同期。
-import { compassRoutePath, parseCompassRoute } from "../compass-routing.js";
+import { compassRoutePath, compassRouteAllowsClosed, parseCompassRoute } from "../compass-routing.js";
 import { clearBulkSelection, renderBulkControls } from "./bulk.js";
 import { renderTodoCalendar } from "./calendar.js";
 import { closedStatusesByView, defaultStatusByView, routeDestinationMeta, viewMeta } from "./constants.js";
@@ -379,7 +379,7 @@ export function applyCompassRoute(notify = true) {
       if (notify) showToast(`対象の${viewMeta[route.view].singular}が見つかりません。一覧を表示します。`);
       return;
     }
-    if (closedStatusesByView[route.view]?.has(item.status)) {
+    if (closedStatusesByView[route.view]?.has(item.status) && !compassRouteAllowsClosed(route, item.status)) {
       state.status = "";
       updateStatusOptions();
       renderList();
@@ -387,6 +387,9 @@ export function applyCompassRoute(notify = true) {
       if (notify) showToast(`対象の${viewMeta[route.view].singular}は完了またはアーカイブ済みです。一覧を表示します。`);
       return;
     }
+    // A deliberate cross-record history link also selects the matching list
+    // state, so the record remains visible behind the detail drawer.
+    if (route.history) state.status = item.status;
   }
 
   updateStatusOptions();

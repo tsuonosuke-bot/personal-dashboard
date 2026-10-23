@@ -638,6 +638,8 @@ button:disabled { opacity: 0.4; cursor: default; }
 .pending-grading { background: var(--bg-subtle); color: var(--accent); }
 .pending-error { background: var(--red-soft); color: var(--red); }
 .review-unconfirmed-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: var(--radius); background: var(--bg-subtle); color: var(--accent); font-size: 12px; }
+.review-unconfirmed-bar > span { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.review-unconfirmed-bar > button { max-width: 100%; min-height: 40px; white-space: normal; overflow-wrap: anywhere; }
 .review-result-details { display: grid; gap: 8px; }
 .review-result-details summary { cursor: pointer; color: var(--accent); font-size: 12px; font-weight: 600; }
 .review-unconfirmed { margin-left: 8px; background: var(--accent); color: #fff; }

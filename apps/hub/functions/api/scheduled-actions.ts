@@ -5,6 +5,7 @@ import {
   updateScheduledAction,
   validateScheduledActionRequest,
 } from "../_shared/scheduledActions.ts";
+import { publicProjectTodoError } from "../_shared/projectActionTodos.ts";
 
 interface FunctionContext {
   request: Request;
@@ -33,7 +34,9 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   try {
     return Response.json(await updateScheduledAction(context.env, input.value), { headers });
   } catch (error) {
-    const failure = publicError(error);
+    const generic = publicError(error);
+    const failure = generic.code.startsWith("TODO_") || generic.code === "ACTION_CONFLICT" || generic.code.endsWith("REQUIRED")
+      ? publicProjectTodoError(error) : generic;
     console.error(`scheduled action update failed: ${failure.code}`);
     return Response.json({ error: failure.message }, { status: failure.status, headers });
   }

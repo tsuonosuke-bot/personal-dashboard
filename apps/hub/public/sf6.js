@@ -7,6 +7,7 @@ import { createSf6Records } from "./sf6/records.js";
 import { createSf6Frames } from "./sf6/frames.js";
 import { createSf6Routes } from "./sf6/routes.js";
 import { createSf6Editor } from "./sf6/editor.js";
+import { createSf6InboxFlow } from "./sf6/inbox.js";
 import { appendFragment, appendToken, removeLastToken } from "./sf6-notation.js";
 import { createNotationKeyboard } from "./sf6-keyboard.js";
 import { drillPreset, MASTERY, raiseTargets, resultOf, routeBack, routeDrillPreset, stateLabel } from "./sf6-plan.js";
@@ -77,6 +78,8 @@ async function load() {
     els.errorState.hidden = true;
     render();
     if (state.tab === "frames") loadFrames();
+    await inboxFlow.onLoaded();
+    return true;
   } catch (error) {
     els.sourceBadge.className = "source-badge error";
     els.sourceBadge.lastElementChild.textContent = "接続エラー";
@@ -87,6 +90,7 @@ async function load() {
     } else {
       showToast(error instanceof Error ? error.message : "読み込みに失敗しました。");
     }
+    return false;
   } finally {
     els.refreshButton.disabled = false;
   }
@@ -239,8 +243,14 @@ const { openSheet, openFlow, setFlowNext, newSequencePreset, closeSheet, renderS
   showToast: (...args) => showToast(...args)
 });
 
-const { FORMS, renderStartChips, selectedStartChips, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, showFormError, submitModal, deleteItem, confirmSituationDelete } = createSf6Editor({
+const inboxFlow = createSf6InboxFlow({ state, els,
+  openModal: (...args) => openModal(...args), closeModal: () => closeModal(true), readDraft: () => readDraft(),
+  load: () => load(), selectTab: (...args) => selectTab(...args), find: (...args) => find(...args),
+  render: () => render(), showToast: (...args) => showToast(...args),
+});
+const { FORMS, renderStartChips, selectedStartChips, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete } = createSf6Editor({
   state,
+  inboxFlow,
   situationText: (...args) => situationText(...args),
   els,
   findSituation: (...args) => findSituation(...args),

@@ -1,0 +1,24 @@
+{
+  "database": "review_audit_1792747537028",
+  "pass": true,
+  "rows": [
+    {
+      "link_table_exists": true,
+      "link_rls_enabled": true,
+      "link_rpc_exists": true,
+      "unlink_rpc_exists": true,
+      "execution_rpc_exists": true,
+      "sync_guard_exists": true,
+      "anon_cannot_update": true,
+      "browser_cannot_link": true,
+      "legacy_entry_is_private": true,
+      "server_can_link": true
+    },
+    {
+      "inconsistent_links": "0"
+    },
+    {
+      "projects_with_multiple_next_actions": "0"
+    }
+  ]
+}
