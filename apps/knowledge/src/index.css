@@ -996,7 +996,9 @@ body.quiz-open { padding-bottom: 0; }
 .question-materials-group h5 { margin: 0 0 6px; color: var(--accent); font-size: 13px; }
 .question-materials-group h5 span { margin-left: 4px; color: var(--text-tertiary); font-weight: 400; }
 .question-materials-group ul, .question-materials-excluded ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.question-material { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); }
+.question-material { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); }
+.question-material > .question-material-text { flex: 1; }
+.question-material > .insight-action { flex-basis: 100%; }
 .question-material-text { min-width: 0; display: grid; gap: 3px; }
 .question-material-text p { margin: 0; color: var(--text); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .question-material-text small, .question-material-text small a { color: var(--text-secondary); font-size: 12px; }
@@ -1105,3 +1107,23 @@ body.quiz-open { padding-bottom: 0; }
 .review-edit-footer { display: flex; justify-content: space-between; gap: 8px; }
 .review-edit-footer .text-button { font-size: 12px; font-weight: 600; }
 .review-edit-footer .review-archive { color: var(--red); }
+
+/* 示唆から、出典つきの行動をInboxへ。 */
+.insight-action { min-width: 0; margin-top: 6px; }
+.insight-action > button { font-size: var(--text-sm); color: var(--accent); }
+.insight-action-form { display: grid; gap: 8px; margin-top: 6px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-subtle); }
+.insight-action-form label { display: grid; gap: 6px; font-size: var(--text-sm); font-weight: 600; }
+.insight-action-form textarea { box-sizing: border-box; width: 100%; min-width: 0; resize: vertical; font: inherit; font-weight: 400; }
+.insight-action-form small { font-size: var(--text-sm); line-height: 1.6; color: var(--text-secondary); }
+.insight-action-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.insight-action-buttons button { white-space: nowrap; }
+.insight-action-saved { font-size: var(--text-sm); overflow-wrap: anywhere; color: var(--text-secondary); }
+.insight-action-saved a { margin-left: 8px; color: var(--accent); }
+.action-source-view { max-width: 760px; }
+.action-source-view h2 { font-size: var(--text-lg); overflow-wrap: anywhere; }
+.action-source-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+@media (max-width: 560px) {
+  .insight-action button { min-height: 40px; }
+  .insight-action-buttons { justify-content: stretch; }
+  .insight-action-buttons button { flex: 1; }
+}

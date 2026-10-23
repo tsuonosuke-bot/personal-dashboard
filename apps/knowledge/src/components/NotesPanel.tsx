@@ -6,6 +6,7 @@ import {
 import type { Knowledge, KnowledgeInsight, NoteTopic, SemanticSourceType, ThemeOrigin } from "../types";
 import type { ReviewScope } from "./ReviewView";
 import "./tagGroups.css";
+import { InsightAction } from "./InsightAction";
 
 export type NoteSelection = { kind: "question"; id: number } | { kind: "theme"; tag: string };
 
@@ -295,6 +296,7 @@ export function NotesPanel({
                                     {[type === "knowledge" ? item.meta : null, item.reason].filter(Boolean).join("・")}
                                   </small>
                                 )}
+                                {type !== "knowledge" && <InsightAction sourceType={type} sourceId={item.id} />}
                               </div>
                               <div className="question-material-actions">
                                 {item.similarity !== null && (

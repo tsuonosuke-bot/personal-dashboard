@@ -416,6 +416,31 @@ export interface GradingReport {
   comment: string;
 }
 
+export interface ActionReference { sourceType: "insight" | "journal"; sourceId: string }
+export interface ActionSource extends ActionReference { title: string; body: string; knowledgeId: string | null }
+
+export async function getActionSource(ref: ActionReference): Promise<ActionSource> {
+  const query = new URLSearchParams({ sourceType: ref.sourceType, sourceId: ref.sourceId });
+  const data = await requestJson(`/api/insight-actions?${query}`, { method: "GET" });
+  if (typeof data !== "object" || data === null) throw new ApiError("出典の内容を確認できませんでした。", 502);
+  const row = data as Record<string, unknown>;
+  if (row.sourceType !== ref.sourceType || row.sourceId !== ref.sourceId || typeof row.title !== "string"
+    || typeof row.body !== "string" || !(row.knowledgeId === null || typeof row.knowledgeId === "string")) {
+    throw new ApiError("出典の内容を確認できませんでした。", 502);
+  }
+  return row as unknown as ActionSource;
+}
+
+export async function addInsightActionToInbox(ref: ActionReference, note: string): Promise<{ id: number }> {
+  const data = await requestJson("/api/insight-actions", {
+    method: "POST", headers: { "Content-Type": "application/json", "X-Dashboard-Action": "insight-action" },
+    body: JSON.stringify({ ...ref, note }),
+  });
+  const id = typeof data === "object" && data !== null ? (data as { id?: unknown }).id : undefined;
+  if (typeof id !== "number" || !Number.isSafeInteger(id)) throw new ApiError("Inboxへの登録結果を確認できませんでした。", 502);
+  return { id };
+}
+
 /** AI採点がおかしいときに、問題・回答・採点結果をそのままInboxへ報告する。 */
 export async function reportGrading(report: GradingReport): Promise<{ id: number }> {
   const data = await requestJson("/api/grading-report", {
