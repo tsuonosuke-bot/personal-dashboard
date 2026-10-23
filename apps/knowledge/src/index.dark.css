@@ -1797,3 +1797,18 @@
 :root[data-theme="dark"] .insight-action-saved a {
   color: var(--accent);
 }
+:root[data-theme="dark"] .knowledge-answer-list > li {
+  border-bottom: 1px solid var(--border);
+}
+:root[data-theme="dark"] .knowledge-mastery-history {
+  border-top: 1px solid var(--border);
+}
+:root[data-theme="dark"] .knowledge-mastery-history > summary span {
+  color: var(--text-secondary);
+}
+:root[data-theme="dark"] .knowledge-mastery-list li {
+  border-bottom: 1px solid var(--border);
+}
+:root[data-theme="dark"] .knowledge-mastery-list time {
+  color: var(--text-secondary);
+}

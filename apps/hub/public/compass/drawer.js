@@ -36,7 +36,7 @@ export function renderDrawerItem(item, view) {
     const quickRouteMarkup = pending
       ? `<div class="detail-section quick-route-section">
           <button class="ai-triage-button inbox-ai-button" id="askAiInboxButton" type="button">AIに振り分け案を聞く</button>
-          <p class="ai-data-note">押した時だけ、本文をClaude APIへ送信します。案を確かめてから保存します。</p>
+          <p class="ai-data-note">本文をAIへ送信します。保存は案を確認してから。</p>
           <span class="quick-route-label">自分で選ぶ</span>
           <div class="quick-route-actions primary-routes" role="group" aria-label="よく使う振り分け先">
             ${PRIMARY_INBOX_ROUTES.map((key) => quickRouteButton(key, inboxQuickRoutes[key])).join("")}

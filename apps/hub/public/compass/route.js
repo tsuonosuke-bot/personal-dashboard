@@ -51,7 +51,7 @@ export function renderTriageStart(item) {
     </div>
     <div class="ai-triage-entry">
       <button class="ai-triage-button" id="askAiTriageButton" type="button">AIに整理案を聞く</button>
-      <p class="ai-data-note">押した時だけ、本文をClaude APIへ送信します。AIは案を作るだけで、外部登録は行いません。</p>
+      <p class="ai-data-note">本文をAIへ送信します。保存は案を確認してから。</p>
     </div>
     <div class="triage-divider"><span>または自分で選ぶ</span></div>
     <div class="triage-options" id="triageIntentOptions">
@@ -122,6 +122,7 @@ function renderAiSuggestion(item, result) {
       <span>${escapeHtml(triageSourceLabel())}</span>
       ${sourceTextMarkup(item.content)}
     </div>
+    <p class="ai-data-note" role="status">未保存 · 案を選んで、内容を確認してください。</p>
     <div class="ai-summary"><span>読み取り</span><p>${escapeHtml(result.summary || "整理案を作成しました。")}</p></div>
     ${questions.length > 0 ? `<form class="ai-questions" id="aiClarificationForm">
       <strong>もう少し教えてください</strong>
@@ -142,7 +143,6 @@ function renderAiSuggestion(item, result) {
         </article>`;
       }).join("")}
     </div>
-    <p class="ai-data-note">これは未保存の案です。「この案を使う」の後に内容を直してから保存します（Google Calendarは確認画面で確定します）。</p>
     <div class="drawer-actions"><button class="secondary-action" id="manualTriageAfterAi" type="button">自分で選ぶ</button><button class="secondary-action" id="askAiAgain" type="button">最初から聞き直す</button></div>`;
 
   document.getElementById("aiClarificationForm")?.addEventListener("submit", (event) => {

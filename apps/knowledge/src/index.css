@@ -1129,7 +1129,22 @@ body.quiz-open { padding-bottom: 0; }
 .action-source-view { max-width: 760px; }
 .action-source-view h2 { font-size: var(--text-lg); overflow-wrap: anywhere; }
 .action-source-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.knowledge-review-history { min-width: 0; }
+.knowledge-answer-list, .knowledge-mastery-list { list-style: none; padding: 0; margin: 12px 0; }
+.knowledge-answer-list > li { border-bottom: 1px solid var(--border); }
+.knowledge-answer-list summary { padding: 10px 0; cursor: pointer; font-size: var(--text-sm); line-height: 1.8; overflow-wrap: anywhere; }
+.knowledge-answer-list summary > * { margin-right: 8px; }
+.knowledge-answer-list summary > span { display: inline-block; white-space: nowrap; }
+.knowledge-answer-list .review-result-body { margin: 4px 0 14px; }
+.knowledge-review-history .review-result-body dd { white-space: pre-wrap; overflow-wrap: anywhere; }
+.knowledge-mastery-history { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border); font-size: var(--text-sm); }
+.knowledge-mastery-history > summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
+.knowledge-mastery-history > summary span { color: var(--text-secondary); font-weight: 400; }
+.knowledge-mastery-list li { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.knowledge-mastery-list time { color: var(--text-secondary); }
 @media (max-width: 560px) {
+  .knowledge-review-history summary { box-sizing: border-box; min-height: 40px; }
+  .knowledge-review-history button { min-height: 40px; }
   .insight-action button { min-height: 40px; }
   .insight-action-buttons { justify-content: stretch; }
   .insight-action-buttons button { flex: 1; }
