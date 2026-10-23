@@ -1031,7 +1031,8 @@ body.quiz-open { padding-bottom: 0; }
 .note-reason { color: var(--accent) !important; font-size: 12px !important; font-weight: 600; }
 .note-section .muted { margin: 0; font-size: 13px; }
 @media (max-width: 560px) {
-  .question-material { flex-direction: column; gap: 8px; }
+  .question-material { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 8px; }
+  .question-material > .insight-action { flex-basis: auto; width: 100%; }
   .question-material-actions { align-self: flex-end; }
   .note-head { flex-direction: column; }
   .note-review { width: 100%; }

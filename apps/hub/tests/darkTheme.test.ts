@@ -2,8 +2,17 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { buildDarkTheme } from "../scripts/build-dark-theme.mjs";
 
 const PAGES = ["index.html", "compass/index.html", "habits/index.html", "writing/index.html", "projects/index.html", "status/index.html"];
+
+test("SVGの背景と文字の縁取りはダーク背景に追従し、アクセントのボタンは読める色を保つ", () => {
+  const css = buildDarkTheme(":root { --bg: #ffffff; --ink: #37352f; --surface: var(--bg); } .node rect { fill: var(--surface); } .label { stroke: var(--bg); fill: var(--ink); } .button { background: var(--ink); color: #fff; }", "fixture.css");
+  assert.match(css, /fill: var\(--surface\);/);
+  assert.match(css, /stroke: var\(--bg\);/);
+  assert.doesNotMatch(css, /fill: var\(--surface--light|stroke: var\(--bg--light/);
+  assert.match(css, /background: var\(--ink--light, var\(--ink\)\)/);
+});
 
 test("generated dark stylesheets are up to date with the light stylesheets", () => {
   const pkg = JSON.parse(execFileSync("node", ["-e", "process.stdout.write(require('fs').readFileSync('package.json','utf8'))"]).toString());

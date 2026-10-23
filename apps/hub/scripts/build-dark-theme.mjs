@@ -269,6 +269,8 @@ function darkDeclarations(body, tokens, isRoot) {
     const pinned = (next ?? cleanValue).replace(/var\((--[a-zA-Z0-9-]+)((?:\s*,[^()]*(?:\([^()]*\)[^()]*)*)?)\)/g, (match, name, fallback) => {
       const token = tokens.get(name);
       if (!token) return match;
+      // SVGの面と文字の縁取りに使う背景トークンも、ページの背景と一緒に切り替える。
+      if ((property === "fill" || property === "stroke") && token.role === "bg") return match;
       if ((role === "bg" && token.role === "fg") || (role === "fg" && token.role === "bg")) {
         return `var(${name}--light, var(${name}${fallback}))`;
       }
