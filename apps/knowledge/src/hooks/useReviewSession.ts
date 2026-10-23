@@ -38,9 +38,13 @@ export function useReviewSession(onAnswered?: () => void | Promise<void>, knowle
   const [error, setError] = useState<string | null>(null);
   /** この回で出した問題。飛ばした問題は出題待ちのまま残るので、手元で除く。 */
   const seen = useRef(new Set<number>());
+  /** 開始時の絞り込みを、この回の追加取得でも使う。 */
+  const activeCategories = useRef<string[]>([]);
+  const runVersion = useRef(0);
 
-  const loadNext = useCallback(async (): Promise<boolean> => {
-    const served = await serveReviewQuestions(SERVE_BATCH, [], knowledgeIds);
+  const loadNext = useCallback(async (version: number): Promise<boolean> => {
+    const served = await serveReviewQuestions(SERVE_BATCH, activeCategories.current, knowledgeIds);
+    if (version !== runVersion.current) return false;
     const fresh = served.filter((question) => !seen.current.has(question.id));
     if (fresh.length === 0) return false;
     setQuestions(fresh);
@@ -49,22 +53,28 @@ export function useReviewSession(onAnswered?: () => void | Promise<void>, knowle
   }, [knowledgeIds]);
 
   const finish = useCallback((ranOut: boolean) => {
+    runVersion.current++;
     setExhausted(ranOut);
     setFeedback(null);
     setStage("done");
     void onAnswered?.();
   }, [onAnswered]);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (categories: string[] = []) => {
+    const version = ++runVersion.current;
+    activeCategories.current = [...categories];
     seen.current = new Set();
     setOutcomes([]);
     setFeedback(null);
     setError(null);
     setStage("loading");
     try {
-      if (await loadNext()) setStage("question");
+      const loaded = await loadNext(version);
+      if (version !== runVersion.current) return;
+      if (loaded) setStage("question");
       else finish(true);
     } catch (caught) {
+      if (version !== runVersion.current) return;
       setError(caught instanceof Error ? caught.message : "問題を取得できませんでした。");
       setStage("setup");
     }
@@ -72,6 +82,7 @@ export function useReviewSession(onAnswered?: () => void | Promise<void>, knowle
 
   /** 次の問題へ。手元の問題を使い切ったら、キューから次を受け取る。 */
   const advance = useCallback(async () => {
+    const version = runVersion.current;
     setFeedback(null);
     setError(null);
     if (index + 1 < questions.length) {
@@ -81,9 +92,12 @@ export function useReviewSession(onAnswered?: () => void | Promise<void>, knowle
     }
     setStage("loading");
     try {
-      if (await loadNext()) setStage("question");
+      const loaded = await loadNext(version);
+      if (version !== runVersion.current) return;
+      if (loaded) setStage("question");
       else finish(true);
     } catch (caught) {
+      if (version !== runVersion.current) return;
       setError(caught instanceof Error ? caught.message : "次の問題を取得できませんでした。");
       finish(false);
     }
@@ -137,6 +151,8 @@ export function useReviewSession(onAnswered?: () => void | Promise<void>, knowle
   }, [advance, busy, current]);
 
   const reset = useCallback(() => {
+    runVersion.current++;
+    activeCategories.current = [];
     seen.current = new Set();
     setStage("setup");
     setQuestions([]);

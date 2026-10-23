@@ -596,6 +596,30 @@ test("キューの状態に上限到達と直近の生成結果を含める", as
   });
 });
 
+test("カテゴリ名を分割せず同じ出題キューへ渡し、ノートのID指定とも併用できる", async () => {
+  const categories = ['仕事, 判断 "基準"'];
+  for (const knowledgeIds of [undefined, [K1]]) {
+    await withServices({
+      rpc: (name, body) => {
+        assert.equal(name, knowledgeIds ? "serve_review_queue_filtered" : "serve_review_queue");
+        assert.deepEqual(body, {
+          p_limit: 30, p_categories: categories,
+          ...(knowledgeIds ? { p_knowledge_ids: knowledgeIds } : {}),
+        });
+        return [{ id: 1, knowledge_id: K1, format: "一問一答", question: "確認用の問題", choices: null, category: categories[0], expected_answer: "送信しない" }];
+      },
+    }, async () => {
+      const response = await serveRoute({ request: browserRequest("/api/review-queue/serve", {
+        limit: 30, categories, ...(knowledgeIds ? { knowledge_ids: knowledgeIds } : {}),
+      }), env });
+      assert.equal(response.status, 200);
+      const body = await response.json() as { items: Record<string, unknown>[] };
+      assert.equal(body.items[0].category, categories[0]);
+      assert.equal("expected_answer" in body.items[0], false);
+    });
+  }
+});
+
 test("キューの状態に生成を保留中のカード数を含め、移行前のDBでは0にする", async () => {
   for (const [row, expected] of [[status({ generation_held: 3 }), 3], [status(), 0]] as const) {
     await withServices({ rpc: () => row }, async () => {

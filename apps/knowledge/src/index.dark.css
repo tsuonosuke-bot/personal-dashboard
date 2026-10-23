@@ -1005,6 +1005,9 @@
 :root[data-theme="dark"] .review-session-bar {
   color: var(--text-secondary);
 }
+:root[data-theme="dark"] .review-category-picker {
+  color: var(--text-secondary);
+}
 :root[data-theme="dark"] .review-report {
   color: var(--text-secondary);
 }

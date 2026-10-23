@@ -13,6 +13,7 @@ interface Props {
   missWrong: number;
   missPartial: number;
   onStart: () => void;
+  onCategoryReview: () => void;
   onOpenMisses: () => void;
   onOpenLog: () => void;
 }
@@ -29,7 +30,7 @@ function clockTime(value: string | null | undefined): string | null {
  * 出題間隔などの仕組みの説明はヘルプページ（HelpView）に置き、ここには数字と操作だけを出す。
  */
 export function TodayLearningPanel({
-  status, loading, error, queueStatus, quizLog, missCount, missWrong, missPartial, onStart, onOpenMisses, onOpenLog,
+  status, loading, error, queueStatus, quizLog, missCount, missWrong, missPartial, onStart, onCategoryReview, onOpenMisses, onOpenLog,
 }: Props) {
   const readyDue = queueStatus?.ready_due ?? 0;
   const today = todayAnswers(quizLog);
@@ -70,9 +71,12 @@ export function TodayLearningPanel({
     <section className="card today-learning" aria-labelledby="today-learning-heading">
       <div className="today-learning-head">
         <h2 id="today-learning-heading">今日の学習</h2>
-        <button className="primary-button today-learning-start" disabled={loading || readyDue === 0} onClick={onStart}>
-          {buttonLabel}
-        </button>
+        <div className="today-learning-actions">
+          <button className="primary-button today-learning-start" disabled={loading || readyDue === 0} onClick={onStart}>
+            {buttonLabel}
+          </button>
+          <button className="text-button today-learning-category" onClick={onCategoryReview}>カテゴリを選んで復習</button>
+        </div>
       </div>
 
       {loading && <p className="muted">キューを確認中...</p>}
