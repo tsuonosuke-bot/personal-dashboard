@@ -40,6 +40,15 @@ export function isSpending(expense: Expense) {
   return amountOf(expense) !== 0 && !isIncome(expense)
 }
 
+/** 表示だけを整える。収入は集計と同じ正額、支出の相殺は負額のまま区別する。 */
+export function transactionDisplay(expense: Expense): { kind: 'income' | 'expense' | 'offset'; label: string; amount: number } {
+  const amount = amountOf(expense)
+  if (isIncome(expense)) return { kind: 'income', label: '収入', amount: Math.abs(amount) }
+  return amount < 0
+    ? { kind: 'offset', label: '支出の相殺', amount }
+    : { kind: 'expense', label: '支出', amount }
+}
+
 /** categoryが欠けた明細に充てる代替カテゴリ。 */
 export const UNCLASSIFIED_CATEGORY = '97_未分類'
 

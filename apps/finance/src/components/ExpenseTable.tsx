@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { categoryLabel, isIncome, monthKey, monthLabel, UNCLASSIFIED_CATEGORY, yen } from '../lib/finance'
+import { categoryLabel, isIncome, monthKey, monthLabel, UNCLASSIFIED_CATEGORY } from '../lib/finance'
 import type { BudgetCategory, Expense } from '../lib/types'
 import { BulkCategoryBar, type BulkCategoryResult } from './BulkCategoryBar'
+import { TransactionAmount } from './TransactionAmount'
 
 type Props = {
   expenses: Expense[]
@@ -137,6 +138,20 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
   // スマホで折りたたむ詳細条件（検索以外）のうち、既定から変えているものの数
   const activeDetailCount = [dateFrom, dateTo, type !== 'all', amountMin, amountMax, sort !== 'newest'].filter(Boolean).length
 
+  const selectionInput = (expense: Expense) => expense.category === UNCLASSIFIED_CATEGORY && (
+    <input type="checkbox" className="bulk-select" aria-label={`${expense.transaction_date} ${expense.title}を選択`}
+      checked={selectedIds.has(expense.id)} disabled={bulkBusy} onChange={() => toggleSelected(expense.id)} />
+  )
+  const pageSelectionInput = (
+    <input type="checkbox" className="bulk-select" aria-label="このページの未分類をすべて選択"
+      checked={pageAllSelected} disabled={pageSelectable.length === 0 || bulkBusy} onChange={togglePage} />
+  )
+  const editButton = (expense: Expense) => onEdit && (
+    <button type="button" className="transaction-edit" aria-label={`${expense.title}を編集`} onClick={() => onEdit(expense)}>
+      編集
+    </button>
+  )
+
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -200,20 +215,13 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
           onClearSelection={() => setSelectedIds(new Set())}
         />
       )}
-      <div className="max-h-[34rem] overflow-auto rounded-xl border border-slate-200">
-        <table className="w-full min-w-[760px] text-sm">
+      <div className="transaction-results max-h-[34rem] overflow-auto rounded-xl border border-slate-200">
+        <table className="transaction-table w-full min-w-[760px] text-sm">
           <thead className="sticky top-0 z-10 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
             <tr>
               {showSelect && (
                 <th className="w-10 px-3 py-3">
-                  <input
-                    type="checkbox"
-                    className="bulk-select"
-                    aria-label="このページの未分類をすべて選択"
-                    checked={pageAllSelected}
-                    disabled={pageSelectable.length === 0 || bulkBusy}
-                    onChange={togglePage}
-                  />
+                  {pageSelectionInput}
                 </th>
               )}
               <th className="px-4 py-3">日付</th>
@@ -229,27 +237,18 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
               <tr key={expense.id} className="border-t border-slate-100 bg-white transition hover:bg-indigo-50/40">
                 {showSelect && (
                   <td className="w-10 px-3 py-3">
-                    {expense.category === UNCLASSIFIED_CATEGORY && (
-                      <input
-                        type="checkbox"
-                        className="bulk-select"
-                        aria-label={`${expense.transaction_date} ${expense.title}を選択`}
-                        checked={selectedIds.has(expense.id)}
-                        disabled={bulkBusy}
-                        onChange={() => toggleSelected(expense.id)}
-                      />
-                    )}
+                    {selectionInput(expense)}
                   </td>
                 )}
                 <td className="whitespace-nowrap px-4 py-3 text-slate-600">{expense.transaction_date}</td>
-                <td className={`whitespace-nowrap px-4 py-3 text-right font-semibold ${isIncome(expense) ? 'text-sky-700' : 'text-slate-800'}`}>
-                  {yen.format(Number(expense.amount))}
+                <td className="whitespace-nowrap px-4 py-3 text-right">
+                  <TransactionAmount expense={expense} />
                 </td>
                 <td className="whitespace-nowrap px-4 py-3">
                   <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{categoryLabel(expense.category)}</span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-slate-600">{expense.payer ?? '—'}</td>
-                <td className="px-4 py-3">
+                <td className="transaction-description px-4 py-3">
                   <p className="font-medium text-slate-800">{expense.title}</p>
                   {expense.memo && (
                     <p className="mt-0.5 max-w-xl truncate text-xs text-slate-500" title={expense.memo}>{expense.memo}</p>
@@ -257,20 +256,38 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
                 </td>
                 {onEdit && (
                   <td className="whitespace-nowrap px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:border-indigo-300 hover:bg-indigo-50"
-                      aria-label={`${expense.title}を編集`}
-                      onClick={() => onEdit(expense)}
-                    >
-                      編集
-                    </button>
+                    {editButton(expense)}
                   </td>
                 )}
               </tr>
             ))}
           </tbody>
         </table>
+        <div className="transaction-mobile">
+          {showSelect && <label className="transaction-page-selection">{pageSelectionInput}<span>このページの未分類をすべて選択</span></label>}
+          <ul className="transaction-cards" aria-label="収支明細">
+            {visibleRows.map((expense) => (
+              <li key={expense.id} className="transaction-card">
+                <div className="transaction-card-top">
+                  <time dateTime={expense.transaction_date}>{expense.transaction_date}</time>
+                  <TransactionAmount expense={expense} />
+                </div>
+                <h3 className="transaction-card-title">{expense.title}</h3>
+                <dl className="transaction-card-meta">
+                  <div><dt>カテゴリ</dt><dd>{categoryLabel(expense.category)}</dd></div>
+                  <div><dt>支払者</dt><dd>{expense.payer ?? '—'}</dd></div>
+                </dl>
+                {expense.memo && <p className="transaction-card-memo" title={expense.memo}>{expense.memo}</p>}
+                {(onEdit || (showSelect && expense.category === UNCLASSIFIED_CATEGORY)) && (
+                  <div className="transaction-card-actions">
+                    {showSelect && expense.category === UNCLASSIFIED_CATEGORY && <label>{selectionInput(expense)}<span>一括変更に選択</span></label>}
+                    {editButton(expense)}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
         {filtered.length === 0 && (
           <div className="grid h-32 place-items-center bg-white text-sm text-slate-500">条件に一致する明細はありません</div>
         )}
@@ -283,7 +300,7 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
               <li key={expense.id}>
                 <span>{expense.transaction_date}</span>
                 <strong>{expense.title}</strong>
-                <span>{yen.format(Number(expense.amount))}</span>
+                <TransactionAmount expense={expense} />
                 <small>取消 {new Date(expense.voided_at ?? '').toLocaleString('ja-JP')}</small>
                 <button type="button" onClick={() => onRestore(expense)} disabled={restoring} aria-label={`${expense.title}を復元`}>復元</button>
               </li>

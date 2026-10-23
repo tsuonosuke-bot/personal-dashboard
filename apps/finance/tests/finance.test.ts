@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { CATEGORY_COLORS, categoryColor } from '../src/lib/chartColors.ts'
-import { buildMonthlyTrendData, filterExpensesByCategories, filterExpensesByCategory, filterExpensesByPayer, isIncome, isSpending, summarizeMonth, summarizeUnclassified } from '../src/lib/finance.ts'
+import { buildMonthlyTrendData, filterExpensesByCategories, filterExpensesByCategory, filterExpensesByPayer, isIncome, isSpending, summarizeMonth, summarizeUnclassified, transactionDisplay } from '../src/lib/finance.ts'
 import type { Expense } from '../src/lib/types.ts'
 
 const expenses: Expense[] = [
@@ -33,6 +33,34 @@ const expenses: Expense[] = [
 
 test('カテゴリ未選択では全明細を返す', () => {
   assert.equal(filterExpensesByCategory(expenses, ''), expenses)
+})
+
+test('収入は集計と同じ正額で表示し、支出と支出の相殺を区分と符号の両方で区別する', () => {
+  const row = expenses[0]
+  assert.deepEqual(transactionDisplay({ ...row, amount: -380000, category: '80_収入' }), { kind: 'income', label: '収入', amount: 380000 })
+  // 既存の集計が受け入れる正額保存の収入も、表示の向きは同じ。
+  assert.deepEqual(transactionDisplay({ ...row, amount: 380000, category: '80_収入' }), { kind: 'income', label: '収入', amount: 380000 })
+  assert.deepEqual(transactionDisplay(row), { kind: 'expense', label: '支出', amount: 1200 })
+  assert.deepEqual(transactionDisplay({ ...row, amount: -500 }), { kind: 'offset', label: '支出の相殺', amount: -500 })
+  assert.deepEqual(transactionDisplay({ ...row, amount: 0 }), { kind: 'expense', label: '支出', amount: 0 })
+})
+
+test('表示の変換では元の取引や集計・月別推移の値を変更しない', () => {
+  const rows = [
+    Object.freeze({ ...expenses[0], id: 10, amount: -380000, category: '80_収入' }),
+    Object.freeze({ ...expenses[0], id: 11, amount: 5000 }),
+    Object.freeze({ ...expenses[0], id: 12, amount: -500 }),
+  ]
+  const original = structuredClone(rows)
+  const summary = summarizeMonth(rows, '2026-09')
+  const trend = buildMonthlyTrendData(rows, '2026-09')
+  const display = rows.map(transactionDisplay)
+  assert.equal(display[0].amount, summary.income)
+  assert.equal(summary.spending, 4500)
+  assert.equal(summary.balance, 375500)
+  assert.deepEqual(rows, original)
+  assert.deepEqual(summarizeMonth(rows, '2026-09'), summary)
+  assert.deepEqual(buildMonthlyTrendData(rows, '2026-09'), trend)
 })
 
 test('カテゴリキーが完全一致する明細だけを返す', () => {

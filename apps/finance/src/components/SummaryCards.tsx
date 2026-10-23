@@ -28,7 +28,7 @@ export function SummaryCards({ expenses, selectedMonth }: Props) {
       <div className="summary-card border-l-4 border-l-sky-500">
         <p className="summary-label">選択月の収入</p>
         <p className="summary-value text-sky-700">{yen.format(summary.income)}</p>
-        <p className="summary-note">80_収入カテゴリを集計</p>
+        <p className="summary-note">{monthLabel(summary.selectedMonth)}</p>
       </div>
       <div className="summary-card border-l-4 border-l-emerald-500">
         <p className="summary-label">選択月の収支</p>
