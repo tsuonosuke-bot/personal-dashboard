@@ -1,7 +1,7 @@
 // Projectの抽出・並び順・日付と週次レビューの計算。DOMや通信には触れない。
 
 
-export function createProjectModel({ state }) {
+export function createProjectModel({ state, now = () => new Date() }) {
   function completedDate(value) {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "";
@@ -24,7 +24,7 @@ export function createProjectModel({ state }) {
   }
 
   function todayTokyo() {
-    return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo" }).format(new Date());
+    return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo" }).format(now());
   }
 
   function dayDiff(from, to) {
@@ -103,6 +103,8 @@ export function createProjectModel({ state }) {
     const weekStart = weekStartTokyo(today);
     const projects = state.data?.projects || [];
     const open = projects.filter((project) => ["active", "waiting", "on_hold"].includes(project.status));
+    const targetOverdue = open.filter((project) => project.targetOn && project.targetOn < today)
+      .sort((left, right) => left.targetOn.localeCompare(right.targetOn) || left.id - right.id);
     const overdue = open.flatMap((project) => project.actions
       .filter((action) => (action.status === "next" || action.status === "queued") && action.dueOn && action.dueOn < today)
       .map((action) => ({ project, action })))
@@ -118,8 +120,8 @@ export function createProjectModel({ state }) {
         && new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo" }).format(new Date(action.completedAt)) >= weekStart),
     })).filter((entry) => entry.actions.length).sort((left, right) => right.actions.length - left.actions.length);
     return {
-      today, weekStart, overdue, attention, reviewDue, stale, doneThisWeek,
-      pending: overdue.length + attention.length + reviewDue.length + stale.length,
+      today, weekStart, targetOverdue, overdue, attention, reviewDue, stale, doneThisWeek,
+      pending: overdue.length + attention.length + reviewDue.length + stale.length + targetOverdue.length,
     };
   }
 

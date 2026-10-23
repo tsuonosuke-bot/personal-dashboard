@@ -9,6 +9,8 @@ import {
   type GoogleCalendarEventSnapshot,
 } from "./googleCalendar.ts";
 import { supabaseHeaders } from "./supabaseAuth.ts";
+import { TODO_PROJECT_SELECT, linkedProjectAction, projectTodoRpc, validNextActionResolution,
+  validProjectTimestamp, type NextActionResolution } from "./projectActionTodos.ts";
 
 type ScheduledActionStatus = "pending" | "completed" | "skipped";
 type ScheduledActionCommand = "complete" | "skip" | "reopen" | "reschedule" | "recreate";
@@ -76,6 +78,8 @@ export interface ScheduledActionInput {
     calendarEtag: string | null;
     schedule: CalendarSchedule | null;
   };
+  projectAction?: { id: number; updatedAt: string } | null;
+  resolution?: NextActionResolution | null;
 }
 
 type ValidationResult =
@@ -83,7 +87,7 @@ type ValidationResult =
   | { ok: false; status: number; error: string };
 
 const MAX_REQUEST_CHARS = 6_000;
-const ACTION_COLUMNS = "id,source_route_id,status,current_schedule,completed_at,note,reschedule_count,last_calendar_sync_at,created_at,updated_at,google_event_id,calendar_title,calendar_url,calendar_etag,calendar_state";
+const ACTION_COLUMNS = `id,source_route_id,status,current_schedule,completed_at,note,reschedule_count,last_calendar_sync_at,created_at,updated_at,google_event_id,calendar_title,calendar_url,calendar_etag,calendar_state,${TODO_PROJECT_SELECT}`;
 const statusSet = new Set<ScheduledActionStatus>(["pending", "completed", "skipped"]);
 const commandSet = new Set<ScheduledActionCommand>(["complete", "skip", "reopen", "reschedule", "recreate"]);
 
@@ -155,15 +159,20 @@ function responseError(response: Response, table: string): DashboardError {
 }
 
 async function fetchRows(env: DashboardEnv, table: string, select: string, order?: string): Promise<unknown[]> {
-  const endpoint = restEndpoint(env, table);
-  endpoint.searchParams.set("select", select);
-  if (order) endpoint.searchParams.set("order", order);
-  endpoint.searchParams.set("limit", "1000");
-  const response = await supabaseFetch(env, endpoint);
-  if (!response.ok) throw responseError(response, table);
-  const rows: unknown = await response.json();
-  if (!Array.isArray(rows)) throw new DashboardError("SUPABASE_RESPONSE_INVALID", `${table} returned invalid data.`);
-  return rows;
+  const all: unknown[] = [];
+  for (let offset = 0; ; offset += 1000) {
+    const endpoint = restEndpoint(env, table);
+    endpoint.searchParams.set("select", select);
+    if (order) endpoint.searchParams.set("order", order);
+    endpoint.searchParams.set("limit", "1000");
+    endpoint.searchParams.set("offset", String(offset));
+    const response = await supabaseFetch(env, endpoint);
+    if (!response.ok) throw responseError(response, table);
+    const rows: unknown = await response.json();
+    if (!Array.isArray(rows)) throw new DashboardError("SUPABASE_RESPONSE_INVALID", `${table} returned invalid data.`);
+    all.push(...rows);
+    if (rows.length < 1000) return all;
+  }
 }
 
 function normalizeAction(row: ScheduledActionRow): StoredAction {
@@ -219,6 +228,7 @@ export async function listScheduledActions(env: DashboardEnv) {
     fetchRows(env, "wants", "id,content,source_inbox_id", "created_at.desc,id.desc"),
   ]);
   const actions = actionRows.map((row) => normalizeAction(row as ScheduledActionRow));
+  const projectLinks = new Map(actions.map((action, index) => [action.id, linkedProjectAction(actionRows[index])]));
   const routes = new Map<number, CalendarRouteRow>();
   routeRows.forEach((row) => {
     if (isPlainObject(row) && integer(row.id)) routes.set(integer(row.id)!, row as CalendarRouteRow);
@@ -257,6 +267,7 @@ export async function listScheduledActions(env: DashboardEnv) {
         lastCalendarSyncAt: action.lastCalendarSyncAt,
         createdAt: action.createdAt,
         updatedAt: action.updatedAt,
+        linkedProjectAction: projectLinks.get(action.id) ?? null,
       };
     }
     const route = routes.get(action.sourceRouteId);
@@ -284,6 +295,7 @@ export async function listScheduledActions(env: DashboardEnv) {
       lastCalendarSyncAt: calendarSync === "live" ? new Date().toISOString() : action.lastCalendarSyncAt,
       createdAt: action.createdAt,
       updatedAt: action.updatedAt,
+      linkedProjectAction: projectLinks.get(action.id) ?? null,
     };
   });
 
@@ -331,10 +343,19 @@ export async function readScheduledActionInput(request: Request): Promise<Valida
   } catch {
     return { ok: false, status: 400, error: "JSONの形式が正しくありません。" };
   }
-  if (!isPlainObject(value) || !exactKeys(value, ["id", "command", "note", "schedule", "original"])) {
+  if (!isPlainObject(value) || !exactKeys(value, ["id", "command", "note", "schedule", "original", ...["projectAction", "resolution"].filter((key) => isPlainObject(value) && key in value)])) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
   const id = integer(value.id);
+  const projectAction = value.projectAction;
+  if (projectAction !== undefined && projectAction !== null
+    && (!isPlainObject(projectAction) || !exactKeys(projectAction, ["id", "updatedAt"])
+      || !integer(projectAction.id) || !validProjectTimestamp(projectAction.updatedAt))) {
+    return { ok: false, status: 400, error: "紐づくProjectタスクの最新情報を確認してください。" };
+  }
+  if (value.resolution !== undefined && value.resolution !== null && !validNextActionResolution(value.resolution)) {
+    return { ok: false, status: 400, error: "Next Action終了後の扱いを確認してください。" };
+  }
   const command = typeof value.command === "string" && commandSet.has(value.command as ScheduledActionCommand)
     ? value.command as ScheduledActionCommand
     : null;
@@ -386,6 +407,8 @@ export async function readScheduledActionInput(request: Request): Promise<Valida
         calendarEtag,
         schedule: originalSchedule,
       },
+      ...(projectAction !== undefined ? { projectAction: projectAction as { id: number; updatedAt: string } | null } : {}),
+      ...(value.resolution !== undefined ? { resolution: value.resolution as NextActionResolution | null } : {}),
     },
   };
 }
@@ -558,15 +581,12 @@ export async function updateScheduledAction(env: DashboardEnv, input: ScheduledA
     return { id: updated.id, status: updated.status, schedule: updated.schedule, rescheduleCount: updated.rescheduleCount };
   }
 
-  const nextStatus: ScheduledActionStatus = input.command === "complete"
-    ? "completed"
-    : input.command === "skip"
-      ? "skipped"
-      : "pending";
-  const updated = await patchAction(env, current, {
-    status: nextStatus,
-    completed_at: nextStatus === "completed" ? new Date().toISOString() : null,
-    note: input.note,
-  });
-  return { id: updated.id, status: updated.status, completedAt: updated.completedAt, note: updated.note, updatedAt: updated.updatedAt };
+  const result = await projectTodoRpc(env, "update_linked_todo", { p_request: {
+    todoId: input.id, todoUpdatedAt: input.original.updatedAt, todoStatus: input.original.status,
+    actionId: input.projectAction?.id ?? null, actionUpdatedAt: input.projectAction?.updatedAt ?? null,
+    command: input.command, note: input.note, resolution: input.resolution ?? null,
+  } });
+  if (!isPlainObject(result) || integer(result.id) !== input.id || !statusSet.has(result.status as ScheduledActionStatus)
+    || !validTimestamp(result.updatedAt)) throw new DashboardError("SUPABASE_RESPONSE_INVALID", "Invalid execution update.");
+  return result;
 }

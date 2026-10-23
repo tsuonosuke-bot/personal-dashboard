@@ -8,6 +8,7 @@ import { escapeHtml, formatCalendarSchedule, setDrawerTitle, showToast, sourceTe
 import { els, state } from "./state.js";
 import { refreshGoogleCalendarConnection } from "./todos.js";
 import { continueInboxTriage } from "./triage-flow.js";
+import { renderSf6Route } from "./sf6-route.js";
 
 export function triageSourceLabel(view = state.triageSource) {
   return view === "inbox" ? "元のInbox" : "元のWant";
@@ -29,6 +30,7 @@ export function startQuickWantRoute(item, key) {
 
 export function startInboxRoute(item, key) {
   if (item.status !== "pending") return;
+  if (key === "sf6") { renderSf6Route(item); return; }
   if (key === DEFER_ROUTE) {
     renderDeferForm(item);
     return;
@@ -57,7 +59,9 @@ export function renderTriageStart(item) {
     <div class="triage-options" id="triageIntentOptions">
       ${Object.entries(routeIntentMeta).map(([key, meta]) => `<button class="triage-option" type="button" data-intent="${key}"><strong>${escapeHtml(meta.label)}</strong><span>${escapeHtml(meta.description)}</span></button>`).join("")}
     </div>
+    ${state.triageSource === "inbox" ? '<button class="secondary-action" id="sf6TriageButton" type="button">SF6へ整理する</button>' : ""}
     <div class="drawer-actions"><button class="secondary-action" id="cancelTriage" type="button">戻る</button></div>`;
+  document.getElementById("sf6TriageButton")?.addEventListener("click", () => renderSf6Route(item));
   document.getElementById("askAiTriageButton").addEventListener("click", () => requestAiTriage(item));
   document.querySelectorAll("[data-intent]").forEach((button) => button.addEventListener("click", () => renderDestinationStep(item, button.dataset.intent)));
   document.getElementById("cancelTriage").addEventListener("click", () => renderDrawerItem(item, state.triageSource));

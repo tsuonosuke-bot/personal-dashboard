@@ -7,6 +7,7 @@ import { closeItem, renderInboxEditForm, renderItemEditForm, saveWantCategory, w
 import { calendarSchedule, escapeHtml, formatCalendarSchedule, formatDate, setDrawerTitle, showToast, sourceChipMarkup, splitInboxSource } from "./format.js";
 import { canCloseItem, itemStatusLabel, syncCompassRoute } from "./list.js";
 import { startProjectRoute } from "./project-route.js";
+import { loadSf6InboxRelation } from "./sf6-route.js";
 import { renderRouteCompletion, renderTriageStart, requestAiTriage, startInboxRoute, startQuickWantRoute } from "./route.js";
 import { els, state } from "./state.js";
 import { renderTodoDrawer } from "./todos.js";
@@ -51,7 +52,7 @@ export function renderDrawerItem(item, view) {
             <button class="project-route-action" type="button" data-project-route><strong>Projectとして進める</strong><small>完了条件と最初のNext Actionを決める</small></button>
           </details>
         </div>`
-      : `<div class="detail-section"><span>整理結果</span><p>${escapeHtml(item.result || "整理結果はありません")}</p></div>`;
+      : `<div class="detail-section"><span>整理結果</span><p>${escapeHtml(item.result || "整理結果はありません")}</p><div id="sf6InboxRelation"></div></div>`;
     els.drawerBody.innerHTML = `${meta}
       ${quickRouteMarkup}
       <div class="drawer-actions">
@@ -60,6 +61,7 @@ export function renderDrawerItem(item, view) {
       </div>
       <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
     document.getElementById("editInboxButton").addEventListener("click", () => renderInboxEditForm(item));
+    if (!pending) loadSf6InboxRelation(item, document.getElementById("sf6InboxRelation"));
     document.getElementById("askAiInboxButton")?.addEventListener("click", () => requestAiTriage(item));
     document.getElementById("triageInboxButton")?.addEventListener("click", () => renderTriageStart(item));
     els.drawerBody.querySelectorAll("[data-inbox-route]").forEach((button) => button.addEventListener("click", () => startInboxRoute(item, button.dataset.inboxRoute)));

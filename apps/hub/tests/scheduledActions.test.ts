@@ -157,11 +157,13 @@ test("完了はToDoだけを競合安全に更新しGoogle Calendarを変更し�
     const url = new URL(String(input));
     if (url.hostname.includes("google")) calendarCalled = true;
     if (url.pathname.endsWith("/scheduled_actions") && !init?.method) return Response.json([actionRow()]);
-    if (url.pathname.endsWith("/scheduled_actions") && init?.method === "PATCH") {
+    if (url.pathname.endsWith("/rpc/update_linked_todo") && init?.method === "POST") {
       const body = JSON.parse(String(init.body));
-      assert.equal(body.status, "completed");
-      assert.equal(typeof body.completed_at, "string");
-      return Response.json([actionRow({ status: "completed", completed_at: body.completed_at, updated_at: "2026-09-22T02:00:00Z" })]);
+      assert.deepEqual(body.p_request, {
+        todoId: 7, todoUpdatedAt: updatedAt, todoStatus: "pending", actionId: null, actionUpdatedAt: null,
+        command: "complete", note: "実施済み", resolution: null,
+      });
+      return Response.json({ id: 7, status: "completed", completedAt: "2026-09-22T02:00:00Z", updatedAt: "2026-09-22T02:00:00Z", note: "実施済み" });
     }
     throw new Error(`Unexpected request: ${url}`);
   };

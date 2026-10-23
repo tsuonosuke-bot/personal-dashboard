@@ -17,7 +17,7 @@ Projectを単なる保管フォルダにせず、完了条件と現在のNext Ac
 
 1. 新しいProjectには、Project名・完了条件・最初のNext Actionを設定する。
 2. 日々はProject全体ではなく、現在のNext Actionから着手する。
-3. Next Actionを完了したら、次のいずれかを必ず選ぶ。
+3. Next Actionを完了・見送りにしたら、次のいずれかを必ず選ぶ。
    - 次のActionを設定して続ける。
    - 目標達成としてProjectを完了する。
    - 相手・結果待ちにして、待っている内容と再確認日を設定する。
@@ -34,6 +34,18 @@ Projectを単なる保管フォルダにせず、完了条件と現在のNext Ac
 - Action化すると、現在のNext Actionが空ならそのActionをNextにし、すでにNextがあれば「あとで行うAction」へ追加する。
 - Projectへの紐づけと、元のInboxを整理済み／Wantを完了にする更新は同じDB処理で確定する。片側だけ成功する状態は作らない。
 - 未整理の関連アイテム、またはNext ActionのないActive Projectは「要確認」として表示する。
+
+## ToDoとの関係
+
+- 既存のProject Actionと既存ToDoを利用者が選び、`project_action_todos`で1対1に紐づける。名前一致による自動リンクや新しい予定の作成はしない。
+- 実行状態はToDoが正本。completed→done、skipped→cancelled、再開→queued。再開でNext Actionへ自動昇格させない。
+- 完了・見送りは両レコードと必要なNext分岐を単一DB RPCで確定し、Google Calendarは変更しない。未リンクのToDoも同じRPCでロック後に関連を検査する。
+- Nextが終わる場合は必ず4分岐を選ぶ。状態が異なる2件を紐づけてNextが終わる場合も同じ。終了済みProjectのToDoを再開する場合は先に解除する。
+- 日時は既存ToDo/Calendarの予定を全表示面へ投影する。Actionのstart_on/due_onは保存したまま直接編集を拒否し、ToDoの既存ETag付き日程変更へ案内する。
+- 解除は関連行だけを削除し、両側updated_atを更新する。両記録/Calendarは残り、Actionの独立した日付に戻る。解除確認で復帰後の日付を示す。
+- Calendar取消syncはToDoロック後に関連を再確認し、リンク済みまたは日程履歴があるToDoを取消状態で保持する。リンクも履歴もないpendingだけ削除する。
+- 新規リンクはopen Projectに限り、done/cancelledのActionや完了/見送りToDoも状態差分を確認して選択できる。終了済みProjectのリンク解除は可能。
+- 関連ToDoへのリンクは共通の`history=1`付き詳細URLを使い、完了・見送り後も直接開く。既存Hub/Todayの通常URLは従来どおり終了後に一覧へ戻す。アーカイブ用の変更・再開機能は追加しない。
 
 ## 状態
 
@@ -56,8 +68,10 @@ Projectを単なる保管フォルダにせず、完了条件と現在のNext Ac
 ## レビュー
 
 - 毎日: Next Actionを確認する。
-- 毎週: Projects画面の「週次レビュー」タブで、期限超過のタスク・要確認・再確認／見直し日が来た待機・保留・停滞を確認し、
+- 毎週: Projects画面の「週次レビュー」タブで、目標期限を過ぎたProject・期限超過のタスク・要確認・再確認／見直し日が来た待機・保留・停滞を確認し、
   Projectの完了条件と次の一手を更新する。同じタブで今週完了したタスクも振り返る。
+- 目標期限超過: active/waiting/on_holdでtarget_onがJSTの今日より前。古い順、同日はID順。今日・未来・未設定・completed/droppedは除外する。
+- 見直し項目数: 各欄の項目数の合計。同じProjectが複数理由に該当すれば別々に数える。今週完了は見直し項目数に含めない。
 - 停滞: 進行中のProjectで、Project・Action・マイルストンのどれも14日以上更新がないもの。一覧・週次レビュー・Hubで目立たせる。
 
 ## 安全な導入順序

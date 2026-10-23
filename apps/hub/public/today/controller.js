@@ -4,6 +4,7 @@ import { escapeHtml } from "../shared/html.js";
 import { todoPill, createTodayView } from "./view.js";
 import { requestJson, sendJson, SOURCES } from "./api.js";
 import { todayElements, createTodayState } from "./state.js";
+import { chooseTodoNextResolution } from "../shared/project-todo-link.js";
 
 export function createTodayPanel(root) {
   const els = todayElements(document);
@@ -49,8 +50,17 @@ export function createTodayPanel(root) {
     return state.todos.data?.items?.find((item) => item.id === id) || null;
   }
 
-  function updateTodo(item, command, schedule = null) {
-    return sendJson("/api/scheduled-actions", "PATCH", "scheduled-todo-update", todoRequestBody(item, command, schedule));
+  async function updateTodo(item, command, schedule = null) {
+    const send = (resolution = null) => sendJson("/api/scheduled-actions", "PATCH", "scheduled-todo-update", {
+      ...todoRequestBody(item, command, schedule), ...(resolution ? { resolution } : {}),
+    });
+    let result;
+    if (item.linkedProjectAction?.status === "next" && ["complete", "skip"].includes(command)) {
+      const selected = await chooseTodoNextResolution(item.linkedProjectAction, command, async (resolution) => { result = await send(resolution); });
+      if (!selected) throw new Error("変更をキャンセルしました。");
+    } else result = await send();
+    if (item.linkedProjectAction) void load("projects");
+    return result;
   }
 
   // 一覧の取り直しはGoogleカレンダーの照会を伴って遅いので、保存の応答をすぐ画面に反映し、
@@ -83,7 +93,7 @@ export function createTodayPanel(root) {
     button.classList.add("is-on");
     try {
       applyTodoResult(id, await updateTodo(item, "complete"));
-      showToast(`「${item.title}」を完了にしました`, async () => {
+      showToast(`「${item.title}」を完了にしました`, item.linkedProjectAction ? null : async () => {
         const fresh = findTodo(id);
         if (!fresh || fresh.status !== "completed") throw new Error("ToDoの最新状態を確認できませんでした。");
         applyTodoResult(id, await updateTodo(fresh, "reopen"));
@@ -154,6 +164,12 @@ export function createTodayPanel(root) {
   function completeProjectTask(actionId, button) {
     const found = findProjectAction(actionId);
     if (!found) return;
+    if (found.action.linkedTodo && found.action.status === "next") {
+      button.disabled = true;
+      void updateTodo(found.action.linkedTodo, "complete").then(() => { void load("projects"); void load("todos"); showToast("ToDoとProjectタスクを完了しました。"); })
+        .catch((error) => { button.disabled = false; showToast(error.message); });
+      return;
+    }
     if (found.action.status === "queued") {
       void completeQueuedAction(found, button);
       return;
@@ -178,6 +194,7 @@ export function createTodayPanel(root) {
         content: null,
         dueOn: null,
         startOn: null,
+        ...(found.action.linkedTodo ? { todo: { id: found.action.linkedTodo.id, updatedAt: found.action.linkedTodo.updatedAt, status: found.action.linkedTodo.status } } : {}),
       });
       state.projects = { status: "ready", data: payload, error: null };
       render();
@@ -203,6 +220,7 @@ export function createTodayPanel(root) {
         nextActionContent,
         waitingFor: null,
         reviewOn: null,
+        ...(found.action.linkedTodo ? { todo: { id: found.action.linkedTodo.id, updatedAt: found.action.linkedTodo.updatedAt, status: found.action.linkedTodo.status } } : {}),
       });
       state.projects = { status: "ready", data: payload, error: null };
       state.resolvingActionId = null;

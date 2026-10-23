@@ -1,5 +1,7 @@
 import { fetchSupabase } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
+import { ACTION_TODO_SELECT, actionTodoId, projectTodoRpc, publicProjectTodoError, validTodoSnapshot, type TodoSnapshot } from "./projectActionTodos.ts";
+import { listScheduledActions } from "./scheduledActions.ts";
 
 const PAGE_SIZE = 1_000;
 const MAX_REQUEST_CHARS = 20_000;
@@ -10,7 +12,7 @@ const MAX_ACTION_CHARS = 500;
 const MAX_WAITING_FOR_CHARS = 240;
 
 const PROJECT_SELECT = "id,title,outcome,theme,status,target_on,review_on,waiting_for,completed_at,created_at,updated_at";
-const ACTION_SELECT = "id,project_id,project_item_id,milestone_id,content,status,due_on,start_on,sort_order,waiting_for,completed_at,created_at,updated_at";
+const ACTION_SELECT = `id,project_id,project_item_id,milestone_id,content,status,due_on,start_on,sort_order,waiting_for,completed_at,created_at,updated_at,${ACTION_TODO_SELECT}`;
 const MILESTONE_SELECT = "id,project_id,title,due_on,sort_order,status,completed_at,created_at,updated_at";
 /** active Projectがこの日数動かないと「停滞」とみなす（#162）。 */
 export const STALE_DAYS = 14;
@@ -93,6 +95,10 @@ export interface ProjectAction {
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  linkedTodo?: Awaited<ReturnType<typeof listScheduledActions>>["items"][number];
+  /** Stored independent dates, restored on unlink; dueOn/startOn above are effective dates. */
+  storedDueOn?: string | null;
+  storedStartOn?: string | null;
 }
 
 export interface ProjectMilestone {
@@ -220,6 +226,8 @@ export interface ProjectActionResolveInput {
   nextActionContent: string | null;
   waitingFor: string | null;
   reviewOn: string | null;
+  todo?: TodoSnapshot;
+  terminal?: "done" | "cancelled";
 }
 
 export const PROJECT_ACTION_OPERATIONS = ["edit", "complete", "cancel", "pin", "move_up", "move_down"] as const;
@@ -235,6 +243,7 @@ export interface ProjectActionUpdateInput {
   startOn: string | null;
   /** editのときのマイルストン（#161）。nullはマイルストンなし。 */
   milestoneId: number | null;
+  todo?: TodoSnapshot;
 }
 
 type ValidationResult<T> =
@@ -344,6 +353,10 @@ async function projectResponseError(response: Response, source: string): Promise
     // The public error never exposes database detail.
   }
   const markers: Array<[string, string, number]> = [
+    ["TODO_SNAPSHOT_REQUIRED", "TODO_SNAPSHOT_REQUIRED", 409],
+    ["TODO_LINK_CONFLICT", "TODO_LINK_CONFLICT", 409],
+    ["TODO_CONFLICT", "TODO_CONFLICT", 409],
+    ["TODO_DATES_OWNED", "TODO_DATES_OWNED", 409],
     ["PROJECT_SOURCE_ALREADY_LINKED", "PROJECT_SOURCE_ALREADY_LINKED", 409],
     ["project_items_one_project_per_source_idx", "PROJECT_SOURCE_ALREADY_LINKED", 409],
     ["PROJECT_SOURCE_CONFLICT", "PROJECT_SOURCE_CONFLICT", 409],
@@ -614,7 +627,26 @@ export async function loadProjects(env: DashboardEnv, now = new Date()) {
     fetchRows(env, "project_items", ITEM_SELECT, "updated_at.desc,id.desc") as Promise<ProjectItemRow[]>,
     fetchRows(env, "project_milestones", MILESTONE_SELECT, "sort_order.asc,id.asc") as Promise<ProjectMilestoneRow[]>,
   ]);
-  return normalizeProjects(projects, actions, items, milestones, now);
+  const normalized = normalizeProjects(projects, actions, items, milestones, now);
+  const linkedIds = new Map(actions.flatMap((row) => {
+    const todoId = actionTodoId(row);
+    return todoId ? [[positiveInteger(row.id)!, todoId] as const] : [];
+  }));
+  if (linkedIds.size) {
+    const todos = new Map((await listScheduledActions(env)).items.map((todo) => [todo.id, todo]));
+    for (const project of normalized.projects) for (const action of project.actions) {
+      const todoId = linkedIds.get(action.id);
+      if (!todoId) continue;
+      const todo = todos.get(todoId);
+      if (!todo) throw new DashboardError("SUPABASE_RESPONSE_INVALID", "Linked ToDo is missing.");
+      action.storedStartOn = action.startOn;
+      action.storedDueOn = action.dueOn;
+      action.startOn = todo.schedule.date;
+      action.dueOn = todo.schedule.date;
+      action.linkedTodo = todo;
+    }
+  }
+  return normalized;
 }
 
 export function validateProjectMutationRequest(
@@ -622,7 +654,7 @@ export function validateProjectMutationRequest(
   expectedHeader:
     | "project-create" | "project-update" | "project-action-create" | "project-action-resolve" | "project-action-update"
     | "project-milestone-update"
-    | "project-source-route" | "project-item-process",
+    | "project-source-route" | "project-item-process" | "project-todo-link",
 ): { status: number; error: string } | null {
   let expectedOrigin: string;
   try {
@@ -855,7 +887,10 @@ export async function readProjectActionResolveInput(request: Request): Promise<V
   const parsed = await readJson(request);
   if (!parsed.ok) return parsed;
   const keys = ["actionId", "originalUpdatedAt", "resolution", "nextActionId", "nextActionContent", "waitingFor", "reviewOn"];
-  if (!hasExactKeys(parsed.value, keys)) return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
+  const optionalKeys = ["todo", "terminal"].filter((key) => key in parsed.value);
+  if (!hasExactKeys(parsed.value, [...keys, ...optionalKeys])
+    || (parsed.value.todo !== undefined && !validTodoSnapshot(parsed.value.todo))
+    || (parsed.value.terminal !== undefined && parsed.value.terminal !== "done" && parsed.value.terminal !== "cancelled")) return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   const actionId = positiveInteger(parsed.value.actionId);
   const originalUpdatedAt = timestamp(parsed.value.originalUpdatedAt);
   const nextActionId = parsed.value.nextActionId === null ? null : positiveInteger(parsed.value.nextActionId);
@@ -879,7 +914,9 @@ export async function readProjectActionResolveInput(request: Request): Promise<V
   }
   return {
     ok: true,
-    value: { actionId, originalUpdatedAt, resolution, nextActionId, nextActionContent, waitingFor, reviewOn },
+    value: { actionId, originalUpdatedAt, resolution, nextActionId, nextActionContent, waitingFor, reviewOn,
+      ...(parsed.value.todo ? { todo: parsed.value.todo as TodoSnapshot } : {}),
+      ...(parsed.value.terminal ? { terminal: parsed.value.terminal as "done" | "cancelled" } : {}) },
   };
 }
 
@@ -888,7 +925,8 @@ export async function readProjectActionUpdateInput(request: Request): Promise<Va
   if (!parsed.ok) return parsed;
   // milestoneId は編集のときに送る（#161）。Hubなどの完了操作は送らない。
   const keys = ["actionId", "originalUpdatedAt", "operation", "content", "dueOn", "startOn"];
-  if (!hasExactKeys(parsed.value, "milestoneId" in parsed.value ? [...keys, "milestoneId"] : keys)) {
+  const extraKeys = ["milestoneId", "todo"].filter((key) => key in parsed.value);
+  if (!hasExactKeys(parsed.value, [...keys, ...extraKeys]) || (parsed.value.todo !== undefined && !validTodoSnapshot(parsed.value.todo))) {
     return { ok: false, status: 400, error: "入力内容の形式が正しくありません。" };
   }
   const actionId = positiveInteger(parsed.value.actionId);
@@ -907,6 +945,7 @@ export async function readProjectActionUpdateInput(request: Request): Promise<Va
       ok: true,
       value: {
         actionId, originalUpdatedAt, operation: operation as ProjectActionOperation, content: null, dueOn: null, startOn: null, milestoneId: null,
+        ...(parsed.value.todo ? { todo: parsed.value.todo as TodoSnapshot } : {}),
       },
     };
   }
@@ -927,7 +966,8 @@ export async function readProjectActionUpdateInput(request: Request): Promise<Va
   if (dueOn && startOn && startOn > dueOn) {
     return { ok: false, status: 400, error: "着手日は期日より前の日付にしてください。" };
   }
-  return { ok: true, value: { actionId, originalUpdatedAt, operation: "edit", content, dueOn, startOn, milestoneId } };
+  return { ok: true, value: { actionId, originalUpdatedAt, operation: "edit", content, dueOn, startOn, milestoneId,
+    ...(parsed.value.todo ? { todo: parsed.value.todo as TodoSnapshot } : {}) } };
 }
 
 export async function createProject(env: DashboardEnv, input: ProjectCreateInput): Promise<void> {
@@ -1046,6 +1086,15 @@ export async function createProjectAction(env: DashboardEnv, input: ProjectActio
 }
 
 export async function resolveProjectAction(env: DashboardEnv, input: ProjectActionResolveInput): Promise<void> {
+  if (input.todo || input.terminal === "cancelled") {
+    await projectTodoRpc(env, "resolve_project_next_action_with_todo", {
+      p_action_id: input.actionId, p_action_updated_at: input.originalUpdatedAt, p_resolution: input.resolution,
+      p_next_action_id: input.nextActionId, p_next_action_content: input.nextActionContent, p_waiting_for: input.waitingFor, p_review_on: input.reviewOn,
+      p_todo_id: input.todo?.id ?? null, p_todo_updated_at: input.todo?.updatedAt ?? null, p_todo_status: input.todo?.status ?? null,
+      p_terminal: input.terminal ?? "done",
+    });
+    return;
+  }
   const connectionInfo = connection(env);
   const endpoint = new URL("/rest/v1/rpc/resolve_project_next_action", connectionInfo.url);
   const response = await supabaseFetch(connectionInfo, endpoint, {
@@ -1065,6 +1114,14 @@ export async function resolveProjectAction(env: DashboardEnv, input: ProjectActi
 }
 
 export async function updateProjectAction(env: DashboardEnv, input: ProjectActionUpdateInput): Promise<void> {
+  if (input.todo) {
+    await projectTodoRpc(env, "update_project_action_with_todo", {
+      p_action_id: input.actionId, p_action_updated_at: input.originalUpdatedAt, p_operation: input.operation,
+      p_content: input.content, p_due_on: input.dueOn, p_start_on: input.startOn, p_milestone_id: input.milestoneId,
+      p_todo_id: input.todo.id, p_todo_updated_at: input.todo.updatedAt, p_todo_status: input.todo.status,
+    });
+    return;
+  }
   const connectionInfo = connection(env);
   const endpoint = new URL("/rest/v1/rpc/update_project_action", connectionInfo.url);
   const response = await supabaseFetch(connectionInfo, endpoint, {
@@ -1105,6 +1162,7 @@ export async function updateProjectMilestone(env: DashboardEnv, input: ProjectMi
 export function publicProjectError(error: unknown) {
   const code = error instanceof DashboardError ? error.code : "PROJECT_REQUEST_FAILED";
   const status = error instanceof DashboardError ? error.status : 502;
+  if (code.startsWith("TODO_")) return publicProjectTodoError(error);
   const messages: Record<string, string> = {
     SUPABASE_NOT_CONFIGURED: "サーバーのSupabase接続設定が未完了です。",
     SUPABASE_CONFIG_INVALID: "サーバーのSupabase接続設定が正しくありません。",

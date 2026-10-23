@@ -57,6 +57,7 @@ export const PRIMARY_INBOX_ROUTES = ["github", "knowledge", "writing", "defer"];
 export const WISH_ROUTE = "wish";
 
 export const inboxQuickRoutes = {
+  sf6: { label: "SF6", description: "局面・手順・練習メニューへ" },
   calendar: { label: "予定", description: "日付を決めて動く", intent: "act", destination: "calendar" },
   wish: { label: "欲しいもの", description: "欲しいものとして残す" },
   writing: { label: "執筆", description: "Writingで考えを育てる", intent: "explore", destination: "writing" },

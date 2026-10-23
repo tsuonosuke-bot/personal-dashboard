@@ -1,6 +1,6 @@
 import type {
   DailyReviewStatus, InsightAnalysis, InsightGroup, InsightGroupMember, Knowledge, KnowledgeInsight, KnowledgeDraft, MasteryHistoryEvent, QuizLog, QuizVerdict,
-  PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary, ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
+  PendingReviewAnswer, ReviewAnswerResult, ReviewBatchSummary, ReviewConfirmation, ReviewGenerationHold, ReviewQuestion, ReviewQueueStatus,
   SpeakingPracticeLog, SpeakingPracticeMode, SpeakingPracticeStart, SpeakingPracticeType,
   SpeakingPracticeWrite, EmbeddingBatchSummary, SemanticIndexStatus, SemanticSearchResult, SemanticSourceType, QuestionMaterials, RelatedItem, NoteTopic, ThemeNote,
 } from "../types";
@@ -17,6 +17,7 @@ import {
   parseQuizLog,
   parseReviewAnswerResult,
   parseReviewBatchSummary,
+  parseReviewConfirmation,
   parseReviewGenerationHolds,
   parseReviewQuestions,
   parseReviewQueueStatus,
@@ -161,6 +162,9 @@ async function getAllPages<T>(
     if (page.offset !== offset || page.limit !== API_PAGE_SIZE) {
       throw new Error("APIのページ情報が要求内容と一致しません。");
     }
+    if (page.total !== null && page.items.length === 0 && offset < page.total) {
+      throw new Error("APIのページ件数が全件数と一致しません。再読み込みしてください。");
+    }
     return page;
   };
 
@@ -176,6 +180,11 @@ async function getAllPages<T>(
       throw new Error("データ件数が安全な取得上限を超えています。");
     }
     const pages = await Promise.all(offsets.map(readPage));
+    // 並列取得の途中でサーバー側の上限が変わった場合、間の欠落を全件とはしない。
+    if (pages.some((page) => page.total !== null
+      && page.items.length < Math.min(API_PAGE_SIZE, Math.max(0, page.total - page.offset)))) {
+      throw new Error("APIのページ件数が全件数と一致しません。再読み込みしてください。");
+    }
     for (const page of pages) result.push(...page.items.map(parseItem));
     // 取得中に件数が増えていた場合は、続きを順に読む。
     const lastPage = pages[pages.length - 1];
@@ -592,10 +601,13 @@ export async function retryReviewAnswer(id: number): Promise<void> {
 }
 
 export async function confirmReviewResults(quizLogIds: number[]): Promise<number> {
-  const data = await postReviewQueue("/api/review-queue/confirm", { quiz_log_ids: quizLogIds });
-  return typeof data === "object" && data !== null && typeof (data as { confirmed?: unknown }).confirmed === "number"
-    ? (data as { confirmed: number }).confirmed
-    : 0;
+  return (await confirmReviewResultsDetailed(quizLogIds)).confirmed;
+}
+
+export async function confirmReviewResultsDetailed(quizLogIds: number[]): Promise<ReviewConfirmation> {
+  const ids = [...new Set(quizLogIds)];
+  const data = await postReviewQueue("/api/review-queue/confirm", { quiz_log_ids: ids });
+  return parseReviewConfirmation(data, ids);
 }
 
 /** 生成・採点バッチを画面から手動で動かす。 */

@@ -48,6 +48,7 @@
       </header>
 
       <main class="dashboard-main">
+        <div id="inboxStatus" class="inbox-status" role="status" hidden></div>
         <nav class="tabs" role="tablist" aria-label="SF6の記録">
           <button type="button" role="tab" data-tab="sequences" aria-selected="true">手順<b id="countSequences"></b></button>
           <button type="button" role="tab" data-tab="situations" aria-selected="false">状況<b id="countSituations"></b></button>
@@ -160,10 +161,12 @@
       <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modal-head"><h2 id="modalTitle">追加</h2><button id="modalClose" type="button" aria-label="閉じる">×</button></div>
         <form id="editForm" novalidate>
+          <div id="inboxContext" class="inbox-context" hidden></div>
           <div id="formFields"></div>
           <p class="form-error" id="formError" role="alert" hidden></p>
           <div class="delete-confirm" id="deleteConfirm" role="alert" hidden></div>
           <div class="form-actions">
+            <p id="inboxBoundary" class="inbox-boundary" hidden></p>
             <button class="danger-button" id="deleteButton" type="button" hidden>削除</button>
             <button class="secondary-button" id="cancelButton" type="button">キャンセル</button>
             <button class="primary-button" id="saveButton" type="submit">保存する</button>

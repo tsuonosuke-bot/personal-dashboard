@@ -1,11 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
-import { confirmReviewResults } from "../lib/api";
+import { confirmReviewResultsDetailed } from "../lib/api";
 import { getJstToday } from "../lib/knowledge";
 import {
   ALL_CATEGORIES, buildLearningLog, type LearningLogFilters, type LearningLogPeriod,
 } from "../lib/learningLog";
+import {
+  createReviewConfirmationCoordinator, isUnconfirmedResult, unconfirmedResultIds,
+  type ConfirmationProgress, type ConfirmationRunResult, type ReviewLogReloadResult,
+} from "../lib/reviewConfirmation";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import { Pagination } from "./Pagination";
 import { GenerationHoldsPanel, PendingAnswersPanel, ReviewResultActions, type KnowledgeUpdate } from "./ReviewLogParts";
@@ -22,17 +26,11 @@ interface Props {
   initialUnconfirmedOnly?: boolean;
   onKnowledgeUpdate: KnowledgeUpdate;
   /** 採点や確認のあとで、履歴と件数を読み直す。 */
-  onReload: () => void | Promise<void>;
+  onReload: () => Promise<ReviewLogReloadResult>;
   insightStore: InsightStore;
   insightGroupStore: InsightGroupStore;
   /** 問題を作れなかったカードを、編集できる詳細で開く。 */
   onOpenKnowledge: (id: string) => void;
-}
-
-const CONFIRM_CHUNK = 200;
-
-function isUnconfirmed(entry: QuizLog): boolean {
-  return entry.review_queue_id !== null && entry.confirmed_at === null;
 }
 
 const PERIOD_OPTIONS: { value: LearningLogPeriod; label: string }[] = [
@@ -50,6 +48,17 @@ const VERDICT_CLASS: Record<QuizVerdict, string> = {
   不正解: "quiz-verdict-ng",
 };
 
+function confirmationMessage(progress: ConfirmationProgress | null, result: ConfirmationRunResult | null, count: number): string {
+  if (progress) return progress.phase === "refreshing"
+    ? `${progress.confirmedIds.length} / ${progress.total}件を確認済み。最新の状態を取得しています…`
+    : `確認中 ${progress.confirmedIds.length} / ${progress.total}件`;
+  if (!result) return `検索結果に未確認の採点結果が${count}件あります。開くと確認済みになります。`;
+  if (!result.verified) return `${result.confirmedIds.length}件は確認済みです。残りの状態は未確認です。再読み込みして続けてください。`;
+  const excluded = result.excludedIds.length ? `・${result.excludedIds.length}件は削除等で対象外` : "";
+  if (result.remainingIds.length) return `${result.confirmedIds.length}件確認済み・残り${result.remainingIds.length}件${excluded}。`;
+  return `対象${result.targetIds.length}件の確認が完了しました（${result.confirmedIds.length}件確認済み${excluded}）。`;
+}
+
 export function LearningLogView({
   knowledge, quizLog, loading, error, onExit, initialUnconfirmedOnly = false, onKnowledgeUpdate, onReload,
   insightStore, insightGroupStore, onOpenKnowledge,
@@ -59,7 +68,18 @@ export function LearningLogView({
   /** この画面で確認した記録。一覧から消さずに「確認済み」として表示するため、手元で持つ。 */
   const [confirmedIds, setConfirmedIds] = useState<ReadonlySet<number>>(() => new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [progress, setProgress] = useState<ConfirmationProgress | null>(null);
+  const [confirmation, setConfirmation] = useState<ConfirmationRunResult | null>(null);
+  const reloadRef = useRef(onReload);
+  reloadRef.current = onReload;
+  const coordinatorRef = useRef<ReturnType<typeof createReviewConfirmationCoordinator> | null>(null);
+  if (coordinatorRef.current === null) coordinatorRef.current = createReviewConfirmationCoordinator({
+    confirm: confirmReviewResultsDetailed,
+    reload: () => reloadRef.current(),
+    onConfirmed: (ids) => setConfirmedIds((current) => new Set([...current, ...ids])),
+    onProgress: setProgress,
+  });
   const [filters, setFilters] = useState<LearningLogFilters>({
     period: "30",
     category: ALL_CATEGORIES,
@@ -76,23 +96,31 @@ export function LearningLogView({
   const titleById = useMemo(() => new Map(knowledge.map((item) => [item.id, item.title])), [knowledge]);
   const entries = useMemo(
     () => buildLearningLog(quizLog, knowledge, filters, getJstToday())
-      .filter((entry) => !unconfirmedOnly || isUnconfirmed(entry)),
+      .filter((entry) => !unconfirmedOnly || isUnconfirmedResult(entry)),
     [filters, knowledge, quizLog, unconfirmedOnly],
   );
-  const unconfirmedCount = entries.filter((entry) => isUnconfirmed(entry) && !confirmedIds.has(entry.id)).length;
+  const unconfirmedIds = unconfirmedResultIds(entries, confirmedIds);
+  const unconfirmedCount = unconfirmedIds.length;
   const detail = detailId ? knowledgeById.get(detailId) ?? null : null;
 
-  const confirm = async (ids: number[]) => {
-    const pending = ids.filter((id) => !confirmedIds.has(id));
-    if (pending.length === 0) return;
-    setConfirmError(null);
+  const confirm = async (ids: number[], previous?: ConfirmationRunResult, recheckOnly = false) => {
+    const coordinator = coordinatorRef.current!;
+    if (coordinator.busy || loading || (error && !recheckOnly)) return;
+    if (ids.length === 0 && !recheckOnly) return;
+    setConfirming(true);
+    setConfirmation(null);
     try {
-      for (let start = 0; start < pending.length; start += CONFIRM_CHUNK) {
-        await confirmReviewResults(pending.slice(start, start + CONFIRM_CHUNK));
+      const result = await coordinator.run(ids, { previous, recheckOnly });
+      if (result) {
+        setConfirmation(result);
+        // 成功した全件再取得は正本。通信成功時の一時表示だけで完了とはしない。
+        if (result.verified) setConfirmedIds((current) => new Set([
+          ...[...current].filter((id) => !result.targetIds.includes(id)), ...result.confirmedIds,
+        ]));
       }
-      setConfirmedIds((current) => new Set([...current, ...pending]));
-    } catch (caught) {
-      setConfirmError(caught instanceof Error ? caught.message : "確認済みにできませんでした。");
+    } finally {
+      setConfirming(false);
+      setProgress(null);
     }
   };
   const correct = entries.filter((entry) => entry.verdict === "正解").length;
@@ -101,41 +129,43 @@ export function LearningLogView({
   const rows = entries.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const updateFilters = (patch: Partial<LearningLogFilters>) => {
+    if (coordinatorRef.current?.busy) return;
     setFilters((current) => ({ ...current, ...patch }));
+    setConfirmation(null);
     setPage(1);
   };
 
   return (
     <div className="quiz-page">
       <header className="quiz-header">
-        <button className="text-button" onClick={onExit}>← ダッシュボードへ戻る</button>
+        <button className="text-button" disabled={confirming} onClick={onExit}>← ダッシュボードへ戻る</button>
         <h1>学習ログ</h1>
       </header>
       <main className="quiz-body learning-log">
         <div className="organize-tabs card" role="group" aria-label="表示するログ">
-          <button type="button" aria-pressed={tab === "review"} onClick={() => setTab("review")}>復習</button>
-          <button type="button" aria-pressed={tab === "speaking"} onClick={() => setTab("speaking")}>英会話練習</button>
+          <button type="button" disabled={confirming} aria-pressed={tab === "review"} onClick={() => setTab("review")}>復習</button>
+          <button type="button" disabled={confirming} aria-pressed={tab === "speaking"} onClick={() => setTab("speaking")}>英会話練習</button>
         </div>
         {tab === "speaking" ? <SpeakingLogPanel knowledge={knowledge} periodOptions={PERIOD_OPTIONS} /> : <>
-        <PendingAnswersPanel titleById={titleById} onGraded={onReload} />
+        <PendingAnswersPanel titleById={titleById} onGraded={async () => { await onReload(); }} />
         <GenerationHoldsPanel onOpenKnowledge={onOpenKnowledge} />
         <div className="learning-log-filters card">
           <label>
             期間
-            <select value={filters.period} onChange={(event) => updateFilters({ period: event.target.value as LearningLogPeriod })}>
+            <select disabled={confirming} value={filters.period} onChange={(event) => updateFilters({ period: event.target.value as LearningLogPeriod })}>
               {PERIOD_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
           <label>
             カテゴリ
-            <select value={filters.category} onChange={(event) => updateFilters({ category: event.target.value })}>
+            <select disabled={confirming} value={filters.category} onChange={(event) => updateFilters({ category: event.target.value })}>
               <option value={ALL_CATEGORIES}>すべて</option>
               {categories.map((category) => <option key={category} value={category}>{category}</option>)}
             </select>
           </label>
           <label>
             判定
-            <select value={filters.verdict} onChange={(event) => updateFilters({ verdict: event.target.value as QuizVerdict | "all" })}>
+            <select disabled={confirming} value={filters.verdict} onChange={(event) => updateFilters({ verdict: event.target.value as QuizVerdict | "all" })}>
               {VERDICT_OPTIONS.map((verdict) => (
                 <option key={verdict} value={verdict}>{verdict === "all" ? "すべて" : verdict}</option>
               ))}
@@ -143,7 +173,10 @@ export function LearningLogView({
           </label>
           <label>
             確認
-            <select value={unconfirmedOnly ? "unconfirmed" : "all"} onChange={(event) => { setUnconfirmedOnly(event.target.value === "unconfirmed"); setPage(1); }}>
+            <select disabled={confirming} value={unconfirmedOnly ? "unconfirmed" : "all"} onChange={(event) => {
+              if (coordinatorRef.current?.busy) return;
+              setUnconfirmedOnly(event.target.value === "unconfirmed"); setPage(1); setConfirmation(null);
+            }}>
               <option value="all">すべて</option>
               <option value="unconfirmed">未確認のみ</option>
             </select>
@@ -154,16 +187,25 @@ export function LearningLogView({
           </p>
         </div>
 
-        {unconfirmedCount > 0 && (
+        {(unconfirmedCount > 0 || confirming || confirmation) && (
           <div className="review-unconfirmed-bar">
-            <span>未確認の採点結果が{unconfirmedCount}件あります。開くと確認済みになります。</span>
-            <button onClick={() => void confirm(entries.filter(isUnconfirmed).map((entry) => entry.id))}>
-              表示中をすべて確認済みにする
-            </button>
+            <span role="status" aria-live="polite">
+              {confirmationMessage(progress, confirmation, unconfirmedCount)}
+            </span>
+            {!confirming && confirmation && (!confirmation.verified || error) ? (
+              <button disabled={loading} onClick={() => void confirm(confirmation.targetIds, confirmation, true)}>状態を再読み込み</button>
+            ) : !confirming && confirmation?.remainingIds.length ? (
+              <button disabled={loading || Boolean(error)} onClick={() => void confirm(confirmation.targetIds, confirmation)}>残り{confirmation.remainingIds.length}件を再実行</button>
+            ) : unconfirmedCount > 0 && (
+              <button disabled={confirming || loading || Boolean(error)} onClick={() => void confirm(unconfirmedIds)}>
+                検索結果の未確認{unconfirmedCount}件すべてを確認済みにする
+              </button>
+            )}
           </div>
         )}
-        {confirmError && <div className="err compact" role="alert">{confirmError}</div>}
+        {confirmation?.error && <div className="err compact" role="alert">{confirmation.error}</div>}
         {error && <div className="err compact" role="alert">{error}</div>}
+        {error && !confirmation && <button disabled={loading || confirming} onClick={() => void confirm(unconfirmedIds, undefined, true)}>再読み込み</button>}
         {loading && entries.length === 0 && <div className="msg">読み込み中...</div>}
         {!loading && !error && entries.length === 0 && (
           <div className="msg">条件に合う回答はありません。</div>
@@ -185,12 +227,14 @@ export function LearningLogView({
                   <details
                     className="review-result-details"
                     onToggle={(event) => {
-                      if ((event.currentTarget as HTMLDetailsElement).open && isUnconfirmed(entry)) void confirm([entry.id]);
+                      if ((event.currentTarget as HTMLDetailsElement).open && isUnconfirmedResult(entry) && !confirmedIds.has(entry.id)) void confirm([entry.id]);
                     }}
                   >
-                    <summary>
+                    <summary aria-disabled={confirming && isUnconfirmedResult(entry)} onClick={(event) => {
+                      if (coordinatorRef.current?.busy && isUnconfirmedResult(entry)) event.preventDefault();
+                    }}>
                       問題と講評を見る
-                      {isUnconfirmed(entry) && !confirmedIds.has(entry.id) && <span className="badge review-unconfirmed">未確認</span>}
+                      {isUnconfirmedResult(entry) && !confirmedIds.has(entry.id) && <span className="badge review-unconfirmed">未確認</span>}
                     </summary>
                     <dl className="review-result-body">
                       <div><dt>問題</dt><dd>{entry.question}</dd></div>

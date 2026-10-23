@@ -801,3 +801,11 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .flow-exits .unset {
   color: var(--accent);
 }
+:root[data-theme="dark"] .inbox-context,
+:root[data-theme="dark"] .inbox-status {
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 6px);
+}
+:root[data-theme="dark"] .inbox-boundary {
+  color: var(--muted);
+}

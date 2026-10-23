@@ -3,6 +3,7 @@ import { projectRequest } from "./projects/api.js";
 import { escapeHtml } from "./shared/html.js";
 import { createProjectModel } from "./projects/model.js";
 import { createProjectView } from "./projects/view.js";
+import { nextActionResolution, openProjectTodoLink, unlinkProjectTodo } from "./shared/project-todo-link.js";
 
 const state = createProjectState();
 const els = projectsElements(document);
@@ -244,7 +245,8 @@ async function updateAction(projectId, actionId, operation, fields = { content: 
       method: "PUT",
       credentials: "same-origin",
       headers: { Accept: "application/json", "Content-Type": "application/json", "X-Dashboard-Action": "project-action-update" },
-      body: JSON.stringify({ actionId, originalUpdatedAt: action.updatedAt, operation, ...fields }),
+      body: JSON.stringify({ actionId, originalUpdatedAt: action.updatedAt, operation, ...fields,
+        ...(action.linkedTodo ? { todo: { id: action.linkedTodo.id, updatedAt: action.linkedTodo.updatedAt, status: action.linkedTodo.status } } : {}) }),
     }, (payload) => new Error(payload.error || "Actionを更新できませんでした。"));
     if (operation === "edit" || operation === "cancel") state.editingActionId = null;
     setData(payload);
@@ -385,10 +387,11 @@ function updateResolveFields() {
   els.newNextActionField.hidden = Boolean(els.queuedActionSelect.value);
 }
 
-function openResolve(project) {
+function openResolve(project, terminal = "done") {
   if (!project.nextAction) return;
   state.resolveProjectId = project.id;
-  els.completedActionText.textContent = `完了: ${project.nextAction.content}`;
+  state.resolveTerminal = terminal;
+  els.completedActionText.textContent = `${terminal === "cancelled" ? "見送り" : "完了"}: ${project.nextAction.content}`;
   const queued = project.actions.filter((action) => action.status === "queued");
   els.queuedActionSelect.innerHTML = '<option value="">新しく入力する</option>'
     + queued.map((action) => `<option value="${action.id}">${escapeHtml(action.content)}</option>`).join("");
@@ -420,13 +423,11 @@ async function resolveAction(event) {
   const body = {
     actionId: project.nextAction.id,
     originalUpdatedAt: project.nextAction.updatedAt,
-    resolution,
-    nextActionId: resolution === "continue" ? queuedActionId : null,
-    nextActionContent: resolution === "continue" && !queuedActionId ? els.newNextActionInput.value || null : null,
-    waitingFor: resolution === "waiting" ? els.waitingForInput.value || null : null,
-    reviewOn: resolution === "waiting"
-      ? els.waitingReviewInput.value || null
-      : resolution === "on_hold" ? els.holdReviewInput.value || null : null,
+    ...nextActionResolution(resolution, queuedActionId, els.newNextActionInput.value, els.waitingForInput.value,
+      resolution === "waiting" ? els.waitingReviewInput.value : els.holdReviewInput.value),
+    ...(project.nextAction.linkedTodo ? { todo: { id: project.nextAction.linkedTodo.id,
+      updatedAt: project.nextAction.linkedTodo.updatedAt, status: project.nextAction.linkedTodo.status } } : {}),
+    ...(state.resolveTerminal === "cancelled" ? { terminal: "cancelled" } : {}),
   };
   els.resolveSave.disabled = true;
   els.resolveCancel.disabled = true;
@@ -450,6 +451,24 @@ async function resolveAction(event) {
     els.resolveSave.disabled = false;
     els.resolveCancel.disabled = false;
   }
+}
+
+async function refreshProjectTodoLink(projectId) {
+  const loaded = await loadProjects();
+  const project = getProject(projectId);
+  if (loaded && project) renderDetail(project);
+  showToast(loaded ? "ToDoとの紐づけを更新しました。" : "紐づけは保存済みです。最新表示を再読み込みしてください。");
+}
+function openActionTodo(projectId, actionId) {
+  const project = getProject(projectId);
+  const action = project?.actions.find((item) => item.id === actionId);
+  if (action) void openProjectTodoLink({ project, action, onSuccess: () => refreshProjectTodoLink(projectId) });
+}
+async function unlinkActionTodo(projectId, actionId) {
+  const action = getProject(projectId)?.actions.find((item) => item.id === actionId);
+  if (!action?.linkedTodo) return;
+  try { await unlinkProjectTodo(action, action.linkedTodo, () => refreshProjectTodoLink(projectId)); }
+  catch (error) { showToast(error.message || "紐づけを解除できませんでした。"); }
 }
 
 const { completedDate, displayDate, futureDate, todayTokyo, dayDiff, getProject, projectsForView, COMPLETED_PAGE, STALE_DAYS, sortProjects, staleDays, reviewData } = createProjectModel({
@@ -477,7 +496,9 @@ const { renderList, renderAll, renderDetail } = createProjectView({
   updateAction: (...args) => updateAction(...args),
   updateMilestone: (...args) => updateMilestone(...args),
   saveBulkActions: (...args) => saveBulkActions(...args),
-  processRelatedItem: (...args) => processRelatedItem(...args)
+  processRelatedItem: (...args) => processRelatedItem(...args),
+  openActionTodo: (...args) => openActionTodo(...args),
+  unlinkActionTodo: (...args) => unlinkActionTodo(...args)
 });
 
 els.addProjectButton.addEventListener("click", () => openProjectEditor());
