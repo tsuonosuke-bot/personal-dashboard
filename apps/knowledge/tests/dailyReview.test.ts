@@ -120,8 +120,9 @@ test("今日の学習は3つの数字に絞り、出題間隔の説明はヘル�
     readFile(new URL("../src/components/HelpView.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(source, /今日の学習/);
-  // 問題数やカテゴリは選ばせず、キューの上から解き続ける
+  // 通常の開始は1操作で保ち、カテゴリ指定は別の入口から選ぶ。
   assert.doesNotMatch(source, /カテゴリ・問題数を選ぶ|onCustomStart/);
+  assert.match(source, /カテゴリを選んで復習/);
   assert.match(source, /復習を始める（\$\{readyDue\}問）/);
   assert.match(source, /今すぐ解ける/);
   assert.match(source, /今日の回答/);

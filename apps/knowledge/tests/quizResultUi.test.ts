@@ -16,11 +16,11 @@ test("復習画面はAIを呼ばず、キューの上から解き続け、いつ
     readFile(new URL("../src/hooks/useReviewSession.ts", import.meta.url), "utf8"),
   ]);
   assert.doesNotMatch(session + view, /startQuiz|gradeQuiz|api\/quiz\//);
-  // 問題数やカテゴリは選ばせない（ノートの復習だけ、そのノートのナレッジに絞る）
-  assert.match(session, /serveReviewQuestions\(SERVE_BATCH, \[\], knowledgeIds\)/);
+  // 開始時のカテゴリを追加取得にも使う。ノートの復習はナレッジのIDも指定する。
+  assert.match(session, /serveReviewQuestions\(SERVE_BATCH, activeCategories\.current, knowledgeIds\)/);
   assert.doesNotMatch(view, /LIMIT_OPTIONS|quiz-category-select/);
   // 手元の問題を使い切ったら次を受け取り、無くなったら終える
-  assert.match(session, /if \(await loadNext\(\)\) setStage\("question"\);\s+else finish\(true\);/);
+  assert.match(session, /if \(loaded\) setStage\("question"\);\s+else finish\(true\);/);
   // 飛ばした問題は出題待ちのまま残るので、この回では出さない
   assert.match(session, /served\.filter\(\(question\) => !seen\.current\.has\(question\.id\)\)/);
   assert.match(view, /終了する/);

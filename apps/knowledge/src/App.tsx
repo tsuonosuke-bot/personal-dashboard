@@ -459,6 +459,8 @@ export default function App() {
       <Suspense fallback={<div className="msg">読み込み中...</div>}>
         <ReviewView
           knowledge={registrationKnowledge}
+          knowledgeLoading={loading}
+          knowledgeError={error}
           quizLog={quizLog}
           queueStatus={reviewQueue.status}
           onExit={exitReview}
@@ -735,6 +737,7 @@ export default function App() {
             missWrong={misses.filter((row) => row.verdict === "不正解").length}
             missPartial={misses.filter((row) => row.verdict === "部分正解").length}
             onStart={() => setQuizOpen(true, "daily")}
+            onCategoryReview={() => setQuizOpen(true, "custom")}
             onOpenMisses={() => setMissesOpen(true)}
             onOpenLog={() => setLogOpen(true)}
           />

@@ -12,6 +12,8 @@ import { TagChips } from "./TagChips";
 
 interface Props {
   knowledge: Knowledge[];
+  knowledgeLoading?: boolean;
+  knowledgeError?: string | null;
   /** 答え合わせ画面から開く詳細に、そのカードの出題履歴を出す。 */
   quizLog: QuizLog[];
   queueStatus: ReviewQueueStatus | null;
@@ -72,10 +74,14 @@ function batchMessage(summary: ReviewBatchSummary): string {
  * 回答した直後に想定解で答え合わせし、AIの採点と講評は学習ログで確認する。いつ終えてもよい。
  */
 export function ReviewView({
-  knowledge, quizLog, queueStatus, onExit, onRecorded, onKnowledgeUpdate, insightStore, insightGroupStore,
+  knowledge, knowledgeLoading = false, knowledgeError = null, quizLog, queueStatus, onExit, onRecorded, onKnowledgeUpdate, insightStore, insightGroupStore,
   onOpenResults, onOpenLog, autoStartDaily = false, missCount = 0, onOpenMisses, scope = null,
 }: Props) {
   const session = useReviewSession(onRecorded, scope?.knowledgeIds);
+  const [category, setCategory] = useState("");
+  const categories = useMemo(() => [...new Set(knowledge.filter((item) => !item.archived && item.category.trim()).map((item) => item.category))]
+    .sort((a, b) => a.localeCompare(b, "ja")), [knowledge]);
+  const unavailableCategory = category !== "" && !categories.includes(category);
   const [answer, setAnswer] = useState("");
   const [batchBusy, setBatchBusy] = useState<"generate" | "grade" | null>(null);
   const [batchNotice, setBatchNotice] = useState<string | null>(null);
@@ -143,7 +149,7 @@ export function ReviewView({
 
   const generateButton = (
     <button onClick={() => void runBatch("generate")} disabled={batchBusy !== null || queueStatus?.queue_full === true}>
-      {batchBusy === "generate" ? "問題を作成中…" : "今すぐ問題を作る"}
+      {batchBusy === "generate" ? "問題を作成中…" : category ? "今すぐ問題を作る（全カテゴリ）" : "今すぐ問題を作る"}
     </button>
   );
 
@@ -151,7 +157,7 @@ export function ReviewView({
     <div className="quiz-page">
       <header className="quiz-header">
         <button className="text-button" onClick={onExit}>{scope ? "← ノートへ戻る" : "← ダッシュボードへ戻る"}</button>
-        <h1>{scope ? `「${scope.label}」の復習` : "復習"}</h1>
+        <h1>{scope ? `「${scope.label}」の復習` : category ? `「${category}」の復習` : "復習"}</h1>
       </header>
 
       <main className="quiz-body">
@@ -185,18 +191,30 @@ export function ReviewView({
 
         {session.stage === "setup" && !scope && (
           <div className="quiz-setup card">
+            <label className="review-category-picker">
+              <span>カテゴリ</span>
+              <select value={category} disabled={knowledgeLoading || Boolean(knowledgeError)} onChange={(event) => setCategory(event.target.value)}>
+                <option value="">{knowledgeLoading ? "カテゴリを読み込み中…" : "すべてのカテゴリ"}</option>
+                {categories.map((name) => <option key={name} value={name}>{name}</option>)}
+                {unavailableCategory && <option value={category}>{category}（対象なし）</option>}
+              </select>
+            </label>
+            {knowledgeError && <p className="err compact" role="alert">カテゴリを読み込めませんでした。{knowledgeError}</p>}
             <div className="daily-quiz-start">
               <div>
-                <strong>今日の復習</strong>
-                <span>{queueStatus ? `出題できる問題 ${readyDue}問` : "出題できる問題を確認中…"}</span>
+                <strong>{category ? "カテゴリ別の復習" : "今日の復習"}</strong>
+                <span>{category ? "選択したカテゴリから出題" : queueStatus ? `出題できる問題 ${readyDue}問` : "出題できる問題を確認中…"}</span>
               </div>
-              <button className="primary-button" disabled={readyDue === 0} onClick={() => void session.start()}>
-                {readyDue > 0 ? "復習を始める" : "今すぐ出題できる問題はありません"}
+              <button className="primary-button" disabled={readyDue === 0 || knowledgeLoading || Boolean(knowledgeError) || unavailableCategory}
+                onClick={() => void session.start(category ? [category] : [])}>
+                {unavailableCategory ? "対象のナレッジがありません" : readyDue > 0 ? "復習を始める" : "今すぐ出題できる問題はありません"}
               </button>
             </div>
             <p className="muted review-start-note">
-              キューの上から順に出題します。答えた分はその都度記録されるので、いつ終えても大丈夫です。
+              {category ? "選んだカテゴリのうち、期限が来て問題ができているものだけを出題します。" : "キューの上から順に出題します。"}
+              答えた分はその都度記録されるので、いつ終えても大丈夫です。
             </p>
+            {category && <p className="muted review-start-note">キューの件数と問題生成は全カテゴリが対象です。</p>}
             <ReviewQueueSummary status={queueStatus} onOpenResults={onOpenResults} onOpenLog={onOpenLog} />
             <div className="review-batch-actions">{generateButton}</div>
           </div>
@@ -236,7 +254,9 @@ export function ReviewView({
           <div className="quiz-setup card review-done">
             <h2>
               {!session.exhausted ? `${answered.length}問に回答しました`
-                : scope ? "このノートで今すぐ解ける問題はすべて解きました" : "今すぐ解ける問題はすべて解きました"}
+                : scope ? "このノートで今すぐ解ける問題はすべて解きました"
+                  : category ? `「${category}」で今すぐ解ける問題は${answered.length === 0 ? "ありません" : "すべて解きました"}`
+                    : "今すぐ解ける問題はすべて解きました"}
             </h2>
             {scope && session.exhausted && answered.length === 0 && (
               <div className="review-batch-actions">
