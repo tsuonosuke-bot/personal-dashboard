@@ -5,6 +5,7 @@ import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
 import { useModalDialog } from "../hooks/useModalDialog";
 import { InsightNotes } from "./InsightNotes";
+import { KnowledgeReviewHistory } from "./KnowledgeReviewHistory";
 import type { Knowledge, QuizLog } from "../types";
 
 interface Props {
@@ -43,9 +44,6 @@ export function KnowledgeDetailModal({
   knowledge, quizLog, mutating, onClose, onEdit, onArchive, insightStore, insightGroupStore, onRemoveAutoTag,
 }: Props) {
   const titleId = useId();
-  const history = quizLog
-    .filter((item) => item.knowledge_id === knowledge.id)
-    .sort((a, b) => b.created_at.localeCompare(a.created_at));
   const dialogRef = useModalDialog(onClose, mutating);
 
   return (
@@ -111,22 +109,7 @@ export function KnowledgeDetailModal({
             <div><dt>登録日時</dt><dd>{displayDateTime(knowledge.created_at)}</dd></div>
           </dl>
 
-          <div className="history-section">
-            <h3>このナレッジの回答履歴 <span>{history.length}件</span></h3>
-            {history.length === 0 ? <p className="muted">回答履歴はありません。</p> : (
-              <div className="history-table-wrap">
-                <table className="history-table">
-                  <thead><tr><th>日付</th><th>判定</th><th>品質</th><th>形式</th><th>メモ</th></tr></thead>
-                  <tbody>{history.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.asked_on}</td><td>{item.verdict}</td><td>{item.quality}</td>
-                      <td>{item.format}</td><td>{item.note ?? "-"}</td>
-                    </tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          <KnowledgeReviewHistory key={knowledge.id} knowledgeId={knowledge.id} quizLog={quizLog} />
         </div>
 
         <div className="modal-actions detail-actions">

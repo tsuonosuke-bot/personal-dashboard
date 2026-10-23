@@ -143,6 +143,7 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
   （`log_knowledge_mastery_change`、SECURITY DEFINER）が1行追記する
 - `is_baseline = true` は記録開始時点（2026-09-23のマイグレーション）の状態。それ以前の推移は存在しない
 - 他: `knowledge_id`, `from_mastery`, `to_mastery`, `changed_at`。アプリからは読み取りのみ
+- ナレッジ詳細の `KnowledgeReviewHistory` はそのカードの回答と習熟度の変化を10件ずつ表示する。APIが返す `to_mastery` の前の記録から変化を組み立て、回答と手動変更を同一視しない。履歴を開いても確認済みにはしない
 
 ### `speaking_practice_log`
 

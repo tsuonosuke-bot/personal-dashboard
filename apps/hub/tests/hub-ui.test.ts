@@ -244,7 +244,7 @@ test("Compass asks AI only on explicit action and sends suggestions through huma
 
   assert.match(script, /id="askAiTriageButton"/);
   assert.match(script, /askAiTriageButton"\)\.addEventListener\("click", \(\) => requestAiTriage\(item\)\)/);
-  assert.match(script, /押した時だけ、本文をClaude APIへ送信/);
+  assert.match(script, /本文をAIへ送信します。保存は案を確認してから/);
   assert.match(script, /fetch\("\/api\/want-suggestions"/);
   assert.match(script, /X-Dashboard-Action": "want-ai-suggest"/);
   assert.match(script, /source: sourceView === "inbox" \? "inbox" : "want"/);
@@ -252,7 +252,7 @@ test("Compass asks AI only on explicit action and sends suggestions through huma
   assert.match(script, /回答をもとに再提案/);
   assert.match(script, /この案を使う/);
   assert.match(script, /renderRouteForm\(item, suggestion\.intent, suggestion\.destination, suggestion\)/);
-  assert.match(script, /これは未保存の案です/);
+  assert.match(script, /role="status">未保存 · 案を選んで、内容を確認してください/);
 });
 
 test("Compass closes actionable Inbox and Wants with conflict-safe updates", async () => {
