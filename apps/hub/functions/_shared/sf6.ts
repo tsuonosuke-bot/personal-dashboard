@@ -57,6 +57,8 @@ export const SF6_SITUATION_KINDS = ["trigger", "state"] as const;
 export const SF6_SEQUENCE_KINDS = ["combo", "setplay"] as const;
 export const SF6_RESULT_KINDS = ["hit", "counter_hit", "punish_counter", "hit_other", "guard", "opponent"] as const;
 /** 起き攻めに対して相手が取れる行動。結果の outcome は win（こちらが勝つ）/ lose / unknown。 */
+/** 相手の行動の結果がどのヒットか。other だけ個別の次の状況を持つ。 */
+export const SF6_HIT_TYPES = ["hit", "counter_hit", "punish_counter", "other"] as const;
 export const SF6_OPPONENT_OPTIONS = ["reversal", "backdash", "jump", "tech", "delay_tech", "mash", "drive_impact", "parry", "drive_reversal", "back_roll"] as const;
 export const SF6_OUTCOMES = ["win", "lose", "unknown"] as const;
 export const SF6_GUARD_SETTINGS = ["none", "all", "random"] as const;
@@ -100,7 +102,7 @@ export const SF6_RESOURCES = {
     editable: true,
     write: "rpc",
     order: "character.asc,created_at.asc",
-    embed: "starts:sf6_sequence_starts(situation_id),results:sf6_sequence_results(kind,opponent_action,outcome,next_situation_id)",
+    embed: "starts:sf6_sequence_starts(situation_id),results:sf6_sequence_results(kind,opponent_action,outcome,hit_type,next_situation_id)",
     fields: [
       { key: "kind", column: "kind", type: "enum", values: SF6_SEQUENCE_KINDS },
       { key: "character", column: "character", type: "text", max: NAME_MAX, required: true },
@@ -216,7 +218,7 @@ type ValidationResult<T> =
 
 /** 次の状況の指定：状況の id か、局面の数値（DBが探して、なければ作る）。 */
 type SituationRef = number | { state: { advantage: number; position: string; recovery: string | null; name: string | null } };
-interface Sf6ResultInput { kind: string; opponentAction: string | null; outcome: string | null; next: SituationRef | null }
+interface Sf6ResultInput { kind: string; opponentAction: string | null; outcome: string | null; hitType: string | null; next: SituationRef | null }
 
 const MAX_REQUEST_CHARS = 16_000;
 const PAGE_SIZE = 1000;
@@ -290,16 +292,17 @@ function readSituationRef(raw: unknown): SituationRef | null {
 }
 
 function readResult(raw: unknown): Sf6ResultInput | null {
-  if (!isPlainObject(raw) || !onlyKeys(raw, ["kind", "opponentAction", "outcome", "next", "nextSituationId"])) return null;
-  const { kind, opponentAction = null, outcome = null } = raw;
+  if (!isPlainObject(raw) || !onlyKeys(raw, ["kind", "opponentAction", "outcome", "hitType", "next", "nextSituationId"])) return null;
+  const { kind, opponentAction = null, outcome = null, hitType = null } = raw;
   if (!oneOf(SF6_RESULT_KINDS, kind)) return null;
   if (opponentAction !== null && !oneOf(SF6_OPPONENT_OPTIONS, opponentAction)) return null;
   if (outcome !== null && !oneOf(SF6_OUTCOMES, outcome)) return null;
+  if (hitType !== null && (kind !== "opponent" || !oneOf(SF6_HIT_TYPES, hitType))) return null;
   // GETの形（nextSituationId）もそのまま送り返せる
   const rawNext = "next" in raw ? raw.next : raw.nextSituationId;
   const next = rawNext === null || rawNext === undefined ? null : readSituationRef(rawNext);
   if (rawNext !== null && rawNext !== undefined && next === null) return null;
-  return { kind, opponentAction, outcome, next };
+  return { kind, opponentAction, outcome, hitType, next };
 }
 
 /** 結果の組み合わせの問題。hit / counter_hit / punish_counter / hit_other / guard は次の状況が必須、相手の行動は○×–が必須、同じ結果は1つだけ。 */
@@ -599,6 +602,7 @@ function toResults(raw: unknown): Record<string, unknown>[] {
       kind: row.kind,
       opponentAction: row.kind === "opponent" ? row.opponent_action : null,
       outcome: row.kind === "opponent" ? row.outcome : null,
+      hitType: row.kind === "opponent" && oneOf(SF6_HIT_TYPES, row.hit_type) ? row.hit_type : null,
       nextSituationId: isId(row.next_situation_id) ? row.next_situation_id : null,
     }))
     .sort((a, b) => RESULT_ORDER.indexOf(String(a.kind)) - RESULT_ORDER.indexOf(String(b.kind))
@@ -641,6 +645,7 @@ export function sf6SavePayload(resource: Sf6Resource, fields: Record<string, unk
     starts: "starts" in fields ? fields.starts : null,
     results: results === undefined ? null : results.map((result) => ({
       kind: result.kind, opponent_action: result.opponentAction, outcome: result.outcome, next: result.next,
+      ...(result.hitType ? { hit_type: result.hitType } : {}),
     })),
   };
 }

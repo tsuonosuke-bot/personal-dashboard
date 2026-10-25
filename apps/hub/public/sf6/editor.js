@@ -1,6 +1,6 @@
 import { escapeHtml } from "../shared/html.js";
 import { stored, chips, options, paletteHtml, notationHtml, store } from "./format.js";
-import { DRIVE_STEPS, SA_LEVELS, POSITIONS, AIMS, END_PURPOSES, LAYERINGS, SITUATION_KINDS, RECOVERIES, GUARD_SETTINGS, COUNTER_SETTINGS, RECOVERY_SETTINGS, MODES, RESULTS, OUTCOME_MARKS, OPPONENT_LABELS } from "./constants.js";
+import { DRIVE_STEPS, SA_LEVELS, POSITIONS, AIMS, END_PURPOSES, LAYERINGS, SITUATION_KINDS, RECOVERIES, GUARD_SETTINGS, COUNTER_SETTINGS, RECOVERY_SETTINGS, MODES, RESULTS, OUTCOME_MARKS, OPPONENT_LABELS, HIT_TYPE_LABELS } from "./constants.js";
 // 共通モーダルでの手順・状況・練習の入力と保存。
 import { MASTERY, STREAK_GOAL, startSituationGroups, stateLabel, findState, OPPONENT_OPTIONS, defaultTitle, situationUsage } from "../sf6-plan.js";
 import { defaultStateName, starterMove } from "../sf6-frames.js";
@@ -357,9 +357,15 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     }).join("");
     const nexts = OPPONENT_OPTIONS.map((action) => {
       const next = byAction[action]?.nextSituationId ?? byAction[action]?.next ?? null;
-      return `<div class="outcome-next" data-outcome-next="${action}"${next === null ? " hidden" : ""}>
+      // 昔の入力（ヒットの種類なし）は、次の状況があれば「その他」として扱う
+      const hitType = byAction[action]?.hitType || (next === null ? "" : "other");
+      const types = Object.entries(HIT_TYPE_LABELS).map(([type, label]) =>
+        `<button type="button" class="toggle-chip" data-hit-type="${action}|${type}" aria-pressed="${type === hitType}">${escapeHtml(label)}</button>`).join("");
+      return `<div class="outcome-next" data-outcome-next="${action}" data-hit-selected="${hitType}"${next === null && !hitType ? " hidden" : ""}>
         <span class="field-label">${escapeHtml(OPPONENT_LABELS[action])}のあと</span>
-        ${pickerHtml(`opponent:${action}`, next, { withTriggers: true })}
+        <div class="chip-scroll" role="group" aria-label="${escapeHtml(OPPONENT_LABELS[action])}のヒットの種類">${types}</div>
+        <p class="picker-match" data-hit-note>${hitTypeNote(hitType)}</p>
+        <div data-outcome-picker${hitType === "other" ? "" : " hidden"}>${pickerHtml(`opponent:${action}`, next, { withTriggers: true })}</div>
       </div>`;
     }).join("");
     return `<div class="chip-field" data-field="${field.key}">
@@ -367,6 +373,22 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       <div class="outcome-buttons">${buttons}</div>
       ${nexts}
     </div>`;
+  }
+
+  /** 通常・カウンター・パニカンは、上の同名の結果の状況を使う。その他だけ個別に決める。 */
+  function hitTypeNote(type) {
+    return type && type !== "other" ? `→ 上の「${escapeHtml(HIT_TYPE_LABELS[type])}」の状況を使います` : "";
+  }
+
+  function selectHitType(value) {
+    const [action, type] = value.split("|");
+    const box = els.formFields.querySelector(`[data-outcome-next="${action}"]`);
+    box.dataset.hitSelected = box.dataset.hitSelected === type ? "" : type;
+    const selected = box.dataset.hitSelected;
+    box.querySelectorAll("[data-hit-type]").forEach((chip) => chip.setAttribute("aria-pressed", String(chip.dataset.hitType.endsWith(`|${selected}`) && selected !== "")));
+    box.querySelector("[data-hit-note]").innerHTML = hitTypeNote(selected);
+    box.querySelector("[data-outcome-picker]").hidden = selected !== "other";
+    if (selected === "other") refreshPicker(box.querySelector("[data-picker]"));
   }
 
   function resultNext(results, kind) {
@@ -470,7 +492,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     const buttons = [...els.formFields.querySelectorAll("[data-outcome]")];
     if (!buttons.length) {
       base.results.filter((result) => result.kind === "opponent").forEach((result) => results.push({
-        kind: "opponent", opponentAction: result.opponentAction, outcome: result.outcome, next: result.nextSituationId ?? result.next ?? null,
+        kind: "opponent", opponentAction: result.opponentAction, outcome: result.outcome, hitType: result.hitType ?? null, next: result.nextSituationId ?? result.next ?? null,
       }));
       return results;
     }
@@ -478,8 +500,14 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       const action = button.dataset.outcome;
       if (button.closest("[data-outcome-item]")?.hidden) continue;
       const box = els.formFields.querySelector(`[data-outcome-next="${action}"]`);
-      const next = box && !box.hidden ? readPicker(box.querySelector("[data-picker]")) : null;
-      if (button.dataset.value !== "unknown" || next !== null) results.push({ kind: "opponent", opponentAction: action, outcome: button.dataset.value, next });
+      const hitType = box && !box.hidden ? box.dataset.hitSelected || null : null;
+      let next = null;
+      if (hitType === "other") next = readPicker(box.querySelector("[data-picker]"));
+      else if (hitType) {
+        const own = els.formFields.querySelector(`[data-picker="${hitType}"]`);
+        next = own ? readPicker(own) : resultNext(base.results, hitType);
+      }
+      if (button.dataset.value !== "unknown" || next !== null) results.push({ kind: "opponent", opponentAction: action, outcome: button.dataset.value, hitType, next });
     }
     return results;
   }
@@ -735,5 +763,5 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     return usage.starts + usage.results > 0;
   }
 
-  return { FORMS, renderStartChips, selectedStartChips, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete };
+  return { selectHitType, FORMS, renderStartChips, selectedStartChips, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete };
 }
