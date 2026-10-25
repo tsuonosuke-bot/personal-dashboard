@@ -194,3 +194,143 @@
   background: var(--green--light, var(--green));
   color: #fff;
 }
+/* palette: nord */
+:root[data-theme="dark"][data-palette="nord"] {
+  color-scheme: dark;
+  --green: #b5e1d4;
+  --green-soft: #2f333b;
+  --page-accent: #b8babe;
+  --page-accent-soft: #2e333b;
+}
+:root[data-theme="dark"][data-palette="nord"] body {
+  color: var(--ink);
+  background: var(--paper);
+}
+:root[data-theme="dark"][data-palette="nord"] .status-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 3px 0 #464b53;
+}
+:root[data-theme="dark"][data-palette="nord"] .status-card.live {
+  box-shadow: inset 0 3px 0 var(--green);
+}
+:root[data-theme="dark"][data-palette="nord"] .status-card dl div {
+  border-top: 1px solid var(--border);
+}
+:root[data-theme="dark"][data-palette="nord"] .status-card dt {
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="nord"] .status-loading,
+:root[data-theme="dark"][data-palette="nord"] .status-error {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="nord"] .status-loading span {
+  border: 2px solid var(--line);
+  border-top-color: var(--green);
+  border-radius: 50%;
+}
+:root[data-theme="dark"][data-palette="nord"] .status-error strong {
+  color: var(--ink);
+}
+:root[data-theme="dark"][data-palette="nord"] .status-error button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--green--light, var(--green));
+  color: #fff;
+}
+/* palette: gruvbox */
+:root[data-theme="dark"][data-palette="gruvbox"] {
+  color-scheme: dark;
+  --green: #b5e1d4;
+  --green-soft: #3b352f;
+  --page-accent: #bfbbb7;
+  --page-accent-soft: #3a352f;
+}
+:root[data-theme="dark"][data-palette="gruvbox"] body {
+  color: var(--ink);
+  background: var(--paper);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .status-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 3px 0 #524d47;
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .status-card.live {
+  box-shadow: inset 0 3px 0 var(--green);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .status-card dl div {
+  border-top: 1px solid var(--border);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .status-card dt {
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .status-loading,
+:root[data-theme="dark"][data-palette="gruvbox"] .status-error {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .status-loading span {
+  border: 2px solid var(--line);
+  border-top-color: var(--green);
+  border-radius: 50%;
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .status-error strong {
+  color: var(--ink);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .status-error button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--green--light, var(--green));
+  color: #fff;
+}
+/* palette: solarized */
+:root[data-theme="light"][data-palette="solarized"] {
+  --page-accent-soft: #e7e1c8;
+}
+:root[data-theme="light"][data-palette="solarized"] body {
+  color: var(--ink);
+  background: var(--paper);
+}
+:root[data-theme="light"][data-palette="solarized"] .status-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 3px 0 #aca89c;
+}
+:root[data-theme="light"][data-palette="solarized"] .status-card.live {
+  box-shadow: inset 0 3px 0 var(--green);
+}
+:root[data-theme="light"][data-palette="solarized"] .status-card dl div {
+  border-top: 1px solid var(--border);
+}
+:root[data-theme="light"][data-palette="solarized"] .status-card dt {
+  color: var(--muted);
+}
+:root[data-theme="light"][data-palette="solarized"] .status-loading,
+:root[data-theme="light"][data-palette="solarized"] .status-error {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--muted);
+}
+:root[data-theme="light"][data-palette="solarized"] .status-loading span {
+  border: 2px solid var(--line);
+  border-top-color: var(--green);
+  border-radius: 50%;
+}
+:root[data-theme="light"][data-palette="solarized"] .status-error strong {
+  color: var(--ink);
+}
+:root[data-theme="light"][data-palette="solarized"] .status-error button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--green);
+  color: #fcf6de;
+}

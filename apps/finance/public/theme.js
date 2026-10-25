@@ -10,6 +10,9 @@
     cream: { scheme: "light", color: "#f3ead3" },
     navy: { scheme: "dark", color: "#131a29" },
     forest: { scheme: "dark", color: "#141f19" },
+    nord: { scheme: "dark", color: "#272c36" },
+    gruvbox: { scheme: "dark", color: "#211e1b" },
+    solarized: { scheme: "light", color: "#f2e8cc" },
   };
   const isPreference = (value) => value === "light" || value === "dark" || Object.prototype.hasOwnProperty.call(PALETTES, value);
   const root = document.documentElement;

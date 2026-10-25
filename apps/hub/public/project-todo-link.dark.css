@@ -150,3 +150,117 @@
 :root[data-theme="dark"][data-palette="forest"] .project-todo-link a {
   color: var(--page-accent);
 }
+/* palette: nord */
+:root[data-theme="dark"][data-palette="nord"] .project-todo-dialog {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="dark"][data-palette="nord"] .project-todo-dialog::backdrop {
+  background: color-mix(in srgb, var(--text--light, var(--text)) 50%, transparent);
+}
+:root[data-theme="dark"][data-palette="nord"] .project-todo-dialog button {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+}
+:root[data-theme="dark"][data-palette="nord"] .project-todo-dialog button.primary {
+  color: var(--bg--light, var(--bg));
+  background: var(--page-accent--light, var(--page-accent));
+  border-color: var(--page-accent);
+}
+:root[data-theme="dark"][data-palette="nord"] .project-todo-form select,
+:root[data-theme="dark"][data-palette="nord"] .project-todo-form input:not([type=radio]),
+:root[data-theme="dark"][data-palette="nord"] .project-todo-form textarea {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="dark"][data-palette="nord"] .project-todo-preview {
+  border-block: 1px solid var(--border);
+}
+:root[data-theme="dark"][data-palette="nord"] .project-todo-resolution {
+  border: 1px solid var(--border);
+}
+:root[data-theme="dark"][data-palette="nord"] .project-todo-link a {
+  color: var(--page-accent);
+}
+/* palette: gruvbox */
+:root[data-theme="dark"][data-palette="gruvbox"] .project-todo-dialog {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .project-todo-dialog::backdrop {
+  background: color-mix(in srgb, var(--text--light, var(--text)) 50%, transparent);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .project-todo-dialog button {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .project-todo-dialog button.primary {
+  color: var(--bg--light, var(--bg));
+  background: var(--page-accent--light, var(--page-accent));
+  border-color: var(--page-accent);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .project-todo-form select,
+:root[data-theme="dark"][data-palette="gruvbox"] .project-todo-form input:not([type=radio]),
+:root[data-theme="dark"][data-palette="gruvbox"] .project-todo-form textarea {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .project-todo-preview {
+  border-block: 1px solid var(--border);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .project-todo-resolution {
+  border: 1px solid var(--border);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .project-todo-link a {
+  color: var(--page-accent);
+}
+/* palette: solarized */
+:root[data-theme="light"][data-palette="solarized"] .project-todo-dialog {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="light"][data-palette="solarized"] .project-todo-dialog::backdrop {
+  background: color-mix(in srgb, var(--text) 50%, transparent);
+}
+:root[data-theme="light"][data-palette="solarized"] .project-todo-dialog button {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+}
+:root[data-theme="light"][data-palette="solarized"] .project-todo-dialog button.primary {
+  color: var(--bg);
+  background: var(--page-accent);
+  border-color: var(--page-accent);
+}
+:root[data-theme="light"][data-palette="solarized"] .project-todo-form select,
+:root[data-theme="light"][data-palette="solarized"] .project-todo-form input:not([type=radio]),
+:root[data-theme="light"][data-palette="solarized"] .project-todo-form textarea {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="light"][data-palette="solarized"] .project-todo-preview {
+  border-block: 1px solid var(--border);
+}
+:root[data-theme="light"][data-palette="solarized"] .project-todo-resolution {
+  border: 1px solid var(--border);
+}
+:root[data-theme="light"][data-palette="solarized"] .project-todo-link a {
+  color: var(--page-accent);
+}

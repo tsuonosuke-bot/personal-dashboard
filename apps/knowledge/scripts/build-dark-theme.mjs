@@ -292,6 +292,9 @@ const PALETTES = {
   cream: { base: "light", hue: 40, chroma: [0.1, 0.05, 0.025] },
   navy: { base: "dark", hue: 222, chroma: [0.075, 0.05, 0.025] },
   forest: { base: "dark", hue: 152, chroma: [0.06, 0.045, 0.022] },
+  nord: { base: "dark", hue: 218, chroma: [0.05, 0.04, 0.025] },
+  gruvbox: { base: "dark", hue: 32, chroma: [0.045, 0.045, 0.03] },
+  solarized: { base: "light", hue: 48, chroma: [0.12, 0.06, 0.03] },
 };
 
 function toneColor(rgba, palette) {

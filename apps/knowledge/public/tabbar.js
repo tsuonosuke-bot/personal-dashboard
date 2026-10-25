@@ -45,7 +45,7 @@
       <summary class="tabbar-item more${moreIsCurrent ? " is-current" : ""}">${mark({ icon: "more" })}<span>その他</span></summary>
       <div class="tabbar-sheet">
         <div class="tabbar-sheet-links">${MORE.map((item) => link(item, "tabbar-sheet-link")).join("")}</div>
-        <label class="tabbar-theme"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option><option value="cream">クリーム</option><option value="navy">ネイビー</option><option value="forest">ディープグリーン</option></select></label>
+        <label class="tabbar-theme"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option><option value="cream">クリーム</option><option value="navy">ネイビー</option><option value="forest">ディープグリーン</option><option value="nord">Nord</option><option value="gruvbox">Gruvbox</option><option value="solarized">Solarized Light</option></select></label>
       </div>
     </details>`;
 
