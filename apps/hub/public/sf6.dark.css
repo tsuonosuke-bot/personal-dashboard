@@ -781,6 +781,12 @@ html[data-theme="dark"] {
   fill: var(--paper);
   stroke: var(--muted);
 }
+:root[data-theme="dark"] .flow-stub.loop rect {
+  fill: var(--bg-hover);
+}
+:root[data-theme="dark"] .flow-stub.loop text {
+  fill: var(--ink);
+}
 :root[data-theme="dark"] .flow-stub.unset rect {
   stroke: var(--accent);
 }
@@ -1567,6 +1573,12 @@ html[data-theme="light"][data-palette="cream"] {
 :root[data-theme="light"][data-palette="cream"] .flow-stub rect {
   fill: var(--paper);
   stroke: var(--muted);
+}
+:root[data-theme="light"][data-palette="cream"] .flow-stub.loop rect {
+  fill: var(--bg-hover);
+}
+:root[data-theme="light"][data-palette="cream"] .flow-stub.loop text {
+  fill: var(--ink);
 }
 :root[data-theme="light"][data-palette="cream"] .flow-stub.unset rect {
   stroke: var(--accent);
@@ -2365,6 +2377,12 @@ html[data-theme="dark"][data-palette="navy"] {
   fill: var(--paper);
   stroke: var(--muted);
 }
+:root[data-theme="dark"][data-palette="navy"] .flow-stub.loop rect {
+  fill: var(--bg-hover);
+}
+:root[data-theme="dark"][data-palette="navy"] .flow-stub.loop text {
+  fill: var(--ink);
+}
 :root[data-theme="dark"][data-palette="navy"] .flow-stub.unset rect {
   stroke: var(--accent);
 }
@@ -3161,6 +3179,12 @@ html[data-theme="dark"][data-palette="forest"] {
 :root[data-theme="dark"][data-palette="forest"] .flow-stub rect {
   fill: var(--paper);
   stroke: var(--muted);
+}
+:root[data-theme="dark"][data-palette="forest"] .flow-stub.loop rect {
+  fill: var(--bg-hover);
+}
+:root[data-theme="dark"][data-palette="forest"] .flow-stub.loop text {
+  fill: var(--ink);
 }
 :root[data-theme="dark"][data-palette="forest"] .flow-stub.unset rect {
   stroke: var(--accent);
@@ -3959,6 +3983,12 @@ html[data-theme="dark"][data-palette="nord"] {
   fill: var(--paper);
   stroke: var(--muted);
 }
+:root[data-theme="dark"][data-palette="nord"] .flow-stub.loop rect {
+  fill: var(--bg-hover);
+}
+:root[data-theme="dark"][data-palette="nord"] .flow-stub.loop text {
+  fill: var(--ink);
+}
 :root[data-theme="dark"][data-palette="nord"] .flow-stub.unset rect {
   stroke: var(--accent);
 }
@@ -4756,6 +4786,12 @@ html[data-theme="dark"][data-palette="gruvbox"] {
   fill: var(--paper);
   stroke: var(--muted);
 }
+:root[data-theme="dark"][data-palette="gruvbox"] .flow-stub.loop rect {
+  fill: var(--bg-hover);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .flow-stub.loop text {
+  fill: var(--ink);
+}
 :root[data-theme="dark"][data-palette="gruvbox"] .flow-stub.unset rect {
   stroke: var(--accent);
 }
@@ -5542,6 +5578,12 @@ html[data-theme="light"][data-palette="solarized"] {
 :root[data-theme="light"][data-palette="solarized"] .flow-stub rect {
   fill: var(--paper);
   stroke: var(--muted);
+}
+:root[data-theme="light"][data-palette="solarized"] .flow-stub.loop rect {
+  fill: var(--bg-hover);
+}
+:root[data-theme="light"][data-palette="solarized"] .flow-stub.loop text {
+  fill: var(--ink);
 }
 :root[data-theme="light"][data-palette="solarized"] .flow-stub.unset rect {
   stroke: var(--accent);
