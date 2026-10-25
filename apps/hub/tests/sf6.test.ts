@@ -156,8 +156,10 @@ test("状況：きっかけは数値を持たず、局面はキャラと有利F�
   assert.equal(validateSf6Fields("situations", { ...stateValue, advantage: null }).ok, false);
   assert.deepEqual(toSf6Item("situations", situationRow), {
     id: 1, character: null, kind: "trigger", name: "確定反撃", presetKey: "punish", advantage: null, position: "anywhere",
-    recovery: null, memo: null, archived: false, createdAt: TIMESTAMP, updatedAt: TIMESTAMP,
+    recovery: null, throwRange: false, memo: null, archived: false, createdAt: TIMESTAMP, updatedAt: TIMESTAMP,
   });
+  assert.equal(validateSf6Fields("situations", { ...stateValue, throwRange: true }).ok, true);
+  assert.equal(validateSf6Fields("situations", { ...trigger, throwRange: true }).ok, false);
 });
 
 test("練習記録の回数と成功数は両方そろえ、成功数は回数以下にする", () => {

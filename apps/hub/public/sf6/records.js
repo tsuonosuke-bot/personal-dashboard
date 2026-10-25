@@ -332,7 +332,7 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
   /** 状況タブ：キャラごとの局面（有利F・位置・ダウン）を有利Fの大きい順に並べ、そこから始まる手順を添える。 */
   function situationCardHtml(situation) {
     const from = situation.archived ? [] : sequencesFrom(situation, state.data.sequences.filter((entry) => entry.character === situation.character), state.data.situations, { includeNear: state.situationNear });
-    const tags = [POSITIONS[situation.position], situation.recovery ? RECOVERIES[situation.recovery] : ""].filter(Boolean);
+    const tags = [POSITIONS[situation.position], situation.recovery ? RECOVERIES[situation.recovery] : "", situation.throwRange ? "通常投げ間合い" : ""].filter(Boolean);
     const counts = situationUsage(situation.id, state.data.sequences);
     return `<article class="card situation-card">
       <div class="card-head">

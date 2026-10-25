@@ -15,7 +15,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
   const FRAME_HINT = "トレモのフレームメーターで、相手が起き上がって動けるまでに自分が先に動けるF";
 
   /**
-   * kinds: 手順の種類（combo / setplay）で出し分ける。more: 「詳細」の折りたたみに入れる。
+   * kinds: 手順の種類（combo / setplay）で出し分ける。more: 「詳細」の折りたたみに入れる。main: コンボでも任意項目に入れず本体に出す。
    * editOnly / addOnly: 編集のときだけ / 追加のときだけ出す。
    */
   const FORMS = {
@@ -23,6 +23,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       title: (values) => (values.kind === "setplay" ? "起き攻め" : "コンボ"),
       fields: [
         { key: "character", label: "キャラ", type: "character", required: true },
+        { key: "title", label: "名前", type: "text", max: 120, main: true, placeholder: "空欄ならレシピから付けます" },
         { key: "starts", label: "始動の状況", type: "startChips", required: true, kinds: ["combo"] },
         { key: "starts", label: "起点の局面", type: "startStates", required: true, kinds: ["setplay"] },
         { key: "notation", label: "レシピ", type: "notation", max: 1000, required: true, kinds: ["combo"] },
@@ -39,7 +40,6 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
         { key: "resultCounter", label: "カウンターヒットしたら", type: "next", resultKind: "counter_hit", kinds: ["setplay"], hint: "有利Fは通常ヒット+2Fを自動で入れます（直せます）" },
         { key: "resultPunish", label: "パニッシュカウンターしたら", type: "next", resultKind: "punish_counter", kinds: ["setplay"], hint: "有利Fは通常ヒット+4Fを自動で入れます（直せます）" },
         { key: "resultOther", label: "その他のヒットしたら", type: "next", resultKind: "hit_other", kinds: ["setplay"], more: true, hint: "ジャンプを対空で落とすなど特殊な条件のヒット。有利F・ダウン・位置・名前を自由に決めます" },
-        { key: "title", label: "名前", type: "text", max: 120, placeholder: "空欄ならレシピから付けます" },
         { key: "resultGuard", label: "ガードされたら", type: "next", resultKind: "guard", more: true },
         { key: "endPurpose", label: "締めの目的", type: "select", options: { "": "未設定", ...END_PURPOSES }, more: true, kinds: ["combo"] },
         { key: "layering", label: "重ね方", type: "select", options: { "": "未設定", ...LAYERINGS }, more: true, kinds: ["setplay"] },
@@ -65,10 +65,11 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
         { key: "advantage", label: "有利F", type: "number", min: -99, max: 300, nullable: true, required: true, hint: FRAME_HINT, showIf: (values) => values.kind === "state" },
         { key: "position", label: "位置", type: "select", options: POSITIONS, half: true, showIf: (values) => values.kind === "state" },
         { key: "recovery", label: "ダウン", type: "select", options: { "": "未設定", ...RECOVERIES }, half: true, showIf: (values) => values.kind === "state" },
+        { key: "throwRange", label: "通常投げ間合い", type: "checkbox", showIf: (values) => values.kind === "state" },
         { key: "memo", label: "メモ", type: "textarea", max: 2000, rows: 2, preserveWhitespace: true },
         { key: "archived", label: "アーカイブ（一覧から隠す）", type: "checkbox", editOnly: true },
       ],
-      defaults: () => ({ character: null, kind: "trigger", name: "", advantage: null, position: "anywhere", recovery: null, memo: null, archived: false }),
+      defaults: () => ({ character: null, kind: "trigger", name: "", advantage: null, position: "anywhere", recovery: null, throwRange: false, memo: null, archived: false }),
     },
     drills: {
       title: () => "練習メニュー",
@@ -407,7 +408,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       case "hidden":
         return `<input type="hidden" id="${id}" value="${escapeHtml(text)}" />`;
       case "checkbox":
-        return `<label class="check-field" data-field="${field.key}"><input type="checkbox" id="${id}"${value ? " checked" : ""} /><span>${escapeHtml(field.label)}</span></label>`;
+        return `<label class="check-field" data-field="${field.key}"${showIf}><input type="checkbox" id="${id}"${value ? " checked" : ""} /><span>${escapeHtml(field.label)}</span></label>`;
       case "notation":
         return `<div class="notation-field" data-field="${field.key}">
           <span class="field-label">${escapeHtml(field.label)} <b>必須</b></span>
@@ -599,7 +600,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     els.modalTitle.textContent = `${form.title(values)}を${item ? "編集" : "追加"}`;
     const fields = visibleFields(resource, values, Boolean(item));
     const isCombo = resource === "sequences" && values.kind === "combo";
-    const isMore = (field) => field.more || (isCombo && !field.required);
+    const isMore = (field) => field.more || (isCombo && !field.required && !field.main);
     const main = fields.filter((field) => !isMore(field)).map((field) => fieldHtml(field, values[field.key], values)).join("");
     const more = fields.filter(isMore).map((field) => fieldHtml(field, values[field.key], values)).join("");
     els.formFields.innerHTML = `${main}${more ? `<details class="form-more"><summary>${isCombo ? "任意項目" : "詳細"}</summary><div class="form-grid">${more}</div></details>` : ""}`;
@@ -668,7 +669,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       if (values.kind === "combo") Object.assign(values, { aim: null, layering: null });
       else values.endPurpose = null;
     }
-    if (resource === "situations" && values.kind === "trigger") Object.assign(values, { advantage: null, recovery: null, position: "anywhere" });
+    if (resource === "situations" && values.kind === "trigger") Object.assign(values, { advantage: null, recovery: null, position: "anywhere", throwRange: false });
   }
 
   function showFormError(message) {
