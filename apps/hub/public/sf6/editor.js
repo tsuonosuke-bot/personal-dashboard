@@ -34,7 +34,9 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
         { key: "position", label: "位置", type: "select", options: POSITIONS, kinds: ["combo"] },
         { key: "aim", label: "狙い", type: "radio", options: AIMS, kinds: ["setplay"] },
         { key: "outcomes", label: "相手の行動ごとの結果", type: "outcomes", kinds: ["setplay"], hint: "押すたびに ○（こちらが勝つ）→ ×（負ける）→ –（未確認）。→ で次の状況を選べます" },
-        { key: "resultHit", label: "ヒットしたら", type: "next", resultKind: "hit" },
+        { key: "resultHit", label: "ヒットしたら", type: "next", resultKind: "hit", kinds: ["combo"] },
+        { key: "resultHitNormal", label: "通常ヒットしたら", type: "next", resultKind: "hit", kinds: ["setplay"] },
+        { key: "resultCounter", label: "カウンターヒットしたら", type: "next", resultKind: "counter_hit", kinds: ["setplay"] },
         { key: "title", label: "名前", type: "text", max: 120, placeholder: "空欄ならレシピから付けます" },
         { key: "resultGuard", label: "ガードされたら", type: "next", resultKind: "guard", more: true },
         { key: "endPurpose", label: "締めの目的", type: "select", options: { "": "未設定", ...END_PURPOSES }, more: true, kinds: ["combo"] },
@@ -434,7 +436,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
   /** 手順の結果を入力欄から組み立てる。起き攻めでない手順の相手の行動は、今の値をそのまま残す。 */
   function readResults(base) {
     const results = [];
-    for (const kind of ["hit", "guard"]) {
+    for (const kind of ["hit", "counter_hit", "guard"]) {
       const picker = els.formFields.querySelector(`[data-picker="${kind}"]`);
       const next = picker ? readPicker(picker) : resultNext(base.results, kind);
       if (next !== null) results.push({ kind, next });

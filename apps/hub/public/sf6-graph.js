@@ -12,9 +12,9 @@ export const ROW_GAP = 18;
 export const PAD = 16;
 
 const KIND_ORDER = { combo: 0, setplay: 1 };
-const EXIT_ORDER = ["hit", "guard", ...OPPONENT_OPTIONS];
+const EXIT_ORDER = ["hit", "counter_hit", "guard", ...OPPONENT_OPTIONS];
 
-/** 1つの手順から出る結果の一覧。コンボはヒット、起き攻めはヒット・ガードが無ければ「未設定」で足す。 */
+/** 1つの手順から出る結果の一覧。コンボはヒット、起き攻めはヒット・ガードが無ければ「未設定」で足す（カウンターヒットは入力したときだけ出る）。 */
 export function exitsOf(sequence) {
   const exits = sequence.results.map((result) => ({
     kind: result.kind, opponentAction: result.opponentAction ?? null, outcome: result.outcome ?? null,
