@@ -118,12 +118,20 @@ export function resultOf(sequence, kind) {
   return sequence.results.find((result) => result.kind === kind) || null;
 }
 
+/** 同じ種類の結果すべて（次の状況を複数持てる）。 */
+export function resultsOf(sequence, kind) {
+  return sequence.results.filter((result) => result.kind === kind);
+}
+
 /** パーツのカード用：ヒットの結果の状況を始動に選んでいるパーツ。 */
 export function partsAfter(part, sequences, situations) {
-  const next = resultOf(part, "hit")?.nextSituationId;
-  const state = situations.find((situation) => situation.id === next);
-  if (!state) return [];
-  return sequencesFrom(state, sequences.filter((sequence) => sequence.id !== part.id && sequence.character === part.character));
+  const others = sequences.filter((sequence) => sequence.id !== part.id && sequence.character === part.character);
+  const found = new Map();
+  for (const result of resultsOf(part, "hit")) {
+    const state = situations.find((situation) => situation.id === result.nextSituationId);
+    if (state) for (const entry of sequencesFrom(state, others)) if (!found.has(entry.sequence.id)) found.set(entry.sequence.id, entry);
+  }
+  return [...found.values()];
 }
 
 /**

@@ -248,7 +248,7 @@ const inboxFlow = createSf6InboxFlow({ state, els,
   load: () => load(), selectTab: (...args) => selectTab(...args), find: (...args) => find(...args),
   render: () => render(), showToast: (...args) => showToast(...args),
 });
-const { selectHitType, toggleStartTrigger, FORMS, renderStartStates, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete } = createSf6Editor({
+const { addNextOption, removeNextOption, selectHitType, toggleStartTrigger, FORMS, renderStartStates, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete } = createSf6Editor({
   state,
   inboxFlow,
   situationText: (...args) => situationText(...args),
@@ -641,6 +641,8 @@ els.formFields.addEventListener("click", async (event) => {
   else if (dataset.palette === "backspace") editNotation(removeLastToken);
   else if (dataset.palette === "clear") editNotation(() => "");
   else if (dataset.startTrigger) toggleStartTrigger(Number(dataset.startTrigger));
+  else if (dataset.nextAdd) addNextOption(dataset.nextAdd);
+  else if (dataset.nextRemove !== undefined) removeNextOption(button);
   else if (dataset.addStart !== undefined) {
     if (!addStartFromPicker()) showFormError("有利Fを入れるか、一覧から選んでください。");
   } else if (dataset.removeStart !== undefined) {

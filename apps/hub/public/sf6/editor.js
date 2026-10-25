@@ -134,6 +134,8 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
   /**
    * config.allowPosition: 位置を選べる（起き攻めの起点）。ほかは手順の「位置」を使う。
    * config.withTriggers: 一覧にきっかけも出す。config.add: 「追加」ボタンを置く（起点を複数選ぶとき）。
+   * config.kind: 結果の種類（結果ごとに次の状況を複数持てるので、同じ種類のピッカーをまとめて読む）。
+   * config.defaultPosition: 新しい局面の位置の初期値（結果の次の状況は、手順の位置から始める）。
    */
   function pickerHtml(key, ref, config = {}) {
     const situation = typeof ref === "number" ? findSituation(ref) : null;
@@ -143,11 +145,11 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       && (!entry.archived || entry.id === situation?.id)).sort(byAdvantage);
     const triggers = config.withTriggers ? state.data.situations.filter((entry) => entry.kind === "trigger"
       && (entry.character === null || entry.character === character) && (!entry.archived || entry.id === situation?.id)) : [];
-    return `<div class="picker" data-picker="${escapeHtml(key)}"${config.allowPosition ? " data-allow-position" : ""}${key === "hit" && numbers ? ` data-last-adv="${escapeHtml(numbers.advantage)}"` : ""}>
+    return `<div class="picker" data-picker="${escapeHtml(key)}"${config.kind ? ` data-picker-kind="${escapeHtml(config.kind)}"` : ""}${config.allowPosition ? " data-allow-position" : ""}${key === "hit" && numbers ? ` data-last-adv="${escapeHtml(numbers.advantage)}"` : ""}>
       <div class="picker-row">
         <label class="picker-num"><span>有利F</span><input type="number" inputmode="numeric" data-pick="advantage" min="-99" max="300" step="1" value="${numbers ? escapeHtml(numbers.advantage) : ""}" placeholder="例：29" /></label>
         <label><span>ダウン</span><select data-pick="recovery">${options({ "": "未設定", ...RECOVERIES }, numbers?.recovery || "")}</select></label>
-        ${config.allowPosition ? `<label><span>位置</span><select data-pick="position">${options(POSITIONS, numbers?.position || "anywhere")}</select></label>` : ""}
+        ${config.allowPosition ? `<label><span>位置</span><select data-pick="position">${options(POSITIONS, numbers?.position || config.defaultPosition || "anywhere")}</select></label>` : ""}
       </div>
       <p class="picker-match" data-pick-match></p>
       <input data-pick="name" maxlength="60" placeholder="局面の名前" value="${escapeHtml(ref && typeof ref === "object" ? ref.state.name || "" : "")}" hidden />
@@ -330,7 +332,8 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
   // --- 相手の行動ごとの結果（起き攻め） ---
 
   function outcomesFieldHtml(field, results) {
-    const byAction = Object.fromEntries(results.filter((result) => result.kind === "opponent").map((result) => [result.opponentAction, result]));
+    const byAction = {};
+    for (const result of results.filter((entry) => entry.kind === "opponent")) byAction[result.opponentAction] ??= result;
     const buttons = OPPONENT_OPTIONS.map((action) => {
       const value = byAction[action]?.outcome || "unknown";
       return `<span class="outcome-item" data-outcome-item="${action}">
@@ -374,6 +377,30 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     if (selected === "other") refreshPicker(box.querySelector("[data-picker]"));
   }
 
+  /** 同じ種類の結果の次の状況をすべて（画面中央版・画面端版など、複数持てる）。 */
+  function resultNexts(results, kind) {
+    return results.filter((entry) => entry.kind === kind).map((entry) => entry.nextSituationId ?? entry.next ?? null).filter((next) => next !== null);
+  }
+
+  let nextOptionSeq = 0;
+
+  /** 結果の次の状況の選択肢1つ。2つ目からは「×」で外せる。位置は選択肢ごとに選べる。 */
+  function nextOptionHtml(kind, ref, index) {
+    const key = index === 0 ? kind : `${kind}#${++nextOptionSeq}`;
+    return `<div class="next-option">${pickerHtml(key, ref, { withTriggers: true, allowPosition: true, defaultPosition: formPosition(), kind })}${index === 0 ? "" : '<button type="button" class="chip-remove" data-next-remove aria-label="この選択肢を外す">×</button>'}</div>`;
+  }
+
+  function addNextOption(kind) {
+    const box = els.formFields.querySelector(`[data-next-kind="${kind}"]`);
+    if (!box) return;
+    box.insertAdjacentHTML("beforeend", nextOptionHtml(kind, null, box.children.length || 1));
+    box.lastElementChild.querySelector("[data-pick=\"advantage\"]")?.focus();
+  }
+
+  function removeNextOption(button) {
+    button.closest(".next-option")?.remove();
+  }
+
   function resultNext(results, kind) {
     const result = results.find((entry) => entry.kind === kind);
     return result ? result.nextSituationId ?? result.next ?? null : null;
@@ -409,11 +436,14 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
           <div class="toggle-chips" id="startTriggerChips">${startTriggerChipsHtml()}</div>
           ${pickerHtml("start", null, { allowPosition: true, withTriggers: true, add: true })}
         </div>`;
-      case "next":
+      case "next": {
+        const refs = resultNexts(values.results, field.resultKind);
         return `<div class="chip-field" data-field="${field.key}">
           <span class="field-label">${escapeHtml(field.label)}</span>${field.hint ? `<small class="field-hint">${escapeHtml(field.hint)}</small>` : ""}
-          ${pickerHtml(field.resultKind, resultNext(values.results, field.resultKind), { withTriggers: true })}
+          <div class="next-multi" data-next-kind="${field.resultKind}">${(refs.length ? refs : [null]).map((ref, index) => nextOptionHtml(field.resultKind, ref, index)).join("")}</div>
+          <button type="button" class="ghost-button small" data-next-add="${field.resultKind}">＋選択肢を足す（画面端版など）</button>
         </div>`;
+      }
       case "outcomes":
         return outcomesFieldHtml(field, values.results);
       case "target": {
@@ -457,12 +487,17 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
   }
 
   /** 手順の結果を入力欄から組み立てる。起き攻めでない手順の相手の行動は、今の値をそのまま残す。 */
+  /** 種類ごとの次の状況の選択肢を読む（同じ状況の重複は1つにまとめる）。欄が出ていなければ、元の値のまま。 */
+  function nextsOf(kind, base) {
+    const pickers = [...els.formFields.querySelectorAll(`[data-picker-kind="${kind}"]`)];
+    const refs = pickers.length ? pickers.map(readPicker).filter((ref) => ref !== null) : resultNexts(base.results, kind);
+    return refs.filter((ref, index) => refs.findIndex((other) => sameRef(other, ref)) === index);
+  }
+
   function readResults(base) {
     const results = [];
     for (const kind of ["hit", "counter_hit", "punish_counter", "hit_other", "guard"]) {
-      const picker = els.formFields.querySelector(`[data-picker="${kind}"]`);
-      const next = picker ? readPicker(picker) : resultNext(base.results, kind);
-      if (next !== null) results.push({ kind, next });
+      for (const next of nextsOf(kind, base)) results.push({ kind, next });
     }
     const buttons = [...els.formFields.querySelectorAll("[data-outcome]")];
     if (!buttons.length) {
@@ -476,13 +511,12 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       if (button.closest("[data-outcome-item]")?.hidden) continue;
       const box = els.formFields.querySelector(`[data-outcome-next="${action}"]`);
       const hitType = box && !box.hidden ? box.dataset.hitSelected || null : null;
-      let next = null;
-      if (hitType === "other") next = readPicker(box.querySelector("[data-picker]"));
-      else if (hitType) {
-        const own = els.formFields.querySelector(`[data-picker="${hitType}"]`);
-        next = own ? readPicker(own) : resultNext(base.results, hitType);
+      // 通常・カウンター・パニカンは、上の同名の結果の次の状況（複数）をそのまま使う。その他だけ個別の1つ
+      const nexts = hitType === "other" ? [readPicker(box.querySelector("[data-picker]"))].filter((next) => next !== null)
+        : hitType ? nextsOf(hitType, base) : [];
+      for (const next of nexts.length ? nexts : [null]) {
+        if (button.dataset.value !== "unknown" || next !== null) results.push({ kind: "opponent", opponentAction: action, outcome: button.dataset.value, hitType, next });
       }
-      if (button.dataset.value !== "unknown" || next !== null) results.push({ kind: "opponent", opponentAction: action, outcome: button.dataset.value, hitType, next });
     }
     return results;
   }
@@ -730,5 +764,5 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     return usage.starts + usage.results > 0;
   }
 
-  return { selectHitType, toggleStartTrigger, startTriggerChipsHtml, FORMS, renderStartStates, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete };
+  return { addNextOption, removeNextOption, selectHitType, toggleStartTrigger, startTriggerChipsHtml, FORMS, renderStartStates, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete };
 }
