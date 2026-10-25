@@ -36,7 +36,9 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
         { key: "outcomes", label: "相手の行動ごとの結果", type: "outcomes", kinds: ["setplay"], hint: "押すたびに ○（こちらが勝つ）→ ×（負ける）→ –（未確認）。→ で次の状況を選べます" },
         { key: "resultHit", label: "ヒットしたら", type: "next", resultKind: "hit", kinds: ["combo"] },
         { key: "resultHitNormal", label: "通常ヒットしたら", type: "next", resultKind: "hit", kinds: ["setplay"] },
-        { key: "resultCounter", label: "カウンターヒットしたら", type: "next", resultKind: "counter_hit", kinds: ["setplay"] },
+        { key: "resultCounter", label: "カウンターヒットしたら", type: "next", resultKind: "counter_hit", kinds: ["setplay"], hint: "有利Fは通常ヒット+2Fを自動で入れます（直せます）" },
+        { key: "resultPunish", label: "パニッシュカウンターしたら", type: "next", resultKind: "punish_counter", kinds: ["setplay"], hint: "有利Fは通常ヒット+4Fを自動で入れます（直せます）" },
+        { key: "resultOther", label: "その他のヒットしたら", type: "next", resultKind: "hit_other", kinds: ["setplay"], more: true, hint: "ジャンプを対空で落とすなど特殊な条件のヒット。有利F・ダウン・位置・名前を自由に決めます" },
         { key: "title", label: "名前", type: "text", max: 120, placeholder: "空欄ならレシピから付けます" },
         { key: "resultGuard", label: "ガードされたら", type: "next", resultKind: "guard", more: true },
         { key: "endPurpose", label: "締めの目的", type: "select", options: { "": "未設定", ...END_PURPOSES }, more: true, kinds: ["combo"] },
@@ -176,7 +178,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       && (!entry.archived || entry.id === situation?.id)).sort(byAdvantage);
     const triggers = config.withTriggers ? state.data.situations.filter((entry) => entry.kind === "trigger"
       && (entry.character === null || entry.character === character) && (!entry.archived || entry.id === situation?.id)) : [];
-    return `<div class="picker" data-picker="${escapeHtml(key)}"${config.allowPosition ? " data-allow-position" : ""}>
+    return `<div class="picker" data-picker="${escapeHtml(key)}"${config.allowPosition ? " data-allow-position" : ""}${key === "hit" && numbers ? ` data-last-adv="${escapeHtml(numbers.advantage)}"` : ""}>
       <div class="picker-row">
         <label class="picker-num"><span>有利F</span><input type="number" inputmode="numeric" data-pick="advantage" min="-99" max="300" step="1" value="${numbers ? escapeHtml(numbers.advantage) : ""}" placeholder="例：29" /></label>
         <label><span>ダウン</span><select data-pick="recovery">${options({ "": "未設定", ...RECOVERIES }, numbers?.recovery || "")}</select></label>
@@ -274,7 +276,31 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     } else if (target.dataset.pick !== "name") {
       parts.list.value = "";
     }
+    if (picker.dataset.picker !== "hit" && target === parts.advantage) delete picker.dataset.auto;
     refreshPicker(picker);
+    if (picker.dataset.picker === "hit" && (target === parts.list || target === parts.advantage)) linkHitAdvantages(picker);
+  }
+
+  /** カウンターヒット・パニッシュカウンターの有利Fは、通常ヒットの有利Fに連動する（手で直したものは動かさない）。 */
+  const LINKED_HITS = { counter_hit: 2, punish_counter: 4 };
+
+  function linkHitAdvantages(normal) {
+    const value = pickerParts(normal).advantage.value;
+    const now = value !== "" && Number.isInteger(Number(value)) ? Number(value) : null;
+    const before = normal.dataset.lastAdv === undefined || normal.dataset.lastAdv === "" ? null : Number(normal.dataset.lastAdv);
+    normal.dataset.lastAdv = now === null ? "" : String(now);
+    for (const [kind, delta] of Object.entries(LINKED_HITS)) {
+      const picker = els.formFields.querySelector(`[data-picker="${kind}"]`);
+      if (!picker) continue;
+      const parts = pickerParts(picker);
+      if (parts.list.value) continue;
+      const current = parts.advantage.value;
+      const follows = current === "" || picker.dataset.auto === "1" || (before !== null && Number(current) === before + delta);
+      if (!follows) continue;
+      parts.advantage.value = now === null ? "" : String(now + delta);
+      if (now === null) delete picker.dataset.auto; else picker.dataset.auto = "1";
+      refreshPicker(picker);
+    }
   }
 
   // --- 起き攻めの起点（局面を複数） ---
@@ -385,7 +411,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
         </div>`;
       case "next":
         return `<div class="chip-field" data-field="${field.key}">
-          <span class="field-label">${escapeHtml(field.label)}</span>
+          <span class="field-label">${escapeHtml(field.label)}</span>${field.hint ? `<small class="field-hint">${escapeHtml(field.hint)}</small>` : ""}
           ${pickerHtml(field.resultKind, resultNext(values.results, field.resultKind), { withTriggers: true })}
         </div>`;
       case "outcomes":
@@ -436,7 +462,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
   /** 手順の結果を入力欄から組み立てる。起き攻めでない手順の相手の行動は、今の値をそのまま残す。 */
   function readResults(base) {
     const results = [];
-    for (const kind of ["hit", "counter_hit", "guard"]) {
+    for (const kind of ["hit", "counter_hit", "punish_counter", "hit_other", "guard"]) {
       const picker = els.formFields.querySelector(`[data-picker="${kind}"]`);
       const next = picker ? readPicker(picker) : resultNext(base.results, kind);
       if (next !== null) results.push({ kind, next });

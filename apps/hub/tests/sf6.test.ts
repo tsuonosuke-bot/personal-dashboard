@@ -479,7 +479,7 @@ test("SF6ページは共通ヘッダー・タブバー・テーマカラーを�
 test("起き攻めの結果に、カウンターヒットと暴れ・ドライブインパクトを保存できる。カウンターヒットも次の状況が必須", () => {
   const withResults = (results: unknown[]) => validateSf6Fields("sequences", { ...setplay, results });
   assert.equal(withResults([
-    { kind: "hit", next: 9 }, { kind: "counter_hit", next: 9 },
+    { kind: "hit", next: 9 }, { kind: "counter_hit", next: 9 }, { kind: "punish_counter", next: 9 }, { kind: "hit_other", next: 9 },
     { kind: "opponent", opponentAction: "mash", outcome: "win" }, { kind: "opponent", opponentAction: "drive_impact", outcome: "lose" },
   ]).ok, true);
   assert.equal(withResults([{ kind: "counter_hit", next: null }]).ok, false);
