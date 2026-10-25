@@ -50,11 +50,8 @@ export const SF6_DRILL_STATUSES = ["active", "done"] as const;
 export const SF6_RESULTS = ["win", "lose", "draw"] as const;
 export const SF6_MODES = ["ranked", "casual", "battle_hub", "tournament", "other"] as const;
 export const SF6_RECOVERIES = ["back_roll", "no_back_roll", "none"] as const;
-export const SF6_END_PURPOSES = ["damage", "oki", "carry"] as const;
 export const SF6_LAYERINGS = ["meaty", "safe_jump", "other"] as const;
-export const SF6_AIMS = ["strike", "throw", "shimmy"] as const;
 export const SF6_SITUATION_KINDS = ["trigger", "state"] as const;
-export const SF6_SEQUENCE_KINDS = ["combo", "setplay"] as const;
 export const SF6_RESULT_KINDS = ["hit", "counter_hit", "punish_counter", "hit_other", "guard", "opponent"] as const;
 /** 起き攻めに対して相手が取れる行動。結果の outcome は win（こちらが勝つ）/ lose / unknown。 */
 /** 相手の行動の結果がどのヒットか。other だけ個別の次の状況を持つ。 */
@@ -105,18 +102,14 @@ export const SF6_RESOURCES = {
     order: "character.asc,created_at.asc",
     embed: "starts:sf6_sequence_starts(situation_id),results:sf6_sequence_results(kind,opponent_action,outcome,hit_type,next_situation_id)",
     fields: [
-      { key: "kind", column: "kind", type: "enum", values: SF6_SEQUENCE_KINDS },
       { key: "character", column: "character", type: "text", max: NAME_MAX, required: true },
       { key: "title", column: "title", type: "text", max: 120, required: true },
       { key: "notation", column: "notation", type: "text", max: 1000, required: true },
       { key: "startup", column: "startup", type: "int", min: 1, max: 99, nullable: true },
-      { key: "damage", column: "damage", type: "int", min: 0, max: 20000, nullable: true },
       { key: "driveCost", column: "drive_cost", type: "half", min: 0, max: 6 },
       { key: "saCost", column: "sa_cost", type: "int", min: 0, max: 4 },
       { key: "position", column: "position", type: "enum", values: SF6_POSITIONS },
       { key: "layering", column: "layering", type: "enum", values: SF6_LAYERINGS, nullable: true },
-      { key: "aim", column: "aim", type: "enum", values: SF6_AIMS, nullable: true },
-      { key: "endPurpose", column: "end_purpose", type: "enum", values: SF6_END_PURPOSES, nullable: true },
       { key: "mastery", column: "mastery", type: "int", min: 0, max: 3 },
       { key: "memo", column: "memo", type: "text", max: LONG_MAX, preserveWhitespace: true },
       { key: "archived", column: "archived", type: "bool" },
@@ -124,10 +117,6 @@ export const SF6_RESOURCES = {
       { key: "results", column: "results", type: "results", maxItems: 12, optional: "update" },
     ],
     check: (value) => {
-      if (value.kind === "setplay") {
-        if (value.aim === null) return "起き攻めの狙いを選んでください。";
-        if (value.endPurpose !== null) return "起き攻めには締めの目的を入れられません。";
-      } else if (value.aim !== null || value.layering !== null) return "コンボには狙い・重ね方を入れられません。";
       return value.results === undefined ? null : resultsProblem(value.results as Sf6ResultInput[]);
     },
   },
@@ -378,7 +367,7 @@ function readField(field: FieldSpec, raw: unknown): { ok: true; value: unknown }
 }
 
 const FIELD_LABELS: Record<string, string> = {
-  character: "キャラ", title: "名前", name: "名前", notation: "レシピ", damage: "ダメージ", startup: "発生F",
+  character: "キャラ", title: "名前", name: "名前", notation: "レシピ", startup: "発生F",
   opponent: "相手キャラ", myCharacter: "使用キャラ", playedOn: "日付", practicedOn: "日付", advantage: "有利F",
   attempts: "回数", successes: "成功数", memo: "メモ", detail: "詳細", note: "メモ", good: "良かった点", bad: "反省点",
   starts: "始動の状況", results: "結果", sequenceIds: "練習する手順", bestStreak: "連続成功", driveCost: "Dゲージ",

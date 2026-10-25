@@ -398,8 +398,6 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 .flow-edge text { fill: var(--muted); font-size: 11px; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; }
 .flow-node { cursor: pointer; }
 .flow-node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
-.flow-node.combo rect { stroke: var(--win); }
-.flow-node.setplay rect { stroke: var(--accent); }
 .flow-node.selected rect { fill: var(--bg-hover); stroke-width: 3; }
 .flow-node .kind { fill: var(--muted); font-size: 10px; }
 .flow-node .title { fill: var(--ink); font-size: 13px; font-weight: 600; }

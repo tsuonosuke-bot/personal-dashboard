@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { appendToken, parseNotation } from "../public/sf6-notation.js";
 import {
-  bestStreakOf, defaultTitle, drillPreset, findState, leadsInto, raiseTargets, routeBack, routeDrillPreset, sequencesFrom, setplaysAfter,
+  bestStreakOf, defaultTitle, drillPreset, findState, leadsInto, raiseTargets, routeBack, routeDrillPreset, sequencesFrom, partsAfter,
   shouldRaiseMastery, situationUsage, sortSequences, startSituationGroups, stateFit, stateLabel, usableNow, usesDrive,
   type PlanSequence, type PlanSituation, type RouteStep,
 } from "../public/sf6-plan.js";
@@ -17,7 +17,7 @@ const state = (id: number, advantage: number, overrides: Partial<PlanSituation> 
   id, character: "ケン", kind: "state", name: `局面${id}`, advantage, recovery: "back_roll", ...overrides,
 });
 const sequence = (overrides: Partial<PlanSequence> = {}): PlanSequence => ({
-  id: 1, kind: "combo", character: "ケン", title: "中足ラッシュ", notation: "2中K > 5中P", startup: 5, damage: 2800,
+  id: 1, character: "ケン", title: "中足ラッシュ", notation: "2中K > 5中P", startup: 5,
   driveCost: 0, saCost: 0, position: "anywhere", mastery: 1, archived: false, starts: [1], results: [], ...overrides,
 });
 const hit = (nextSituationId: number | null) => ({ kind: "hit" as const, opponentAction: null, outcome: null, nextSituationId });
@@ -64,17 +64,17 @@ test("バーンアウト中は、Dゲージ0でもDR・DI・パリィ・OD必殺
   assert.equal(usableNow(sequence({ driveCost: 1, notation: "5中P" }), { burnout: true }), false);
 });
 
-test("確定反撃と不利F指定は発生の速い順、ほかの条件はダメージ順、条件なしは登録順", () => {
+test("確定反撃と不利F指定は発生の速い順、それ以外は登録順", () => {
   const byId = new Map([[1, punish], [2, confirm]]);
   const list = [
-    sequence({ id: 1, startup: 7, damage: 3000 }),
-    sequence({ id: 2, startup: null, damage: 3500 }),
-    sequence({ id: 3, startup: 4, damage: 1200 }),
+    sequence({ id: 1, startup: 7 }),
+    sequence({ id: 2, startup: null }),
+    sequence({ id: 3, startup: 4 }),
   ];
   assert.deepEqual(sortSequences(list, { situationId: 1 }, byId).map((entry) => entry.id), [3, 1, 2]);
   assert.deepEqual(sortSequences(list, { situationId: 1, punishWindow: 7 }, byId).map((entry) => entry.id), [3, 1, 2]);
   assert.deepEqual(sortSequences(list, { punishWindow: 7 }, byId).map((entry) => entry.id), [3, 1, 2]);
-  assert.deepEqual(sortSequences(list, { situationId: 2 }, byId).map((entry) => entry.id), [2, 1, 3]);
+  assert.deepEqual(sortSequences(list, { situationId: 2 }, byId).map((entry) => entry.id), [1, 2, 3]);
   assert.deepEqual(sortSequences(list, {}, byId).map((entry) => entry.id), [1, 2, 3]);
   // 不利F5：発生5F以下だけが残る（A3）
   const window = list.filter((entry) => usableNow(entry, { punishWindow: 5 }));
@@ -148,16 +148,16 @@ test("状況から始まる手順は1段だけ返し、ループする局面で�
   const corner = state(6, 29, { position: "corner" });
   const anywhere = state(5, 29);
   const situations = [punish, anywhere, corner];
-  const loop = sequence({ id: 10, kind: "setplay", title: "端ループ", starts: [6], results: [hit(6)] });
+  const loop = sequence({ id: 10, title: "端ループ", starts: [6], results: [hit(6)] });
   const combo = sequence({ id: 11, title: "中P 強エアニー", starts: [1], results: [hit(5)] });
-  const other = sequence({ id: 12, kind: "setplay", title: "中央", starts: [5] });
-  const archived = sequence({ id: 13, kind: "setplay", starts: [6], archived: true });
+  const other = sequence({ id: 12, title: "中央", starts: [5] });
+  const archived = sequence({ id: 13, starts: [6], archived: true });
   const fromCorner = sequencesFrom(corner, [loop, combo, other, archived], situations);
   assert.deepEqual(fromCorner.map((entry) => [entry.sequence.id, entry.fit]), [[10, "same"], [12, "fits"]]);
   assert.deepEqual(sequencesFrom(punish, [loop, combo], situations).map((entry) => entry.sequence.id), [11]);
   // どこでも+29の締めから、画面端+29の起き攻めが「合う」として出る（A2）
-  assert.deepEqual(setplaysAfter(combo, [loop, combo, other], situations).map((entry) => [entry.sequence.id, entry.fit]), [[12, "same"], [10, "fits"]]);
-  assert.deepEqual(leadsInto(corner, [loop, combo, other], situations).map((entry) => entry.id), [11]);
+  assert.deepEqual(partsAfter(combo, [loop, combo, other], situations).map((entry) => [entry.sequence.id, entry.fit]), [[12, "same"], [10, "fits"]]);
+  assert.deepEqual(leadsInto(corner, [loop, combo, other], situations).map((entry) => entry.id), [10, 11]);
   assert.deepEqual(sequencesFrom(state(9, 31), [other], [...situations, state(9, 31)], { includeNear: false }), []);
 });
 
@@ -174,7 +174,7 @@ test("状況の使用件数と、削除すると始動がなくなる手順の�
 test("ルートを練習にすると、タイトル・手順の並び・トレモ設定が入る", () => {
   const corner = state(6, 29, { position: "corner", name: "強エアニー締め後" });
   const combo = sequence({ id: 1, title: "弱連打 強エアニー", starts: [3], results: [hit(6)] });
-  const setplay = sequence({ id: 2, kind: "setplay", title: "前ステ 中パワーボム", starts: [6] });
+  const setplay = sequence({ id: 2, title: "前ステ 中パワーボム", starts: [6], results: [{ kind: "opponent", opponentAction: "tech", outcome: "win", nextSituationId: null }] });
   const situationsById = new Map([[3, counter], [6, corner]]);
   const preset = routeDrillPreset(
     [{ situationId: 3 }, { sequenceId: 1, resultKind: "hit" }, { situationId: 6 }, { sequenceId: 2, resultKind: "opponent", opponentAction: "tech" }, { situationId: 6 }, { sequenceId: 2, resultKind: "hit" }],
@@ -226,16 +226,16 @@ test("起き攻めの手順に移動・タイミングの基準を使える", ()
   assert.equal((parseNotation("前ステ")[0] as { kind: string }).kind, "move");
 });
 
-test("SF6ページは5タブ（状況・コンボと起き攻めは手順に統合・フレームあり・注意点なし）で、バーンアウトの手入力と「注意点にする」がない", async () => {
+test("SF6ページは5タブ（コンボと起き攻めはコンボパーツに統合・フレームあり・注意点なし）で、バーンアウトの手入力と「注意点にする」がない", async () => {
   const [html, script] = await Promise.all([
     readFile(new URL("../public/sf6/index.html", import.meta.url), "utf8"),
     readClientScript("sf6"),
   ]);
   assert.deepEqual([...html.matchAll(/data-tab="([a-z]+)"/g)].map((match) => match[1]), ["sequences", "situations", "frames", "drills", "matches"]);
-  // 手順タブは種類（すべて・コンボ・起き攻め）で絞り込む
-  assert.deepEqual([...html.matchAll(/id="sequenceKind"[\s\S]*?<\/div>/g)][0][0].match(/data-value="([a-z]*)"/g), ["data-value=\"\"", "data-value=\"combo\"", "data-value=\"setplay\""]);
+  // コンボと起き攻めは1種類のコンボパーツに統合し、種類の絞り込みは持たない
+  assert.doesNotMatch(html, /id="sequenceKind"/);
   assert.doesNotMatch(html, /data-tab="notes"|注意点/);
-  assert.match(html, /<small>コンボ・起き攻め・練習<\/small>/);
+  assert.match(html, /<small>コンボパーツ・練習<\/small>/);
   assert.match(html, /id="conditionBurnout"/);
   assert.match(html, /id="conditionPunish"/);
   assert.match(html, /id="sheet"/);

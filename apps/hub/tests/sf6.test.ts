@@ -15,15 +15,15 @@ const STALE = "画面が古くなっています。ページを再読み込み�
 const TIMESTAMP = "2026-10-12T00:00:00.123456+00:00";
 
 const combo = {
-  kind: "combo", character: "ケン", title: "中足ラッシュ", notation: "2中K > DR 5中P > 2強P xx 236強P", startup: 5,
-  damage: 2860, driveCost: 1, saCost: 0, position: "anywhere", layering: null, aim: null, endPurpose: "oki",
+  character: "ケン", title: "中足ラッシュ", notation: "2中K > DR 5中P > 2強P xx 236強P", startup: 5,
+  driveCost: 1, saCost: 0, position: "anywhere", layering: null,
   mastery: 1, memo: null, archived: false,
   starts: [1, { state: { advantage: 3, position: "anywhere", recovery: null } }],
   results: [{ kind: "hit", next: { state: { advantage: 31, position: "anywhere", recovery: "back_roll", name: "強昇龍締め後" } } }],
 };
 const setplay = {
-  ...combo, kind: "setplay", title: "前ステ中P", notation: "前ステ 2中P 重ね", startup: null, damage: null, driveCost: 0,
-  layering: "meaty", aim: "shimmy", endPurpose: null, starts: [5],
+  ...combo, title: "前ステ中P", notation: "前ステ 2中P 重ね", startup: null, driveCost: 0,
+  layering: "meaty", starts: [5],
   results: [
     { kind: "opponent", opponentAction: "tech", outcome: "win", next: 9 },
     { kind: "opponent", opponentAction: "reversal", outcome: "lose" },
@@ -31,8 +31,8 @@ const setplay = {
   ],
 };
 const sequenceRow = {
-  id: 4, kind: "combo", character: "ケン", title: "中足ラッシュ", notation: "2中K > DR 5中P", startup: 5, damage: 2860,
-  drive_cost: "1.0", sa_cost: 0, position: "anywhere", layering: null, aim: null, end_purpose: "oki", mastery: 1, memo: null,
+  id: 4, character: "ケン", title: "中足ラッシュ", notation: "2中K > DR 5中P", startup: 5,
+  drive_cost: "1.0", sa_cost: 0, position: "anywhere", layering: null, mastery: 1, memo: null,
   archived: false, created_at: TIMESTAMP, updated_at: TIMESTAMP,
   starts: [{ situation_id: 2 }, { situation_id: 1 }],
   results: [
@@ -101,14 +101,13 @@ test("手順の入力を検証し、空欄の任意項目はnullにする", () =
   assert.equal(validateSf6Fields("sequences", missing).ok, false);
 });
 
-test("コンボと起き攻めの形（狙い・重ね方・締めの目的）を種類で確かめる", () => {
+test("コンボパーツは、結果（ヒット・ガード・相手の行動）を種類にかかわらず持てる。削除した項目（種類・狙い・締めの目的・ダメージ）は受け付けない", () => {
   assert.equal(validateSf6Fields("sequences", setplay).ok, true);
-  const noAim = validateSf6Fields("sequences", { ...setplay, aim: null });
-  assert.equal(noAim.ok, false);
-  if (!noAim.ok) assert.match(noAim.error, /狙い/);
-  assert.equal(validateSf6Fields("sequences", { ...setplay, endPurpose: "oki" }).ok, false);
-  assert.equal(validateSf6Fields("sequences", { ...combo, aim: "throw" }).ok, false);
-  assert.equal(validateSf6Fields("sequences", { ...combo, layering: "meaty" }).ok, false);
+  assert.equal(validateSf6Fields("sequences", { ...combo, layering: "meaty" }).ok, true);
+  assert.equal(validateSf6Fields("sequences", { ...combo, results: [...combo.results, { kind: "opponent", opponentAction: "tech", outcome: "win", next: 9 }] }).ok, true);
+  for (const removed of [{ kind: "combo" }, { aim: "throw" }, { endPurpose: "oki" }, { damage: 100 }]) {
+    assert.equal(validateSf6Fields("sequences", { ...combo, ...removed }).ok, false);
+  }
 });
 
 test("結果は重ならず、相手の行動は○×–が必須、ヒット・ガードは次の状況が必須。未確認で次もないものは保存しない", () => {
@@ -238,7 +237,8 @@ test("POST sequences はRPCを1回呼び、列名の親・{state}つきの始動
     const sent = JSON.parse(String(rpcCall.init.body));
     assert.equal(sent.p_id, null);
     assert.equal(sent.p_row.drive_cost, 1);
-    assert.equal(sent.p_row.end_purpose, "oki");
+    assert.equal("end_purpose" in sent.p_row, false);
+    assert.equal("kind" in sent.p_row, false);
     assert.equal("driveCost" in sent.p_row, false);
     assert.equal("starts" in sent.p_row, false);
     assert.deepEqual(sent.p_starts, [1, { state: { advantage: 3, position: "anywhere", recovery: null, name: null } }]);

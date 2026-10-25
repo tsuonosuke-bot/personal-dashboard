@@ -3,7 +3,7 @@ import { sf6Request } from "./api.js";
 import { errorMessage } from "./format.js";
 import { compassHistoryPath } from "../compass-routing.js";
 
-export const INBOX_SF6_TYPES = { situations: "局面", sequences: "手順（コンボ / 起き攻め）", drills: "練習メニュー" };
+export const INBOX_SF6_TYPES = { situations: "局面", sequences: "コンボパーツ", drills: "練習メニュー" };
 const nameLimits = { situations: 60, sequences: 120, drills: 200 };
 const isResource = (value) => Object.hasOwn(INBOX_SF6_TYPES, value);
 
@@ -12,7 +12,7 @@ export function inboxSf6Preset(resource, content) {
   const firstLine = content.split(/\r\n?|\n/).find((line) => line.trim())?.trim() || "";
   const title = [...firstLine].slice(0, nameLimits[resource]).join("");
   if (resource === "situations") return { kind: "state", character: null, name: title, memo: content };
-  if (resource === "sequences") return { kind: "combo", character: "", title, memo: content, notation: "" };
+  if (resource === "sequences") return { character: "", title, memo: content, notation: "" };
   return { title, detail: content };
 }
 
@@ -48,7 +48,6 @@ export function createSf6InboxFlow({ state, els, openModal, closeModal, readDraf
     if (!item) { showStatus("指定されたSF6の記録が見つかりません。削除された可能性があります。"); return; }
     if (target.resource === "sequences") {
       state.sequenceCharacter = item.character;
-      state.sequenceKind = item.kind;
       state.sequencePosition = "";
       state.conditions.situationId = null;
     } else if (target.resource === "situations") {
@@ -84,20 +83,12 @@ export function createSf6InboxFlow({ state, els, openModal, closeModal, readDraf
     if (source) {
       els.inboxContext.hidden = false;
       els.inboxContext.innerHTML = `<label>登録先<select data-inbox-resource>${Object.entries(INBOX_SF6_TYPES).map(([key, label]) => `<option value="${key}"${key === editing.resource ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>
-        ${editing.resource === "sequences" ? `<label>手順の種類<select data-inbox-kind><option value="combo"${editing.values.kind === "combo" ? " selected" : ""}>コンボ</option><option value="setplay"${editing.values.kind === "setplay" ? " selected" : ""}>起き攻め</option></select></label>` : ""}
         <details><summary>元Inboxのメモ</summary><p class="inbox-original"></p><a href="${escapeHtml(compassHistoryPath("inbox", source.inbox.id))}">元Inboxを開く</a></details>`;
       // textContent preserves leading/trailing newlines without HTML parsing.
       els.inboxContext.querySelector(".inbox-original").textContent = source.inbox.content;
       els.inboxContext.querySelector("[data-inbox-resource]").addEventListener("change", (event) => {
         drafts.set(editing.resource, readDraft());
         openSource(source, event.target.value);
-      });
-      els.inboxContext.querySelector("[data-inbox-kind]")?.addEventListener("change", (event) => {
-        const draft = readDraft();
-        drafts.set(`sequences:${editing.values.kind}`, draft);
-        const kind = event.target.value;
-        const next = drafts.get(`sequences:${kind}`) || { ...draft, kind, starts: [], results: [], aim: kind === "setplay" ? "strike" : null, layering: null, endPurpose: null };
-        openModal("sequences", null, next, source);
       });
       els.inboxBoundary.hidden = false;
       els.inboxBoundary.textContent = "SF6へ保存し、元Inboxを整理済みにします。";

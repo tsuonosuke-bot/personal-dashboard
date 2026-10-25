@@ -1,8 +1,8 @@
 import { escapeHtml } from "../shared/html.js";
 import { notationHtml, chips, empty, percent, daysAgo, formatDay } from "./format.js";
-import { TABS, KIND_ADD_LABELS, ADD_LABELS, SEQUENCE_KINDS, POSITIONS, SA_LEVELS, END_PURPOSES, OPPONENT_LABELS, OUTCOME_MARKS, RECOVERIES, AIMS, LAYERINGS, GUARD_SETTINGS, COUNTER_SETTINGS, RECOVERY_SETTINGS, RESULTS, MODES } from "./constants.js";
+import { TABS, ADD_LABELS, POSITIONS, SA_LEVELS, OPPONENT_LABELS, OUTCOME_MARKS, RECOVERIES, LAYERINGS, GUARD_SETTINGS, COUNTER_SETTINGS, RECOVERY_SETTINGS, RESULTS, MODES } from "./constants.js";
 // 手順・状況・練習・振り返りの表示と絞り込み。
-import { MASTERY, resultOf, setplaysAfter, stateFit, stateLabel, usableNow, sortSequences, OPPONENT_OPTIONS, leadsInto, bestStreakOf, raiseTargets, STREAK_GOAL, sequencesFrom, situationUsage } from "../sf6-plan.js";
+import { MASTERY, resultOf, partsAfter, stateFit, stateLabel, usableNow, sortSequences, OPPONENT_OPTIONS, leadsInto, bestStreakOf, raiseTargets, STREAK_GOAL, sequencesFrom, situationUsage } from "../sf6-plan.js";
 
 export function createSf6Records({ state, els, situationsById, resultLabel, situationText, activeDrillFor, renderPunishPicker, findSequence }) {
   // ---------- 描画 ----------
@@ -23,7 +23,7 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
       button.setAttribute("aria-selected", String(button.dataset.tab === state.tab));
     });
     TABS.forEach((tab) => { document.getElementById(`panel-${tab}`).hidden = !state.data || tab !== state.tab; });
-    els.addLabel.textContent = state.tab === "sequences" && state.sequenceKind ? KIND_ADD_LABELS[state.sequenceKind] : ADD_LABELS[state.tab];
+    els.addLabel.textContent = ADD_LABELS[state.tab];
     els.addButton.hidden = !ADD_LABELS[state.tab];
   }
 
@@ -49,49 +49,61 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
       : `<button type="button" class="ghost-button" data-drill-from-sequence="${sequence.id}">練習に追加</button>`;
   }
 
-  /** 種類を絞り込んでいない一覧でだけ、コンボか起き攻めかの印を出す。 */
-  function kindBadgeHtml(sequence) {
-    return state.sequenceKind === "" ? `<span class="kind-badge">${SEQUENCE_KINDS[sequence.kind]}</span>` : "";
+  function startStatesOf(sequence) {
+    const byId = situationsById();
+    return sequence.starts.map((id) => byId.get(id)).filter(Boolean);
   }
 
-  function comboCard(combo) {
+  /** 相手の行動ごとの結果（○×）の行。1つも確認していなければ出さない。 */
+  function outcomesHtml(part, showBackRoll) {
+    const outcomes = Object.fromEntries(part.results.filter((result) => result.kind === "opponent").map((result) => [result.opponentAction, result.outcome]));
+    if (!Object.values(outcomes).some((value) => value !== "unknown")) return "";
+    return `<div class="outcomes" aria-label="相手の行動ごとの結果">${OPPONENT_OPTIONS.filter((key) => showBackRoll || key !== "back_roll").map((key) => {
+      const value = outcomes[key] || "unknown";
+      return `<span class="outcome ${value}" title="${escapeHtml(OPPONENT_LABELS[key])}：${value === "win" ? "こちらが勝つ" : value === "lose" ? "こちらが負ける" : "未確認"}"><b>${OUTCOME_MARKS[value]}</b>${escapeHtml(OPPONENT_LABELS[key])}</span>`;
+    }).join("")}</div>`;
+  }
+
+  /** コンボパーツ：始動の状況 → レシピ → 結果（ヒット・ガード・相手の行動）→ 次の状況。続けられるパーツを下に出す。 */
+  function partCard(part) {
     const byId = situationsById();
-    const starts = combo.starts.map((id) => byId.get(id)).filter(Boolean);
+    const starts = startStatesOf(part);
+    const showBackRoll = starts.some((situation) => situation.recovery === "back_roll");
     const conditions = [
-      combo.startup !== null ? `発生${combo.startup}F` : "",
-      combo.position !== "anywhere" ? POSITIONS[combo.position] : "",
-      combo.damage !== null ? `${combo.damage.toLocaleString()}ダメ` : "",
-      combo.driveCost ? `Dゲージ${combo.driveCost}` : "",
-      combo.saCost ? SA_LEVELS[combo.saCost] : "",
+      part.startup !== null ? `発生${part.startup}F` : "",
+      part.position !== "anywhere" ? POSITIONS[part.position] : "",
+      part.driveCost ? `Dゲージ${part.driveCost}` : "",
+      part.saCost ? SA_LEVELS[part.saCost] : "",
+      part.layering ? LAYERINGS[part.layering] : "",
     ].filter(Boolean);
-    const hitState = byId.get(resultOf(combo, "hit")?.nextSituationId);
-    const results = resultLinesHtml(combo, ["hit", "guard"]);
-    const purpose = combo.endPurpose ? `<span class="meta">${escapeHtml(END_PURPOSES[combo.endPurpose])}</span>` : "";
-    const next = combo.archived ? [] : setplaysAfter(combo, state.data.sequences, state.data.situations);
+    const hitState = byId.get(resultOf(part, "hit")?.nextSituationId);
+    const results = resultLinesHtml(part, ["hit", "counter_hit", "punish_counter", "hit_other", "guard", "opponent"]);
+    const next = part.archived ? [] : partsAfter(part, state.data.sequences, state.data.situations);
     const nextHtml = next.length
-      ? `<div class="next-setplays"><span>起き攻め</span>${next.map(({ sequence, fit }) => {
-        const start = sequence.starts.map((id) => byId.get(id)).find((entry) => entry && stateFit(hitState, entry));
+      ? `<div class="next-setplays"><span>次</span>${next.map(({ sequence, fit }) => {
+        const start = sequence.starts.map((id) => byId.get(id)).find((entry) => entry && hitState && stateFit(hitState, entry));
         return `<button type="button" class="next-chip ${fit}" data-goto-sequence="${sequence.id}" title="${fit === "near" ? "有利Fが1〜2Fずれています。重ねが変わる可能性があります" : ""}">${escapeHtml(sequence.title)}${fit === "near" && start ? ` <small>${escapeHtml(stateLabel(start))} 注意</small>` : ""}</button>`;
       }).join("")}</div>`
       : "";
-    return `<article class="card combo-card" id="sequence-${combo.id}">
+    return `<article class="card combo-card" id="sequence-${part.id}">
       <div class="card-head">
-        <h3>${kindBadgeHtml(combo)}${escapeHtml(combo.title)}</h3>
-        <button type="button" class="ghost-button" data-edit="sequences" data-id="${combo.id}">編集</button>
+        <h3>${escapeHtml(part.title)}</h3>
+        <button type="button" class="ghost-button" data-edit="sequences" data-id="${part.id}">編集</button>
       </div>
       <div class="situations">${starts.length
-        ? starts.map((situation) => `<button type="button" data-route-situation="${situation.id}" data-character="${escapeHtml(combo.character)}">${escapeHtml(situation.name)}</button>`).join("")
+        ? starts.map((situation) => `<button type="button" data-route-situation="${situation.id}" data-character="${escapeHtml(part.character)}">${escapeHtml(situationText(situation))}</button>`).join("")
         : '<span class="none">状況なし</span>'}</div>
-      ${notationHtml(combo.notation)}
+      ${notationHtml(part.notation)}
       ${chips(conditions)}
-      ${results || purpose ? `<div class="result-lines">${results}${purpose}</div>` : ""}
+      ${outcomesHtml(part, showBackRoll)}
+      ${results ? `<div class="result-lines">${results}</div>` : ""}
       ${nextHtml}
-      ${combo.memo ? `<p class="memo">${escapeHtml(combo.memo)}</p>` : ""}
+      ${part.memo ? `<p class="memo">${escapeHtml(part.memo)}</p>` : ""}
       <div class="card-foot">
-        ${masteryHtml(combo)}
+        ${masteryHtml(part)}
         <span class="foot-actions">
-          ${combo.archived || hitState?.kind !== "state" ? "" : `<button type="button" class="ghost-button" data-setplay-from-combo="${combo.id}">起き攻めを追加</button>`}
-          ${drillButtonHtml(combo)}
+          ${part.archived || hitState?.kind !== "state" ? "" : `<button type="button" class="ghost-button" data-part-after="${part.id}">続きを追加</button>`}
+          ${drillButtonHtml(part)}
         </span>
       </div>
     </article>`;
@@ -133,24 +145,16 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
       ? `<option value="none"${state.conditions.situationId === "none" ? " selected" : ""}>状況なし</option>` : ""}`;
   }
 
-  function sequenceCard(sequence) {
-    return sequence.kind === "setplay" ? setplayCard(sequence) : comboCard(sequence);
-  }
-
   function emptySequencesText(total, noStartup) {
-    if (noStartup) return `発生Fが未入力のコンボは${noStartup}件あります`;
-    const label = state.sequenceKind ? SEQUENCE_KINDS[state.sequenceKind] : "手順";
-    return total ? `この状況・条件で使える${label}はありません` : `まだ${label}がありません。右上の「＋」から追加できます`;
+    if (noStartup) return `発生Fが未入力のパーツは${noStartup}件あります`;
+    return total ? "この状況・条件で使えるパーツはありません" : "まだパーツがありません。右上の「＋」から追加できます";
   }
 
   function renderSequences() {
     const all = state.data.sequences;
-    const ofKind = all.filter((sequence) => !state.sequenceKind || sequence.kind === state.sequenceKind);
+    const ofKind = all;
     state.sequenceCharacter = fillSelect(els.sequenceCharacter, charactersIn(all, "character"), state.sequenceCharacter, "全キャラ");
     renderSequenceSituations(ofKind.filter((sequence) => !state.sequenceCharacter || sequence.character === state.sequenceCharacter));
-    els.sequenceKind.querySelectorAll("button").forEach((button) => {
-      button.setAttribute("aria-pressed", String(button.dataset.value === state.sequenceKind));
-    });
     els.sequencePosition.querySelectorAll("button").forEach((button) => {
       button.setAttribute("aria-pressed", String(button.dataset.value === state.sequencePosition));
     });
@@ -166,73 +170,22 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
     const mine = ofKind.filter((sequence) => !state.sequenceCharacter || sequence.character === state.sequenceCharacter);
     const visible = mine.filter((sequence) => usableNow(sequence, { ...state.conditions, position: state.sequencePosition }));
     const sorted = sortSequences(visible.filter((sequence) => !sequence.archived), state.conditions, situationsById());
-    // コンボ → 起き攻めの順。条件で並べていないときの起き攻めは、起点の有利Fが大きい順
-    const active = [
-      ...sorted.filter((sequence) => sequence.kind === "combo"),
-      ...(conditionsActive() ? sorted.filter((sequence) => sequence.kind === "setplay")
-        : sorted.filter((sequence) => sequence.kind === "setplay").sort((a, b) => maxAdvantage(b) - maxAdvantage(a))),
-    ];
+    const active = conditionsActive() ? sorted : [...sorted].sort((a, b) => maxAdvantage(b) - maxAdvantage(a));
     const archived = visible.filter((sequence) => sequence.archived);
     const groups = new Map();
     active.forEach((sequence) => groups.set(sequence.character, [...(groups.get(sequence.character) || []), sequence]));
     // 不利F以外の状況・条件では使えるのに、発生Fがないので出ていないコンボ
     const noStartup = punishWindow !== null
-      ? mine.filter((sequence) => sequence.kind === "combo" && !sequence.archived && sequence.startup === null
+      ? mine.filter((sequence) => !sequence.archived && sequence.startup === null
         && usableNow(sequence, { ...state.conditions, position: state.sequencePosition, punishWindow: null })).length
       : 0;
     els.sequenceList.innerHTML = active.length
-      ? [...groups].map(([character, list]) => `<h2 class="list-title">${escapeHtml(character)}<small>${list.length}</small></h2>${list.map(sequenceCard).join("")}`).join("")
+      ? [...groups].map(([character, list]) => `<h2 class="list-title">${escapeHtml(character)}<small>${list.length}</small></h2>${list.map(partCard).join("")}`).join("")
       : empty(emptySequencesText(ofKind.length, noStartup));
     els.sequenceArchiveFold.hidden = archived.length === 0;
     els.sequenceArchiveCount.textContent = archived.length;
-    els.sequenceArchive.innerHTML = archived.map(sequenceCard).join("");
+    els.sequenceArchive.innerHTML = archived.map(partCard).join("");
     if (conditionsActive() && punishWindow !== null) els.sequenceConditions.open = true;
-  }
-
-  function outcomesHtml(setplay, showBackRoll) {
-    const outcomes = Object.fromEntries(setplay.results.filter((result) => result.kind === "opponent").map((result) => [result.opponentAction, result.outcome]));
-    if (!Object.values(outcomes).some((value) => value !== "unknown")) return '<p class="meta outcomes-empty">相手の行動ごとの結果：未確認</p>';
-    return `<div class="outcomes" aria-label="相手の行動ごとの結果">${OPPONENT_OPTIONS.filter((key) => showBackRoll || key !== "back_roll").map((key) => {
-      const value = outcomes[key] || "unknown";
-      return `<span class="outcome ${value}" title="${escapeHtml(OPPONENT_LABELS[key])}：${value === "win" ? "こちらが勝つ" : value === "lose" ? "こちらが負ける" : "未確認"}"><b>${OUTCOME_MARKS[value]}</b>${escapeHtml(OPPONENT_LABELS[key])}</span>`;
-    }).join("")}</div>`;
-  }
-
-  function startStatesOf(sequence) {
-    const byId = situationsById();
-    return sequence.starts.map((id) => byId.get(id)).filter(Boolean);
-  }
-
-  function setplayCard(setplay) {
-    const starts = startStatesOf(setplay);
-    const showBackRoll = starts.some((situation) => situation.recovery === "back_roll");
-    const before = [...new Set(starts.filter((situation) => situation.kind === "state")
-      .flatMap((situation) => leadsInto(situation, state.data.sequences, state.data.situations)))].slice(0, 2);
-    // 起点 強エアニー締め後 +29F · 画面端 · 後ろ受け身 可（名前が数値そのものなら名前は出さない）
-    const startText = starts.map((situation) => (situation.kind === "state" ? [
-      situation.name === stateLabel(situation) ? "" : situation.name,
-      `${situation.advantage > 0 ? "+" : ""}${situation.advantage}F`,
-      situation.position !== "anywhere" ? POSITIONS[situation.position] : "",
-      situation.recovery ? RECOVERIES[situation.recovery] : "",
-    ].filter(Boolean).join(" · ") : situation.name)).join(" ／ ");
-    const tags = [AIMS[setplay.aim], setplay.layering ? LAYERINGS[setplay.layering] : ""].filter(Boolean);
-    const results = resultLinesHtml(setplay, ["hit", "counter_hit", "punish_counter", "hit_other", "guard", "opponent"]);
-    return `<article class="card setplay-card" id="sequence-${setplay.id}">
-      <div class="card-head">
-        <h3>${kindBadgeHtml(setplay)}${escapeHtml(setplay.title)}</h3>
-        <button type="button" class="ghost-button" data-edit="sequences" data-id="${setplay.id}">編集</button>
-      </div>
-      <p class="start-line"><b>起点</b>${starts.length ? escapeHtml(startText) : "状況なし"}${before.length ? `<span>${before.map((combo) => escapeHtml(combo.title)).join("、")}の後</span>` : ""}</p>
-      ${notationHtml(setplay.notation)}
-      ${chips(tags)}
-      ${outcomesHtml(setplay, showBackRoll)}
-      ${results ? `<div class="result-lines">${results}</div>` : ""}
-      ${setplay.memo ? `<p class="memo">${escapeHtml(setplay.memo)}</p>` : ""}
-      <div class="card-foot">
-        ${masteryHtml(setplay)}
-        ${drillButtonHtml(setplay)}
-      </div>
-    </article>`;
   }
 
   function maxAdvantage(sequence) {
@@ -272,7 +225,7 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
     const sequences = drill.sequenceIds.map(findSequence).filter(Boolean);
     return sequences.map((sequence, index) => {
       const link = index > 0 ? `<p class="chain-link">› ${escapeHtml(linkLabel(sequences[index - 1], sequence))}</p>` : "";
-      const label = sequences.length > 1 ? sequence.title : sequence.kind === "setplay" ? "起き攻め" : "";
+      const label = sequences.length > 1 ? sequence.title : "";
       return `${link}${label ? `<span class="kind-label">${escapeHtml(label)}</span>` : ""}${notationHtml(sequence.notation)}`;
     }).join("");
   }
@@ -346,8 +299,7 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
       <div class="card-foot">
         <small class="meta">${counts.starts ? `始動の手順 ${counts.starts}件` : "始動の手順なし"}${counts.results ? ` · ここに至る結果 ${counts.results}件` : ""}</small>
         ${situation.archived ? "" : `<span class="foot-actions">
-          <button type="button" class="ghost-button" data-add-from-situation="${situation.id}|setplay">＋起き攻め</button>
-          <button type="button" class="ghost-button" data-add-from-situation="${situation.id}|combo">＋コンボ</button>
+          <button type="button" class="ghost-button" data-add-from-situation="${situation.id}">＋パーツ</button>
           <button type="button" class="ghost-button" data-flow-situation="${situation.id}">フロー ›</button>
           <button type="button" class="ghost-button" data-route-situation="${situation.id}" data-character="${escapeHtml(situation.character)}">ルートを見る ›</button>
         </span>`}

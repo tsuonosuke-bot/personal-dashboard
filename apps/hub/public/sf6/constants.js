@@ -1,7 +1,7 @@
 
 
-// SF6ページ。コンボ・起き攻め・フレーム・練習メニュー・対戦振り返りの5タブ。
-// コンボと起き攻めは同じ「手順」（sequences）で、始動の状況と結果（→次の状況）を持つ。状況（situations）は
+// SF6ページ。コンボパーツ・状況・フレーム・練習メニュー・対戦振り返りの5タブ。
+// コンボパーツ（sequences）は、始動の状況・レシピ・結果（ヒット・ガード・相手の行動ごと → 次の状況）を持つ。続けられるなら次のパーツへ。状況（situations）は
 // きっかけと局面の2種類。ルートと状況の管理は、1つのシート（#sheet）を使い回して開く。
 // 編集は1つのモーダルを使い回し、FORMS の定義から入力欄を組み立てる。
 
@@ -24,11 +24,7 @@ export const DRIVE_STEPS = Array.from({ length: 13 }, (_, index) => [String(inde
 
 export const RECOVERIES = { back_roll: "後ろ受け身 可", no_back_roll: "後ろ受け身 不可", none: "ダウンなし" };
 
-export const END_PURPOSES = { damage: "ダメージ重視", oki: "起き攻め重視", carry: "運び重視" };
-
 export const LAYERINGS = { meaty: "持続重ね", safe_jump: "安全飛び", other: "その他" };
-
-export const AIMS = { strike: "打撃", throw: "投げ", shimmy: "シミー" };
 
 export const OPPONENT_LABELS = {
   reversal: "無敵技", backdash: "バクステ", jump: "ジャンプ", tech: "グラップ",
@@ -52,11 +48,7 @@ export const SITUATION_KINDS = { trigger: "きっかけ", state: "局面" };
 
 export const TABS = ["sequences", "situations", "frames", "drills", "matches"];
 
-export const ADD_LABELS = { sequences: "手順を追加", situations: "状況を追加", frames: "", drills: "練習を追加", matches: "振り返りを追加" };
-
-export const KIND_ADD_LABELS = { combo: "コンボを追加", setplay: "起き攻めを追加" };
-
-export const SEQUENCE_KINDS = { combo: "コンボ", setplay: "起き攻め" };
+export const ADD_LABELS = { sequences: "パーツを追加", situations: "状況を追加", frames: "", drills: "練習を追加", matches: "振り返りを追加" };
 
 /** 以前の「コンボ」「起き攻め」タブの保存値・URLを、手順タブ（＋種類の絞り込み）に読み替える。 */
-export const LEGACY_TABS = { combos: "combo", setplays: "setplay" };
+export const LEGACY_TABS = { combos: "sequences", setplays: "sequences" };

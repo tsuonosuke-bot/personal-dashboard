@@ -4,8 +4,6 @@ export function createSf6State() {
     data: null,
     tab: "sequences",
     sequenceCharacter: "",
-    /** 手順の種類の絞り込み。"" はすべて、"combo" / "setplay"。 */
-    sequenceKind: "",
     sequencePosition: "",
     /** 状況タブのキャラと位置の絞り込み。 */
     situationCharacter: "",
@@ -31,7 +29,7 @@ export function sf6Elements(document) {
     "sourceBadge", "refreshButton", "addButton", "addLabel", "loadingState", "errorState", "errorMessage", "retryButton",
     "countSequences", "countSituations", "countDrills", "countMatches",
     "situationCharacter", "situationPosition", "situationNear", "situationList", "situationArchiveFold", "situationArchiveCount", "situationArchive",
-    "sequenceCharacter", "sequenceKind", "sequencePosition", "sequenceSituation", "sequenceConditions", "conditionDrive", "conditionSa", "conditionCa", "conditionBurnout",
+    "sequenceCharacter", "sequencePosition", "sequenceSituation", "sequenceConditions", "conditionDrive", "conditionSa", "conditionCa", "conditionBurnout",
     "conditionPunish", "opponentCharacter", "opponentMove", "opponentMoveStatus", "opponentMoveRetry", "conditionSummary", "sequenceList", "sequenceArchiveFold", "sequenceArchiveCount", "sequenceArchive",
     "frameCharacter", "frameQuery", "frameCategory", "frameSort", "framePunishable", "frameHeavyPunishable", "frameCancelable", "frameVersion", "frameTable",
     "drillList", "logList", "drillDoneFold", "drillDoneCount", "drillDone",
