@@ -57,7 +57,7 @@ export function buildFlow({ sequences, situations, character, startSituationId =
       if (found.some((entry) => entry.sequence.id === sequence.id)) loops.add(sequence.id);
       const targets = found.filter((entry) => entry.sequence.id !== sequence.id);
       if (!targets.length) stubs.push({ ...ref, label, type: "dead", situationId: next.id });
-      for (const { sequence: target } of targets) edges.push({ ...ref, from: sequence.id, to: target.id, label });
+      for (const { sequence: target } of targets) edges.push({ ...ref, from: sequence.id, to: target.id, label, nextSituationId: next.id });
     }
   }
 
@@ -168,7 +168,7 @@ export function buildFlow({ sequences, situations, character, startSituationId =
   return {
     nodes, edges: placedEdges, stubs: placedStubs,
     /** 手順どうしのつながり（戻る矢印も含む）。図の矢印とは別に、詳細の「前」「続き」に使う。 */
-    links: edges.filter((edge) => column.has(edge.from) && column.has(edge.to)).map((edge) => ({ from: edge.from, to: edge.to, resultKind: edge.resultKind, opponentAction: edge.opponentAction })),
+    links: edges.filter((edge) => column.has(edge.from) && column.has(edge.to)).map((edge) => ({ from: edge.from, to: edge.to, resultKind: edge.resultKind, opponentAction: edge.opponentAction, nextSituationId: edge.nextSituationId })),
     width: maxCol < 0 ? 0 : colX(maxCol) + (stubColumns.has(maxCol) && !perColumn.has(maxCol) ? STUB_W : NODE_W) + PAD,
     height: bottom + PAD - ROW_GAP,
     unsetCount: visibleStubs.filter((stub) => stub.type === "unset").length,

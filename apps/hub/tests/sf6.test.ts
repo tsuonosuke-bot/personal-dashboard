@@ -497,3 +497,12 @@ test("相手の行動ごとの結果に、ヒットの種類(hitType)を付け�
   const item = toSf6Item("sequences", { ...sequenceRow, results: [{ kind: "opponent", opponent_action: "mash", outcome: "win", hit_type: "punish_counter", next_situation_id: 3 }] });
   assert.deepEqual((item?.results as { hitType: string | null }[])[0].hitType, "punish_counter");
 });
+
+test("同じ結果（ヒットなど）に次の状況を複数持てる（画面中央版・画面端版）。同じ次の状況の重複は拒否する", () => {
+  const withResults = (results: unknown[]) => validateSf6Fields("sequences", { ...combo, results });
+  assert.equal(withResults([{ kind: "hit", next: 9 }, { kind: "hit", next: 10 }]).ok, true);
+  assert.equal(withResults([{ kind: "hit", next: 9 }, { kind: "hit", next: 9 }]).ok, false);
+  const state = (position: string) => ({ state: { advantage: 31, position, recovery: null, name: null } });
+  assert.equal(withResults([{ kind: "hit", next: state("midscreen") }, { kind: "hit", next: state("corner") }]).ok, true);
+  assert.equal(withResults([{ kind: "hit", next: state("corner") }, { kind: "hit", next: state("corner") }]).ok, false);
+});
