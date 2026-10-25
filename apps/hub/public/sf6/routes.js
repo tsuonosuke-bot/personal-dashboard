@@ -57,7 +57,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
     const stubs = flow.stubs.map((stub) => {
       const next = stub.type === "dead" ? situationText(situationsById().get(stub.situationId)) : "";
       const text = stub.type === "unset" ? `${stub.label}：未設定` : `${stub.label} → ${next}`;
-      return `<g class="flow-stub ${stub.type}" data-flow-stub="${stub.sequenceId}|${stub.resultKind}|${stub.opponentAction || ""}" tabindex="0" role="button" aria-label="${escapeHtml(`${text}。次の状況を選ぶ`)}">
+      return `<g class="flow-stub ${stub.type}" data-flow-stub="${stub.sequenceId}|${stub.resultKind}|${stub.opponentAction || ""}"${stub.type === "dead" ? ` data-flow-from="${stub.situationId}"` : ""} tabindex="0" role="button" aria-label="${escapeHtml(`${text}。次の状況を選ぶ`)}">
         <path class="flow-link" d="M${stub.x1} ${stub.y1} L${stub.x2} ${stub.y2}" />
         <rect x="${stub.x}" y="${stub.y}" width="${stub.w}" height="${stub.h}" rx="6" />
         <text x="${stub.x + 8}" y="${stub.y + stub.h / 2 + 4}">${escapeHtml(clip(text, 14))}</text>
