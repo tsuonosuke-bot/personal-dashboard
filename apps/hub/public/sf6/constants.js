@@ -35,7 +35,7 @@ export const OPPONENT_LABELS = {
   delay_tech: "遅らせグラップ", mash: "暴れ", drive_impact: "ドライブインパクト", parry: "パリィ", drive_reversal: "ドライブリバーサル", back_roll: "後ろ受け身",
 };
 
-export const RESULT_LABELS = { hit: "ヒット", counter_hit: "カウンターヒット", guard: "ガード" };
+export const RESULT_LABELS = { hit: "ヒット", counter_hit: "カウンターヒット", punish_counter: "パニッシュカウンター", hit_other: "ヒット（その他）", guard: "ガード" };
 
 export const OUTCOME_MARKS = { win: "○", lose: "×", unknown: "–" };
 

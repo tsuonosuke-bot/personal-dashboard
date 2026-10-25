@@ -216,7 +216,7 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
       situation.recovery ? RECOVERIES[situation.recovery] : "",
     ].filter(Boolean).join(" · ") : situation.name)).join(" ／ ");
     const tags = [AIMS[setplay.aim], setplay.layering ? LAYERINGS[setplay.layering] : ""].filter(Boolean);
-    const results = resultLinesHtml(setplay, ["hit", "counter_hit", "guard", "opponent"]);
+    const results = resultLinesHtml(setplay, ["hit", "counter_hit", "punish_counter", "hit_other", "guard", "opponent"]);
     return `<article class="card setplay-card" id="sequence-${setplay.id}">
       <div class="card-head">
         <h3>${kindBadgeHtml(setplay)}${escapeHtml(setplay.title)}</h3>

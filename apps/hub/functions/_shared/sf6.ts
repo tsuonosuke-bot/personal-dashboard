@@ -55,7 +55,7 @@ export const SF6_LAYERINGS = ["meaty", "safe_jump", "other"] as const;
 export const SF6_AIMS = ["strike", "throw", "shimmy"] as const;
 export const SF6_SITUATION_KINDS = ["trigger", "state"] as const;
 export const SF6_SEQUENCE_KINDS = ["combo", "setplay"] as const;
-export const SF6_RESULT_KINDS = ["hit", "counter_hit", "guard", "opponent"] as const;
+export const SF6_RESULT_KINDS = ["hit", "counter_hit", "punish_counter", "hit_other", "guard", "opponent"] as const;
 /** 起き攻めに対して相手が取れる行動。結果の outcome は win（こちらが勝つ）/ lose / unknown。 */
 export const SF6_OPPONENT_OPTIONS = ["reversal", "backdash", "jump", "tech", "delay_tech", "mash", "drive_impact", "parry", "drive_reversal", "back_roll"] as const;
 export const SF6_OUTCOMES = ["win", "lose", "unknown"] as const;
@@ -302,7 +302,7 @@ function readResult(raw: unknown): Sf6ResultInput | null {
   return { kind, opponentAction, outcome, next };
 }
 
-/** 結果の組み合わせの問題。hit / counter_hit / guard は次の状況が必須、相手の行動は○×–が必須、同じ結果は1つだけ。 */
+/** 結果の組み合わせの問題。hit / counter_hit / punish_counter / hit_other / guard は次の状況が必須、相手の行動は○×–が必須、同じ結果は1つだけ。 */
 function resultsProblem(results: Sf6ResultInput[]): string | null {
   const seen = new Set<string>();
   for (const result of results) {
@@ -314,7 +314,7 @@ function resultsProblem(results: Sf6ResultInput[]): string | null {
     } else if (result.opponentAction !== null || result.outcome !== null) {
       return INVALID;
     } else if (result.next === null) {
-      return "ヒット・カウンターヒット・ガードの結果には次の状況を選んでください。";
+      return "ヒット・ガードの結果には次の状況を選んでください。";
     }
   }
   return null;
@@ -589,7 +589,7 @@ async function fetchAll(info: Connection, resource: Sf6Resource): Promise<unknow
 const RESULT_ORDER = [...SF6_RESULT_KINDS] as string[];
 const OPPONENT_ORDER = [...SF6_OPPONENT_OPTIONS] as string[];
 
-/** 埋め込みの結果をAPIの形にする。壊れた要素は捨て、hit → counter_hit → guard → 相手の行動（定義順）に並べる。 */
+/** 埋め込みの結果をAPIの形にする。壊れた要素は捨て、hit → counter_hit → punish_counter → hit_other → guard → 相手の行動（定義順）に並べる。 */
 function toResults(raw: unknown): Record<string, unknown>[] {
   if (!Array.isArray(raw)) return [];
   return raw

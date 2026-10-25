@@ -74,4 +74,6 @@ test("カウンターヒットは入力したときだけ出口になり、未�
   assert.deepEqual(exitsOf(sequence({ kind: "setplay" })).map((exit) => exit.kind), ["hit", "guard"]);
   const setplay = sequence({ kind: "setplay", results: [result({ kind: "counter_hit", nextSituationId: 2 }), result({ kind: "hit", nextSituationId: 1 })] });
   assert.deepEqual(exitsOf(setplay).map((exit) => exit.kind), ["hit", "counter_hit", "guard"]);
+  const all = sequence({ kind: "setplay", results: [result({ kind: "hit_other", nextSituationId: 3 }), result({ kind: "punish_counter", nextSituationId: 2 })] });
+  assert.deepEqual(exitsOf(all).map((exit) => exit.kind), ["hit", "punish_counter", "hit_other", "guard"]);
 });

@@ -11,7 +11,7 @@ export interface PlanSituation {
 }
 
 export interface PlanResult {
-  kind: "hit" | "counter_hit" | "guard" | "opponent";
+  kind: "hit" | "counter_hit" | "punish_counter" | "hit_other" | "guard" | "opponent";
   opponentAction: string | null;
   outcome: string | null;
   nextSituationId: number | null;
@@ -50,7 +50,7 @@ export interface PlanConditions {
 export type RouteStep =
   | { situationId: number }
   /** resultKind が null の要素は「この手順で終える」（道のりの最後）。 */
-  | { sequenceId: number; resultKind: "hit" | "counter_hit" | "guard" | "opponent" | null; opponentAction?: string | null };
+  | { sequenceId: number; resultKind: "hit" | "counter_hit" | "punish_counter" | "hit_other" | "guard" | "opponent" | null; opponentAction?: string | null };
 
 export type Fit = "same" | "fits" | "near";
 
