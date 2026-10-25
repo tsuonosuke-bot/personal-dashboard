@@ -294,11 +294,6 @@ els.situationPosition.addEventListener("click", (event) => {
   state.situationPosition = button.dataset.value;
   renderSituations();
 });
-els.situationNear.addEventListener("click", () => {
-  state.situationNear = !state.situationNear;
-  store("sf6-situation-near", state.situationNear ? "1" : "0");
-  renderSituations();
-});
 els.sequenceSituation.addEventListener("change", () => {
   const value = els.sequenceSituation.value;
   state.conditions.situationId = value === "" ? null : value === "none" ? "none" : Number(value);
@@ -433,9 +428,6 @@ async function onAction(event) {
     setTimeout(() => card?.classList.remove("flash"), 1200);
   } else if (dataset.routeSituation) {
     openRoute([{ situationId: Number(dataset.routeSituation) }], dataset.character);
-  } else if (dataset.flowNear !== undefined) {
-    state.sheet.near = !state.sheet.near;
-    renderSheet();
   } else if (dataset.addFromSituation) {
     const situation = find("situations", dataset.addFromSituation);
     openModal("sequences", null, situationSequencePreset({ ...situation, character: situation.character ?? state.sheet?.character ?? "" }));
@@ -711,7 +703,6 @@ state.tab = TABS.includes(initialTab) ? initialTab : "sequences";
 // 以前の「コンボ」「起き攻め」タブは、コンボパーツのタブに引き継ぐ
 if (initialTab in LEGACY_TABS) state.tab = "sequences";
 state.situationCharacter = stored("sf6-situation-character", "");
-state.situationNear = stored("sf6-situation-near", "1") !== "0";
 state.sequenceCharacter = stored("sf6-sequence-character", stored("sf6-combo-character", ""));
 renderTabs();
 load();

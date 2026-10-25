@@ -8,7 +8,6 @@ export function createSf6State() {
     /** 状況タブのキャラと位置の絞り込み。 */
     situationCharacter: "",
     situationPosition: "",
-    situationNear: true,
     /** 「状況から引く」の条件。situationId は状況の id（"none" は状況なし）、drive・sa・punishWindow は null なら指定なし。 */
     conditions: { situationId: null, drive: null, sa: null, ca: false, burnout: false, punishWindow: null },
     frames: { character: "", query: "", category: "", sort: "official", punishableOnly: false, heavyPunishableOnly: false, cancelableOnly: false, open: null },
@@ -28,7 +27,7 @@ export function sf6Elements(document) {
   const ids = [
     "sourceBadge", "refreshButton", "addButton", "addLabel", "loadingState", "errorState", "errorMessage", "retryButton",
     "countSequences", "countSituations", "countDrills", "countMatches",
-    "situationCharacter", "situationPosition", "situationNear", "situationList", "situationArchiveFold", "situationArchiveCount", "situationArchive",
+    "situationCharacter", "situationPosition", "situationList", "situationArchiveFold", "situationArchiveCount", "situationArchive",
     "sequenceCharacter", "sequencePosition", "sequenceSituation", "sequenceConditions", "conditionDrive", "conditionSa", "conditionCa", "conditionBurnout",
     "conditionPunish", "opponentCharacter", "opponentMove", "opponentMoveStatus", "opponentMoveRetry", "conditionSummary", "sequenceList", "sequenceArchiveFold", "sequenceArchiveCount", "sequenceArchive",
     "frameCharacter", "frameQuery", "frameCategory", "frameSort", "framePunishable", "frameHeavyPunishable", "frameCancelable", "frameVersion", "frameTable",

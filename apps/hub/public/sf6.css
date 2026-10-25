@@ -165,7 +165,6 @@ main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px
 .situation-card .adv { display: inline-block; min-width: 3.4em; margin-right: 4px; color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 700; }
 .situation-card .adv.minus { color: var(--muted); }
 .situation-card .next-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-.next-chip.near { border-color: #ecd29a; background: #fbf3df; color: #8a5a12; }
 .next-chip small { font-weight: 500; }
 .foot-actions { display: inline-flex; align-items: center; gap: 2px; }
 .outcomes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
@@ -394,7 +393,6 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 .flow-svg { display: block; font-size: 12px; }
 .flow-svg marker path { fill: var(--muted); }
 .flow-edge path { fill: none; stroke: var(--muted); stroke-width: 1.5; }
-.flow-edge.near path { stroke-dasharray: 4 3; opacity: .7; }
 .flow-edge text { fill: var(--muted); font-size: 11px; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; }
 .flow-node { cursor: pointer; }
 .flow-node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }

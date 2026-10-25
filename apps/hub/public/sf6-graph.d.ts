@@ -9,7 +9,7 @@ export interface FlowExit extends PlanResult {}
 export interface FlowRef { sequenceId: number; resultKind: "hit" | "counter_hit" | "punish_counter" | "hit_other" | "guard" | "opponent"; opponentAction: string | null }
 export interface FlowNode { id: number; title: string; startLabel: string; col: number; x: number; y: number; w: number; h: number; loop: boolean }
 export interface FlowEdge extends FlowRef {
-  from: number; to: number; label: string; fit: "same" | "fits" | "near";
+  from: number; to: number; label: string;
   x1: number; y1: number; x2: number; y2: number; back: boolean;
 }
 export interface FlowStub extends FlowRef {
@@ -24,6 +24,5 @@ export declare function buildFlow(options: {
   situations: PlanSituation[];
   character: string;
   startSituationId?: number | null;
-  includeNear?: boolean;
   resultLabel: (exit: FlowExit) => string;
 }): Flow;

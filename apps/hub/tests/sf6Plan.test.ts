@@ -4,8 +4,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { appendToken, parseNotation } from "../public/sf6-notation.js";
 import {
-  bestStreakOf, defaultTitle, drillPreset, findState, leadsInto, raiseTargets, routeBack, routeDrillPreset, sequencesFrom, partsAfter,
-  shouldRaiseMastery, situationUsage, sortSequences, startSituationGroups, stateFit, stateLabel, usableNow, usesDrive,
+  bestStreakOf, defaultTitle, drillPreset, findState, raiseTargets, routeBack, routeDrillPreset, sequencesFrom, partsAfter,
+  shouldRaiseMastery, situationUsage, sortSequences, startSituationGroups, stateLabel, usableNow, usesDrive,
   type PlanSequence, type PlanSituation, type RouteStep,
 } from "../public/sf6-plan.js";
 
@@ -129,22 +129,7 @@ test("局面の表示と、同じキャラ・有利F・位置・ダウンの局�
   assert.equal(findState(list, { character: "ケン", advantage: 29, position: "anywhere", recovery: "none" }), null);
 });
 
-test("局面のつながり：同じ・合う（位置の片方がどこでも）・近い（±2F）", () => {
-  const anywhere = state(5, 29);
-  const corner = state(6, 29, { position: "corner" });
-  assert.equal(stateFit(anywhere, anywhere), "same");
-  assert.equal(stateFit(anywhere, corner), "fits");
-  assert.equal(stateFit(anywhere, state(7, 31)), "near");
-  assert.equal(stateFit(anywhere, state(7, 32)), null);
-  assert.equal(stateFit(anywhere, state(7, 29, { recovery: "no_back_roll" })), null);
-  assert.equal(stateFit(anywhere, state(7, 29, { recovery: null })), "near");
-  assert.equal(stateFit(anywhere, state(7, 29, { character: "リュウ" })), null);
-  assert.equal(stateFit(state(8, 29, { position: "midscreen" }), corner), null);
-  assert.equal(stateFit(punish, punish), "same");
-  assert.equal(stateFit(punish, confirm), null);
-});
-
-test("状況から始まる手順は1段だけ返し、ループする局面でも止まる", () => {
+test("状況から始まる手順は、始動に選んだものだけを1段返す。ループする局面でも止まる", () => {
   const corner = state(6, 29, { position: "corner" });
   const anywhere = state(5, 29);
   const situations = [punish, anywhere, corner];
@@ -153,12 +138,11 @@ test("状況から始まる手順は1段だけ返し、ループする局面で�
   const other = sequence({ id: 12, title: "中央", starts: [5] });
   const archived = sequence({ id: 13, starts: [6], archived: true });
   const fromCorner = sequencesFrom(corner, [loop, combo, other, archived], situations);
-  assert.deepEqual(fromCorner.map((entry) => [entry.sequence.id, entry.fit]), [[10, "same"], [12, "fits"]]);
+  // フレームからの自動的なつなぎはしない：始動に選んだ状況だけ（同じ有利Fの別の局面は出ない）
+  assert.deepEqual(fromCorner.map((entry) => entry.sequence.id), [10]);
   assert.deepEqual(sequencesFrom(punish, [loop, combo], situations).map((entry) => entry.sequence.id), [11]);
-  // どこでも+29の締めから、画面端+29の起き攻めが「合う」として出る（A2）
-  assert.deepEqual(partsAfter(combo, [loop, combo, other], situations).map((entry) => [entry.sequence.id, entry.fit]), [[12, "same"], [10, "fits"]]);
-  assert.deepEqual(leadsInto(corner, [loop, combo, other], situations).map((entry) => entry.id), [10, 11]);
-  assert.deepEqual(sequencesFrom(state(9, 31), [other], [...situations, state(9, 31)], { includeNear: false }), []);
+  assert.deepEqual(partsAfter(combo, [loop, combo, other], situations).map((entry) => entry.sequence.id), [12]);
+  assert.deepEqual(sequencesFrom(state(9, 31), [other]), []);
 });
 
 test("状況の使用件数と、削除すると始動がなくなる手順の数", () => {

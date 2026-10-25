@@ -38,7 +38,6 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       type: "flow",
       character: characters.includes(wanted) ? wanted : characters[0] || "",
       startSituationId: from ? from.situationId : typeof situationId === "number" ? situationId : null,
-      near: false,
       selected: null,
       picking: null,
       linking: null,
@@ -51,7 +50,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
   }
 
   function flowSvg(flow, selected) {
-    const edges = flow.edges.map((edge) => `<g class="flow-edge${edge.fit === "near" ? " near" : ""}">
+    const edges = flow.edges.map((edge) => `<g class="flow-edge">
         <path d="${flowEdgePath(edge)}" marker-end="url(#flowArrow)" />
         <text x="${(edge.x1 + edge.x2) / 2}" y="${(edge.y1 + edge.y2) / 2 - 4}" text-anchor="middle">${escapeHtml(edge.label)}</text>
       </g>`).join("");
@@ -80,7 +79,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
   function flowDetailHtml(sequence, flow) {
     const byId = situationsById();
     const titles = new Map(state.data.sequences.map((entry) => [entry.id, entry.title]));
-    const gotoChip = (id, text, near) => `<button type="button" class="next-chip${near ? " near" : ""}" data-flow-goto="${id}">${escapeHtml(text)}</button>`;
+    const gotoChip = (id, text) => `<button type="button" class="next-chip" data-flow-goto="${id}">${escapeHtml(text)}</button>`;
     const before = [...new Map(flow.edges.filter((edge) => edge.to === sequence.id && edge.from !== sequence.id)
       .map((edge) => [edge.from, edge])).values()];
     const exits = exitsOf(sequence).map((exit) => {
@@ -90,14 +89,14 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
         && (edge.opponentAction || "") === (exit.opponentAction || ""));
       let tail = "";
       if (!next) tail = `<button type="button" class="ghost-button" data-flow-stub="${ref}">次の状況を選ぶ</button>`;
-      else tail = `<span class="next-row">${followers.map((edge) => gotoChip(edge.to, titles.get(edge.to) || "", edge.fit === "near")).join("")}<button type="button" class="ghost-button" data-flow-link="${next.id}">${followers.length ? "続きを足す" : "続きを選ぶ"}</button><button type="button" class="ghost-button" data-flow-stub="${ref}">状況を変える</button></span>`;
+      else tail = `<span class="next-row">${followers.map((edge) => gotoChip(edge.to, titles.get(edge.to) || "")).join("")}<button type="button" class="ghost-button" data-flow-link="${next.id}">${followers.length ? "続きを足す" : "続きを選ぶ"}</button><button type="button" class="ghost-button" data-flow-stub="${ref}">状況を変える</button></span>`;
       return `<li><b>${escapeHtml(flowLabel(exit))}</b> → ${next ? escapeHtml(situationText(next)) : '<span class="unset">未設定</span>'} ${tail}</li>`;
     }).join("");
     return `<article class="card flow-detail">
       <div class="card-head"><h3>${escapeHtml(sequence.title)}</h3>
         <button type="button" class="ghost-button" data-edit="sequences" data-id="${sequence.id}">編集</button></div>
       ${notationHtml(sequence.notation)}
-      <p class="flow-step"><small class="meta">前</small> ${before.length ? before.map((edge) => gotoChip(edge.from, titles.get(edge.from) || "", edge.fit === "near")).join("") : '<small class="meta">始点</small>'}</p>
+      <p class="flow-step"><small class="meta">前</small> ${before.length ? before.map((edge) => gotoChip(edge.from, titles.get(edge.from) || "")).join("") : '<small class="meta">始点</small>'}</p>
       <ul class="flow-exits">${exits}</ul>
     </article>`;
   }
@@ -121,7 +120,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       && (situation.kind === "trigger" ? situation.character === null || situation.character === sheet.character : situation.character === sheet.character));
     const flow = buildFlow({
       sequences: state.data.sequences, situations: state.data.situations, character: sheet.character,
-      startSituationId: sheet.startSituationId, includeNear: sheet.near, resultLabel: flowLabel,
+      startSituationId: sheet.startSituationId, resultLabel: flowLabel,
     });
     const selected = findSequence(sheet.selected);
     els.sheetBody.innerHTML = `
@@ -131,7 +130,6 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
           ["きっかけ", starts.filter((situation) => situation.kind === "trigger")],
           ["局面", starts.filter((situation) => situation.kind === "state").sort(byAdvantage)],
         ], sheet.startSituationId)}</select>
-        <button type="button" class="toggle-chip" data-flow-near aria-pressed="${sheet.near}" title="有利Fが1〜2Fずれる手順（点線の矢印）の表示を切り替えます">近い手順</button>
         <button type="button" class="secondary-button small" data-flow-add>＋パーツを追加</button>
       </div>
       ${flow.nodes.length
@@ -186,7 +184,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
     const usable = state.data.situations.filter((situation) => !situation.archived
       && (situation.kind === "trigger" ? situation.character === null || situation.character === character : situation.character === character));
     const row = (situation) => {
-      const count = sequencesFrom(situation, mine, state.data.situations).filter((entry) => entry.fit !== "near").length;
+      const count = sequencesFrom(situation, mine).length;
       return `<button type="button" class="sheet-row" data-flow-pick="${situation.id}"><span>${escapeHtml(situationText(situation))}</span><small>${count ? `${count}手順が始まる` : "続く手順なし"}</small></button>`;
     };
     els.sheetBody.innerHTML = `
@@ -256,7 +254,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       <h3 class="sheet-title">局面${character ? `（${escapeHtml(character)}）` : ""}</h3>${usable.filter((situation) => situation.kind === "state").sort(byAdvantage).map(row).join("") || empty("局面はまだありません")}`;
   }
 
-  function routeCardHtml({ sequence, via, fit }, ended = false) {
+  function routeCardHtml({ sequence }, ended = false) {
     const usable = usableNow(sequence, { drive: state.conditions.drive, sa: state.conditions.sa, ca: state.conditions.ca, burnout: state.conditions.burnout });
     const byId = situationsById();
     const steps = sequence.results.filter((result) => byId.get(result.nextSituationId)).map((result) =>
@@ -267,7 +265,6 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
         <h3>${escapeHtml(sequence.title)}${sequence.startup !== null ? ` <small>発生${sequence.startup}F</small>` : ""}</h3>
         ${usable ? "" : '<span class="meta">条件外</span>'}
       </div>
-      ${fit === "same" ? "" : `<p class="meta">起点 ${escapeHtml(situationText(via))}${fit === "near" ? " · ±2F 注意" : ""}</p>`}
       ${notationHtml(sequence.notation)}
       ${outcomesHtml(sequence, starts.some((situation) => situation.recovery === "back_roll"))}
       ${!ended && steps ? `<div class="result-lines">${steps}</div>` : ""}
@@ -294,21 +291,17 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
     // 手順で終えた道のり：その手順だけを出す（1つ前の状況のパンくずで戻れる）
     if ("sequenceId" in last) {
       const sequence = sequences.get(last.sequenceId);
-      const via = byId.get(path[path.length - 2]?.situationId);
       els.sheetBody.innerHTML = `${head}
-        <div class="card-list">${sequence ? routeCardHtml({ sequence, via, fit: "same" }, true) : ""}</div>
+        <div class="card-list">${sequence ? routeCardHtml({ sequence }, true) : ""}</div>
         ${drillButton}`;
       return;
     }
     const current = byId.get(last.situationId);
     const candidates = state.data.sequences.filter((sequence) => !character || sequence.character === character);
     const found = current ? sequencesFrom(current, candidates, state.data.situations) : [];
-    const same = found.filter((entry) => entry.fit === "same");
-    const near = found.filter((entry) => entry.fit !== "same");
     els.sheetBody.innerHTML = `${head}
       <h3 class="sheet-title">この状況から</h3>
-      <div class="card-list">${same.map((entry) => routeCardHtml(entry)).join("") || empty("この状況から始まる手順はありません")}</div>
-      ${near.length ? `<h3 class="sheet-title">合う局面から</h3><div class="card-list">${near.map((entry) => routeCardHtml(entry)).join("")}</div>` : ""}
+      <div class="card-list">${found.map((entry) => routeCardHtml(entry)).join("") || empty("この状況から始まる手順はありません")}</div>
       ${drillButton}`;
   }
 

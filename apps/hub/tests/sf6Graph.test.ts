@@ -24,7 +24,7 @@ test("結果の次の状況から始まる手順へ矢印を引き、手順は�
   const combo = sequence({ id: 1, starts: [], results: [result({ nextSituationId: 1 })] });
   const setplay = sequence({ id: 2, starts: [1], results: [result({ nextSituationId: 2 })] });
   const flow = buildFlow({ sequences: [combo, setplay], situations, character: "リュウ", resultLabel: label });
-  assert.deepEqual(flow.edges.map((edge) => [edge.from, edge.to, edge.fit]), [[1, 2, "same"]]);
+  assert.deepEqual(flow.edges.map((edge) => [edge.from, edge.to]), [[1, 2]]);
   const [first, second] = flow.nodes;
   assert.equal(first.id, 1);
   assert.equal(second.id, 2);
@@ -60,14 +60,13 @@ test("始点の状況を渡すと、そこから届く手順だけを出す", ()
   assert.deepEqual(flow.nodes.map((node) => node.id), [1, 2]);
 });
 
-test("includeNear=false だと、有利Fが1Fずれた局面から始まる手順へは矢印を引かない", () => {
-  const situations = [situation({ id: 1, advantage: 10 }), situation({ id: 2, advantage: 11 })];
+test("有利Fが近い・同じだけの別の局面から始まる手順へは、自動で矢印を引かない", () => {
+  const situations = [situation({ id: 1, advantage: 10 }), situation({ id: 2, advantage: 11 }), situation({ id: 3, advantage: 10 })];
   const combo = sequence({ id: 1, starts: [], results: [result({ nextSituationId: 1 })] });
-  const setplay = sequence({ id: 2, starts: [2], results: [] });
-  const withNear = buildFlow({ sequences: [combo, setplay], situations, character: "リュウ", resultLabel: label });
-  assert.deepEqual(withNear.edges.map((edge) => [edge.from, edge.to, edge.fit]), [[1, 2, "near"]]);
-  const exact = buildFlow({ sequences: [combo, setplay], situations, character: "リュウ", includeNear: false, resultLabel: label });
-  assert.deepEqual(exact.edges, []);
+  const near = sequence({ id: 2, starts: [2], results: [] });
+  const same = sequence({ id: 3, starts: [3], results: [] });
+  const flow = buildFlow({ sequences: [combo, near, same], situations, character: "リュウ", resultLabel: label });
+  assert.deepEqual(flow.edges, []);
 });
 
 test("カウンターヒットは入力したときだけ出口になり、未入力の起き攻めに未設定の出口を足さない", () => {
