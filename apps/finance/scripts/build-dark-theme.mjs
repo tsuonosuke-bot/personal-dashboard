@@ -4,6 +4,7 @@
 // single source of truth. Run with --check to fail when a generated file is stale.
 // This file is shared verbatim by personal-dashboard, knowledge-dashboard and financial-dashboard.
 import { readFileSync, writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 const DARK = ':root[data-theme="dark"]';
 
@@ -169,7 +170,7 @@ function parseBlocks(css) {
     const statementEnd = prelude.lastIndexOf(";");
     const cleanPrelude = statementEnd >= 0 ? prelude.slice(statementEnd + 1).trim() : prelude;
     if (cleanPrelude.startsWith("@")) {
-      blocks.push({ type: "at", prelude: cleanPrelude, children: /^@(media|supports|layer|container)/.test(cleanPrelude) ? parseBlocks(body) : [] });
+      blocks.push({ type: "at", prelude: cleanPrelude, body, children: /^@(media|supports|layer|container)/.test(cleanPrelude) ? parseBlocks(body) : [] });
     } else {
       blocks.push({ type: "rule", selector: cleanPrelude, body });
     }
@@ -203,15 +204,15 @@ function declarations(body) {
     .filter((decl) => decl.property && decl.value);
 }
 
-function darkSelector(selector) {
+function darkSelector(selector, scope = '[data-theme="dark"]') {
   return selector
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean)
     .map((part) => {
-      if (part.startsWith(":root")) return `${DARK}${part.slice(":root".length)}`;
-      if (/^html\b/.test(part)) return `html[data-theme="dark"]${part.slice(4)}`;
-      return `${DARK} ${part}`;
+      if (part.startsWith(":root")) return `:root${scope}${part.slice(":root".length)}`;
+      if (/^html\b/.test(part)) return `html${scope}${part.slice(4)}`;
+      return `:root${scope} ${part}`;
     })
     .join(",\n");
 }
@@ -282,24 +283,105 @@ function darkDeclarations(body, tokens, isRoot) {
   return out;
 }
 
-function render(blocks, tokens, indent = "") {
-  const chunks = [];
-  for (const block of blocks) {
-    if (block.type === "at") {
-      if (!block.children.length) continue;
-      const inner = render(block.children, tokens, `${indent}  `);
-      if (inner) chunks.push(`${indent}${block.prelude} {\n${inner}\n${indent}}`);
+// ---------- palettes ----------
+// Extra themes (cream, navy, forest) re-tone only the near-neutral colors of the light or dark rules
+// and leave accent colors alone, so every dashboard keeps its own theme color. They are scoped by
+// [data-palette] on top of [data-theme], which beats the plain light/dark rules without reordering.
+// chroma lists the target chroma for surfaces/borders, mid greys and text.
+const PALETTES = {
+  cream: { base: "light", hue: 40, chroma: [0.1, 0.05, 0.025] },
+  navy: { base: "dark", hue: 222, chroma: [0.075, 0.05, 0.025] },
+  forest: { base: "dark", hue: 152, chroma: [0.06, 0.045, 0.022] },
+  nord: { base: "dark", hue: 218, chroma: [0.05, 0.04, 0.025] },
+  gruvbox: { base: "dark", hue: 32, chroma: [0.045, 0.045, 0.03] },
+  solarized: { base: "light", hue: 48, chroma: [0.12, 0.06, 0.03] },
+};
+
+function toneColor(rgba, palette) {
+  const light = palette.base === "light";
+  const chroma = (Math.max(rgba.r, rgba.g, rgba.b) - Math.min(rgba.r, rgba.g, rgba.b)) / 255;
+  if (chroma > (light ? 0.035 : 0.08)) return null; // accents and tinted washes keep their color
+  let { l } = toHsl(rgba);
+  // Shadows and faint white/black overlays stay; mostly opaque white bars on a light palette are surfaces.
+  if (rgba.a < (light && l > 0.95 ? 0.5 : 1) && (l < 0.05 || l > 0.95)) return null;
+  let tier;
+  if (light) {
+    tier = l >= 0.85 ? 0 : l >= 0.5 ? 1 : 2;
+    if (l >= 0.88) l = 0.93 - (1 - l);
+    else if (l >= 0.5) l -= 0.03;
+  } else {
+    tier = l < 0.4 ? 0 : l < 0.7 ? 1 : 2;
+  }
+  const width = 1 - Math.abs(2 * l - 1);
+  if (width < 0.02) return null;
+  const s = Math.min(0.9, palette.chroma[tier] / width);
+  return formatColor(fromHsl({ h: palette.hue / 360, s, l: clamp(l) }), rgba.a);
+}
+
+function toneValue(value, palette) {
+  return value.replace(COLOR_PATTERN, (token) => toneColor(parseColorToken(token), palette) ?? token);
+}
+
+/** Declarations of a light rule re-toned for a light palette; every color property is repeated to keep the cascade order. */
+function lightPaletteDeclarations(body, palette) {
+  const out = [];
+  for (const { property, value } of declarations(body)) {
+    const important = /!important\s*$/.test(value);
+    const cleanValue = value.replace(/\s*!important\s*$/, "");
+    const suffix = important ? " !important" : "";
+    if (property.startsWith("--")) {
+      if (/^var\(/.test(cleanValue) || !tokenRole(property, cleanValue)) continue;
+      const toned = toneValue(cleanValue, palette);
+      if (toned !== cleanValue) out.push(`${property}: ${toned}${suffix}`);
       continue;
     }
-    if (block.selector.includes("[data-theme") || block.selector.startsWith("@")) continue;
-    const isRoot = block.selector.split(",").some((part) => part.trim() === ":root");
-    const decls = darkDeclarations(block.body, tokens, isRoot);
+    if (!propertyRole(property)) continue;
+    out.push(`${property}: ${toneValue(cleanValue, palette)}${suffix}`);
+  }
+  return out;
+}
+
+function render(blocks, tokens, indent = "", palette = null) {
+  const scope = palette ? `[data-theme="${palette.base}"][data-palette="${palette.name}"]` : '[data-theme="dark"]';
+  const chunks = [];
+  for (const block of blocks) {
+    let current = block;
+    if (block.type === "at") {
+      // Tailwind's @theme holds bare declarations (the color scale); a light palette re-tones them on :root.
+      if (palette?.base === "light" && block.prelude.startsWith("@theme")) current = { type: "rule", selector: ":root", body: block.body };
+      else {
+        if (!block.children.length) continue;
+        const inner = render(block.children, tokens, `${indent}  `, palette);
+        if (inner) chunks.push(`${indent}${block.prelude} {\n${inner}\n${indent}}`);
+        continue;
+      }
+    }
+    let selector = current.selector;
+    let decls;
+    if (selector.includes("[data-theme")) {
+      // Hand-written dark rules (charts, Tailwind scale) are re-toned for dark palettes only.
+      if (palette?.base !== "dark" || !selector.includes('[data-theme="dark"]')) continue;
+      selector = selector.replaceAll('[data-theme="dark"]', scope);
+      decls = declarations(current.body).map(({ property, value }) => `${property}: ${toneValue(value, palette)}`);
+    } else if (selector.startsWith("@")) {
+      continue;
+    } else {
+      selector = darkSelector(selector, palette ? scope : undefined);
+      const isRoot = current.selector.split(",").some((part) => part.trim() === ":root");
+      if (!palette) decls = darkDeclarations(current.body, tokens, isRoot);
+      else if (palette.base === "light") decls = lightPaletteDeclarations(current.body, palette);
+      else {
+        decls = darkDeclarations(current.body, tokens, isRoot)
+          .filter((decl) => !/^--[\w-]+--light:/.test(decl))
+          .map((decl) => toneValue(decl, palette));
+      }
+    }
     if (!decls.length) continue;
-    const selector = darkSelector(block.selector)
+    const text = selector
       .split("\n")
       .map((line) => `${indent}${line}`)
       .join("\n");
-    chunks.push(`${selector} {\n${decls.map((decl) => `${indent}  ${decl};`).join("\n")}\n${indent}}`);
+    chunks.push(`${text} {\n${decls.map((decl) => `${indent}  ${decl};`).join("\n")}\n${indent}}`);
   }
   return chunks.join("\n");
 }
@@ -308,15 +390,21 @@ function render(blocks, tokens, indent = "") {
 export function buildDarkTheme(css, sourceName, sharedTokens = new Map()) {
   const blocks = parseBlocks(stripComments(css));
   const tokens = collectTokens(blocks, new Map(sharedTokens));
-  const body = render(blocks, tokens);
-  return `/* Generated from ${sourceName} by scripts/build-dark-theme.mjs. Do not edit. */\n${body}\n`;
+  const sections = [render(blocks, tokens)];
+  for (const [name, palette] of Object.entries(PALETTES)) {
+    const body = render(blocks, tokens, "", { ...palette, name });
+    if (body) sections.push(`/* palette: ${name} */\n${body}`);
+  }
+  return `/* Generated from ${sourceName} by scripts/build-dark-theme.mjs. Do not edit. */\n${sections.join("\n")}\n`;
 }
 
 function outputPath(input) {
   return input.replace(/\.css$/, ".dark.css");
 }
 
-const args = process.argv.slice(2);
+// Tests import buildDarkTheme; under --test-isolation=none argv holds the test files, so only run as a CLI.
+const isCli = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const args = isCli ? process.argv.slice(2) : [];
 const check = args.includes("--check");
 const inputs = args.filter((arg) => arg !== "--check");
 if (inputs.length > 0) {

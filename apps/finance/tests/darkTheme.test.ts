@@ -24,3 +24,12 @@ test('theme script pins the browser color scheme to the resolved theme', async (
   assert.match(script, /root\.style\.colorScheme = theme;/)
   assert.match(script, /if \(scheme\) scheme\.content = theme;/)
 })
+
+test('palette stylesheets and options exist', async () => {
+  const css = await readFile(new URL('../src/index.dark.css', import.meta.url), 'utf8')
+  assert.match(css, /:root\[data-theme="light"\]\[data-palette="cream"\]/)
+  assert.match(css, /:root\[data-theme="dark"\]\[data-palette="navy"\]/)
+  assert.match(css, /:root\[data-theme="dark"\]\[data-palette="forest"\]/)
+  const script = await readFile(new URL('../public/theme.js', import.meta.url), 'utf8')
+  assert.match(script, /root\.dataset\.palette = preference/)
+})
