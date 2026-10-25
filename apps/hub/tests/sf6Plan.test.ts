@@ -137,10 +137,10 @@ test("状況から始まる手順は、始動に選んだものだけを1段返�
   const combo = sequence({ id: 11, title: "中P 強エアニー", starts: [1], results: [hit(5)] });
   const other = sequence({ id: 12, title: "中央", starts: [5] });
   const archived = sequence({ id: 13, starts: [6], archived: true });
-  const fromCorner = sequencesFrom(corner, [loop, combo, other, archived], situations);
+  const fromCorner = sequencesFrom(corner, [loop, combo, other, archived]);
   // フレームからの自動的なつなぎはしない：始動に選んだ状況だけ（同じ有利Fの別の局面は出ない）
   assert.deepEqual(fromCorner.map((entry) => entry.sequence.id), [10]);
-  assert.deepEqual(sequencesFrom(punish, [loop, combo], situations).map((entry) => entry.sequence.id), [11]);
+  assert.deepEqual(sequencesFrom(punish, [loop, combo]).map((entry) => entry.sequence.id), [11]);
   assert.deepEqual(partsAfter(combo, [loop, combo, other], situations).map((entry) => entry.sequence.id), [12]);
   assert.deepEqual(sequencesFrom(state(9, 31), [other]), []);
 });
