@@ -16,9 +16,9 @@ export function ThemeSelect() {
         <option value="cream">クリーム</option>
         <option value="navy">ネイビー</option>
         <option value="forest">ディープグリーン</option>
-        <option value="nord">Nord</option>
-        <option value="gruvbox">Gruvbox</option>
-        <option value="solarized">Solarized Light</option>
+        <option value="nord">ノルド</option>
+        <option value="gruvbox">グルーブボックス</option>
+        <option value="solarized">ソラライズド</option>
       </select>
     </label>
   );
