@@ -1,8 +1,8 @@
 import { escapeHtml } from "../shared/html.js";
 import { stored, chips, options, paletteHtml, notationHtml, store } from "./format.js";
-import { DRIVE_STEPS, SA_LEVELS, POSITIONS, AIMS, END_PURPOSES, LAYERINGS, SITUATION_KINDS, RECOVERIES, GUARD_SETTINGS, COUNTER_SETTINGS, RECOVERY_SETTINGS, MODES, RESULTS, OUTCOME_MARKS, OPPONENT_LABELS, HIT_TYPE_LABELS } from "./constants.js";
+import { DRIVE_STEPS, SA_LEVELS, POSITIONS, LAYERINGS, SITUATION_KINDS, RECOVERIES, GUARD_SETTINGS, COUNTER_SETTINGS, RECOVERY_SETTINGS, MODES, RESULTS, OUTCOME_MARKS, OPPONENT_LABELS, HIT_TYPE_LABELS } from "./constants.js";
 // 共通モーダルでの手順・状況・練習の入力と保存。
-import { MASTERY, STREAK_GOAL, startSituationGroups, stateLabel, findState, OPPONENT_OPTIONS, defaultTitle, situationUsage } from "../sf6-plan.js";
+import { MASTERY, STREAK_GOAL, stateLabel, findState, OPPONENT_OPTIONS, defaultTitle, situationUsage } from "../sf6-plan.js";
 import { defaultStateName, starterMove } from "../sf6-frames.js";
 import { frequentFragments } from "../sf6-notation.js";
 import { readSf6TextValue } from "./text.js";
@@ -15,44 +15,35 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
   const FRAME_HINT = "トレモのフレームメーターで、相手が起き上がって動けるまでに自分が先に動けるF";
 
   /**
-   * kinds: 手順の種類（combo / setplay）で出し分ける。more: 「詳細」の折りたたみに入れる。main: コンボでも任意項目に入れず本体に出す。
+   * more: 「任意項目」の折りたたみに入れる。
    * editOnly / addOnly: 編集のときだけ / 追加のときだけ出す。
    */
   const FORMS = {
     sequences: {
-      title: (values) => (values.kind === "setplay" ? "起き攻め" : "コンボ"),
+      title: () => "コンボパーツ",
       fields: [
         { key: "character", label: "キャラ", type: "character", required: true },
-        { key: "title", label: "名前", type: "text", max: 120, main: true, placeholder: "空欄ならレシピから付けます" },
-        { key: "starts", label: "始動の状況", type: "startChips", required: true, kinds: ["combo"] },
-        { key: "starts", label: "起点の局面", type: "startStates", required: true, kinds: ["setplay"] },
-        { key: "notation", label: "レシピ", type: "notation", max: 1000, required: true, kinds: ["combo"] },
-        { key: "notation", label: "手順", type: "notation", max: 1000, required: true, moves: true, kinds: ["setplay"] },
-        { key: "startup", label: "発生F", type: "number", min: 1, max: 99, nullable: true, half: true, kinds: ["combo"], suggest: true },
-        { key: "damage", label: "ダメージ", type: "number", min: 0, max: 20000, nullable: true, half: true, kinds: ["combo"] },
-        { key: "driveCost", label: "Dゲージ", type: "select", options: DRIVE_STEPS, numeric: true, half: true, kinds: ["combo"] },
-        { key: "saCost", label: "SA", type: "select", options: SA_LEVELS, numeric: true, half: true, kinds: ["combo"] },
-        { key: "position", label: "位置", type: "select", options: POSITIONS, kinds: ["combo"] },
-        { key: "aim", label: "狙い", type: "radio", options: AIMS, kinds: ["setplay"] },
-        { key: "outcomes", label: "相手の行動ごとの結果", type: "outcomes", kinds: ["setplay"], hint: "押すたびに ○（こちらが勝つ）→ ×（負ける）→ –（未確認）。→ で次の状況を選べます" },
-        { key: "resultHit", label: "ヒットしたら", type: "next", resultKind: "hit", kinds: ["combo"] },
-        { key: "resultHitNormal", label: "通常ヒットしたら", type: "next", resultKind: "hit", kinds: ["setplay"] },
-        { key: "resultCounter", label: "カウンターヒットしたら", type: "next", resultKind: "counter_hit", kinds: ["setplay"], hint: "有利Fは通常ヒット+2Fを自動で入れます（直せます）" },
-        { key: "resultPunish", label: "パニッシュカウンターしたら", type: "next", resultKind: "punish_counter", kinds: ["setplay"], hint: "有利Fは通常ヒット+4Fを自動で入れます（直せます）" },
-        { key: "resultOther", label: "その他のヒットしたら", type: "next", resultKind: "hit_other", kinds: ["setplay"], more: true, hint: "ジャンプを対空で落とすなど特殊な条件のヒット。有利F・ダウン・位置・名前を自由に決めます" },
-        { key: "resultGuard", label: "ガードされたら", type: "next", resultKind: "guard", more: true },
-        { key: "endPurpose", label: "締めの目的", type: "select", options: { "": "未設定", ...END_PURPOSES }, more: true, kinds: ["combo"] },
-        { key: "layering", label: "重ね方", type: "select", options: { "": "未設定", ...LAYERINGS }, more: true, kinds: ["setplay"] },
-        { key: "driveCost", label: "Dゲージ", type: "select", options: DRIVE_STEPS, numeric: true, half: true, more: true, kinds: ["setplay"] },
-        { key: "saCost", label: "SA", type: "select", options: SA_LEVELS, numeric: true, half: true, more: true, kinds: ["setplay"] },
-        { key: "position", label: "位置", type: "select", options: POSITIONS, more: true, kinds: ["setplay"] },
+        { key: "title", label: "名前", type: "text", max: 120, placeholder: "空欄ならレシピから付けます" },
+        { key: "starts", label: "始動の状況", type: "startStates", required: true },
+        { key: "notation", label: "レシピ", type: "notation", max: 1000, required: true, moves: true },
+        { key: "resultHitNormal", label: "通常ヒットしたら", type: "next", resultKind: "hit" },
+        { key: "resultCounter", label: "カウンターヒットしたら", type: "next", resultKind: "counter_hit", hint: "有利Fは通常ヒット+2Fを自動で入れます（直せます）" },
+        { key: "resultPunish", label: "パニッシュカウンターしたら", type: "next", resultKind: "punish_counter", hint: "有利Fは通常ヒット+4Fを自動で入れます（直せます）" },
+        { key: "resultGuardSetplay", label: "ガードされたら", type: "next", resultKind: "guard", hint: "レシピの最後の技がガードされたときの次の状況" },
+        { key: "outcomes", label: "相手の行動ごとの結果", type: "outcomes", hint: "押すたびに ○（こちらが勝つ）→ ×（負ける）→ –（未確認）。→ で、どのヒットになるか・次の状況を選べます" },
+        { key: "resultOther", label: "その他のヒットしたら", type: "next", resultKind: "hit_other", more: true, hint: "ジャンプを対空で落とすなど特殊な条件のヒット。有利F・ダウン・位置・名前を自由に決めます" },
+        { key: "startup", label: "発生F", type: "number", min: 1, max: 99, nullable: true, half: true, more: true, suggest: true },
+        { key: "driveCost", label: "Dゲージ", type: "select", options: DRIVE_STEPS, numeric: true, half: true, more: true },
+        { key: "saCost", label: "SA", type: "select", options: SA_LEVELS, numeric: true, half: true, more: true },
+        { key: "position", label: "位置", type: "select", options: POSITIONS, more: true },
+        { key: "layering", label: "重ね方", type: "select", options: { "": "未設定", ...LAYERINGS }, more: true },
         { key: "mastery", label: "習得度", type: "select", options: MASTERY_OPTIONS, numeric: true, more: true },
         { key: "memo", label: "メモ", type: "textarea", max: 2000, rows: 2, preserveWhitespace: true, placeholder: "コツ・ヒット確認やタイミングの目安など", more: true },
         { key: "archived", label: "アーカイブ（一覧から隠す）", type: "checkbox", editOnly: true, more: true },
       ],
-      defaults: (preset = {}) => ({
-        kind: preset.kind || "combo", character: stored("sf6-character", ""), title: "", notation: "", startup: null, damage: null,
-        driveCost: 0, saCost: 0, position: "anywhere", layering: null, aim: preset.kind === "setplay" ? "strike" : null, endPurpose: null,
+      defaults: () => ({
+        character: stored("sf6-character", ""), title: "", notation: "", startup: null,
+        driveCost: 0, saCost: 0, position: "anywhere", layering: null,
         mastery: 0, memo: null, archived: false, starts: [], results: [],
       }),
     },
@@ -131,33 +122,6 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
 
   function formPosition() {
     return document.getElementById("field-position")?.value || "anywhere";
-  }
-
-  // --- 始動の状況（コンボ：きっかけ＋局面のトグルチップ） ---
-
-  function startChipsHtml(selected, character = formCharacter()) {
-    const groups = startSituationGroups(state.data.situations, state.data.sequences, character, selected, 2);
-    const chip = (situation, pressed = false) => `<button type="button" class="toggle-chip${situation.kind === "state" ? " state" : ""}" data-start-id="${situation.id}" aria-pressed="${pressed}">${escapeHtml(situationText(situation))}${pressed ? ' <span aria-hidden="true">×</span>' : ""}</button>`;
-    const group = (key, label, entries) => entries.visible.length || entries.more.length ? `<section class="start-group" data-start-group="${key}" aria-label="${label}">
-      <span class="start-label">${label}</span><div class="toggle-chips">${entries.visible.map((entry) => chip(entry)).join("")}</div>
-      ${entries.more.length ? `<details class="start-more"><summary>すべて表示（${entries.more.length}）</summary><div class="toggle-chips">${entries.more.map((entry) => chip(entry)).join("")}</div></details>` : ""}</section>` : "";
-    return `${groups.selected.length ? `<section class="start-group" aria-label="選択中"><span class="start-label">選択中（${groups.selected.length}）</span><div class="toggle-chips selected-starts">${groups.selected.map((entry) => chip(entry, true)).join("")}</div></section>` : ""}
-      ${group("trigger", "きっかけ", groups.triggers)}${group("state", "局面", groups.states)}`;
-  }
-
-  function renderStartChips(selected, focusId = null) {
-    const chips = document.getElementById("startChips");
-    const openGroups = [...chips.querySelectorAll("[data-start-group]")].filter((group) => group.querySelector("details")?.open).map((group) => group.dataset.startGroup);
-    chips.innerHTML = startChipsHtml(selected);
-    openGroups.forEach((key) => {
-      const details = chips.querySelector(`[data-start-group="${key}"] details`);
-      if (details) details.open = true;
-    });
-    if (focusId !== null) chips.querySelector(`[data-start-id="${focusId}"]`)?.focus({ preventScroll: true });
-  }
-
-  function selectedStartChips() {
-    return [...els.formFields.querySelectorAll("[data-start-id][aria-pressed=true]")].map((chip) => Number(chip.dataset.startId));
   }
 
   // --- 局面ピッカー（ヒット・ガード・相手の行動の次の状況、起き攻めの起点） ---
@@ -304,7 +268,23 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     }
   }
 
-  // --- 起き攻めの起点（局面を複数） ---
+  // --- 始動の状況（きっかけ・局面を複数） ---
+
+  /** 同じキャラのきっかけ（確定反撃・ヒット確認など）を、押すだけで始動に足す・外すボタン。 */
+  function startTriggerChipsHtml() {
+    const character = formCharacter();
+    const chosen = new Set(state.editing.startRefs.filter((ref) => typeof ref === "number"));
+    return state.data.situations.filter((situation) => situation.kind === "trigger" && !situation.archived
+      && (situation.character === null || situation.character === character))
+      .map((situation) => `<button type="button" class="toggle-chip" data-start-trigger="${situation.id}" aria-pressed="${chosen.has(situation.id)}">${escapeHtml(situation.name)}</button>`).join("");
+  }
+
+  function toggleStartTrigger(id) {
+    const refs = state.editing.startRefs;
+    const index = refs.indexOf(id);
+    if (index >= 0) refs.splice(index, 1); else refs.push(id);
+    renderStartStates();
+  }
 
   function startStateChipsHtml(refs) {
     return refs.length
@@ -322,7 +302,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     const ref = picker ? readPicker(picker) : null;
     if (!ref) return false;
     if (!state.editing.startRefs.some((entry) => sameRef(entry, ref))) state.editing.startRefs.push(ref);
-    picker.outerHTML = pickerHtml("start", null, { allowPosition: true, withTriggers: false, add: true });
+    picker.outerHTML = pickerHtml("start", null, { allowPosition: true, withTriggers: true, add: true });
     renderStartStates();
     return true;
   }
@@ -330,6 +310,8 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
   function renderStartStates() {
     const chipsEl = document.getElementById("startStateChips");
     if (chipsEl) chipsEl.innerHTML = startStateChipsHtml(state.editing.startRefs);
+    const triggerEl = document.getElementById("startTriggerChips");
+    if (triggerEl) triggerEl.innerHTML = startTriggerChipsHtml();
     syncBackRoll();
   }
 
@@ -420,17 +402,12 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
             <textarea id="${id}" rows="2" maxlength="${field.max}" placeholder="例：2中K > DR 5中P > 2強P xx 236強P">${escapeHtml(text)}</textarea>
           </details>
         </div>`;
-      case "startChips":
-        return `<div class="chip-field" data-field="${field.key}">
-          <span class="field-label">${escapeHtml(field.label)} <b>必須</b></span>
-          <div class="start-groups" id="startChips">${startChipsHtml(value || [], values.character || "")}</div>
-          <div class="add-situation"><input id="newSituation" maxlength="60" placeholder="＋ 状況を追加（例：昇龍ガード後）" /><button type="button" class="secondary-button small" data-add-situation>追加</button></div>
-        </div>`;
       case "startStates":
         return `<div class="chip-field" data-field="${field.key}">
           <span class="field-label">${escapeHtml(field.label)} <b>必須</b></span>
           <div class="toggle-chips" id="startStateChips">${startStateChipsHtml(state.editing.startRefs)}</div>
-          ${pickerHtml("start", null, { allowPosition: true, add: true })}
+          <div class="toggle-chips" id="startTriggerChips">${startTriggerChipsHtml()}</div>
+          ${pickerHtml("start", null, { allowPosition: true, withTriggers: true, add: true })}
         </div>`;
       case "next":
         return `<div class="chip-field" data-field="${field.key}">
@@ -449,11 +426,8 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
         }
         const selected = value[0] ?? null;
         const option = (sequence) => `<option value="${sequence.id}"${sequence.id === selected ? " selected" : ""}>${escapeHtml(`${sequence.character}：${sequence.title}`)}</option>`;
-        const list = (kind) => state.data.sequences.filter((sequence) => sequence.kind === kind && (!sequence.archived || sequence.id === selected));
-        return `<label data-field="${field.key}">${label}<select id="${id}"><option value="">なし</option>
-          ${list("combo").length ? `<optgroup label="コンボ">${list("combo").map(option).join("")}</optgroup>` : ""}
-          ${list("setplay").length ? `<optgroup label="起き攻め">${list("setplay").map(option).join("")}</optgroup>` : ""}
-        </select></label>`;
+        const list = state.data.sequences.filter((sequence) => !sequence.archived || sequence.id === selected);
+        return `<label data-field="${field.key}">${label}<select id="${id}"><option value="">なし</option>${list.map(option).join("")}</select></label>`;
       }
       case "textarea":
         return `<label data-field="${field.key}"${showIf}>${label}<textarea id="${id}" rows="${field.rows || 3}" maxlength="${field.max}" placeholder="${escapeHtml(field.placeholder || "")}">${escapeHtml(text)}</textarea></label>`;
@@ -520,10 +494,6 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     for (const field of fields) {
       if (field.type === "radio") {
         values[field.key] = els.formFields.querySelector(`input[name="${field.key}"]:checked`)?.value || base[field.key];
-        continue;
-      }
-      if (field.type === "startChips") {
-        values.starts = selectedStartChips();
         continue;
       }
       if (field.type === "startStates") {
@@ -599,11 +569,10 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     state.editing = { resource, item, values, startRefs: [...(values.starts || [])], inboxSource };
     els.modalTitle.textContent = `${form.title(values)}を${item ? "編集" : "追加"}`;
     const fields = visibleFields(resource, values, Boolean(item));
-    const isCombo = resource === "sequences" && values.kind === "combo";
-    const isMore = (field) => field.more || (isCombo && !field.required && !field.main);
+    const isMore = (field) => field.more;
     const main = fields.filter((field) => !isMore(field)).map((field) => fieldHtml(field, values[field.key], values)).join("");
     const more = fields.filter(isMore).map((field) => fieldHtml(field, values[field.key], values)).join("");
-    els.formFields.innerHTML = `${main}${more ? `<details class="form-more"><summary>${isCombo ? "任意項目" : "詳細"}</summary><div class="form-grid">${more}</div></details>` : ""}`;
+    els.formFields.innerHTML = `${main}${more ? `<details class="form-more"><summary>任意項目</summary><div class="form-grid">${more}</div></details>` : ""}`;
     fields.filter((field) => field.preserveWhitespace).forEach((field) => {
       const input = document.getElementById(`field-${field.key}`);
       if (input) input.value = values[field.key] || "";
@@ -645,8 +614,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
         return `「${field.label}」は${field.max}文字以内にしてください。元Inboxの全文は元記録に残ります。`;
       }
       if (field.required && (value === null || value === "" || (Array.isArray(value) && value.length === 0))) {
-        if (field.type === "startChips") return "始動の状況を1つ以上選んでください。";
-        if (field.type === "startStates") return "起点の局面を1つ以上追加してください。";
+        if (field.type === "startStates") return "始動の状況を1つ以上選んでください（きっかけを押すか、下で有利Fを入れて「追加」）。";
         return `「${field.label}」を入力してください。`;
       }
       if (field.type === "number" && value !== null && (!Number.isInteger(value) || value < field.min || value > field.max)) {
@@ -666,8 +634,6 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
   function normalizeValues(resource, values) {
     if (resource === "sequences") {
       if (!values.title) values.title = defaultTitle(values.notation);
-      if (values.kind === "combo") Object.assign(values, { aim: null, layering: null });
-      else values.endPurpose = null;
     }
     if (resource === "situations" && values.kind === "trigger") Object.assign(values, { advantage: null, recovery: null, position: "anywhere", throwRange: false });
   }
@@ -681,7 +647,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     event.preventDefault();
     if (!state.editing || state.saving) return;
     const { resource, item, inboxSource } = state.editing;
-    if (resource === "sequences" && state.editing.values.kind === "setplay") addStartFromPicker();
+    if (resource === "sequences") addStartFromPicker();
     const values = readForm(resource, state.editing.values);
     normalizeValues(resource, values);
     const problem = validate(resource, values);
@@ -764,5 +730,5 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     return usage.starts + usage.results > 0;
   }
 
-  return { selectHitType, FORMS, renderStartChips, selectedStartChips, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete };
+  return { selectHitType, toggleStartTrigger, startTriggerChipsHtml, FORMS, renderStartStates, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete };
 }

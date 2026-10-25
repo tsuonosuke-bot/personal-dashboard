@@ -11,7 +11,6 @@ export const COL_GAP = 96;
 export const ROW_GAP = 18;
 export const PAD = 16;
 
-const KIND_ORDER = { combo: 0, setplay: 1 };
 const EXIT_ORDER = ["hit", "counter_hit", "punish_counter", "hit_other", "guard", ...OPPONENT_OPTIONS];
 
 /** 1つの手順から出る結果の一覧。コンボはヒット、起き攻めはヒット・ガードが無ければ「未設定」で足す（カウンターヒット・パニッシュカウンター・その他のヒットは入力したときだけ出る）。 */
@@ -20,14 +19,14 @@ export function exitsOf(sequence) {
     kind: result.kind, opponentAction: result.opponentAction ?? null, outcome: result.outcome ?? null,
     nextSituationId: result.nextSituationId ?? null,
   }));
-  for (const kind of sequence.kind === "setplay" ? ["hit", "guard"] : ["hit"]) {
+  for (const kind of ["hit"]) {
     if (!exits.some((exit) => exit.kind === kind)) exits.push({ kind, opponentAction: null, outcome: null, nextSituationId: null });
   }
   const rank = (exit) => EXIT_ORDER.indexOf(exit.kind === "opponent" ? exit.opponentAction : exit.kind);
   return exits.sort((a, b) => rank(a) - rank(b));
 }
 
-const byKindThenId = (a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.id - b.id;
+const byIdAsc = (a, b) => a.id - b.id;
 
 /**
  * options: { sequences, situations, character, startSituationId = null, resultLabel(exit) }
@@ -90,8 +89,8 @@ export function buildFlow({ sequences, situations, character, startSituationId =
   if (startSituationId !== null && situationById.has(startSituationId)) {
     walk(sequencesFrom(situationById.get(startSituationId), mine, situations, { includeNear }).map((entry) => entry.sequence));
   } else {
-    walk(mine.filter((sequence) => !hasIncoming.has(sequence.id)).sort(byKindThenId));
-    for (const sequence of [...mine].sort(byKindThenId)) if (!column.has(sequence.id)) walk([sequence]);
+    walk(mine.filter((sequence) => !hasIncoming.has(sequence.id)).sort(byIdAsc));
+    for (const sequence of [...mine].sort(byIdAsc)) if (!column.has(sequence.id)) walk([sequence]);
   }
 
   // 行：桁ごとに、手順を見つけた順、その下に出口を手順の並び順で
@@ -116,7 +115,7 @@ export function buildFlow({ sequences, situations, character, startSituationId =
   for (let col = 0; col <= maxCol; col += 1) {
     let y = PAD;
     for (const sequence of perColumn.get(col) || []) {
-      nodes.push({ id: sequence.id, title: sequence.title, kind: sequence.kind, col, x: colX(col), y, w: NODE_W, h: NODE_H, loop: loops.has(sequence.id) });
+      nodes.push({ id: sequence.id, title: sequence.title, startLabel: situationById.get(sequence.starts[0])?.name || "", col, x: colX(col), y, w: NODE_W, h: NODE_H, loop: loops.has(sequence.id) });
       nodeRow.set(sequence.id, y);
       y += NODE_H + ROW_GAP;
     }

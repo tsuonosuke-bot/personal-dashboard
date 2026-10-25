@@ -14,7 +14,6 @@ export const OPPONENT_OPTIONS = ["reversal", "backdash", "jump", "tech", "delay_
 const POSITION_LABELS = { midscreen: "画面中央", corner: "画面端" };
 const RECOVERY_LABELS = { back_roll: "後ろ受け身可", no_back_roll: "後ろ受け身不可", none: "ダウンなし" };
 const FIT_ORDER = { same: 0, fits: 1, near: 2 };
-const KIND_ORDER = { setplay: 0, combo: 1 };
 const DRIVE_TOKENS = new Set(["DR", "DI", "パリィ"]);
 /** OD必殺技：方向の数字2つ以上＋PP/KK の1語（236PP・623KK・63214PP・J236KK）。2PP のようなコマンド特殊技は含めない。 */
 const OD_SPECIAL = /^J?[1-9]{2,}(?:PP|KK)$/;
@@ -53,21 +52,15 @@ export function usableNow(sequence, conditions) {
   return true;
 }
 
-function byDamage(a, b) {
-  return (b.damage ?? -1) - (a.damage ?? -1);
-}
-
 /**
- * 一覧の並び順。相手の不利Fか確定反撃を選んだときは発生の速い順（同じ発生ならダメージ順）、
- * ほかの条件があればダメージ順、なければ渡された順（登録順）。
+ * 一覧の並び順。相手の不利Fか確定反撃を選んだときは発生の速い順、それ以外は渡された順（登録順）。
  */
 export function sortSequences(list, conditions, situationsById) {
   const { situationId = null, drive = null, sa = null, burnout = false, punishWindow = null } = conditions;
   const sorted = [...list];
   if (punishWindow !== null || (situationId !== null && situationsById.get(situationId)?.presetKey === PRESET.punish)) {
-    return sorted.sort((a, b) => (a.startup ?? Infinity) - (b.startup ?? Infinity) || byDamage(a, b));
+    return sorted.sort((a, b) => (a.startup ?? Infinity) - (b.startup ?? Infinity));
   }
-  if (situationId !== null || drive !== null || sa !== null || burnout) return sorted.sort(byDamage);
   return sorted;
 }
 
@@ -151,27 +144,27 @@ export function sequencesFrom(situation, sequences, situations, options = {}) {
     if (best) found.push(best);
   }
   return found.sort((a, b) => FIT_ORDER[a.fit] - FIT_ORDER[b.fit]
-    || KIND_ORDER[a.sequence.kind] - KIND_ORDER[b.sequence.kind] || compareTitle(a.sequence, b.sequence));
+    || compareTitle(a.sequence, b.sequence));
 }
 
 export function resultOf(sequence, kind) {
   return sequence.results.find((result) => result.kind === kind) || null;
 }
 
-/** コンボのカード用：ヒットの結果の局面から行ける起き攻め。 */
-export function setplaysAfter(combo, sequences, situations) {
-  const next = resultOf(combo, "hit")?.nextSituationId;
+/** パーツのカード用：ヒットの結果の局面から続けられるパーツ。 */
+export function partsAfter(part, sequences, situations) {
+  const next = resultOf(part, "hit")?.nextSituationId;
   const state = situations.find((situation) => situation.id === next);
   if (!state) return [];
-  return sequencesFrom(state, sequences.filter((sequence) => sequence.kind === "setplay" && sequence.character === combo.character), situations)
+  return sequencesFrom(state, sequences.filter((sequence) => sequence.id !== part.id && sequence.character === part.character), situations)
     .map(({ sequence, fit }) => ({ sequence, fit }));
 }
 
-/** 起き攻めのカード用：ヒットでこの局面（または合う局面）につながるコンボ。 */
+/** パーツのカード用：ヒットでこの局面（または合う局面）につながるパーツ。 */
 export function leadsInto(state, sequences, situations) {
   const byId = new Map(situations.map((entry) => [entry.id, entry]));
   return sequences.filter((sequence) => {
-    if (sequence.kind !== "combo" || sequence.archived) return false;
+    if (sequence.archived) return false;
     const next = byId.get(resultOf(sequence, "hit")?.nextSituationId);
     const fit = next ? stateFit(next, state) : null;
     return fit === "same" || fit === "fits";
@@ -205,10 +198,15 @@ function startsFromBackRoll(sequence, situationsById) {
   return sequence.starts.some((id) => situationsById.get(id)?.recovery === "back_roll");
 }
 
+/** 相手の行動ごとの結果（○×）を持つパーツ。練習は無敵技の録画再生など、起き攻め向けの設定にする。 */
+export function hasOutcomes(sequence) {
+  return sequence.results.some((result) => result.kind === "opponent");
+}
+
 /** 1つの手順を練習メニューにするときの初期値（タイトル・トレモ設定）。 */
 export function drillPreset(sequence, situationsById) {
   const base = { title: `${sequence.title}（${sequence.character}）`.slice(0, 200), sequenceIds: [sequence.id] };
-  if (sequence.kind === "setplay") {
+  if (hasOutcomes(sequence)) {
     return {
       ...base,
       recoverySetting: startsFromBackRoll(sequence, situationsById) ? "random" : null,
@@ -234,8 +232,8 @@ export function routeDrillPreset(path, sequencesById, situationsById) {
   const start = situationsById.get(path.find((step) => "situationId" in step)?.situationId);
   const sequences = path.filter((step) => "sequenceId" in step).map((step) => sequencesById.get(step.sequenceId)).filter(Boolean);
   const sequenceIds = [...new Set(sequences.map((sequence) => sequence.id))];
-  const hasCombo = sequences.some((sequence) => sequence.kind === "combo");
-  const setplays = sequences.filter((sequence) => sequence.kind === "setplay");
+  const hasCombo = sequences.some((sequence) => !hasOutcomes(sequence));
+  const setplays = sequences.filter(hasOutcomes);
   return {
     title: [start?.name, ...sequences.map((sequence) => sequence.title)].filter(Boolean).join(" › ").slice(0, 200),
     detail: `最後まで通して${STREAK_GOAL}回連続`,

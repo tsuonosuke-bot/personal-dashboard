@@ -60,7 +60,6 @@ export function createSf6Frames({ state, els, movesOf, ensureMoves, renderTabs, 
     if (window === null) return;
     state.opponent.moveId = move.id;
     state.conditions = { ...state.conditions, situationId: null, punishWindow: window };
-    state.sequenceKind = "combo";
     renderTabs();
     renderSequences();
     els.sequenceConditions.open = true;

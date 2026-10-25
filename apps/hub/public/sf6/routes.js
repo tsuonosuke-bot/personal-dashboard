@@ -1,6 +1,6 @@
 import { escapeHtml } from "../shared/html.js";
 import { stored, notationHtml, options, empty } from "./format.js";
-import { OUTCOME_MARKS, SEQUENCE_KINDS } from "./constants.js";
+import { OUTCOME_MARKS } from "./constants.js";
 // 手順のルート・フローチャート・状況管理に使うシート。
 import { exitsOf, buildFlow } from "../sf6-graph.js";
 import { sequencesFrom, usableNow, situationUsage, stateLabel } from "../sf6-plan.js";
@@ -64,9 +64,9 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
         <title>${escapeHtml(text)}</title>
       </g>`;
     }).join("");
-    const nodes = flow.nodes.map((node) => `<g class="flow-node ${node.kind}${node.id === selected ? " selected" : ""}" data-flow-node="${node.id}" tabindex="0" role="button">
+    const nodes = flow.nodes.map((node) => `<g class="flow-node${node.id === selected ? " selected" : ""}" data-flow-node="${node.id}" tabindex="0" role="button">
         <rect x="${node.x}" y="${node.y}" width="${node.w}" height="${node.h}" rx="8" />
-        <text class="kind" x="${node.x + 10}" y="${node.y + 18}">${SEQUENCE_KINDS[node.kind]}${node.loop ? " ↻" : ""}</text>
+        <text class="kind" x="${node.x + 10}" y="${node.y + 18}">${escapeHtml(clip(node.startLabel, 16))}${node.loop ? " ↻" : ""}</text>
         <text class="title" x="${node.x + 10}" y="${node.y + 38}">${escapeHtml(clip(node.title, FLOW_TITLE_MAX))}</text>
         <title>${escapeHtml(node.title)}</title>
       </g>`).join("");
@@ -90,11 +90,11 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       let tail = "";
       if (!next) tail = `<button type="button" class="ghost-button" data-flow-stub="${ref}">次の状況を選ぶ</button>`;
       else if (followers.length) tail = `<span class="next-row">${followers.map((edge) => gotoChip(edge.to, titles.get(edge.to) || "", edge.fit === "near")).join("")}</span>`;
-      else tail = `<span class="next-row">${next.kind === "state" ? `<button type="button" class="ghost-button" data-add-from-situation="${next.id}|setplay">＋起き攻め</button>` : ""}<button type="button" class="ghost-button" data-add-from-situation="${next.id}|combo">＋コンボ</button></span>`;
+      else tail = `<span class="next-row"><button type="button" class="ghost-button" data-add-from-situation="${next.id}">＋パーツ</button></span>`;
       return `<li><b>${escapeHtml(flowLabel(exit))}</b> → ${next ? escapeHtml(situationText(next)) : '<span class="unset">未設定</span>'} ${tail}</li>`;
     }).join("");
     return `<article class="card flow-detail">
-      <div class="card-head"><h3><span class="kind-badge">${SEQUENCE_KINDS[sequence.kind]}</span>${escapeHtml(sequence.title)}</h3>
+      <div class="card-head"><h3>${escapeHtml(sequence.title)}</h3>
         <button type="button" class="ghost-button" data-edit="sequences" data-id="${sequence.id}">編集</button></div>
       ${notationHtml(sequence.notation)}
       <p class="flow-step"><small class="meta">前</small> ${before.length ? before.map((edge) => gotoChip(edge.from, titles.get(edge.from) || "", edge.fit === "near")).join("") : '<small class="meta">始点</small>'}</p>
@@ -171,33 +171,22 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
     }
   }
 
-  /** 絞り込み中のキャラ・状況を引き継いだ、新しい手順の初期値。起き攻めの起点は局面だけ。 */
-  function newSequencePreset(kind) {
+  /** 絞り込み中のキャラ・状況を引き継いだ、新しいコンボパーツの初期値。 */
+  function newSequencePreset() {
     const { situationId } = state.conditions;
-    const situation = typeof situationId === "number" ? situationsById().get(situationId) : null;
     return {
-      kind,
       ...(state.sequenceCharacter ? { character: state.sequenceCharacter } : {}),
-      starts: situation && (kind === "combo" || situation.kind === "state") ? [situation.id] : [],
+      starts: typeof situationId === "number" && situationsById().has(situationId) ? [situationId] : [],
     };
   }
 
-  /** 状況タブから、その状況を起点にした手順を追加するときの初期値。 */
-  function situationSequencePreset(situation, kind) {
+  /** 状況タブやフローの出口から、その状況を起点にしたコンボパーツを追加するときの初期値。 */
+  function situationSequencePreset(situation) {
     return {
-      kind,
       character: situation.character,
       starts: [situation.id],
       ...(situation.position !== "anywhere" ? { position: situation.position } : {}),
     };
-  }
-
-  /** 種類を絞り込んでいないときの「手順を追加」：コンボか起き攻めかを選ぶ。 */
-  function renderAddKind() {
-    els.sheetTitle.textContent = "手順を追加";
-    els.sheetBody.innerHTML = `
-      <button type="button" class="sheet-row" data-add-kind="combo"><span>コンボ<small>確定反撃やヒット確認から始める手順</small></span><small>›</small></button>
-      <button type="button" class="sheet-row" data-add-kind="setplay"><span>起き攻め<small>ダウンを奪った後や有利フレームで行う手順</small></span><small>›</small></button>`;
   }
 
   function closeSheet() {
@@ -209,7 +198,6 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
     const { type } = state.sheet;
     if (type === "route") renderRoute();
     else if (type === "routeStart") renderRouteStart();
-    else if (type === "addKind") renderAddKind();
     else if (type === "flow") renderFlow();
     else renderSituationManager();
   }
@@ -239,7 +227,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       </div>
       ${fit === "same" ? "" : `<p class="meta">起点 ${escapeHtml(situationText(via))}${fit === "near" ? " · ±2F 注意" : ""}</p>`}
       ${notationHtml(sequence.notation)}
-      ${sequence.kind === "setplay" ? outcomesHtml(sequence, starts.some((situation) => situation.recovery === "back_roll")) : ""}
+      ${outcomesHtml(sequence, starts.some((situation) => situation.recovery === "back_roll"))}
       ${!ended && steps ? `<div class="result-lines">${steps}</div>` : ""}
       ${ended ? "" : `<div class="card-foot end"><button type="button" class="ghost-button" data-route-end="${sequence.id}">この手順で終える</button></div>`}
     </article>`;

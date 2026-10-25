@@ -1,7 +1,7 @@
 import { createSf6State, sf6Elements } from "./sf6/state.js";
 import { sf6Request } from "./sf6/api.js";
 import { stored, errorMessage, store, options } from "./sf6/format.js";
-import { OPPONENT_LABELS, RESULT_LABELS, CHARACTERS, TABS, OUTCOME_MARKS, DRIVE_STEPS, LEGACY_TABS, SEQUENCE_KINDS } from "./sf6/constants.js";
+import { OPPONENT_LABELS, RESULT_LABELS, CHARACTERS, TABS, OUTCOME_MARKS, DRIVE_STEPS, LEGACY_TABS } from "./sf6/constants.js";
 import { escapeHtml } from "./shared/html.js";
 import { createSf6Records } from "./sf6/records.js";
 import { createSf6Frames } from "./sf6/frames.js";
@@ -248,7 +248,7 @@ const inboxFlow = createSf6InboxFlow({ state, els,
   load: () => load(), selectTab: (...args) => selectTab(...args), find: (...args) => find(...args),
   render: () => render(), showToast: (...args) => showToast(...args),
 });
-const { selectHitType, FORMS, renderStartChips, selectedStartChips, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete } = createSf6Editor({
+const { selectHitType, toggleStartTrigger, FORMS, renderStartStates, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete } = createSf6Editor({
   state,
   inboxFlow,
   situationText: (...args) => situationText(...args),
@@ -275,14 +275,6 @@ document.querySelectorAll("[data-tab]").forEach((button) => {
 els.sequenceCharacter.addEventListener("change", () => {
   state.sequenceCharacter = els.sequenceCharacter.value;
   store("sf6-sequence-character", state.sequenceCharacter);
-  renderSequences();
-});
-els.sequenceKind.addEventListener("click", (event) => {
-  const button = event.target.closest("button[data-value]");
-  if (!button) return;
-  state.sequenceKind = button.dataset.value;
-  store("sf6-sequence-kind", state.sequenceKind);
-  renderTabs();
   renderSequences();
 });
 els.sequencePosition.addEventListener("click", (event) => {
@@ -423,14 +415,13 @@ async function onAction(event) {
     if (next !== item.mastery) await patch("sequences", item, { mastery: next }, `習得度：${MASTERY[next]}`);
   } else if (dataset.drillFromSequence) {
     openModal("drills", null, drillPreset(find("sequences", dataset.drillFromSequence), situationsById()));
-  } else if (dataset.setplayFromCombo) {
-    const combo = find("sequences", dataset.setplayFromCombo);
-    openModal("sequences", null, { kind: "setplay", character: combo.character, starts: [resultOf(combo, "hit").nextSituationId], position: combo.position });
+  } else if (dataset.partAfter) {
+    const part = find("sequences", dataset.partAfter);
+    openModal("sequences", null, { character: part.character, starts: [resultOf(part, "hit").nextSituationId], position: part.position });
   } else if (dataset.gotoSequence) {
     // 行き先の起き攻めを隠さないよう、絞り込みと条件を外してから開く
     selectTab("sequences");
     state.sequenceCharacter = "";
-    state.sequenceKind = "";
     state.sequencePosition = "";
     state.conditions = { situationId: null, drive: null, sa: null, ca: false, burnout: false, punishWindow: null };
     state.opponent.moveId = null;
@@ -446,9 +437,8 @@ async function onAction(event) {
     state.sheet.near = !state.sheet.near;
     renderSheet();
   } else if (dataset.addFromSituation) {
-    const [id, kind] = dataset.addFromSituation.split("|");
-    const situation = find("situations", id);
-    openModal("sequences", null, situationSequencePreset({ ...situation, character: situation.character ?? state.sheet?.character ?? "" }, kind));
+    const situation = find("situations", dataset.addFromSituation);
+    openModal("sequences", null, situationSequencePreset({ ...situation, character: situation.character ?? state.sheet?.character ?? "" }));
   } else if (dataset.flowSituation) {
     const situation = find("situations", dataset.flowSituation);
     openFlow({ situationId: situation.id, character: situation.character });
@@ -485,9 +475,6 @@ async function onAction(event) {
     else openSheet({ type: "routeStart", character });
   } else if (dataset.openFlow !== undefined) {
     openFlow();
-  } else if (dataset.addKind) {
-    closeSheet();
-    openModal("sequences", null, newSequencePreset(dataset.addKind));
   } else if (dataset.manageSituations !== undefined) {
     openSheet({ type: "situations", character: currentCharacter() });
   } else if (dataset.editSituation) {
@@ -577,8 +564,7 @@ els.sheet.addEventListener("click", (event) => { if (event.target === els.sheet)
 els.addButton.addEventListener("click", () => {
   if (!state.data) return;
   if (state.tab === "sequences") {
-    if (state.sequenceKind) openModal("sequences", null, newSequencePreset(state.sequenceKind));
-    else openSheet({ type: "addKind" });
+    openModal("sequences", null, newSequencePreset());
   } else if (state.tab === "situations") {
     openModal("situations", null, { kind: "state", character: state.situationCharacter || currentCharacter() || null });
   } else openModal(state.tab);
@@ -589,8 +575,7 @@ els.formFields.addEventListener("change", (event) => {
   const { target } = event;
   if (target.closest("[data-picker]")) onPickerChange(target);
   if (target.id === "field-character") {
-    const chipsEl = document.getElementById("startChips");
-    if (chipsEl) renderStartChips(selectedStartChips());
+    renderStartStates();
     if (state.editing.resource === "sequences") prepareMoves();
   }
   syncConditional(state.editing.resource);
@@ -599,9 +584,7 @@ els.formFields.addEventListener("change", (event) => {
 els.formFields.addEventListener("input", (event) => {
   if (event.target.id === "field-notation" || event.target.id === "field-startup") refreshNotationAssist();
   else if (event.target.id === "field-title") refreshPickers();
-  else if (event.target.id === "field-character") {
-    if (document.getElementById("startChips")) renderStartChips(selectedStartChips());
-  }
+  else if (event.target.id === "field-character") renderStartStates();
   else if (event.target.closest("[data-picker]")) onPickerChange(event.target);
 });
 const notationKeyboard = createNotationKeyboard({
@@ -622,10 +605,7 @@ els.formFields.addEventListener("keydown", (event) => {
     return;
   }
   if (event.key !== "Enter") return;
-  if (event.target.id === "newSituation") {
-    event.preventDefault();
-    els.formFields.querySelector("[data-add-situation]").click();
-  } else if (event.target.closest('[data-picker="start"]')) {
+  if (event.target.closest('[data-picker="start"]')) {
     event.preventDefault();
     addStartFromPicker();
   }
@@ -639,17 +619,8 @@ els.formFields.addEventListener("click", async (event) => {
   else if (dataset.fragment) editNotation((text) => appendFragment(text, dataset.fragment));
   else if (dataset.palette === "backspace") editNotation(removeLastToken);
   else if (dataset.palette === "clear") editNotation(() => "");
-  else if (dataset.startId) {
-    const id = Number(dataset.startId);
-    const selected = selectedStartChips();
-    renderStartChips(selected.includes(id) ? selected.filter((entry) => entry !== id) : [...selected, id], id);
-  }
-  else if (dataset.addSituation !== undefined) {
-    const selected = selectedStartChips();
-    const added = await addTrigger(document.getElementById("newSituation"));
-    if (!added) return;
-    renderStartChips([...new Set([...selected, added.id])], added.id);
-  } else if (dataset.addStart !== undefined) {
+  else if (dataset.startTrigger) toggleStartTrigger(Number(dataset.startTrigger));
+  else if (dataset.addStart !== undefined) {
     if (!addStartFromPicker()) showFormError("有利Fを入れるか、一覧から選んでください。");
   } else if (dataset.removeStart !== undefined) {
     state.editing.startRefs.splice(Number(dataset.removeStart), 1);
@@ -722,9 +693,7 @@ const requestedTab = new URL(window.location.href).searchParams.get("tab");
 const savedTab = stored("sf6-tab", "");
 const initialTab = requestedTab || savedTab;
 state.tab = TABS.includes(initialTab) ? initialTab : "sequences";
-// 以前の「コンボ」「起き攻め」タブは、手順タブの種類の絞り込みとして引き継ぐ
-const savedKind = LEGACY_TABS[initialTab] || stored("sf6-sequence-kind", "");
-state.sequenceKind = savedKind in SEQUENCE_KINDS ? savedKind : "";
+// 以前の「コンボ」「起き攻め」タブは、コンボパーツのタブに引き継ぐ
 if (initialTab in LEGACY_TABS) state.tab = "sequences";
 state.situationCharacter = stored("sf6-situation-character", "");
 state.situationNear = stored("sf6-situation-near", "1") !== "0";

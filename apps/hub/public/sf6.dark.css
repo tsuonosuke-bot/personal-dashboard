@@ -763,12 +763,6 @@ html[data-theme="dark"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"] .flow-node.combo rect {
-  stroke: var(--win);
-}
-:root[data-theme="dark"] .flow-node.setplay rect {
-  stroke: var(--accent);
-}
 :root[data-theme="dark"] .flow-node.selected rect {
   fill: var(--bg-hover);
 }
@@ -1550,12 +1544,6 @@ html[data-theme="light"][data-palette="cream"] {
 :root[data-theme="light"][data-palette="cream"] .flow-node rect {
   fill: var(--surface);
   stroke: var(--line);
-}
-:root[data-theme="light"][data-palette="cream"] .flow-node.combo rect {
-  stroke: var(--win);
-}
-:root[data-theme="light"][data-palette="cream"] .flow-node.setplay rect {
-  stroke: var(--accent);
 }
 :root[data-theme="light"][data-palette="cream"] .flow-node.selected rect {
   fill: var(--bg-hover);
@@ -2349,12 +2337,6 @@ html[data-theme="dark"][data-palette="navy"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"][data-palette="navy"] .flow-node.combo rect {
-  stroke: var(--win);
-}
-:root[data-theme="dark"][data-palette="navy"] .flow-node.setplay rect {
-  stroke: var(--accent);
-}
 :root[data-theme="dark"][data-palette="navy"] .flow-node.selected rect {
   fill: var(--bg-hover);
 }
@@ -3146,12 +3128,6 @@ html[data-theme="dark"][data-palette="forest"] {
 :root[data-theme="dark"][data-palette="forest"] .flow-node rect {
   fill: var(--surface);
   stroke: var(--line);
-}
-:root[data-theme="dark"][data-palette="forest"] .flow-node.combo rect {
-  stroke: var(--win);
-}
-:root[data-theme="dark"][data-palette="forest"] .flow-node.setplay rect {
-  stroke: var(--accent);
 }
 :root[data-theme="dark"][data-palette="forest"] .flow-node.selected rect {
   fill: var(--bg-hover);
@@ -3945,12 +3921,6 @@ html[data-theme="dark"][data-palette="nord"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"][data-palette="nord"] .flow-node.combo rect {
-  stroke: var(--win);
-}
-:root[data-theme="dark"][data-palette="nord"] .flow-node.setplay rect {
-  stroke: var(--accent);
-}
 :root[data-theme="dark"][data-palette="nord"] .flow-node.selected rect {
   fill: var(--bg-hover);
 }
@@ -4743,12 +4713,6 @@ html[data-theme="dark"][data-palette="gruvbox"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .flow-node.combo rect {
-  stroke: var(--win);
-}
-:root[data-theme="dark"][data-palette="gruvbox"] .flow-node.setplay rect {
-  stroke: var(--accent);
-}
 :root[data-theme="dark"][data-palette="gruvbox"] .flow-node.selected rect {
   fill: var(--bg-hover);
 }
@@ -5530,12 +5494,6 @@ html[data-theme="light"][data-palette="solarized"] {
 :root[data-theme="light"][data-palette="solarized"] .flow-node rect {
   fill: var(--surface);
   stroke: var(--line);
-}
-:root[data-theme="light"][data-palette="solarized"] .flow-node.combo rect {
-  stroke: var(--win);
-}
-:root[data-theme="light"][data-palette="solarized"] .flow-node.setplay rect {
-  stroke: var(--accent);
 }
 :root[data-theme="light"][data-palette="solarized"] .flow-node.selected rect {
   fill: var(--bg-hover);

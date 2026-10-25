@@ -20,12 +20,10 @@ export interface PlanResult {
 
 export interface PlanSequence {
   id: number;
-  kind: "combo" | "setplay";
   character: string;
   title: string;
   notation: string;
   startup: number | null;
-  damage?: number | null;
   driveCost: number;
   saCost: number;
   position: string;
@@ -79,8 +77,9 @@ export declare function stateLabel(situation: PlanSituation): string;
 export declare function findState<T extends PlanSituation>(situations: T[], key: { character: string; advantage: number; position: string; recovery: string | null }): T | null;
 export declare function stateFit(from: PlanSituation, to: PlanSituation): Fit | null;
 export declare function sequencesFrom<T extends PlanSequence>(situation: PlanSituation, sequences: T[], situations: PlanSituation[], options?: { includeNear?: boolean }): { sequence: T; via: PlanSituation; fit: Fit }[];
+export declare function hasOutcomes(sequence: PlanSequence): boolean;
 export declare function resultOf(sequence: PlanSequence, kind: "hit" | "guard"): PlanResult | null;
-export declare function setplaysAfter<T extends PlanSequence>(combo: PlanSequence, sequences: T[], situations: PlanSituation[]): { sequence: T; fit: Fit }[];
+export declare function partsAfter<T extends PlanSequence>(part: PlanSequence, sequences: T[], situations: PlanSituation[]): { sequence: T; fit: Fit }[];
 export declare function leadsInto<T extends PlanSequence>(state: PlanSituation, sequences: T[], situations: PlanSituation[]): T[];
 export declare function situationUsage(situationId: number, sequences: PlanSequence[]): { starts: number; results: number; sequenceIds: number[]; orphaned: number };
 export declare function drillPreset(sequence: PlanSequence, situationsById: Map<number, PlanSituation>): DrillPreset;
