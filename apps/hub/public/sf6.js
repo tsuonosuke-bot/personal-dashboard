@@ -223,7 +223,7 @@ const { WIDE_FRAMES, renderPunishPicker, loadOpponentMoves, applyOpponentMove, l
   selectTab: (...args) => selectTab(...args)
 });
 
-const { openSheet, openFlow, setFlowNext, newSequencePreset, closeSheet, renderSheet, openRoute, addTrigger } = createSf6Routes({
+const { openSheet, openFlow, setFlowNext, newSequencePreset, situationSequencePreset, closeSheet, renderSheet, openRoute, addTrigger } = createSf6Routes({
   state,
   els,
   resultLabel: (...args) => resultLabel(...args),
@@ -442,6 +442,12 @@ async function onAction(event) {
     setTimeout(() => card?.classList.remove("flash"), 1200);
   } else if (dataset.routeSituation) {
     openRoute([{ situationId: Number(dataset.routeSituation) }], dataset.character);
+  } else if (dataset.addFromSituation) {
+    const [id, kind] = dataset.addFromSituation.split("|");
+    openModal("sequences", null, situationSequencePreset(find("situations", id), kind));
+  } else if (dataset.flowSituation) {
+    const situation = find("situations", dataset.flowSituation);
+    openFlow({ situationId: situation.id, character: situation.character });
   } else if (dataset.routeFromCard) {
     routeFromCard(dataset.routeFromCard);
   } else if (dataset.routeStep) {

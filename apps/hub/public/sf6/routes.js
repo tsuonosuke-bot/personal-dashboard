@@ -29,14 +29,15 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
     return `${resultLabel(exit)}${exit.outcome && exit.outcome !== "unknown" ? OUTCOME_MARKS[exit.outcome] : ""}`;
   }
 
-  function openFlow() {
+  /** 始点の状況を渡すと、その状況（とキャラ）からのフローチャートを開く。 */
+  function openFlow(from = null) {
     const characters = charactersIn(state.data.sequences, "character");
-    const wanted = state.sequenceCharacter || stored("sf6-character", "");
+    const wanted = from?.character || state.sequenceCharacter || stored("sf6-character", "");
     const { situationId } = state.conditions;
     openSheet({
       type: "flow",
       character: characters.includes(wanted) ? wanted : characters[0] || "",
-      startSituationId: typeof situationId === "number" ? situationId : null,
+      startSituationId: from ? from.situationId : typeof situationId === "number" ? situationId : null,
       selected: null,
       picking: null,
     });
@@ -163,6 +164,16 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       kind,
       ...(state.sequenceCharacter ? { character: state.sequenceCharacter } : {}),
       starts: situation && (kind === "combo" || situation.kind === "state") ? [situation.id] : [],
+    };
+  }
+
+  /** 状況タブから、その状況を起点にした手順を追加するときの初期値。 */
+  function situationSequencePreset(situation, kind) {
+    return {
+      kind,
+      character: situation.character,
+      starts: [situation.id],
+      ...(situation.position !== "anywhere" ? { position: situation.position } : {}),
     };
   }
 
@@ -311,5 +322,5 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
     }
   }
 
-  return { openSheet, openFlow, setFlowNext, newSequencePreset, closeSheet, renderSheet, openRoute, addTrigger };
+  return { openSheet, openFlow, setFlowNext, newSequencePreset, situationSequencePreset, closeSheet, renderSheet, openRoute, addTrigger };
 }
