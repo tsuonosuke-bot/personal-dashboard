@@ -30,7 +30,7 @@ test("every dashboard page resolves the theme before its stylesheets and offers 
       if (name.endsWith(".dark")) continue;
       assert.match(html, new RegExp(`href="/${name}\\.css" />\\s*<link rel="stylesheet" href="/${name}\\.dark\\.css" />`), `${page}: ${name}`);
     }
-    assert.match(html, /<select data-theme-select aria-label="表示テーマ"><option value="system">自動<\/option><option value="light">ライト<\/option><option value="dark">ダーク<\/option><option value="cream">クリーム<\/option><option value="navy">ネイビー<\/option><option value="forest">ディープグリーン<\/option><option value="nord">Nord<\/option><option value="gruvbox">Gruvbox<\/option><option value="solarized">Solarized Light<\/option><\/select>/, page);
+    assert.match(html, /<select data-theme-select aria-label="表示テーマ"><option value="system">自動<\/option><option value="light">ライト<\/option><option value="dark">ダーク<\/option><option value="cream">クリーム<\/option><option value="navy">ネイビー<\/option><option value="forest">ディープグリーン<\/option><option value="nord">ノルド<\/option><option value="gruvbox">グルーブボックス<\/option><option value="solarized">ソラライズド<\/option><\/select>/, page);
   }
 });
 
