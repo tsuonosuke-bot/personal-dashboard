@@ -86,12 +86,13 @@ export const SF6_RESOURCES = {
       { key: "advantage", column: "advantage", type: "int", min: -99, max: 300, nullable: true },
       { key: "position", column: "position", type: "enum", values: SF6_POSITIONS },
       { key: "recovery", column: "recovery", type: "enum", values: SF6_RECOVERIES, nullable: true },
+      { key: "throwRange", column: "throw_range", type: "bool", optional: true },
       { key: "memo", column: "memo", type: "text", max: LONG_MAX, preserveWhitespace: true },
       { key: "archived", column: "archived", type: "bool" },
     ],
     check: (value) => {
-      if (value.kind === "trigger" && (value.advantage !== null || value.recovery !== null || value.position !== "anywhere")) {
-        return "きっかけには有利F・位置・ダウンを入れられません。";
+      if (value.kind === "trigger" && (value.advantage !== null || value.recovery !== null || value.position !== "anywhere" || value.throwRange === true)) {
+        return "きっかけには有利F・位置・ダウン・投げ間合いを入れられません。";
       }
       if (value.kind === "state" && (value.advantage === null || value.character === null)) return "局面にはキャラと有利Fを入れてください。";
       return null;

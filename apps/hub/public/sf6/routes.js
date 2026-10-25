@@ -75,16 +75,29 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       ${edges}${stubs}${nodes}</svg></div>`;
   }
 
-  function flowDetailHtml(sequence) {
+  /** 選んだ手順の前後のステップ。前後の手順へ移ったり、末端（続きの手順がない出口）から手順を足したりできる。 */
+  function flowDetailHtml(sequence, flow) {
     const byId = situationsById();
+    const titles = new Map(state.data.sequences.map((entry) => [entry.id, entry.title]));
+    const gotoChip = (id, text, near) => `<button type="button" class="next-chip${near ? " near" : ""}" data-flow-goto="${id}">${escapeHtml(text)}</button>`;
+    const before = [...new Map(flow.edges.filter((edge) => edge.to === sequence.id && edge.from !== sequence.id)
+      .map((edge) => [edge.from, edge])).values()];
     const exits = exitsOf(sequence).map((exit) => {
       const next = byId.get(exit.nextSituationId);
-      return `<li><b>${escapeHtml(flowLabel(exit))}</b> → ${next ? escapeHtml(situationText(next)) : '<span class="unset">未設定</span>'}</li>`;
+      const ref = `${sequence.id}|${exit.kind}|${exit.opponentAction || ""}`;
+      const followers = flow.edges.filter((edge) => edge.from === sequence.id && edge.resultKind === exit.kind
+        && (edge.opponentAction || "") === (exit.opponentAction || ""));
+      let tail = "";
+      if (!next) tail = `<button type="button" class="ghost-button" data-flow-stub="${ref}">次の状況を選ぶ</button>`;
+      else if (followers.length) tail = `<span class="next-row">${followers.map((edge) => gotoChip(edge.to, titles.get(edge.to) || "", edge.fit === "near")).join("")}</span>`;
+      else tail = `<span class="next-row">${next.kind === "state" ? `<button type="button" class="ghost-button" data-add-from-situation="${next.id}|setplay">＋起き攻め</button>` : ""}<button type="button" class="ghost-button" data-add-from-situation="${next.id}|combo">＋コンボ</button></span>`;
+      return `<li><b>${escapeHtml(flowLabel(exit))}</b> → ${next ? escapeHtml(situationText(next)) : '<span class="unset">未設定</span>'} ${tail}</li>`;
     }).join("");
     return `<article class="card flow-detail">
       <div class="card-head"><h3><span class="kind-badge">${SEQUENCE_KINDS[sequence.kind]}</span>${escapeHtml(sequence.title)}</h3>
         <button type="button" class="ghost-button" data-edit="sequences" data-id="${sequence.id}">編集</button></div>
       ${notationHtml(sequence.notation)}
+      <p class="flow-step"><small class="meta">前</small> ${before.length ? before.map((edge) => gotoChip(edge.from, titles.get(edge.from) || "", edge.fit === "near")).join("") : '<small class="meta">始点</small>'}</p>
       <ul class="flow-exits">${exits}</ul>
     </article>`;
   }
@@ -119,7 +132,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       ${flow.nodes.length
         ? `<p class="flow-note">${flow.unsetCount ? `次が未設定の出口が${flow.unsetCount}件あります。点線の枠を押すと、次の状況を選べます。` : "未設定の出口はありません。"}</p>${flowSvg(flow, selected?.id)}`
         : empty(sheet.character ? "このキャラ・始点から辿れる手順はありません" : "手順がまだありません")}
-      ${selected && flow.nodes.some((node) => node.id === selected.id) ? flowDetailHtml(selected) : ""}`;
+      ${selected && flow.nodes.some((node) => node.id === selected.id) ? flowDetailHtml(selected, flow) : ""}`;
   }
 
   /** 出口の「次の状況」を選ぶ画面。状況ごとに、そこから始まる手順の数を出す。 */

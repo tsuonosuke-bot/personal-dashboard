@@ -447,7 +447,8 @@ async function onAction(event) {
     renderSheet();
   } else if (dataset.addFromSituation) {
     const [id, kind] = dataset.addFromSituation.split("|");
-    openModal("sequences", null, situationSequencePreset(find("situations", id), kind));
+    const situation = find("situations", id);
+    openModal("sequences", null, situationSequencePreset({ ...situation, character: situation.character ?? state.sheet?.character ?? "" }, kind));
   } else if (dataset.flowSituation) {
     const situation = find("situations", dataset.flowSituation);
     openFlow({ situationId: situation.id, character: situation.character });
@@ -536,14 +537,17 @@ els.sheetBody.addEventListener("click", (event) => {
   if (state.sheet?.type !== "flow") return;
   const stub = event.target.closest("[data-flow-stub]");
   const node = event.target.closest("[data-flow-node]");
+  const goto = event.target.closest("[data-flow-goto]");
   const pick = event.target.closest("button[data-flow-pick]");
   if (stub) {
     const [sequenceId, resultKind, opponentAction] = stub.dataset.flowStub.split("|");
     state.sheet.picking = { sequenceId: Number(sequenceId), resultKind, opponentAction: opponentAction || null };
     renderSheet();
-  } else if (node) {
-    state.sheet.selected = Number(node.dataset.flowNode);
+  } else if (node || goto) {
+    state.sheet.selected = Number(node ? node.dataset.flowNode : goto.dataset.flowGoto);
     renderSheet();
+    const selected = els.sheetBody.querySelector(`[data-flow-node="${state.sheet.selected}"]`);
+    selected?.scrollIntoView({ block: "nearest", inline: "center" });
   } else if (pick) setFlowNext(state.sheet.picking, Number(pick.dataset.flowPick));
   else if (event.target.closest("[data-flow-cancel]")) {
     state.sheet.picking = null;
