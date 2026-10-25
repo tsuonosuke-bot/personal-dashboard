@@ -24,5 +24,6 @@ export declare function buildFlow(options: {
   situations: PlanSituation[];
   character: string;
   startSituationId?: number | null;
+  includeNear?: boolean;
   resultLabel: (exit: FlowExit) => string;
 }): Flow;

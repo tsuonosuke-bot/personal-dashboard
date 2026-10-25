@@ -31,10 +31,11 @@ const byKindThenId = (a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.id -
 
 /**
  * options: { sequences, situations, character, startSituationId = null, resultLabel(exit) }
+ * includeNear=false にすると、有利Fが1〜2Fずれた局面から始まる手順（近い手順）へは矢印を引かない。
  * startSituationId を渡すと、その状況から始まる手順につながる範囲だけを出す。
  * 返す座標は SVG にそのまま使える（左上が原点）。
  */
-export function buildFlow({ sequences, situations, character, startSituationId = null, resultLabel }) {
+export function buildFlow({ sequences, situations, character, startSituationId = null, includeNear = true, resultLabel }) {
   const situationById = new Map(situations.map((situation) => [situation.id, situation]));
   const mine = sequences.filter((sequence) => sequence.character === character && !sequence.archived);
   const byId = new Map(mine.map((sequence) => [sequence.id, sequence]));
@@ -52,7 +53,7 @@ export function buildFlow({ sequences, situations, character, startSituationId =
         stubs.push({ ...ref, label, type: "unset" });
         continue;
       }
-      const found = sequencesFrom(next, mine, situations);
+      const found = sequencesFrom(next, mine, situations, { includeNear });
       if (found.some((entry) => entry.sequence.id === sequence.id)) loops.add(sequence.id);
       const targets = found.filter((entry) => entry.sequence.id !== sequence.id);
       if (!targets.length) stubs.push({ ...ref, label, type: "dead", situationId: next.id });
@@ -87,7 +88,7 @@ export function buildFlow({ sequences, situations, character, startSituationId =
     }
   };
   if (startSituationId !== null && situationById.has(startSituationId)) {
-    walk(sequencesFrom(situationById.get(startSituationId), mine, situations).map((entry) => entry.sequence));
+    walk(sequencesFrom(situationById.get(startSituationId), mine, situations, { includeNear }).map((entry) => entry.sequence));
   } else {
     walk(mine.filter((sequence) => !hasIncoming.has(sequence.id)).sort(byKindThenId));
     for (const sequence of [...mine].sort(byKindThenId)) if (!column.has(sequence.id)) walk([sequence]);

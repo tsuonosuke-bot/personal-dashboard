@@ -59,3 +59,13 @@ test("始点の状況を渡すと、そこから届く手順だけを出す", ()
   const flow = buildFlow({ sequences: [a, b, apart], situations, character: "リュウ", startSituationId: 1, resultLabel: label });
   assert.deepEqual(flow.nodes.map((node) => node.id), [1, 2]);
 });
+
+test("includeNear=false だと、有利Fが1Fずれた局面から始まる手順へは矢印を引かない", () => {
+  const situations = [situation({ id: 1, advantage: 10 }), situation({ id: 2, advantage: 11 })];
+  const combo = sequence({ id: 1, starts: [], results: [result({ nextSituationId: 1 })] });
+  const setplay = sequence({ id: 2, kind: "setplay", starts: [2], results: [] });
+  const withNear = buildFlow({ sequences: [combo, setplay], situations, character: "リュウ", resultLabel: label });
+  assert.deepEqual(withNear.edges.map((edge) => [edge.from, edge.to, edge.fit]), [[1, 2, "near"]]);
+  const exact = buildFlow({ sequences: [combo, setplay], situations, character: "リュウ", includeNear: false, resultLabel: label });
+  assert.deepEqual(exact.edges, []);
+});
