@@ -89,8 +89,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
         && (edge.opponentAction || "") === (exit.opponentAction || ""));
       let tail = "";
       if (!next) tail = `<button type="button" class="ghost-button" data-flow-stub="${ref}">次の状況を選ぶ</button>`;
-      else if (followers.length) tail = `<span class="next-row">${followers.map((edge) => gotoChip(edge.to, titles.get(edge.to) || "", edge.fit === "near")).join("")}</span>`;
-      else tail = `<span class="next-row"><button type="button" class="ghost-button" data-add-from-situation="${next.id}">＋パーツ</button></span>`;
+      else tail = `<span class="next-row">${followers.map((edge) => gotoChip(edge.to, titles.get(edge.to) || "", edge.fit === "near")).join("")}<button type="button" class="ghost-button" data-add-from-situation="${next.id}">＋パーツ</button><button type="button" class="ghost-button" data-flow-stub="${ref}">状況を変える</button></span>`;
       return `<li><b>${escapeHtml(flowLabel(exit))}</b> → ${next ? escapeHtml(situationText(next)) : '<span class="unset">未設定</span>'} ${tail}</li>`;
     }).join("");
     return `<article class="card flow-detail">
@@ -128,10 +127,11 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
           ["局面", starts.filter((situation) => situation.kind === "state").sort(byAdvantage)],
         ], sheet.startSituationId)}</select>
         <button type="button" class="toggle-chip" data-flow-near aria-pressed="${sheet.near}" title="有利Fが1〜2Fずれる手順（点線の矢印）の表示を切り替えます">近い手順</button>
+        <button type="button" class="secondary-button small" data-flow-add>＋パーツを追加</button>
       </div>
       ${flow.nodes.length
-        ? `<p class="flow-note">${flow.unsetCount ? `次が未設定の出口が${flow.unsetCount}件あります。点線の枠を押すと、次の状況を選べます。` : "未設定の出口はありません。"}</p>${flowSvg(flow, selected?.id)}`
-        : empty(sheet.character ? "このキャラ・始点から辿れる手順はありません" : "手順がまだありません")}
+        ? `<p class="flow-note">${flow.unsetCount ? `次が未設定の出口が${flow.unsetCount}件あります。点線の枠を押すと、次の状況を選べます。` : "未設定の出口はありません。"}</p>${flowSvg(flow, selected?.id)}${selected ? "" : '<p class="flow-note">箱を押すと、前後のパーツへ移ったり、出口から次のパーツを追加したりできます。</p>'}`
+        : empty(sheet.character ? "このキャラ・始点から辿れるパーツはありません。上の「＋パーツを追加」で作れます" : "パーツがまだありません。上の「＋パーツを追加」で作れます")}
       ${selected && flow.nodes.some((node) => node.id === selected.id) ? flowDetailHtml(selected, flow) : ""}`;
   }
 
