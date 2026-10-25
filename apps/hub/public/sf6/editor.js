@@ -27,8 +27,8 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
         { key: "starts", label: "始動の状況", type: "startStates", required: true },
         { key: "notation", label: "レシピ", type: "notation", max: 1000, required: true, moves: true },
         { key: "resultHitNormal", label: "通常ヒットしたら", type: "next", resultKind: "hit" },
-        { key: "resultCounter", label: "カウンターヒットしたら", type: "next", resultKind: "counter_hit", hint: "有利Fは通常ヒット+2Fを自動で入れます（直せます）" },
-        { key: "resultPunish", label: "パニッシュカウンターしたら", type: "next", resultKind: "punish_counter", hint: "有利Fは通常ヒット+4Fを自動で入れます（直せます）" },
+        { key: "resultCounter", label: "カウンターヒットしたら", type: "next", resultKind: "counter_hit", linkDelta: 2, hint: "未設定なら通常ヒットと同じ状況になります。別の状況にしたいときだけ入れます" },
+        { key: "resultPunish", label: "パニッシュカウンターしたら", type: "next", resultKind: "punish_counter", linkDelta: 4, hint: "未設定なら通常ヒットと同じ状況になります。別の状況にしたいときだけ入れます" },
         { key: "resultGuardSetplay", label: "ガードされたら", type: "next", resultKind: "guard", hint: "レシピの最後の技がガードされたときの次の状況" },
         { key: "outcomes", label: "相手の行動ごとの結果", type: "outcomes", hint: "押すたびに ○（こちらが勝つ）→ ×（負ける）→ –（未確認）。→ で、どのヒットになるか・次の状況を選べます" },
         { key: "resultOther", label: "その他のヒットしたら", type: "next", resultKind: "hit_other", more: true, hint: "ジャンプを対空で落とすなど特殊な条件のヒット。有利F・ダウン・位置・名前を自由に決めます" },
@@ -248,7 +248,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     if (picker.dataset.picker === "hit" && (target === parts.list || target === parts.advantage)) linkHitAdvantages(picker);
   }
 
-  /** カウンターヒット・パニッシュカウンターの有利Fは、通常ヒットの有利Fに連動する（手で直したものは動かさない）。 */
+  /** カウンターヒット・パニッシュカウンターは、未設定なら通常ヒットと同じ。「＋2F／＋4Fで設定」を押したものだけ、通常ヒットの有利Fに連動する（手で直したものは動かさない）。 */
   const LINKED_HITS = { counter_hit: 2, punish_counter: 4 };
 
   function linkHitAdvantages(normal) {
@@ -262,12 +262,46 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       const parts = pickerParts(picker);
       if (parts.list.value) continue;
       const current = parts.advantage.value;
-      const follows = current === "" || picker.dataset.auto === "1" || (before !== null && Number(current) === before + delta);
+      const follows = picker.dataset.auto === "1" || (current !== "" && before !== null && Number(current) === before + delta);
       if (!follows) continue;
       parts.advantage.value = now === null ? "" : String(now + delta);
       if (now === null) delete picker.dataset.auto; else picker.dataset.auto = "1";
       refreshPicker(picker);
     }
+  }
+
+  /** 「＋2F／＋4Fで設定」：通常ヒットの有利Fに足した値を入れ、以後は通常ヒットに連動させる。 */
+  function setLinkedAdvantage(kind, delta) {
+    const normal = els.formFields.querySelector('[data-picker="hit"]');
+    const picker = els.formFields.querySelector(`[data-picker="${kind}"]`);
+    if (!normal || !picker) return;
+    const value = pickerParts(normal).advantage.value;
+    if (value === "" || !Number.isInteger(Number(value))) {
+      showFormError("先に通常ヒットの有利Fを入れてください。");
+      return;
+    }
+    const parts = pickerParts(picker);
+    parts.advantage.value = String(Number(value) + delta);
+    parts.list.value = "";
+    picker.dataset.auto = "1";
+    normal.dataset.lastAdv = value;
+    els.formError.hidden = true;
+    refreshPicker(picker);
+  }
+
+  /** 「通常ヒットと同じにする」：その結果の選択肢をすべて空にする（未設定＝通常ヒットと同じ）。 */
+  function clearNextOptions(kind) {
+    const box = els.formFields.querySelector(`[data-next-kind="${kind}"]`);
+    if (!box) return;
+    [...box.children].slice(1).forEach((option) => option.remove());
+    const picker = box.querySelector("[data-picker]");
+    const parts = pickerParts(picker);
+    parts.advantage.value = "";
+    parts.recovery.value = "";
+    parts.list.value = "";
+    parts.name.value = "";
+    delete picker.dataset.auto;
+    refreshPicker(picker);
   }
 
   // --- 始動の状況（きっかけ・局面を複数） ---
@@ -292,6 +326,18 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     return refs.length
       ? refs.map((ref, index) => `<span class="toggle-chip state" aria-pressed="true">${escapeHtml(refName(ref))}<button type="button" class="chip-remove" data-remove-start="${index}" aria-label="起点から外す">×</button></span>`).join("")
       : '<span class="field-hint">下で有利F・ダウン・位置を入れるか、一覧から選んで「追加」</span>';
+  }
+
+  /** 次の状況の選択肢が同じ並び・同じ内容か（空どうしは同じ）。数値で入れた状況は、既存の同じ局面と同じとみなす。 */
+  function sameRefs(a, b) {
+    const key = (ref) => {
+      if (typeof ref === "number") return String(ref);
+      const found = findState(state.data.situations, { character: formCharacter(), ...ref.state, recovery: ref.state.recovery ?? null });
+      return found ? String(found.id) : JSON.stringify([ref.state.advantage, ref.state.position, ref.state.recovery]);
+    };
+    const left = a.map(key).sort();
+    const right = b.map(key).sort();
+    return left.length === right.length && left.every((value, index) => value === right[index]);
   }
 
   function sameRef(a, b) {
@@ -363,7 +409,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
 
   /** 通常・カウンター・パニカンは、上の同名の結果の状況を使う。その他だけ個別に決める。 */
   function hitTypeNote(type) {
-    return type && type !== "other" ? `→ 上の「${escapeHtml(HIT_TYPE_LABELS[type])}」の状況を使います` : "";
+    return type && type !== "other" ? `→ 上の「${escapeHtml(HIT_TYPE_LABELS[type])}」の状況を使います${type === "hit" ? "" : "（未設定なら通常ヒットの状況）"}` : "";
   }
 
   function selectHitType(value) {
@@ -442,6 +488,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
           <span class="field-label">${escapeHtml(field.label)}</span>${field.hint ? `<small class="field-hint">${escapeHtml(field.hint)}</small>` : ""}
           <div class="next-multi" data-next-kind="${field.resultKind}">${(refs.length ? refs : [null]).map((ref, index) => nextOptionHtml(field.resultKind, ref, index)).join("")}</div>
           <button type="button" class="ghost-button small" data-next-add="${field.resultKind}">＋選択肢を足す（画面端版など）</button>
+          ${field.linkDelta ? `<button type="button" class="ghost-button small" data-link-hit="${field.resultKind}|${field.linkDelta}">＋${field.linkDelta}Fで設定</button><button type="button" class="ghost-button small" data-next-clear="${field.resultKind}">通常ヒットと同じにする</button>` : ""}
         </div>`;
       }
       case "outcomes":
@@ -496,7 +543,10 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
 
   function readResults(base) {
     const results = [];
+    const normalNexts = nextsOf("hit", base);
     for (const kind of ["hit", "counter_hit", "punish_counter", "hit_other", "guard"]) {
+      // カウンター・パニカンが通常ヒットと同じ状況なら、別の分岐にしない（未設定と同じ）
+      if ((kind === "counter_hit" || kind === "punish_counter") && sameRefs(nextsOf(kind, base), normalNexts)) continue;
       for (const next of nextsOf(kind, base)) results.push({ kind, next });
     }
     const buttons = [...els.formFields.querySelectorAll("[data-outcome]")];
@@ -513,7 +563,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       const hitType = box && !box.hidden ? box.dataset.hitSelected || null : null;
       // 通常・カウンター・パニカンは、上の同名の結果の次の状況（複数）をそのまま使う。その他だけ個別の1つ
       const nexts = hitType === "other" ? [readPicker(box.querySelector("[data-picker]"))].filter((next) => next !== null)
-        : hitType ? nextsOf(hitType, base) : [];
+        : hitType ? (nextsOf(hitType, base).length ? nextsOf(hitType, base) : nextsOf("hit", base)) : [];
       for (const next of nexts.length ? nexts : [null]) {
         if (button.dataset.value !== "unknown" || next !== null) results.push({ kind: "opponent", opponentAction: action, outcome: button.dataset.value, hitType, next });
       }
@@ -764,5 +814,5 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     return usage.starts + usage.results > 0;
   }
 
-  return { addNextOption, removeNextOption, selectHitType, toggleStartTrigger, startTriggerChipsHtml, FORMS, renderStartStates, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete };
+  return { setLinkedAdvantage, clearNextOptions, addNextOption, removeNextOption, selectHitType, toggleStartTrigger, startTriggerChipsHtml, FORMS, renderStartStates, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete };
 }
