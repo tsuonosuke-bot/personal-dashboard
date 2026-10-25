@@ -156,10 +156,18 @@ export function buildFlow({ sequences, situations, character, startSituationId =
   }
 
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
-  const placedEdges = forwardEdges.filter((edge) => nodeById.has(edge.from) && nodeById.has(edge.to)).map((edge) => {
+  // 同じ手順から同じ手順へ向かう複数の結果（暴れ・バクステなど）は、重ならないよう1本の矢印にまとめ、結果名を並べる
+  const merged = new Map();
+  for (const edge of forwardEdges.filter((entry) => nodeById.has(entry.from) && nodeById.has(entry.to))) {
+    const key = `${edge.from}>${edge.to}`;
+    const found = merged.get(key);
+    if (!found) merged.set(key, { ...edge, labels: [edge.label] });
+    else if (!found.labels.includes(edge.label)) found.labels.push(edge.label);
+  }
+  const placedEdges = [...merged.values()].map((edge) => {
     const from = nodeById.get(edge.from);
     const to = nodeById.get(edge.to);
-    return { ...edge, x1: from.x + from.w, y1: from.y + from.h / 2, x2: to.x, y2: to.y + to.h / 2 };
+    return { ...edge, label: edge.labels.join("・"), x1: from.x + from.w, y1: from.y + from.h / 2, x2: to.x, y2: to.y + to.h / 2 };
   });
   const placedStubs = shownStubs.map((stub) => {
     const from = nodeById.get(stub.sequenceId);
