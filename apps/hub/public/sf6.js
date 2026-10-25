@@ -526,7 +526,15 @@ els.sheetBody.addEventListener("click", (event) => {
   const node = event.target.closest("[data-flow-node]");
   const goto = event.target.closest("[data-flow-goto]");
   const pick = event.target.closest("button[data-flow-pick]");
-  if (stub) {
+  if (event.target.closest("[data-flow-add]")) {
+    const { startSituationId, character } = state.sheet;
+    const start = startSituationId === null ? null : state.data.situations.find((situation) => situation.id === startSituationId);
+    openModal("sequences", null, { ...(character ? { character } : {}), starts: start ? [start.id] : [] });
+  } else if (stub?.dataset.flowFrom) {
+    // 次の状況が決まっていて続きのパーツがない出口は、その状況から始まるパーツをそのまま追加する
+    const next = find("situations", stub.dataset.flowFrom);
+    openModal("sequences", null, situationSequencePreset({ ...next, character: next.character ?? state.sheet.character ?? "" }));
+  } else if (stub) {
     const [sequenceId, resultKind, opponentAction] = stub.dataset.flowStub.split("|");
     state.sheet.picking = { sequenceId: Number(sequenceId), resultKind, opponentAction: opponentAction || null };
     renderSheet();
