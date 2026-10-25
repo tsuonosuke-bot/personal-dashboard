@@ -47,8 +47,10 @@ test("A→B→Aの循環でも止まり、全部の手順が出る。アーカ�
   const other = sequence({ id: 4, character: "ケン", starts: [1] });
   const flow = buildFlow({ sequences: [a, b, archived, other], situations, character: "リュウ", resultLabel: label });
   assert.deepEqual(flow.nodes.map((node) => node.id).sort(), [1, 2]);
-  assert.equal(flow.edges.length, 2);
-  assert.ok(flow.edges.some((edge) => edge.back));
+  // 戻る矢印は図を横切らせず、戻り先を示す小さな枠にする。つながり自体は links に残る
+  assert.equal(flow.edges.length, 1);
+  assert.deepEqual(flow.stubs.map((stub) => [stub.type, stub.sequenceId, stub.targetId]), [["loop", 2, 1]]);
+  assert.equal(flow.links.length, 2);
 });
 
 test("始点の状況を渡すと、そこから届く手順だけを出す", () => {

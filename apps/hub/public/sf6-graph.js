@@ -111,6 +111,13 @@ export function buildFlow({ sequences, situations, character, startSituationId =
     for (const sequence of [...mine].sort(byIdAsc)) if (!column.has(sequence.id) && !shadow.has(sequence.id)) walk([sequence]);
   }
 
+  // 前の桁（または同じ桁）の手順へ戻る矢印は、図を横切らせない。戻り先を示す小さな枠（出口）にする
+  const isBack = (edge) => column.has(edge.from) && column.has(edge.to) && column.get(edge.to) <= column.get(edge.from);
+  const forwardEdges = edges.filter((edge) => !isBack(edge));
+  for (const edge of edges.filter(isBack)) {
+    stubs.push({ sequenceId: edge.from, resultKind: edge.resultKind, opponentAction: edge.opponentAction, label: edge.label, type: "loop", targetId: edge.to, targetTitle: byId.get(edge.to).title });
+  }
+
   // 行：桁ごとに、手順を見つけた順、その下に出口を手順の並び順で
   const nodeRow = new Map();
   const perColumn = new Map();
@@ -149,10 +156,10 @@ export function buildFlow({ sequences, situations, character, startSituationId =
   }
 
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
-  const placedEdges = edges.filter((edge) => nodeById.has(edge.from) && nodeById.has(edge.to)).map((edge) => {
+  const placedEdges = forwardEdges.filter((edge) => nodeById.has(edge.from) && nodeById.has(edge.to)).map((edge) => {
     const from = nodeById.get(edge.from);
     const to = nodeById.get(edge.to);
-    return { ...edge, x1: from.x + from.w, y1: from.y + from.h / 2, x2: to.x, y2: to.y + to.h / 2, back: to.col <= from.col };
+    return { ...edge, x1: from.x + from.w, y1: from.y + from.h / 2, x2: to.x, y2: to.y + to.h / 2 };
   });
   const placedStubs = shownStubs.map((stub) => {
     const from = nodeById.get(stub.sequenceId);
@@ -160,6 +167,8 @@ export function buildFlow({ sequences, situations, character, startSituationId =
   });
   return {
     nodes, edges: placedEdges, stubs: placedStubs,
+    /** 手順どうしのつながり（戻る矢印も含む）。図の矢印とは別に、詳細の「前」「続き」に使う。 */
+    links: edges.filter((edge) => column.has(edge.from) && column.has(edge.to)).map((edge) => ({ from: edge.from, to: edge.to, resultKind: edge.resultKind, opponentAction: edge.opponentAction })),
     width: maxCol < 0 ? 0 : colX(maxCol) + (stubColumns.has(maxCol) && !perColumn.has(maxCol) ? STUB_W : NODE_W) + PAD,
     height: bottom + PAD - ROW_GAP,
     unsetCount: visibleStubs.filter((stub) => stub.type === "unset").length,

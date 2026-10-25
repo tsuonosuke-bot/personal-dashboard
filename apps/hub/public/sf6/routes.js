@@ -47,7 +47,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
   }
 
   function flowEdgePath(edge) {
-    const reach = edge.back ? 70 : Math.max(30, (edge.x2 - edge.x1) / 2);
+    const reach = Math.max(30, (edge.x2 - edge.x1) / 2);
     return `M${edge.x1} ${edge.y1} C${edge.x1 + reach} ${edge.y1} ${edge.x2 - reach} ${edge.y2} ${edge.x2} ${edge.y2}`;
   }
 
@@ -57,6 +57,15 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
         <text x="${(edge.x1 + edge.x2) / 2}" y="${(edge.y1 + edge.y2) / 2 - 4}" text-anchor="middle">${escapeHtml(edge.label)}</text>
       </g>`).join("");
     const stubs = flow.stubs.map((stub) => {
+      if (stub.type === "loop") {
+        const loopText = `${stub.label} ↩ ${stub.targetTitle}`;
+        return `<g class="flow-stub loop" data-flow-goto="${stub.targetId}" tabindex="0" role="button" aria-label="${escapeHtml(`${loopText}。戻り先の手順を選ぶ`)}">
+        <path class="flow-link" d="M${stub.x1} ${stub.y1} L${stub.x2} ${stub.y2}" />
+        <rect x="${stub.x}" y="${stub.y}" width="${stub.w}" height="${stub.h}" rx="6" />
+        <text x="${stub.x + 8}" y="${stub.y + stub.h / 2 + 4}">${escapeHtml(clip(loopText, 14))}</text>
+        <title>${escapeHtml(`${loopText}（押すと戻り先へ）`)}</title>
+      </g>`;
+      }
       const next = stub.type === "dead" ? situationText(situationsById().get(stub.situationId)) : "";
       const text = stub.type === "unset" ? `${stub.label}：未設定` : `${stub.label} → ${next}`;
       return `<g class="flow-stub ${stub.type}" data-flow-stub="${stub.sequenceId}|${stub.resultKind}|${stub.opponentAction || ""}"${stub.type === "dead" ? ` data-flow-from="${stub.situationId}"` : ""} tabindex="0" role="button" aria-label="${escapeHtml(`${text}。次の状況を選ぶ`)}">
@@ -86,12 +95,12 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
     const byId = situationsById();
     const titles = new Map(state.data.sequences.map((entry) => [entry.id, entry.title]));
     const gotoChip = (id, text) => `<button type="button" class="next-chip" data-flow-goto="${id}">${escapeHtml(text)}</button>`;
-    const before = [...new Map(flow.edges.filter((edge) => edge.to === sequence.id && edge.from !== sequence.id)
+    const before = [...new Map(flow.links.filter((edge) => edge.to === sequence.id && edge.from !== sequence.id)
       .map((edge) => [edge.from, edge])).values()];
     const exits = exitsOf(sequence).map((exit) => {
       const next = byId.get(exit.nextSituationId);
       const ref = `${sequence.id}|${exit.kind}|${exit.opponentAction || ""}`;
-      const followers = flow.edges.filter((edge) => edge.from === sequence.id && edge.resultKind === exit.kind
+      const followers = flow.links.filter((edge) => edge.from === sequence.id && edge.resultKind === exit.kind
         && (edge.opponentAction || "") === (exit.opponentAction || ""));
       let tail = "";
       if (!next) tail = `<button type="button" class="ghost-button" data-flow-stub="${ref}">次の状況を選ぶ</button>`;

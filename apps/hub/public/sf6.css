@@ -406,6 +406,8 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 .flow-node .title { fill: var(--ink); font-size: 13px; font-weight: 600; }
 .flow-stub { cursor: pointer; }
 .flow-stub rect { fill: var(--paper); stroke: var(--muted); stroke-dasharray: 4 3; }
+.flow-stub.loop rect { stroke-dasharray: none; fill: var(--bg-hover); }
+.flow-stub.loop text { fill: var(--ink); }
 .flow-stub.unset rect { stroke: var(--accent); }
 .flow-stub text { fill: var(--muted); font-size: 11px; }
 .flow-stub.unset text { fill: var(--accent); font-weight: 600; }

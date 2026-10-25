@@ -562,7 +562,7 @@ els.sheetBody.addEventListener("click", (event) => {
 });
 els.sheetBody.addEventListener("keydown", (event) => {
   if (state.sheet?.type !== "flow" || (event.key !== "Enter" && event.key !== " ")) return;
-  const target = event.target.closest("[data-flow-toggle], [data-flow-node], [data-flow-stub]");
+  const target = event.target.closest("[data-flow-toggle], [data-flow-node], [data-flow-stub], [data-flow-goto]");
   if (!target) return;
   event.preventDefault();
   target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
