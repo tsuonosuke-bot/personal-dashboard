@@ -32,10 +32,10 @@ export const AIMS = { strike: "打撃", throw: "投げ", shimmy: "シミー" };
 
 export const OPPONENT_LABELS = {
   reversal: "無敵技", backdash: "バクステ", jump: "ジャンプ", tech: "グラップ",
-  delay_tech: "遅らせグラップ", parry: "パリィ", drive_reversal: "ドライブリバーサル", back_roll: "後ろ受け身",
+  delay_tech: "遅らせグラップ", mash: "暴れ", drive_impact: "ドライブインパクト", parry: "パリィ", drive_reversal: "ドライブリバーサル", back_roll: "後ろ受け身",
 };
 
-export const RESULT_LABELS = { hit: "ヒット", guard: "ガード" };
+export const RESULT_LABELS = { hit: "ヒット", counter_hit: "カウンターヒット", guard: "ガード" };
 
 export const OUTCOME_MARKS = { win: "○", lose: "×", unknown: "–" };
 

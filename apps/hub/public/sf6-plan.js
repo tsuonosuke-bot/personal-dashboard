@@ -9,7 +9,7 @@ export const NEAR_FRAMES = 2;
 /** 判定に使う初期の状況。名前は変えられるので preset_key で見る。 */
 export const PRESET = { punish: "punish", hitConfirm: "hit_confirm", counter: "counter", punishCounter: "punish_counter" };
 /** 起き攻めに対して相手が取れる行動（表示名は sf6.js）。 */
-export const OPPONENT_OPTIONS = ["reversal", "backdash", "jump", "tech", "delay_tech", "parry", "drive_reversal", "back_roll"];
+export const OPPONENT_OPTIONS = ["reversal", "backdash", "jump", "tech", "delay_tech", "mash", "drive_impact", "parry", "drive_reversal", "back_roll"];
 
 const POSITION_LABELS = { midscreen: "画面中央", corner: "画面端" };
 const RECOVERY_LABELS = { back_roll: "後ろ受け身可", no_back_roll: "後ろ受け身不可", none: "ダウンなし" };

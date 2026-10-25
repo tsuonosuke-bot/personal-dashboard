@@ -69,3 +69,9 @@ test("includeNear=false だと、有利Fが1Fずれた局面から始まる手�
   const exact = buildFlow({ sequences: [combo, setplay], situations, character: "リュウ", includeNear: false, resultLabel: label });
   assert.deepEqual(exact.edges, []);
 });
+
+test("カウンターヒットは入力したときだけ出口になり、未入力の起き攻めに未設定の出口を足さない", () => {
+  assert.deepEqual(exitsOf(sequence({ kind: "setplay" })).map((exit) => exit.kind), ["hit", "guard"]);
+  const setplay = sequence({ kind: "setplay", results: [result({ kind: "counter_hit", nextSituationId: 2 }), result({ kind: "hit", nextSituationId: 1 })] });
+  assert.deepEqual(exitsOf(setplay).map((exit) => exit.kind), ["hit", "counter_hit", "guard"]);
+});

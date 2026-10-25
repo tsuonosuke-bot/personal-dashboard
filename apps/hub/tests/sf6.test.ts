@@ -475,3 +475,13 @@ test("SF6ページは共通ヘッダー・タブバー・テーマカラーを�
   assert.match(script, /"X-Dashboard-Action": "sf6"/);
   assert.match(tabbar, /\{ id: "sf6", label: "SF6", href: "\/sf6\/"/);
 });
+
+test("起き攻めの結果に、カウンターヒットと暴れ・ドライブインパクトを保存できる。カウンターヒットも次の状況が必須", () => {
+  const withResults = (results: unknown[]) => validateSf6Fields("sequences", { ...setplay, results });
+  assert.equal(withResults([
+    { kind: "hit", next: 9 }, { kind: "counter_hit", next: 9 },
+    { kind: "opponent", opponentAction: "mash", outcome: "win" }, { kind: "opponent", opponentAction: "drive_impact", outcome: "lose" },
+  ]).ok, true);
+  assert.equal(withResults([{ kind: "counter_hit", next: null }]).ok, false);
+  assert.equal(withResults([{ kind: "counter_hit", next: 9 }, { kind: "counter_hit", next: 9 }]).ok, false);
+});
