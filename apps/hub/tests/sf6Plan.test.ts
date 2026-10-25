@@ -292,3 +292,15 @@ test("Phase1 migration は7つの新しい表と関数の権限を絞り、既�
   assert.match(phase2, /drop function if exists public\.sf6_copy_legacy\(\);/);
   assert.ok(phase2.indexOf("end $$;") < phase2.indexOf("drop "), "the guard runs before anything is dropped");
 });
+
+test("ヒットの結果が複数の次の状況を持つとき、どの状況から始まるパーツも「次」に出る（重複なし）", () => {
+  const mid = state(5, 29, { position: "midscreen" });
+  const corner = state(6, 29, { position: "corner" });
+  const situations = [mid, corner];
+  const part = sequence({ id: 1, title: "締め", starts: [], results: [hit(5), hit(6)] });
+  const a = sequence({ id: 2, title: "中央から", starts: [5] });
+  const b = sequence({ id: 3, title: "端から", starts: [6] });
+  const both = sequence({ id: 4, title: "どちらでも", starts: [5, 6] });
+  const ids = partsAfter(part, [part, a, b, both], situations).map((entry) => entry.sequence.id);
+  assert.deepEqual([...ids].sort(), [2, 3, 4]);
+});

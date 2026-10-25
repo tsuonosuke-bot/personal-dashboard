@@ -114,7 +114,7 @@ export const SF6_RESOURCES = {
       { key: "memo", column: "memo", type: "text", max: LONG_MAX, preserveWhitespace: true },
       { key: "archived", column: "archived", type: "bool" },
       { key: "starts", column: "starts", type: "situationRefs", maxItems: 12, optional: "update" },
-      { key: "results", column: "results", type: "results", maxItems: 12, optional: "update" },
+      { key: "results", column: "results", type: "results", maxItems: 40, optional: "update" },
     ],
     check: (value) => {
       return value.results === undefined ? null : resultsProblem(value.results as Sf6ResultInput[]);
@@ -299,8 +299,9 @@ function readResult(raw: unknown): Sf6ResultInput | null {
 function resultsProblem(results: Sf6ResultInput[]): string | null {
   const seen = new Set<string>();
   for (const result of results) {
-    const key = `${result.kind}:${result.opponentAction ?? ""}`;
-    if (seen.has(key)) return "同じ結果が2つあります。";
+    // 同じ結果（ヒットなど）に、次の状況を複数持てる（画面中央版・画面端版など）。同じ結果で同じ次の状況は重複
+    const key = `${result.kind}:${result.opponentAction ?? ""}:${JSON.stringify(result.next)}`;
+    if (seen.has(key)) return "同じ結果に同じ次の状況が2つあります。";
     seen.add(key);
     if (result.kind === "opponent") {
       if (result.opponentAction === null || result.outcome === null) return "相手の行動ごとの結果を選んでください。";

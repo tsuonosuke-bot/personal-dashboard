@@ -248,7 +248,7 @@ const inboxFlow = createSf6InboxFlow({ state, els,
   load: () => load(), selectTab: (...args) => selectTab(...args), find: (...args) => find(...args),
   render: () => render(), showToast: (...args) => showToast(...args),
 });
-const { selectHitType, toggleStartTrigger, FORMS, renderStartStates, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete } = createSf6Editor({
+const { addNextOption, removeNextOption, selectHitType, toggleStartTrigger, FORMS, renderStartStates, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete } = createSf6Editor({
   state,
   inboxFlow,
   situationText: (...args) => situationText(...args),
@@ -365,9 +365,9 @@ els.frameCancelable.addEventListener("click", () => {
 
 /** カードの「結果 → 次の状況」からルートを開く：始動の状況 › 手順 › 次の状況。 */
 function routeFromCard(value) {
-  const [sequenceId, resultKind, opponentAction] = value.split("|");
+  const [sequenceId, resultKind, opponentAction, nextId] = value.split("|");
   const sequence = findSequence(Number(sequenceId));
-  const result = sequence?.results.find((entry) => entry.kind === resultKind && (entry.opponentAction || "") === opponentAction);
+  const result = sequence?.results.find((entry) => entry.kind === resultKind && (entry.opponentAction || "") === opponentAction && String(entry.nextSituationId) === nextId);
   if (!result?.nextSituationId) return;
   const step = { sequenceId: sequence.id, resultKind, opponentAction: opponentAction || null };
   // 始点は、絞り込みで選んでいる状況がこの手順の始動にあればそれ、なければ最初の始動
@@ -377,9 +377,9 @@ function routeFromCard(value) {
 }
 
 function routeStep(value) {
-  const [sequenceId, resultKind, opponentAction] = value.split("|");
+  const [sequenceId, resultKind, opponentAction, nextId] = value.split("|");
   const sequence = findSequence(Number(sequenceId));
-  const result = sequence?.results.find((entry) => entry.kind === resultKind && (entry.opponentAction || "") === opponentAction);
+  const result = sequence?.results.find((entry) => entry.kind === resultKind && (entry.opponentAction || "") === opponentAction && String(entry.nextSituationId) === nextId);
   if (!result?.nextSituationId) return;
   state.sheet.path.push({ sequenceId: sequence.id, resultKind, opponentAction: opponentAction || null }, { situationId: result.nextSituationId });
   if (!state.sheet.character) state.sheet.character = sequence.character;
@@ -545,8 +545,8 @@ els.sheetBody.addEventListener("click", (event) => {
   } else if (event.target.closest("[data-flow-attach]")) {
     attachToSituation(Number(event.target.closest("[data-flow-attach]").dataset.flowAttach), state.sheet.linking.situationId);
   } else if (stub) {
-    const [sequenceId, resultKind, opponentAction] = stub.dataset.flowStub.split("|");
-    state.sheet.picking = { sequenceId: Number(sequenceId), resultKind, opponentAction: opponentAction || null };
+    const [sequenceId, resultKind, opponentAction, nextId] = stub.dataset.flowStub.split("|");
+    state.sheet.picking = { sequenceId: Number(sequenceId), resultKind, opponentAction: opponentAction || null, nextSituationId: nextId ? Number(nextId) : null };
     renderSheet();
   } else if (node || goto) {
     state.sheet.selected = Number(node ? node.dataset.flowNode : goto.dataset.flowGoto);
@@ -641,6 +641,8 @@ els.formFields.addEventListener("click", async (event) => {
   else if (dataset.palette === "backspace") editNotation(removeLastToken);
   else if (dataset.palette === "clear") editNotation(() => "");
   else if (dataset.startTrigger) toggleStartTrigger(Number(dataset.startTrigger));
+  else if (dataset.nextAdd) addNextOption(dataset.nextAdd);
+  else if (dataset.nextRemove !== undefined) removeNextOption(button);
   else if (dataset.addStart !== undefined) {
     if (!addStartFromPicker()) showFormError("有利Fを入れるか、一覧から選んでください。");
   } else if (dataset.removeStart !== undefined) {

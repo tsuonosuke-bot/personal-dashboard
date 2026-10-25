@@ -104,3 +104,13 @@ test("畳んだ手順より先の分岐と出口を隠し、ほかの道で辿�
   const hidden = buildFlow({ ...base, sequences: [open], situations, hideUnset: true });
   assert.deepEqual([hidden.stubs.length, hidden.unsetCount], [0, 1]);
 });
+
+test("同じ結果に次の状況が複数あれば、それぞれの状況から始まる手順へ矢印を引く", () => {
+  const situations = [situation({ id: 1, position: "midscreen" }), situation({ id: 2, advantage: 10, position: "corner" })];
+  const start = sequence({ id: 1, starts: [], results: [result({ nextSituationId: 1 }), result({ nextSituationId: 2 })] });
+  const mid = sequence({ id: 2, starts: [1], results: [] });
+  const corner = sequence({ id: 3, starts: [2], results: [] });
+  const flow = buildFlow({ sequences: [start, mid, corner], situations, character: "リュウ", resultLabel: label });
+  assert.deepEqual(flow.edges.map((edge) => [edge.from, edge.to, edge.nextSituationId]), [[1, 2, 1], [1, 3, 2]]);
+  assert.equal(exitsOf(start).length, 2);
+});

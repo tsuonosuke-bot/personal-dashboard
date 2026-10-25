@@ -38,7 +38,7 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
     const byId = situationsById();
     const lines = sequence.results
       .filter((result) => kinds.includes(result.kind) && byId.get(result.nextSituationId))
-      .map((result) => `<button type="button" class="result-line" data-route-from-card="${sequence.id}|${result.kind}|${result.opponentAction || ""}">${escapeHtml(resultLabel(result))} → ${escapeHtml(situationText(byId.get(result.nextSituationId)))} ›</button>`);
+      .map((result) => `<button type="button" class="result-line" data-route-from-card="${sequence.id}|${result.kind}|${result.opponentAction || ""}|${result.nextSituationId}">${escapeHtml(resultLabel(result))} → ${escapeHtml(situationText(byId.get(result.nextSituationId)))} ›</button>`);
     return lines.join("");
   }
 

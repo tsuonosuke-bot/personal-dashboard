@@ -68,7 +68,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       }
       const next = stub.type === "dead" ? situationText(situationsById().get(stub.situationId)) : "";
       const text = stub.type === "unset" ? `${stub.label}：未設定` : `${stub.label} → ${next}`;
-      return `<g class="flow-stub ${stub.type}" data-flow-stub="${stub.sequenceId}|${stub.resultKind}|${stub.opponentAction || ""}"${stub.type === "dead" ? ` data-flow-from="${stub.situationId}"` : ""} tabindex="0" role="button" aria-label="${escapeHtml(`${text}。次の状況を選ぶ`)}">
+      return `<g class="flow-stub ${stub.type}" data-flow-stub="${stub.sequenceId}|${stub.resultKind}|${stub.opponentAction || ""}|${stub.situationId ?? ""}"${stub.type === "dead" ? ` data-flow-from="${stub.situationId}"` : ""} tabindex="0" role="button" aria-label="${escapeHtml(`${text}。次の状況を選ぶ`)}">
         <path class="flow-link" d="M${stub.x1} ${stub.y1} L${stub.x2} ${stub.y2}" />
         <rect x="${stub.x}" y="${stub.y}" width="${stub.w}" height="${stub.h}" rx="6" />
         <text x="${stub.x + 8}" y="${stub.y + stub.h / 2 + 4}">${escapeHtml(clip(text, 14))}</text>
@@ -99,9 +99,9 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       .map((edge) => [edge.from, edge])).values()];
     const exits = exitsOf(sequence).map((exit) => {
       const next = byId.get(exit.nextSituationId);
-      const ref = `${sequence.id}|${exit.kind}|${exit.opponentAction || ""}`;
+      const ref = `${sequence.id}|${exit.kind}|${exit.opponentAction || ""}|${exit.nextSituationId ?? ""}`;
       const followers = flow.links.filter((edge) => edge.from === sequence.id && edge.resultKind === exit.kind
-        && (edge.opponentAction || "") === (exit.opponentAction || ""));
+        && (edge.opponentAction || "") === (exit.opponentAction || "") && edge.nextSituationId === exit.nextSituationId);
       let tail = "";
       if (!next) tail = `<button type="button" class="ghost-button" data-flow-stub="${ref}">次の状況を選ぶ</button>`;
       else tail = `<span class="next-row">${followers.map((edge) => gotoChip(edge.to, titles.get(edge.to) || "")).join("")}<button type="button" class="ghost-button" data-flow-link="${next.id}">${followers.length ? "続きを足す" : "続きを選ぶ"}</button><button type="button" class="ghost-button" data-flow-stub="${ref}">状況を変える</button></span>`;
@@ -215,13 +215,15 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
   async function setFlowNext(ref, situationId) {
     const sequence = findSequence(ref.sequenceId);
     if (!sequence) return;
-    const same = (result) => result.kind === ref.resultKind && (result.opponentAction || "") === (ref.opponentAction || "");
+    // 同じ結果に次の状況を複数持てるので、押した出口（結果＋今の次の状況）の1行だけを置き換える
+    const same = (result) => result.kind === ref.resultKind && (result.opponentAction || "") === (ref.opponentAction || "")
+      && (result.nextSituationId ?? null) === (ref.nextSituationId ?? null);
     const toInput = (result, next) => (result.kind === "opponent"
-      ? { kind: "opponent", opponentAction: result.opponentAction, outcome: result.outcome, next }
+      ? { kind: "opponent", opponentAction: result.opponentAction, outcome: result.outcome, hitType: result.hitType ?? null, next }
       : { kind: result.kind, next });
-    const results = sequence.results.filter((result) => !same(result)).map((result) => toInput(result, result.nextSituationId));
     const current = sequence.results.find(same) || { kind: ref.resultKind, opponentAction: ref.opponentAction, outcome: null };
-    results.push(toInput(current, situationId));
+    const results = sequence.results.filter((result) => !same(result)).map((result) => toInput(result, result.nextSituationId));
+    if (!results.some((result) => result.kind === current.kind && (result.opponentAction ?? null) === (current.opponentAction ?? null) && result.next === situationId)) results.push(toInput(current, situationId));
     if (await patch("sequences", sequence, { results }, "次の状況を設定しました") && state.sheet?.type === "flow") {
       state.sheet.picking = null;
       renderSheet();
@@ -275,7 +277,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
     const usable = usableNow(sequence, { drive: state.conditions.drive, sa: state.conditions.sa, ca: state.conditions.ca, burnout: state.conditions.burnout });
     const byId = situationsById();
     const steps = sequence.results.filter((result) => byId.get(result.nextSituationId)).map((result) =>
-      `<button type="button" class="result-line" data-route-step="${sequence.id}|${result.kind}|${result.opponentAction || ""}">${escapeHtml(resultLabel(result))}${result.outcome ? ` ${OUTCOME_MARKS[result.outcome]}` : ""} → ${escapeHtml(situationText(byId.get(result.nextSituationId)))} ›</button>`).join("");
+      `<button type="button" class="result-line" data-route-step="${sequence.id}|${result.kind}|${result.opponentAction || ""}|${result.nextSituationId}">${escapeHtml(resultLabel(result))}${result.outcome ? ` ${OUTCOME_MARKS[result.outcome]}` : ""} → ${escapeHtml(situationText(byId.get(result.nextSituationId)))} ›</button>`).join("");
     const starts = startStatesOf(sequence);
     return `<article class="card route-card${usable ? "" : " dim"}" data-route-sequence="${sequence.id}" tabindex="-1">
       <div class="card-head">

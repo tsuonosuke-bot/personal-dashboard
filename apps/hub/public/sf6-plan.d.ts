@@ -75,6 +75,7 @@ export declare function stateLabel(situation: PlanSituation): string;
 export declare function findState<T extends PlanSituation>(situations: T[], key: { character: string; advantage: number; position: string; recovery: string | null }): T | null;
 export declare function sequencesFrom<T extends PlanSequence>(situation: PlanSituation, sequences: T[]): { sequence: T; via: PlanSituation }[];
 export declare function hasOutcomes(sequence: PlanSequence): boolean;
+export declare function resultsOf(sequence: PlanSequence, kind: PlanResult["kind"]): PlanResult[];
 export declare function resultOf(sequence: PlanSequence, kind: "hit" | "guard"): PlanResult | null;
 export declare function partsAfter<T extends PlanSequence>(part: PlanSequence, sequences: T[], situations: PlanSituation[]): { sequence: T }[];
 export declare function situationUsage(situationId: number, sequences: PlanSequence[]): { starts: number; results: number; sequenceIds: number[]; orphaned: number };
