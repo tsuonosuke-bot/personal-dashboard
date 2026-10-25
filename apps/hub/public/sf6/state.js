@@ -16,7 +16,7 @@ export function createSf6State() {
     /** キャラ名 → GET /api/sf6/moves の応答。タブやモーダルで初めて要るときに1回だけ読む。 */
     moves: new Map(),
     /** シート：{ type: "route", path, character } / { type: "routeStart", character } / { type: "situations", character }
-     *  / { type: "flow", character, startSituationId, selected, picking } */
+     *  / { type: "flow", character, startSituationId, selected, picking, linking } */
     sheet: null,
     /** モーダルで編集中の記録。{ resource, item(null=追加), values, startRefs, openNext } */
     editing: null,
