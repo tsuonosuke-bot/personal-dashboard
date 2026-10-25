@@ -294,11 +294,6 @@ els.situationPosition.addEventListener("click", (event) => {
   state.situationPosition = button.dataset.value;
   renderSituations();
 });
-els.situationNear.addEventListener("click", () => {
-  state.situationNear = !state.situationNear;
-  store("sf6-situation-near", state.situationNear ? "1" : "0");
-  renderSituations();
-});
 els.sequenceSituation.addEventListener("change", () => {
   const value = els.sequenceSituation.value;
   state.conditions.situationId = value === "" ? null : value === "none" ? "none" : Number(value);
@@ -433,9 +428,6 @@ async function onAction(event) {
     setTimeout(() => card?.classList.remove("flash"), 1200);
   } else if (dataset.routeSituation) {
     openRoute([{ situationId: Number(dataset.routeSituation) }], dataset.character);
-  } else if (dataset.flowNear !== undefined) {
-    state.sheet.near = !state.sheet.near;
-    renderSheet();
   } else if (dataset.addFromSituation) {
     const situation = find("situations", dataset.addFromSituation);
     openModal("sequences", null, situationSequencePreset({ ...situation, character: situation.character ?? state.sheet?.character ?? "" }));
@@ -525,8 +517,20 @@ els.sheetBody.addEventListener("click", (event) => {
   const stub = event.target.closest("[data-flow-stub]");
   const node = event.target.closest("[data-flow-node]");
   const goto = event.target.closest("[data-flow-goto]");
+  const fold = event.target.closest("[data-flow-toggle]");
   const pick = event.target.closest("button[data-flow-pick]");
-  if (event.target.closest("[data-flow-add]")) {
+  if (fold) {
+    const id = Number(fold.dataset.flowToggle);
+    const { collapsed } = state.sheet;
+    state.sheet.collapsed = collapsed.includes(id) ? collapsed.filter((entry) => entry !== id) : [...collapsed, id];
+    renderSheet();
+  } else if (event.target.closest("[data-flow-hide-unset]")) {
+    state.sheet.hideUnset = !state.sheet.hideUnset;
+    renderSheet();
+  } else if (event.target.closest("[data-flow-expand-all]")) {
+    state.sheet.collapsed = [];
+    renderSheet();
+  } else if (event.target.closest("[data-flow-add]")) {
     const { startSituationId, character } = state.sheet;
     const start = startSituationId === null ? null : state.data.situations.find((situation) => situation.id === startSituationId);
     openModal("sequences", null, { ...(character ? { character } : {}), starts: start ? [start.id] : [] });
@@ -558,7 +562,7 @@ els.sheetBody.addEventListener("click", (event) => {
 });
 els.sheetBody.addEventListener("keydown", (event) => {
   if (state.sheet?.type !== "flow" || (event.key !== "Enter" && event.key !== " ")) return;
-  const target = event.target.closest("[data-flow-node], [data-flow-stub]");
+  const target = event.target.closest("[data-flow-toggle], [data-flow-node], [data-flow-stub]");
   if (!target) return;
   event.preventDefault();
   target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -568,6 +572,7 @@ els.sheetBody.addEventListener("change", (event) => {
   if (event.target.matches("[data-flow-character]")) {
     state.sheet.character = event.target.value;
     state.sheet.linking = null;
+    state.sheet.collapsed = [];
     state.sheet.startSituationId = null;
     state.sheet.selected = null;
   } else if (event.target.matches("[data-flow-start]")) state.sheet.startSituationId = event.target.value === "" ? null : Number(event.target.value);
@@ -711,7 +716,6 @@ state.tab = TABS.includes(initialTab) ? initialTab : "sequences";
 // 以前の「コンボ」「起き攻め」タブは、コンボパーツのタブに引き継ぐ
 if (initialTab in LEGACY_TABS) state.tab = "sequences";
 state.situationCharacter = stored("sf6-situation-character", "");
-state.situationNear = stored("sf6-situation-near", "1") !== "0";
 state.sequenceCharacter = stored("sf6-sequence-character", stored("sf6-combo-character", ""));
 renderTabs();
 load();

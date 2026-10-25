@@ -371,11 +371,6 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .situation-card .adv.minus {
   color: var(--muted);
 }
-:root[data-theme="dark"] .next-chip.near {
-  border-color: #5e5032;
-  background: #453b23;
-  color: #f1cc94;
-}
 :root[data-theme="dark"] .outcome {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -763,7 +758,17 @@ html[data-theme="dark"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"] .flow-node.selected rect {
+:root[data-theme="dark"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="dark"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="dark"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="dark"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="dark"] .flow-node .kind {
@@ -1153,11 +1158,6 @@ html[data-theme="light"][data-palette="cream"] {
 :root[data-theme="light"][data-palette="cream"] .situation-card .adv.minus {
   color: var(--muted);
 }
-:root[data-theme="light"][data-palette="cream"] .next-chip.near {
-  border-color: #ecd29a;
-  background: #fbf3df;
-  color: #8a5a12;
-}
 :root[data-theme="light"][data-palette="cream"] .outcome {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -1545,7 +1545,17 @@ html[data-theme="light"][data-palette="cream"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="light"][data-palette="cream"] .flow-node.selected rect {
+:root[data-theme="light"][data-palette="cream"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="light"][data-palette="cream"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="light"][data-palette="cream"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="light"][data-palette="cream"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="light"][data-palette="cream"] .flow-node .kind {
@@ -1945,11 +1955,6 @@ html[data-theme="dark"][data-palette="navy"] {
 :root[data-theme="dark"][data-palette="navy"] .situation-card .adv.minus {
   color: var(--muted);
 }
-:root[data-theme="dark"][data-palette="navy"] .next-chip.near {
-  border-color: #5e5032;
-  background: #453b23;
-  color: #f1cc94;
-}
 :root[data-theme="dark"][data-palette="navy"] .outcome {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -2337,7 +2342,17 @@ html[data-theme="dark"][data-palette="navy"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"][data-palette="navy"] .flow-node.selected rect {
+:root[data-theme="dark"][data-palette="navy"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="dark"][data-palette="navy"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="dark"][data-palette="navy"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="dark"][data-palette="navy"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="dark"][data-palette="navy"] .flow-node .kind {
@@ -2737,11 +2752,6 @@ html[data-theme="dark"][data-palette="forest"] {
 :root[data-theme="dark"][data-palette="forest"] .situation-card .adv.minus {
   color: var(--muted);
 }
-:root[data-theme="dark"][data-palette="forest"] .next-chip.near {
-  border-color: #5e5032;
-  background: #453b23;
-  color: #f1cc94;
-}
 :root[data-theme="dark"][data-palette="forest"] .outcome {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -3129,7 +3139,17 @@ html[data-theme="dark"][data-palette="forest"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"][data-palette="forest"] .flow-node.selected rect {
+:root[data-theme="dark"][data-palette="forest"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="dark"][data-palette="forest"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="dark"][data-palette="forest"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="dark"][data-palette="forest"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="dark"][data-palette="forest"] .flow-node .kind {
@@ -3529,11 +3549,6 @@ html[data-theme="dark"][data-palette="nord"] {
 :root[data-theme="dark"][data-palette="nord"] .situation-card .adv.minus {
   color: var(--muted);
 }
-:root[data-theme="dark"][data-palette="nord"] .next-chip.near {
-  border-color: #5e5032;
-  background: #453b23;
-  color: #f1cc94;
-}
 :root[data-theme="dark"][data-palette="nord"] .outcome {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -3921,7 +3936,17 @@ html[data-theme="dark"][data-palette="nord"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"][data-palette="nord"] .flow-node.selected rect {
+:root[data-theme="dark"][data-palette="nord"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="dark"][data-palette="nord"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="dark"][data-palette="nord"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="dark"][data-palette="nord"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="dark"][data-palette="nord"] .flow-node .kind {
@@ -4321,11 +4346,6 @@ html[data-theme="dark"][data-palette="gruvbox"] {
 :root[data-theme="dark"][data-palette="gruvbox"] .situation-card .adv.minus {
   color: var(--muted);
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .next-chip.near {
-  border-color: #5e5032;
-  background: #453b23;
-  color: #f1cc94;
-}
 :root[data-theme="dark"][data-palette="gruvbox"] .outcome {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -4713,7 +4733,17 @@ html[data-theme="dark"][data-palette="gruvbox"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .flow-node.selected rect {
+:root[data-theme="dark"][data-palette="gruvbox"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="dark"][data-palette="gruvbox"] .flow-node .kind {
@@ -5103,11 +5133,6 @@ html[data-theme="light"][data-palette="solarized"] {
 :root[data-theme="light"][data-palette="solarized"] .situation-card .adv.minus {
   color: var(--muted);
 }
-:root[data-theme="light"][data-palette="solarized"] .next-chip.near {
-  border-color: #ecd29a;
-  background: #fbf3df;
-  color: #8a5a12;
-}
 :root[data-theme="light"][data-palette="solarized"] .outcome {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -5495,7 +5520,17 @@ html[data-theme="light"][data-palette="solarized"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="light"][data-palette="solarized"] .flow-node.selected rect {
+:root[data-theme="light"][data-palette="solarized"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="light"][data-palette="solarized"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="light"][data-palette="solarized"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="light"][data-palette="solarized"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="light"][data-palette="solarized"] .flow-node .kind {

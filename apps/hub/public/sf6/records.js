@@ -2,7 +2,7 @@ import { escapeHtml } from "../shared/html.js";
 import { notationHtml, chips, empty, percent, daysAgo, formatDay } from "./format.js";
 import { TABS, ADD_LABELS, POSITIONS, SA_LEVELS, OPPONENT_LABELS, OUTCOME_MARKS, RECOVERIES, LAYERINGS, GUARD_SETTINGS, COUNTER_SETTINGS, RECOVERY_SETTINGS, RESULTS, MODES } from "./constants.js";
 // 手順・状況・練習・振り返りの表示と絞り込み。
-import { MASTERY, resultOf, partsAfter, stateFit, stateLabel, usableNow, sortSequences, OPPONENT_OPTIONS, leadsInto, bestStreakOf, raiseTargets, STREAK_GOAL, sequencesFrom, situationUsage } from "../sf6-plan.js";
+import { MASTERY, resultOf, partsAfter, usableNow, sortSequences, OPPONENT_OPTIONS, bestStreakOf, raiseTargets, STREAK_GOAL, sequencesFrom, situationUsage } from "../sf6-plan.js";
 
 export function createSf6Records({ state, els, situationsById, resultLabel, situationText, activeDrillFor, renderPunishPicker, findSequence }) {
   // ---------- 描画 ----------
@@ -80,10 +80,8 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
     const results = resultLinesHtml(part, ["hit", "counter_hit", "punish_counter", "hit_other", "guard", "opponent"]);
     const next = part.archived ? [] : partsAfter(part, state.data.sequences, state.data.situations);
     const nextHtml = next.length
-      ? `<div class="next-setplays"><span>次</span>${next.map(({ sequence, fit }) => {
-        const start = sequence.starts.map((id) => byId.get(id)).find((entry) => entry && hitState && stateFit(hitState, entry));
-        return `<button type="button" class="next-chip ${fit}" data-goto-sequence="${sequence.id}" title="${fit === "near" ? "有利Fが1〜2Fずれています。重ねが変わる可能性があります" : ""}">${escapeHtml(sequence.title)}${fit === "near" && start ? ` <small>${escapeHtml(stateLabel(start))} 注意</small>` : ""}</button>`;
-      }).join("")}</div>`
+      ? `<div class="next-setplays"><span>次</span>${next.map(({ sequence }) =>
+        `<button type="button" class="next-chip" data-goto-sequence="${sequence.id}">${escapeHtml(sequence.title)}</button>`).join("")}</div>`
       : "";
     return `<article class="card combo-card" id="sequence-${part.id}">
       <div class="card-head">
@@ -198,8 +196,7 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
   function linkLabel(previous, next) {
     const byId = situationsById();
     const result = previous.results.find((entry) => {
-      const from = byId.get(entry.nextSituationId);
-      return from && next.starts.some((id) => byId.get(id) && stateFit(from, byId.get(id)));
+      return entry.nextSituationId !== null && next.starts.includes(entry.nextSituationId);
     });
     return result ? resultLabel(result) : "";
   }
@@ -284,7 +281,7 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
 
   /** 状況タブ：キャラごとの局面（有利F・位置・ダウン）を有利Fの大きい順に並べ、そこから始まる手順を添える。 */
   function situationCardHtml(situation) {
-    const from = situation.archived ? [] : sequencesFrom(situation, state.data.sequences.filter((entry) => entry.character === situation.character), state.data.situations, { includeNear: state.situationNear });
+    const from = situation.archived ? [] : sequencesFrom(situation, state.data.sequences.filter((entry) => entry.character === situation.character), state.data.situations);
     const tags = [POSITIONS[situation.position], situation.recovery ? RECOVERIES[situation.recovery] : "", situation.throwRange ? "通常投げ間合い" : ""].filter(Boolean);
     const counts = situationUsage(situation.id, state.data.sequences);
     return `<article class="card situation-card">
@@ -294,8 +291,8 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
       </div>
       ${chips(tags)}
       ${situation.memo ? `<p class="memo">${escapeHtml(situation.memo)}</p>` : ""}
-      ${from.length ? `<div class="next-row">${from.map(({ sequence, fit }) =>
-        `<button type="button" class="next-chip ${fit === "near" ? "near" : ""}" data-goto-sequence="${sequence.id}">${escapeHtml(sequence.title)}</button>`).join("")}</div>` : ""}
+      ${from.length ? `<div class="next-row">${from.map(({ sequence }) =>
+        `<button type="button" class="next-chip" data-goto-sequence="${sequence.id}">${escapeHtml(sequence.title)}</button>`).join("")}</div>` : ""}
       <div class="card-foot">
         <small class="meta">${counts.starts ? `始動の手順 ${counts.starts}件` : "始動の手順なし"}${counts.results ? ` · ここに至る結果 ${counts.results}件` : ""}</small>
         ${situation.archived ? "" : `<span class="foot-actions">
@@ -320,7 +317,6 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
     els.situationPosition.querySelectorAll("button").forEach((button) => {
       button.setAttribute("aria-pressed", String(button.dataset.value === state.situationPosition));
     });
-    els.situationNear.setAttribute("aria-pressed", String(state.situationNear));
     els.situationList.innerHTML = active.map(situationCardHtml).join("")
       || empty(state.situationCharacter ? "このキャラの状況はまだありません。右上の「＋」で、投げ後・端の締め後などを追加できます" : characters.length ? "キャラを選ぶと状況が出ます" : "状況はまだありません。右上の「＋」で追加できます");
     els.situationArchiveFold.hidden = !archived.length;

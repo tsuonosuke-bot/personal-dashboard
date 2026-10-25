@@ -4,8 +4,6 @@
 /** 習得度の4段階。3段階目は「ランダム設定で10回連続」で判定する。 */
 export const MASTERY = ["未練習", "練習中", "ランダムで10連続", "実戦で出せる"];
 export const STREAK_GOAL = 10;
-/** 有利Fがこれ以内のずれなら「近い局面」としてつなげて見せる。 */
-export const NEAR_FRAMES = 2;
 /** 判定に使う初期の状況。名前は変えられるので preset_key で見る。 */
 export const PRESET = { punish: "punish", hitConfirm: "hit_confirm", counter: "counter", punishCounter: "punish_counter" };
 /** 起き攻めに対して相手が取れる行動（表示名は sf6.js）。 */
@@ -13,7 +11,6 @@ export const OPPONENT_OPTIONS = ["reversal", "backdash", "jump", "tech", "delay_
 
 const POSITION_LABELS = { midscreen: "画面中央", corner: "画面端" };
 const RECOVERY_LABELS = { back_roll: "後ろ受け身可", no_back_roll: "後ろ受け身不可", none: "ダウンなし" };
-const FIT_ORDER = { same: 0, fits: 1, near: 2 };
 const DRIVE_TOKENS = new Set(["DR", "DI", "パリィ"]);
 /** OD必殺技：方向の数字2つ以上＋PP/KK の1語（236PP・623KK・63214PP・J236KK）。2PP のようなコマンド特殊技は含めない。 */
 const OD_SPECIAL = /^J?[1-9]{2,}(?:PP|KK)$/;
@@ -107,68 +104,26 @@ export function findState(situations, key) {
 }
 
 /**
- * from（手順の結果）から to（次の手順の始動）へつながるか。
- * "same"（同じ状況）/ "fits"（位置の片方が「どこでも」で有利Fが同じ）/ "near"（有利Fが±2F以内）/ null。
- * ダウンが片方だけ未設定のときは near まで。
+ * その状況から始まる手順。始動に選ばれている手順だけを、名前順で返す（有利Fなどからの自動的なつなぎはしない）。
+ * アーカイブは除く。1段だけ返すので、ループする局面でも止まる。
  */
-export function stateFit(from, to) {
-  if (from.id === to.id) return "same";
-  if (from.kind !== "state" || to.kind !== "state" || from.character !== to.character) return null;
-  const fromRecovery = from.recovery ?? null;
-  const toRecovery = to.recovery ?? null;
-  if (fromRecovery !== null && toRecovery !== null && fromRecovery !== toRecovery) return null;
-  if (from.position !== "anywhere" && to.position !== "anywhere" && from.position !== to.position) return null;
-  const diff = Math.abs(from.advantage - to.advantage);
-  if (diff > NEAR_FRAMES) return null;
-  return diff === 0 && fromRecovery === toRecovery ? "fits" : "near";
-}
-
-/**
- * その状況から始まる手順。同じ状況→合う局面→近い局面、起き攻め→コンボ、名前の順。アーカイブは除く。
- * 1段だけ返すので、ループする局面（端の締め→同じ局面）でも止まる。
- */
-export function sequencesFrom(situation, sequences, situations, options = {}) {
-  const includeNear = options.includeNear ?? true;
-  const byId = new Map(situations.map((entry) => [entry.id, entry]));
-  const found = [];
-  for (const sequence of sequences) {
-    if (sequence.archived) continue;
-    let best = null;
-    for (const startId of sequence.starts) {
-      const start = byId.get(startId);
-      if (!start) continue;
-      const fit = stateFit(situation, start);
-      if (!fit || (fit === "near" && !includeNear)) continue;
-      if (!best || FIT_ORDER[fit] < FIT_ORDER[best.fit]) best = { sequence, via: start, fit };
-    }
-    if (best) found.push(best);
-  }
-  return found.sort((a, b) => FIT_ORDER[a.fit] - FIT_ORDER[b.fit]
-    || compareTitle(a.sequence, b.sequence));
+export function sequencesFrom(situation, sequences) {
+  return sequences
+    .filter((sequence) => !sequence.archived && sequence.starts.includes(situation.id))
+    .map((sequence) => ({ sequence, via: situation }))
+    .sort((a, b) => compareTitle(a.sequence, b.sequence));
 }
 
 export function resultOf(sequence, kind) {
   return sequence.results.find((result) => result.kind === kind) || null;
 }
 
-/** パーツのカード用：ヒットの結果の局面から続けられるパーツ。 */
+/** パーツのカード用：ヒットの結果の状況を始動に選んでいるパーツ。 */
 export function partsAfter(part, sequences, situations) {
   const next = resultOf(part, "hit")?.nextSituationId;
   const state = situations.find((situation) => situation.id === next);
   if (!state) return [];
-  return sequencesFrom(state, sequences.filter((sequence) => sequence.id !== part.id && sequence.character === part.character), situations)
-    .map(({ sequence, fit }) => ({ sequence, fit }));
-}
-
-/** パーツのカード用：ヒットでこの局面（または合う局面）につながるパーツ。 */
-export function leadsInto(state, sequences, situations) {
-  const byId = new Map(situations.map((entry) => [entry.id, entry]));
-  return sequences.filter((sequence) => {
-    if (sequence.archived) return false;
-    const next = byId.get(resultOf(sequence, "hit")?.nextSituationId);
-    const fit = next ? stateFit(next, state) : null;
-    return fit === "same" || fit === "fits";
-  });
+  return sequencesFrom(state, sequences.filter((sequence) => sequence.id !== part.id && sequence.character === part.character));
 }
 
 /**
