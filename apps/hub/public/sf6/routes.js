@@ -42,7 +42,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       picking: null,
       linking: null,
       collapsed: [],
-      hideUnset: false,
+      hideUnset: true,
     });
   }
 
@@ -152,12 +152,12 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
           ["きっかけ", starts.filter((situation) => situation.kind === "trigger")],
           ["局面", starts.filter((situation) => situation.kind === "state").sort(byAdvantage)],
         ], sheet.startSituationId)}</select>
-        <button type="button" class="toggle-chip" data-flow-hide-unset aria-pressed="${sheet.hideUnset}" title="次の状況が未設定の出口（赤い枠）を隠します">未設定を隠す</button>
+        <button type="button" class="toggle-chip" data-flow-hide-unset aria-pressed="${!sheet.hideUnset}" title="次の状況が未設定の出口（赤い枠）を出します。初期状態では隠れています">未設定を出す</button>
         ${sheet.collapsed.length ? `<button type="button" class="ghost-button" data-flow-expand-all>すべて展開（${sheet.collapsed.length}）</button>` : ""}
         <button type="button" class="secondary-button small" data-flow-add>＋パーツを追加</button>
       </div>
       ${flow.nodes.length
-        ? `<p class="flow-note">${flow.unsetCount ? (sheet.hideUnset ? `未設定の出口が${flow.unsetCount}件、隠れています。` : `次が未設定の出口が${flow.unsetCount}件あります。点線の枠を押すと、次の状況を選べます。`) : "未設定の出口はありません。"}</p>${flowSvg(flow, selected?.id)}${selected ? "" : '<p class="flow-note">箱を押すと、前後のパーツへ移ったり、出口から次のパーツを追加したりできます。</p>'}`
+        ? `<p class="flow-note">${flow.unsetCount ? (sheet.hideUnset ? `未設定の出口が${flow.unsetCount}件、隠れています（「未設定を出す」で表示）。` : `次が未設定の出口が${flow.unsetCount}件あります。点線の枠を押すと、次の状況を選べます。`) : "未設定の出口はありません。"}</p>${flowSvg(flow, selected?.id)}${selected ? "" : '<p class="flow-note">箱を押すと、前後のパーツへ移ったり、出口から次のパーツを追加したりできます。</p>'}`
         : empty(sheet.character ? "このキャラ・始点から辿れるパーツはありません。上の「＋パーツを追加」で作れます" : "パーツがまだありません。上の「＋パーツを追加」で作れます")}
       ${selected && flow.nodes.some((node) => node.id === selected.id) ? flowDetailHtml(selected, flow) : ""}`;
   }
