@@ -473,6 +473,9 @@ public/
   `<html data-theme>` を自動/ライト/ダークで決める。CSSはライトだけを書き、変更後は `npm run theme` で
   `src/index.dark.css` を再生成する（手で編集しない。古いとテストが落ちる）。rechartsの色は
   `index.css` 末尾の `:root[data-theme="dark"]` ルールで上書きする。
+- クリーム/ネイビー/ディープグリーンの配色は `theme.js` の `PALETTES` で選び、`data-theme` は light/dark のまま
+  `<html data-palette>` を足す。ルールは `build-dark-theme.mjs` の `PALETTES` が `index.dark.css` 末尾に
+  生成する（ほぼ無彩色の色だけ色味を変え、アクセント色は各ダッシュボードのテーマカラーのまま）。
 - `KnowledgeDetailModal` は `onEdit` / `onArchive` を省くと読み取り専用になる。
   学習ログの採点結果から出典を開くときは読み取り専用で開く。
 - 採点画面にあった操作（習熟度・優先度の変更、確認ダイアログつきのアーカイブと元に戻す、示唆、あとで深掘り、

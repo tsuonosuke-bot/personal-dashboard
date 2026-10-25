@@ -36,3 +36,117 @@
 :root[data-theme="dark"] .project-todo-link a {
   color: var(--page-accent);
 }
+/* palette: cream */
+:root[data-theme="light"][data-palette="cream"] .project-todo-dialog {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="light"][data-palette="cream"] .project-todo-dialog::backdrop {
+  background: color-mix(in srgb, var(--text) 50%, transparent);
+}
+:root[data-theme="light"][data-palette="cream"] .project-todo-dialog button {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+}
+:root[data-theme="light"][data-palette="cream"] .project-todo-dialog button.primary {
+  color: var(--bg);
+  background: var(--page-accent);
+  border-color: var(--page-accent);
+}
+:root[data-theme="light"][data-palette="cream"] .project-todo-form select,
+:root[data-theme="light"][data-palette="cream"] .project-todo-form input:not([type=radio]),
+:root[data-theme="light"][data-palette="cream"] .project-todo-form textarea {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="light"][data-palette="cream"] .project-todo-preview {
+  border-block: 1px solid var(--border);
+}
+:root[data-theme="light"][data-palette="cream"] .project-todo-resolution {
+  border: 1px solid var(--border);
+}
+:root[data-theme="light"][data-palette="cream"] .project-todo-link a {
+  color: var(--page-accent);
+}
+/* palette: navy */
+:root[data-theme="dark"][data-palette="navy"] .project-todo-dialog {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="dark"][data-palette="navy"] .project-todo-dialog::backdrop {
+  background: color-mix(in srgb, var(--text--light, var(--text)) 50%, transparent);
+}
+:root[data-theme="dark"][data-palette="navy"] .project-todo-dialog button {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+}
+:root[data-theme="dark"][data-palette="navy"] .project-todo-dialog button.primary {
+  color: var(--bg--light, var(--bg));
+  background: var(--page-accent--light, var(--page-accent));
+  border-color: var(--page-accent);
+}
+:root[data-theme="dark"][data-palette="navy"] .project-todo-form select,
+:root[data-theme="dark"][data-palette="navy"] .project-todo-form input:not([type=radio]),
+:root[data-theme="dark"][data-palette="navy"] .project-todo-form textarea {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="dark"][data-palette="navy"] .project-todo-preview {
+  border-block: 1px solid var(--border);
+}
+:root[data-theme="dark"][data-palette="navy"] .project-todo-resolution {
+  border: 1px solid var(--border);
+}
+:root[data-theme="dark"][data-palette="navy"] .project-todo-link a {
+  color: var(--page-accent);
+}
+/* palette: forest */
+:root[data-theme="dark"][data-palette="forest"] .project-todo-dialog {
+  border: 1px solid var(--border);
+  border-radius: var(--radius, 8px);
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="dark"][data-palette="forest"] .project-todo-dialog::backdrop {
+  background: color-mix(in srgb, var(--text--light, var(--text)) 50%, transparent);
+}
+:root[data-theme="dark"][data-palette="forest"] .project-todo-dialog button {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 4px;
+}
+:root[data-theme="dark"][data-palette="forest"] .project-todo-dialog button.primary {
+  color: var(--bg--light, var(--bg));
+  background: var(--page-accent--light, var(--page-accent));
+  border-color: var(--page-accent);
+}
+:root[data-theme="dark"][data-palette="forest"] .project-todo-form select,
+:root[data-theme="dark"][data-palette="forest"] .project-todo-form input:not([type=radio]),
+:root[data-theme="dark"][data-palette="forest"] .project-todo-form textarea {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+:root[data-theme="dark"][data-palette="forest"] .project-todo-preview {
+  border-block: 1px solid var(--border);
+}
+:root[data-theme="dark"][data-palette="forest"] .project-todo-resolution {
+  border: 1px solid var(--border);
+}
+:root[data-theme="dark"][data-palette="forest"] .project-todo-link a {
+  color: var(--page-accent);
+}

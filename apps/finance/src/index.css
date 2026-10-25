@@ -3,6 +3,7 @@
 /* Tailwindの色をNotion風にそろえる。slateは温かみのある灰色、indigo・skyはFinanceのテーマカラー（青緑）の濃淡にする */
 @theme {
   --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", Helvetica, Arial, sans-serif;
+  --color-white: #ffffff;
   --color-slate-50: #f7f7f5;
   --color-slate-100: #f1f1ef;
   --color-slate-200: #e9e9e7;

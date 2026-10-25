@@ -54,3 +54,143 @@
   background: var(--green--light, var(--green));
   color: #fff;
 }
+/* palette: cream */
+:root[data-theme="light"][data-palette="cream"] {
+  --page-accent-soft: #e4dccb;
+}
+:root[data-theme="light"][data-palette="cream"] body {
+  color: var(--ink);
+  background: var(--paper);
+}
+:root[data-theme="light"][data-palette="cream"] .status-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 3px 0 #aaa69d;
+}
+:root[data-theme="light"][data-palette="cream"] .status-card.live {
+  box-shadow: inset 0 3px 0 var(--green);
+}
+:root[data-theme="light"][data-palette="cream"] .status-card dl div {
+  border-top: 1px solid var(--border);
+}
+:root[data-theme="light"][data-palette="cream"] .status-card dt {
+  color: var(--muted);
+}
+:root[data-theme="light"][data-palette="cream"] .status-loading,
+:root[data-theme="light"][data-palette="cream"] .status-error {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--muted);
+}
+:root[data-theme="light"][data-palette="cream"] .status-loading span {
+  border: 2px solid var(--line);
+  border-top-color: var(--green);
+  border-radius: 50%;
+}
+:root[data-theme="light"][data-palette="cream"] .status-error strong {
+  color: var(--ink);
+}
+:root[data-theme="light"][data-palette="cream"] .status-error button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--green);
+  color: #faf1e0;
+}
+/* palette: navy */
+:root[data-theme="dark"][data-palette="navy"] {
+  color-scheme: dark;
+  --green: #b5e1d4;
+  --green-soft: #2b313f;
+  --page-accent: #b8babe;
+  --page-accent-soft: #2b313e;
+}
+:root[data-theme="dark"][data-palette="navy"] body {
+  color: var(--ink);
+  background: var(--paper);
+}
+:root[data-theme="dark"][data-palette="navy"] .status-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 3px 0 #434956;
+}
+:root[data-theme="dark"][data-palette="navy"] .status-card.live {
+  box-shadow: inset 0 3px 0 var(--green);
+}
+:root[data-theme="dark"][data-palette="navy"] .status-card dl div {
+  border-top: 1px solid var(--border);
+}
+:root[data-theme="dark"][data-palette="navy"] .status-card dt {
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="navy"] .status-loading,
+:root[data-theme="dark"][data-palette="navy"] .status-error {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="navy"] .status-loading span {
+  border: 2px solid var(--line);
+  border-top-color: var(--green);
+  border-radius: 50%;
+}
+:root[data-theme="dark"][data-palette="navy"] .status-error strong {
+  color: var(--ink);
+}
+:root[data-theme="dark"][data-palette="navy"] .status-error button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--green--light, var(--green));
+  color: #fff;
+}
+/* palette: forest */
+:root[data-theme="dark"][data-palette="forest"] {
+  color-scheme: dark;
+  --green: #b5e1d4;
+  --green-soft: #2d3d36;
+  --page-accent: #b8bebb;
+  --page-accent-soft: #2d3c35;
+}
+:root[data-theme="dark"][data-palette="forest"] body {
+  color: var(--ink);
+  background: var(--paper);
+}
+:root[data-theme="dark"][data-palette="forest"] .status-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 3px 0 #45544d;
+}
+:root[data-theme="dark"][data-palette="forest"] .status-card.live {
+  box-shadow: inset 0 3px 0 var(--green);
+}
+:root[data-theme="dark"][data-palette="forest"] .status-card dl div {
+  border-top: 1px solid var(--border);
+}
+:root[data-theme="dark"][data-palette="forest"] .status-card dt {
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="forest"] .status-loading,
+:root[data-theme="dark"][data-palette="forest"] .status-error {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="forest"] .status-loading span {
+  border: 2px solid var(--line);
+  border-top-color: var(--green);
+  border-radius: 50%;
+}
+:root[data-theme="dark"][data-palette="forest"] .status-error strong {
+  color: var(--ink);
+}
+:root[data-theme="dark"][data-palette="forest"] .status-error button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--green--light, var(--green));
+  color: #fff;
+}
