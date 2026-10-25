@@ -442,6 +442,9 @@ async function onAction(event) {
     setTimeout(() => card?.classList.remove("flash"), 1200);
   } else if (dataset.routeSituation) {
     openRoute([{ situationId: Number(dataset.routeSituation) }], dataset.character);
+  } else if (dataset.flowNear !== undefined) {
+    state.sheet.near = !state.sheet.near;
+    renderSheet();
   } else if (dataset.addFromSituation) {
     const [id, kind] = dataset.addFromSituation.split("|");
     openModal("sequences", null, situationSequencePreset(find("situations", id), kind));

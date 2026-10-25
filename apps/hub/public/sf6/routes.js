@@ -38,6 +38,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       type: "flow",
       character: characters.includes(wanted) ? wanted : characters[0] || "",
       startSituationId: from ? from.situationId : typeof situationId === "number" ? situationId : null,
+      near: false,
       selected: null,
       picking: null,
     });
@@ -103,7 +104,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       && (situation.kind === "trigger" ? situation.character === null || situation.character === sheet.character : situation.character === sheet.character));
     const flow = buildFlow({
       sequences: state.data.sequences, situations: state.data.situations, character: sheet.character,
-      startSituationId: sheet.startSituationId, resultLabel: flowLabel,
+      startSituationId: sheet.startSituationId, includeNear: sheet.near, resultLabel: flowLabel,
     });
     const selected = findSequence(sheet.selected);
     els.sheetBody.innerHTML = `
@@ -113,6 +114,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
           ["きっかけ", starts.filter((situation) => situation.kind === "trigger")],
           ["局面", starts.filter((situation) => situation.kind === "state").sort(byAdvantage)],
         ], sheet.startSituationId)}</select>
+        <button type="button" class="toggle-chip" data-flow-near aria-pressed="${sheet.near}" title="有利Fが1〜2Fずれる手順（点線の矢印）の表示を切り替えます">近い手順</button>
       </div>
       ${flow.nodes.length
         ? `<p class="flow-note">${flow.unsetCount ? `次が未設定の出口が${flow.unsetCount}件あります。点線の枠を押すと、次の状況を選べます。` : "未設定の出口はありません。"}</p>${flowSvg(flow, selected?.id)}`
