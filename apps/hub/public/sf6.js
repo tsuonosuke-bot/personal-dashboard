@@ -248,7 +248,7 @@ const inboxFlow = createSf6InboxFlow({ state, els,
   load: () => load(), selectTab: (...args) => selectTab(...args), find: (...args) => find(...args),
   render: () => render(), showToast: (...args) => showToast(...args),
 });
-const { FORMS, renderStartChips, selectedStartChips, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete } = createSf6Editor({
+const { selectHitType, FORMS, renderStartChips, selectedStartChips, pickerParts, pickerKey, newStateName, refreshPicker, refreshPickers, onPickerChange, addStartFromPicker, renderStartStates, syncConditional, refreshNotationAssist, editNotation, prepareMoves, openModal, closeModal, readDraft, showFormError, submitModal, deleteItem, confirmSituationDelete } = createSf6Editor({
   state,
   inboxFlow,
   situationText: (...args) => situationText(...args),
@@ -667,6 +667,8 @@ els.formFields.addEventListener("click", async (event) => {
     button.firstElementChild.textContent = OUTCOME_MARKS[next];
     const toggle = els.formFields.querySelector(`[data-next-toggle="${dataset.outcome}"]`);
     if (toggle) toggle.hidden = next === "unknown";
+  } else if (dataset.hitType) {
+    selectHitType(dataset.hitType);
   } else if (dataset.nextToggle) {
     const box = els.formFields.querySelector(`[data-outcome-next="${dataset.nextToggle}"]`);
     box.hidden = !box.hidden;

@@ -116,8 +116,8 @@ test("結果は重ならず、相手の行動は○×–が必須、ヒット・
   assert.equal(result.ok, true);
   if (result.ok) {
     assert.deepEqual(result.value.results, [
-      { kind: "opponent", opponentAction: "tech", outcome: "win", next: 9 },
-      { kind: "opponent", opponentAction: "reversal", outcome: "lose", next: null },
+      { kind: "opponent", opponentAction: "tech", outcome: "win", hitType: null, next: 9 },
+      { kind: "opponent", opponentAction: "reversal", outcome: "lose", hitType: null, next: null },
     ]);
   }
   const twice = validateSf6Fields("sequences", { ...setplay, results: [setplay.results[0], setplay.results[0]] });
@@ -193,9 +193,9 @@ test("DBの行をcamelCaseに直し、埋め込みの始動は数値の配列、
   assert.deepEqual(item?.starts, [2, 1]);
   assert.equal(item?.driveCost, 1);
   assert.deepEqual(item?.results, [
-    { kind: "hit", opponentAction: null, outcome: null, nextSituationId: 12 },
-    { kind: "opponent", opponentAction: "reversal", outcome: "lose", nextSituationId: 7 },
-    { kind: "opponent", opponentAction: "tech", outcome: "win", nextSituationId: null },
+    { kind: "hit", opponentAction: null, outcome: null, hitType: null, nextSituationId: 12 },
+    { kind: "opponent", opponentAction: "reversal", outcome: "lose", hitType: null, nextSituationId: 7 },
+    { kind: "opponent", opponentAction: "tech", outcome: "win", hitType: null, nextSituationId: null },
   ]);
 });
 
@@ -217,7 +217,7 @@ test("GETは状況・手順・練習・記録・振り返り・技データの�
       "/rest/v1/sf6_drill_logs", "/rest/v1/sf6_drills", "/rest/v1/sf6_matches", "/rest/v1/sf6_move_sets", "/rest/v1/sf6_sequences", "/rest/v1/sf6_situations",
     ]);
     const select = (table: string) => mock.calls.find((call) => call.url.pathname.endsWith(table))?.url.searchParams.get("select") || "";
-    assert.match(select("sf6_sequences"), /starts:sf6_sequence_starts\(situation_id\),results:sf6_sequence_results\(kind,opponent_action,outcome,next_situation_id\)/);
+    assert.match(select("sf6_sequences"), /starts:sf6_sequence_starts\(situation_id\),results:sf6_sequence_results\(kind,opponent_action,outcome,hit_type,next_situation_id\)/);
     assert.equal(select("sf6_drill_logs").includes("updated_at"), false);
     assert.equal(select("sf6_move_sets").startsWith("id,"), false);
   } finally {
@@ -484,4 +484,14 @@ test("起き攻めの結果に、カウンターヒットと暴れ・ドライ�
   ]).ok, true);
   assert.equal(withResults([{ kind: "counter_hit", next: null }]).ok, false);
   assert.equal(withResults([{ kind: "counter_hit", next: 9 }, { kind: "counter_hit", next: 9 }]).ok, false);
+});
+
+test("相手の行動ごとの結果に、ヒットの種類(hitType)を付けて保存・読み出しできる", () => {
+  const withResults = (results: unknown[]) => validateSf6Fields("sequences", { ...setplay, results });
+  assert.equal(withResults([{ kind: "opponent", opponentAction: "mash", outcome: "win", hitType: "counter_hit", next: 9 }]).ok, true);
+  assert.equal(withResults([{ kind: "opponent", opponentAction: "mash", outcome: "win", hitType: "other", next: { state: { advantage: 20, position: "anywhere", recovery: null, name: "対空ヒット後" } } }]).ok, true);
+  assert.equal(withResults([{ kind: "opponent", opponentAction: "mash", outcome: "win", hitType: "bad", next: 9 }]).ok, false);
+  assert.equal(withResults([{ kind: "hit", hitType: "other", next: 9 }]).ok, false);
+  const item = toSf6Item("sequences", { ...sequenceRow, results: [{ kind: "opponent", opponent_action: "mash", outcome: "win", hit_type: "punish_counter", next_situation_id: 3 }] });
+  assert.deepEqual((item?.results as { hitType: string | null }[])[0].hitType, "punish_counter");
 });

@@ -35,6 +35,9 @@ export const OPPONENT_LABELS = {
   delay_tech: "遅らせグラップ", mash: "暴れ", drive_impact: "ドライブインパクト", parry: "パリィ", drive_reversal: "ドライブリバーサル", back_roll: "後ろ受け身",
 };
 
+/** 起き攻めの相手の行動ごとの結果が、どのヒットか。 */
+export const HIT_TYPE_LABELS = { hit: "通常ヒット", counter_hit: "カウンターヒット", punish_counter: "パニッシュカウンター", other: "その他" };
+
 export const RESULT_LABELS = { hit: "ヒット", counter_hit: "カウンターヒット", punish_counter: "パニッシュカウンター", hit_other: "ヒット（その他）", guard: "ガード" };
 
 export const OUTCOME_MARKS = { win: "○", lose: "×", unknown: "–" };

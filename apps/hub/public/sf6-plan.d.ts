@@ -14,6 +14,7 @@ export interface PlanResult {
   kind: "hit" | "counter_hit" | "punish_counter" | "hit_other" | "guard" | "opponent";
   opponentAction: string | null;
   outcome: string | null;
+  hitType?: string | null;
   nextSituationId: number | null;
 }
 
