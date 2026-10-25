@@ -518,3 +518,8 @@ test("Knowledge and Finance ship the same tab bar script and styles as the Hub",
     assert.deepEqual([...nav.matchAll(/>([^<>{}]+)<\/(?:a|span)>/g)].map((match) => match[1]), ["Idea", "Projects", "Writing", "Habits", "SF6", "Finance", "Knowledge", "接続状態"]);
   }
 });
+
+test("SF6の編集ウインドウは、外側をクリックしても閉じず入力を失わない", async () => {
+  const script = await readFile(new URL("../public/sf6.js", import.meta.url), "utf8");
+  assert.doesNotMatch(script, /event\.target === els\.editModal/);
+});
