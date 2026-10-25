@@ -41,6 +41,8 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       selected: null,
       picking: null,
       linking: null,
+      collapsed: [],
+      hideUnset: false,
     });
   }
 
@@ -64,11 +66,15 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
         <title>${escapeHtml(text)}</title>
       </g>`;
     }).join("");
-    const nodes = flow.nodes.map((node) => `<g class="flow-node${node.id === selected ? " selected" : ""}" data-flow-node="${node.id}" tabindex="0" role="button">
+    const toggle = (node) => node.collapsible ? `<g class="flow-toggle" data-flow-toggle="${node.id}" tabindex="0" role="button" aria-label="${node.collapsed ? "この先の分岐を開く" : "この先の分岐を隠す"}">
+        <rect x="${node.x + node.w - 30}" y="${node.y + 6}" width="24" height="18" rx="9" /><text x="${node.x + node.w - 18}" y="${node.y + 19}" text-anchor="middle">${node.collapsed ? `+${node.hiddenCount || ""}` : "−"}</text>
+        <title>${node.collapsed ? "この先の分岐を開く" : "この先の分岐を隠す"}</title></g>` : "";
+    const nodes = flow.nodes.map((node) => `<g class="flow-node${node.id === selected ? " selected" : ""}${node.collapsed ? " folded" : ""}" data-flow-node="${node.id}" tabindex="0" role="button">
         <rect x="${node.x}" y="${node.y}" width="${node.w}" height="${node.h}" rx="8" />
-        <text class="kind" x="${node.x + 10}" y="${node.y + 18}">${escapeHtml(clip(node.startLabel, 16))}${node.loop ? " ↻" : ""}</text>
+        <text class="kind" x="${node.x + 10}" y="${node.y + 18}">${escapeHtml(clip(node.startLabel, 12))}${node.loop ? " ↻" : ""}</text>
         <text class="title" x="${node.x + 10}" y="${node.y + 38}">${escapeHtml(clip(node.title, FLOW_TITLE_MAX))}</text>
         <title>${escapeHtml(node.title)}</title>
+        ${toggle(node)}
       </g>`).join("");
     return `<div class="flow-scroll"><svg class="flow-svg" width="${flow.width}" height="${flow.height}" viewBox="0 0 ${flow.width} ${flow.height}" role="group" aria-label="手順のフローチャート">
       <defs><marker id="flowArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" /></marker></defs>
@@ -120,7 +126,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       && (situation.kind === "trigger" ? situation.character === null || situation.character === sheet.character : situation.character === sheet.character));
     const flow = buildFlow({
       sequences: state.data.sequences, situations: state.data.situations, character: sheet.character,
-      startSituationId: sheet.startSituationId, resultLabel: flowLabel,
+      startSituationId: sheet.startSituationId, collapsed: sheet.collapsed, hideUnset: sheet.hideUnset, resultLabel: flowLabel,
     });
     const selected = findSequence(sheet.selected);
     els.sheetBody.innerHTML = `
@@ -130,10 +136,12 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
           ["きっかけ", starts.filter((situation) => situation.kind === "trigger")],
           ["局面", starts.filter((situation) => situation.kind === "state").sort(byAdvantage)],
         ], sheet.startSituationId)}</select>
+        <button type="button" class="toggle-chip" data-flow-hide-unset aria-pressed="${sheet.hideUnset}" title="次の状況が未設定の出口（赤い枠）を隠します">未設定を隠す</button>
+        ${sheet.collapsed.length ? `<button type="button" class="ghost-button" data-flow-expand-all>すべて展開（${sheet.collapsed.length}）</button>` : ""}
         <button type="button" class="secondary-button small" data-flow-add>＋パーツを追加</button>
       </div>
       ${flow.nodes.length
-        ? `<p class="flow-note">${flow.unsetCount ? `次が未設定の出口が${flow.unsetCount}件あります。点線の枠を押すと、次の状況を選べます。` : "未設定の出口はありません。"}</p>${flowSvg(flow, selected?.id)}${selected ? "" : '<p class="flow-note">箱を押すと、前後のパーツへ移ったり、出口から次のパーツを追加したりできます。</p>'}`
+        ? `<p class="flow-note">${flow.unsetCount ? (sheet.hideUnset ? `未設定の出口が${flow.unsetCount}件、隠れています。` : `次が未設定の出口が${flow.unsetCount}件あります。点線の枠を押すと、次の状況を選べます。`) : "未設定の出口はありません。"}</p>${flowSvg(flow, selected?.id)}${selected ? "" : '<p class="flow-note">箱を押すと、前後のパーツへ移ったり、出口から次のパーツを追加したりできます。</p>'}`
         : empty(sheet.character ? "このキャラ・始点から辿れるパーツはありません。上の「＋パーツを追加」で作れます" : "パーツがまだありません。上の「＋パーツを追加」で作れます")}
       ${selected && flow.nodes.some((node) => node.id === selected.id) ? flowDetailHtml(selected, flow) : ""}`;
   }

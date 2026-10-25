@@ -758,7 +758,17 @@ html[data-theme="dark"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"] .flow-node.selected rect {
+:root[data-theme="dark"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="dark"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="dark"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="dark"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="dark"] .flow-node .kind {
@@ -1535,7 +1545,17 @@ html[data-theme="light"][data-palette="cream"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="light"][data-palette="cream"] .flow-node.selected rect {
+:root[data-theme="light"][data-palette="cream"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="light"][data-palette="cream"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="light"][data-palette="cream"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="light"][data-palette="cream"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="light"][data-palette="cream"] .flow-node .kind {
@@ -2322,7 +2342,17 @@ html[data-theme="dark"][data-palette="navy"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"][data-palette="navy"] .flow-node.selected rect {
+:root[data-theme="dark"][data-palette="navy"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="dark"][data-palette="navy"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="dark"][data-palette="navy"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="dark"][data-palette="navy"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="dark"][data-palette="navy"] .flow-node .kind {
@@ -3109,7 +3139,17 @@ html[data-theme="dark"][data-palette="forest"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"][data-palette="forest"] .flow-node.selected rect {
+:root[data-theme="dark"][data-palette="forest"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="dark"][data-palette="forest"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="dark"][data-palette="forest"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="dark"][data-palette="forest"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="dark"][data-palette="forest"] .flow-node .kind {
@@ -3896,7 +3936,17 @@ html[data-theme="dark"][data-palette="nord"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"][data-palette="nord"] .flow-node.selected rect {
+:root[data-theme="dark"][data-palette="nord"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="dark"][data-palette="nord"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="dark"][data-palette="nord"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="dark"][data-palette="nord"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="dark"][data-palette="nord"] .flow-node .kind {
@@ -4683,7 +4733,17 @@ html[data-theme="dark"][data-palette="gruvbox"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .flow-node.selected rect {
+:root[data-theme="dark"][data-palette="gruvbox"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="dark"][data-palette="gruvbox"] .flow-node .kind {
@@ -5460,7 +5520,17 @@ html[data-theme="light"][data-palette="solarized"] {
   fill: var(--surface);
   stroke: var(--line);
 }
-:root[data-theme="light"][data-palette="solarized"] .flow-node.selected rect {
+:root[data-theme="light"][data-palette="solarized"] .flow-toggle rect {
+  fill: var(--bg-hover);
+  stroke: var(--line);
+}
+:root[data-theme="light"][data-palette="solarized"] .flow-toggle text {
+  fill: var(--ink);
+}
+:root[data-theme="light"][data-palette="solarized"] .flow-toggle:hover rect {
+  stroke: var(--accent);
+}
+:root[data-theme="light"][data-palette="solarized"] .flow-node.selected > rect {
   fill: var(--bg-hover);
 }
 :root[data-theme="light"][data-palette="solarized"] .flow-node .kind {

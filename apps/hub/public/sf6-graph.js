@@ -31,9 +31,11 @@ const byIdAsc = (a, b) => a.id - b.id;
 /**
  * options: { sequences, situations, character, startSituationId = null, resultLabel(exit) }
  * startSituationId を渡すと、その状況から始まる手順につながる範囲だけを出す。
+ * collapsed（手順の id の配列）の手順は、そこから先の分岐（ほかの道では辿れない手順と出口）を隠す。
+ * hideUnset=true にすると、次の状況が未設定の出口（赤い枠）を出さない。
  * 返す座標は SVG にそのまま使える（左上が原点）。
  */
-export function buildFlow({ sequences, situations, character, startSituationId = null, resultLabel }) {
+export function buildFlow({ sequences, situations, character, startSituationId = null, collapsed = [], hideUnset = false, resultLabel }) {
   const situationById = new Map(situations.map((situation) => [situation.id, situation]));
   const mine = sequences.filter((sequence) => sequence.character === character && !sequence.archived);
   const byId = new Map(mine.map((sequence) => [sequence.id, sequence]));
@@ -62,6 +64,22 @@ export function buildFlow({ sequences, situations, character, startSituationId =
   const outgoing = new Map(mine.map((sequence) => [sequence.id, []]));
   edges.forEach((edge) => outgoing.get(edge.from).push(edge));
   const hasIncoming = new Set(edges.map((edge) => edge.to));
+  const folded = new Set(collapsed);
+  const descendantsOf = (id) => {
+    const seen = new Set();
+    const queue = [id];
+    while (queue.length) {
+      for (const edge of outgoing.get(queue.shift()) || []) {
+        if (seen.has(edge.to)) continue;
+        seen.add(edge.to);
+        queue.push(edge.to);
+      }
+    }
+    return seen;
+  };
+  // 畳んだ手順より先にある手順（畳んだ手順自身は除く）。ほかの道で辿れないものは、循環の拾い直しでも出さない
+  const shadow = new Set();
+  for (const id of folded) for (const target of descendantsOf(id)) if (!folded.has(target)) shadow.add(target);
 
   // 起点から幅優先で桁（左から右）を決める。循環だけの手順は、残った最小idを起点にして拾う
   const column = new Map();
@@ -76,6 +94,7 @@ export function buildFlow({ sequences, situations, character, startSituationId =
     }
     while (queue.length) {
       const current = queue.shift();
+      if (folded.has(current.id)) continue;
       for (const edge of outgoing.get(current.id)) {
         if (column.has(edge.to)) continue;
         column.set(edge.to, column.get(current.id) + 1);
@@ -89,7 +108,7 @@ export function buildFlow({ sequences, situations, character, startSituationId =
     walk(sequencesFrom(situationById.get(startSituationId), mine).map((entry) => entry.sequence));
   } else {
     walk(mine.filter((sequence) => !hasIncoming.has(sequence.id)).sort(byIdAsc));
-    for (const sequence of [...mine].sort(byIdAsc)) if (!column.has(sequence.id)) walk([sequence]);
+    for (const sequence of [...mine].sort(byIdAsc)) if (!column.has(sequence.id) && !shadow.has(sequence.id)) walk([sequence]);
   }
 
   // 行：桁ごとに、手順を見つけた順、その下に出口を手順の並び順で
@@ -99,7 +118,8 @@ export function buildFlow({ sequences, situations, character, startSituationId =
     const col = column.get(sequence.id);
     perColumn.set(col, [...(perColumn.get(col) || []), sequence]);
   }
-  const shownStubs = stubs.filter((stub) => column.has(stub.sequenceId));
+  const visibleStubs = stubs.filter((stub) => column.has(stub.sequenceId) && !folded.has(stub.sequenceId));
+  const shownStubs = hideUnset ? visibleStubs.filter((stub) => stub.type !== "unset") : visibleStubs;
   const stubColumns = new Map();
   const orderIndex = new Map(order.map((sequence, index) => [sequence.id, index]));
   for (const stub of [...shownStubs].sort((a, b) => orderIndex.get(a.sequenceId) - orderIndex.get(b.sequenceId))) {
@@ -114,7 +134,10 @@ export function buildFlow({ sequences, situations, character, startSituationId =
   for (let col = 0; col <= maxCol; col += 1) {
     let y = PAD;
     for (const sequence of perColumn.get(col) || []) {
-      nodes.push({ id: sequence.id, title: sequence.title, startLabel: situationById.get(sequence.starts[0])?.name || "", col, x: colX(col), y, w: NODE_W, h: NODE_H, loop: loops.has(sequence.id) });
+      nodes.push({ id: sequence.id, title: sequence.title, startLabel: situationById.get(sequence.starts[0])?.name || "", col, x: colX(col), y, w: NODE_W, h: NODE_H, loop: loops.has(sequence.id),
+        collapsible: outgoing.get(sequence.id).length > 0 || stubs.some((stub) => stub.sequenceId === sequence.id),
+        collapsed: folded.has(sequence.id),
+        hiddenCount: folded.has(sequence.id) ? [...descendantsOf(sequence.id)].filter((id) => !column.has(id)).length : 0 });
       nodeRow.set(sequence.id, y);
       y += NODE_H + ROW_GAP;
     }
@@ -139,6 +162,6 @@ export function buildFlow({ sequences, situations, character, startSituationId =
     nodes, edges: placedEdges, stubs: placedStubs,
     width: maxCol < 0 ? 0 : colX(maxCol) + (stubColumns.has(maxCol) && !perColumn.has(maxCol) ? STUB_W : NODE_W) + PAD,
     height: bottom + PAD - ROW_GAP,
-    unsetCount: placedStubs.filter((stub) => stub.type === "unset").length,
+    unsetCount: visibleStubs.filter((stub) => stub.type === "unset").length,
   };
 }

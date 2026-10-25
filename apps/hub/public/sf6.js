@@ -517,8 +517,20 @@ els.sheetBody.addEventListener("click", (event) => {
   const stub = event.target.closest("[data-flow-stub]");
   const node = event.target.closest("[data-flow-node]");
   const goto = event.target.closest("[data-flow-goto]");
+  const fold = event.target.closest("[data-flow-toggle]");
   const pick = event.target.closest("button[data-flow-pick]");
-  if (event.target.closest("[data-flow-add]")) {
+  if (fold) {
+    const id = Number(fold.dataset.flowToggle);
+    const { collapsed } = state.sheet;
+    state.sheet.collapsed = collapsed.includes(id) ? collapsed.filter((entry) => entry !== id) : [...collapsed, id];
+    renderSheet();
+  } else if (event.target.closest("[data-flow-hide-unset]")) {
+    state.sheet.hideUnset = !state.sheet.hideUnset;
+    renderSheet();
+  } else if (event.target.closest("[data-flow-expand-all]")) {
+    state.sheet.collapsed = [];
+    renderSheet();
+  } else if (event.target.closest("[data-flow-add]")) {
     const { startSituationId, character } = state.sheet;
     const start = startSituationId === null ? null : state.data.situations.find((situation) => situation.id === startSituationId);
     openModal("sequences", null, { ...(character ? { character } : {}), starts: start ? [start.id] : [] });
@@ -550,7 +562,7 @@ els.sheetBody.addEventListener("click", (event) => {
 });
 els.sheetBody.addEventListener("keydown", (event) => {
   if (state.sheet?.type !== "flow" || (event.key !== "Enter" && event.key !== " ")) return;
-  const target = event.target.closest("[data-flow-node], [data-flow-stub]");
+  const target = event.target.closest("[data-flow-toggle], [data-flow-node], [data-flow-stub]");
   if (!target) return;
   event.preventDefault();
   target.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -560,6 +572,7 @@ els.sheetBody.addEventListener("change", (event) => {
   if (event.target.matches("[data-flow-character]")) {
     state.sheet.character = event.target.value;
     state.sheet.linking = null;
+    state.sheet.collapsed = [];
     state.sheet.startSituationId = null;
     state.sheet.selected = null;
   } else if (event.target.matches("[data-flow-start]")) state.sheet.startSituationId = event.target.value === "" ? null : Number(event.target.value);

@@ -76,3 +76,29 @@ test("カウンターヒットは入力したときだけ出口になり、未�
   const all = sequence({ results: [result({ kind: "hit_other", nextSituationId: 3 }), result({ kind: "punish_counter", nextSituationId: 2 })] });
   assert.deepEqual(exitsOf(all).map((exit) => exit.kind), ["hit", "punish_counter", "hit_other"]);
 });
+
+test("畳んだ手順より先の分岐と出口を隠し、ほかの道で辿れる手順は残す。未設定の出口だけを隠すこともできる", () => {
+  const situations = [situation({ id: 1 }), situation({ id: 2, advantage: 20 }), situation({ id: 3, advantage: 30 })];
+  const a = sequence({ id: 1, starts: [1], results: [result({ nextSituationId: 2 })] });
+  const b = sequence({ id: 2, starts: [2], results: [result({ nextSituationId: 3 })] });
+  const c = sequence({ id: 3, starts: [3], results: [] });
+  const base = { sequences: [a, b, c], situations, character: "リュウ", resultLabel: label };
+  assert.deepEqual(buildFlow(base).nodes.map((node) => node.id), [1, 2, 3]);
+  const folded = buildFlow({ ...base, collapsed: [1] });
+  assert.deepEqual(folded.nodes.map((node) => [node.id, node.collapsed, node.hiddenCount]), [[1, true, 2]]);
+  assert.deepEqual(folded.stubs, []);
+  // 別の道（始動が重なる手順）で辿れるものは残る
+  const d = sequence({ id: 4, starts: [1], results: [result({ nextSituationId: 3 })] });
+  const viaOther = buildFlow({ ...base, sequences: [a, b, c, d], collapsed: [1] });
+  assert.deepEqual(viaOther.nodes.map((node) => node.id), [1, 4, 3]);
+  // 循環の中で畳んでも、畳んだ手順は残る
+  const x = sequence({ id: 1, starts: [1], results: [result({ nextSituationId: 2 })] });
+  const y = sequence({ id: 2, starts: [2], results: [result({ nextSituationId: 1 })] });
+  assert.deepEqual(buildFlow({ ...base, sequences: [x, y], collapsed: [1] }).nodes.map((node) => node.id), [1]);
+  // 未設定の出口（赤い枠）は、隠しても件数は数える
+  const open = sequence({ id: 9, starts: [1], results: [] });
+  const withUnset = buildFlow({ ...base, sequences: [open], situations });
+  assert.deepEqual([withUnset.stubs.length, withUnset.unsetCount], [1, 1]);
+  const hidden = buildFlow({ ...base, sequences: [open], situations, hideUnset: true });
+  assert.deepEqual([hidden.stubs.length, hidden.unsetCount], [0, 1]);
+});

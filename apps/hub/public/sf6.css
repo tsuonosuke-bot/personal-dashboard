@@ -396,7 +396,12 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 .flow-edge text { fill: var(--muted); font-size: 11px; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; }
 .flow-node { cursor: pointer; }
 .flow-node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
-.flow-node.selected rect { fill: var(--bg-hover); stroke-width: 3; }
+.flow-toggle { cursor: pointer; }
+.flow-toggle rect { fill: var(--bg-hover); stroke: var(--line); stroke-width: 1; }
+.flow-toggle text { fill: var(--ink); font-size: 11px; font-weight: 700; }
+.flow-toggle:hover rect { stroke: var(--accent); }
+.flow-node.folded rect:first-child { stroke-dasharray: 6 3; }
+.flow-node.selected > rect { fill: var(--bg-hover); stroke-width: 3; }
 .flow-node .kind { fill: var(--muted); font-size: 10px; }
 .flow-node .title { fill: var(--ink); font-size: 13px; font-weight: 600; }
 .flow-stub { cursor: pointer; }
