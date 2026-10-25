@@ -345,7 +345,12 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
         `<button type="button" class="next-chip ${fit === "near" ? "near" : ""}" data-goto-sequence="${sequence.id}">${escapeHtml(sequence.title)}</button>`).join("")}</div>` : ""}
       <div class="card-foot">
         <small class="meta">${counts.starts ? `始動の手順 ${counts.starts}件` : "始動の手順なし"}${counts.results ? ` · ここに至る結果 ${counts.results}件` : ""}</small>
-        ${situation.archived ? "" : `<button type="button" class="ghost-button" data-route-situation="${situation.id}" data-character="${escapeHtml(situation.character)}">ルートを見る ›</button>`}
+        ${situation.archived ? "" : `<span class="foot-actions">
+          <button type="button" class="ghost-button" data-add-from-situation="${situation.id}|setplay">＋起き攻め</button>
+          <button type="button" class="ghost-button" data-add-from-situation="${situation.id}|combo">＋コンボ</button>
+          <button type="button" class="ghost-button" data-flow-situation="${situation.id}">フロー ›</button>
+          <button type="button" class="ghost-button" data-route-situation="${situation.id}" data-character="${escapeHtml(situation.character)}">ルートを見る ›</button>
+        </span>`}
       </div>
     </article>`;
   }
