@@ -9,7 +9,7 @@ export interface FlowExit extends PlanResult {}
 export interface FlowRef { sequenceId: number; resultKind: "hit" | "counter_hit" | "punish_counter" | "hit_other" | "guard" | "opponent"; opponentAction: string | null; nextSituationId: number }
 export interface FlowNode { id: number; title: string; startLabel: string; collapsible: boolean; collapsed: boolean; hiddenCount: number; col: number; x: number; y: number; w: number; h: number; loop: boolean }
 export interface FlowEdge extends FlowRef {
-  from: number; to: number; label: string;
+  from: number; to: number; label: string; labels: string[];
   x1: number; y1: number; x2: number; y2: number;
 }
 export interface FlowStub extends FlowRef {

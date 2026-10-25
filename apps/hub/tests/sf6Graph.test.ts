@@ -114,3 +114,19 @@ test("同じ結果に次の状況が複数あれば、それぞれの状況か�
   assert.deepEqual(flow.edges.map((edge) => [edge.from, edge.to, edge.nextSituationId]), [[1, 2, 1], [1, 3, 2]]);
   assert.equal(exitsOf(start).length, 2);
 });
+
+test("同じ手順から同じ手順へ向かう複数の結果は、1本の矢印にまとめて結果名を並べる", () => {
+  const situations = [situation({ id: 1 }), situation({ id: 2, advantage: 20 })];
+  const from = sequence({ id: 1, starts: [], results: [
+    result({ kind: "opponent", opponentAction: "mash", outcome: "win", nextSituationId: 1 }),
+    result({ kind: "opponent", opponentAction: "backdash", outcome: "win", nextSituationId: 1 }),
+    result({ kind: "hit", nextSituationId: 1 }),
+    result({ kind: "guard", nextSituationId: 2 }),
+  ] });
+  const to = sequence({ id: 2, starts: [1], results: [] });
+  const other = sequence({ id: 3, starts: [2], results: [] });
+  const flow = buildFlow({ sequences: [from, to, other], situations, character: "リュウ", resultLabel: label });
+  assert.deepEqual(flow.edges.map((edge) => [edge.from, edge.to, edge.label]), [[1, 2, "hit・backdash・mash"], [1, 3, "guard"]]);
+  // 詳細の「続き」用のつながりは、結果ごとに残る
+  assert.equal(flow.links.length, 4);
+});

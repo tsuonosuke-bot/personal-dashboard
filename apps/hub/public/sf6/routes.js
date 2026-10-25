@@ -52,10 +52,17 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
   }
 
   function flowSvg(flow, selected) {
-    const edges = flow.edges.map((edge) => `<g class="flow-edge">
+    // 同じ手順へ向かう複数の結果は、1本の矢印の上に1行ずつ重ねて並べる（4つ目からは「他N件」）
+    const edgeLines = (edge) => (edge.labels.length > 3 ? [...edge.labels.slice(0, 2), `他${edge.labels.length - 2}件`] : edge.labels);
+    const edges = flow.edges.map((edge) => {
+      const lines = edgeLines(edge);
+      const x = (edge.x1 + edge.x2) / 2;
+      const top = (edge.y1 + edge.y2) / 2 - 4 - (lines.length - 1) * 12;
+      return `<g class="flow-edge">
         <path d="${flowEdgePath(edge)}" marker-end="url(#flowArrow)" />
-        <text x="${(edge.x1 + edge.x2) / 2}" y="${(edge.y1 + edge.y2) / 2 - 4}" text-anchor="middle">${escapeHtml(edge.label)}</text>
-      </g>`).join("");
+        <text text-anchor="middle">${lines.map((line, index) => `<tspan x="${x}" y="${top + index * 12}">${escapeHtml(clip(line, 8))}</tspan>`).join("")}</text><title>${escapeHtml(edge.labels.join("・"))}</title>
+      </g>`;
+    }).join("");
     const stubs = flow.stubs.map((stub) => {
       if (stub.type === "loop") {
         const loopText = `${stub.label} ↩ ${stub.targetTitle}`;
