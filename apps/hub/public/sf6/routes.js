@@ -41,6 +41,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       near: false,
       selected: null,
       picking: null,
+      linking: null,
     });
   }
 
@@ -89,7 +90,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
         && (edge.opponentAction || "") === (exit.opponentAction || ""));
       let tail = "";
       if (!next) tail = `<button type="button" class="ghost-button" data-flow-stub="${ref}">次の状況を選ぶ</button>`;
-      else tail = `<span class="next-row">${followers.map((edge) => gotoChip(edge.to, titles.get(edge.to) || "", edge.fit === "near")).join("")}<button type="button" class="ghost-button" data-add-from-situation="${next.id}">＋パーツ</button><button type="button" class="ghost-button" data-flow-stub="${ref}">状況を変える</button></span>`;
+      else tail = `<span class="next-row">${followers.map((edge) => gotoChip(edge.to, titles.get(edge.to) || "", edge.fit === "near")).join("")}<button type="button" class="ghost-button" data-flow-link="${next.id}">${followers.length ? "続きを足す" : "続きを選ぶ"}</button><button type="button" class="ghost-button" data-flow-stub="${ref}">状況を変える</button></span>`;
       return `<li><b>${escapeHtml(flowLabel(exit))}</b> → ${next ? escapeHtml(situationText(next)) : '<span class="unset">未設定</span>'} ${tail}</li>`;
     }).join("");
     return `<article class="card flow-detail">
@@ -108,6 +109,10 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
     if (!characters.includes(sheet.character)) sheet.character = characters[0] || "";
     if (sheet.picking) {
       renderFlowPicker();
+      return;
+    }
+    if (sheet.linking) {
+      renderFlowLink();
       return;
     }
     const byId = situationsById();
@@ -133,6 +138,43 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
         ? `<p class="flow-note">${flow.unsetCount ? `次が未設定の出口が${flow.unsetCount}件あります。点線の枠を押すと、次の状況を選べます。` : "未設定の出口はありません。"}</p>${flowSvg(flow, selected?.id)}${selected ? "" : '<p class="flow-note">箱を押すと、前後のパーツへ移ったり、出口から次のパーツを追加したりできます。</p>'}`
         : empty(sheet.character ? "このキャラ・始点から辿れるパーツはありません。上の「＋パーツを追加」で作れます" : "パーツがまだありません。上の「＋パーツを追加」で作れます")}
       ${selected && flow.nodes.some((node) => node.id === selected.id) ? flowDetailHtml(selected, flow) : ""}`;
+  }
+
+  /** 続きのパーツがない状況の画面。上の「＋新しいパーツを追加」で追加画面へ、下の一覧から既存のパーツを選ぶと、その状況を始動に足す。 */
+  function renderFlowLink() {
+    const { character, linking } = state.sheet;
+    const next = situationsById().get(linking.situationId);
+    if (!next) {
+      state.sheet.linking = null;
+      renderFlow();
+      return;
+    }
+    const startsOf = (sequence) => sequence.starts.map((id) => situationsById().get(id)).filter(Boolean).map((situation) => situationText(situation)).join(" ／ ");
+    const candidates = state.data.sequences.filter((sequence) => sequence.character === character && !sequence.archived && !sequence.starts.includes(next.id));
+    const row = (sequence) => `<button type="button" class="sheet-row" data-flow-attach="${sequence.id}"><span>${escapeHtml(sequence.title)}<small>始動：${escapeHtml(startsOf(sequence) || "なし")}</small></span><small>この状況でも使う</small></button>`;
+    els.sheetBody.innerHTML = `
+      <p class="flow-note"><b>${escapeHtml(situationText(next))}</b> から始めるパーツを選びます。</p>
+      <div class="flow-controls">
+        <button type="button" class="ghost-button" data-flow-cancel>← 戻る</button>
+        <button type="button" class="primary-button" data-flow-new="${next.id}">＋新しいパーツを追加</button>
+      </div>
+      <h3 class="sheet-title">既存のパーツ（${escapeHtml(character)}）</h3>
+      ${candidates.map(row).join("") || empty("選べる既存のパーツはありません。上の「＋新しいパーツを追加」で作れます")}`;
+  }
+
+  /** 既存のパーツの始動に、この状況を足す（12件まで）。 */
+  async function attachToSituation(sequenceId, situationId) {
+    const sequence = findSequence(sequenceId);
+    if (!sequence) return;
+    if (sequence.starts.length >= 12) {
+      showToast("始動の状況は12件までです。");
+      return;
+    }
+    if (await patch("sequences", sequence, { starts: [...sequence.starts, situationId] }, "始動の状況に足しました") && state.sheet?.type === "flow") {
+      state.sheet.linking = null;
+      state.sheet.selected = sequence.id;
+      renderSheet();
+    }
   }
 
   /** 出口の「次の状況」を選ぶ画面。状況ごとに、そこから始まる手順の数を出す。 */
@@ -325,5 +367,5 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
     }
   }
 
-  return { openSheet, openFlow, setFlowNext, newSequencePreset, situationSequencePreset, closeSheet, renderSheet, openRoute, addTrigger };
+  return { openSheet, openFlow, setFlowNext, attachToSituation, newSequencePreset, situationSequencePreset, closeSheet, renderSheet, openRoute, addTrigger };
 }

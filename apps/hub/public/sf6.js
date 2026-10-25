@@ -223,7 +223,7 @@ const { WIDE_FRAMES, renderPunishPicker, loadOpponentMoves, applyOpponentMove, l
   selectTab: (...args) => selectTab(...args)
 });
 
-const { openSheet, openFlow, setFlowNext, newSequencePreset, situationSequencePreset, closeSheet, renderSheet, openRoute, addTrigger } = createSf6Routes({
+const { openSheet, openFlow, setFlowNext, attachToSituation, newSequencePreset, situationSequencePreset, closeSheet, renderSheet, openRoute, addTrigger } = createSf6Routes({
   state,
   els,
   resultLabel: (...args) => resultLabel(...args),
@@ -530,10 +530,16 @@ els.sheetBody.addEventListener("click", (event) => {
     const { startSituationId, character } = state.sheet;
     const start = startSituationId === null ? null : state.data.situations.find((situation) => situation.id === startSituationId);
     openModal("sequences", null, { ...(character ? { character } : {}), starts: start ? [start.id] : [] });
-  } else if (stub?.dataset.flowFrom) {
-    // 次の状況が決まっていて続きのパーツがない出口は、その状況から始まるパーツをそのまま追加する
-    const next = find("situations", stub.dataset.flowFrom);
+  } else if (stub?.dataset.flowFrom || event.target.closest("[data-flow-link]")) {
+    // 次の状況が決まっている出口は、その状況から始めるパーツを選ぶ画面を開く（追加は画面上部のボタン）
+    state.sheet.linking = { situationId: Number(stub?.dataset.flowFrom ?? event.target.closest("[data-flow-link]").dataset.flowLink) };
+    renderSheet();
+    els.sheet.querySelector(".sheet").scrollTop = 0;
+  } else if (event.target.closest("[data-flow-new]")) {
+    const next = find("situations", event.target.closest("[data-flow-new]").dataset.flowNew);
     openModal("sequences", null, situationSequencePreset({ ...next, character: next.character ?? state.sheet.character ?? "" }));
+  } else if (event.target.closest("[data-flow-attach]")) {
+    attachToSituation(Number(event.target.closest("[data-flow-attach]").dataset.flowAttach), state.sheet.linking.situationId);
   } else if (stub) {
     const [sequenceId, resultKind, opponentAction] = stub.dataset.flowStub.split("|");
     state.sheet.picking = { sequenceId: Number(sequenceId), resultKind, opponentAction: opponentAction || null };
@@ -546,6 +552,7 @@ els.sheetBody.addEventListener("click", (event) => {
   } else if (pick) setFlowNext(state.sheet.picking, Number(pick.dataset.flowPick));
   else if (event.target.closest("[data-flow-cancel]")) {
     state.sheet.picking = null;
+    state.sheet.linking = null;
     renderSheet();
   }
 });
@@ -560,6 +567,7 @@ els.sheetBody.addEventListener("change", (event) => {
   if (state.sheet?.type !== "flow") return;
   if (event.target.matches("[data-flow-character]")) {
     state.sheet.character = event.target.value;
+    state.sheet.linking = null;
     state.sheet.startSituationId = null;
     state.sheet.selected = null;
   } else if (event.target.matches("[data-flow-start]")) state.sheet.startSituationId = event.target.value === "" ? null : Number(event.target.value);
