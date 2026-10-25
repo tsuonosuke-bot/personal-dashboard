@@ -687,7 +687,6 @@ els.deleteConfirm.addEventListener("click", async (event) => {
 els.editForm.addEventListener("submit", submitModal);
 els.modalClose.addEventListener("click", closeModal);
 els.cancelButton.addEventListener("click", closeModal);
-els.editModal.addEventListener("click", (event) => { if (event.target === els.editModal) closeModal(); });
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   if (!els.editModal.hidden) closeModal();
