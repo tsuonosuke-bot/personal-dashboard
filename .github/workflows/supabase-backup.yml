@@ -5,9 +5,19 @@ on:
     # 毎週月曜 3:17 JST
     - cron: "17 18 * * 0"
   workflow_dispatch:
+    inputs:
+      approved_ops_sha:
+        description: "Reviewed one-off performance release operations commit"
+        required: true
+        type: string
 
 permissions:
   contents: read
+
+env:
+  SUPABASE_TELEMETRY_DISABLED: "1"
+  DO_NOT_TRACK: "1"
+  SUPABASE_NO_KEYRING: "1"
 
 concurrency:
   group: supabase-backup
@@ -20,7 +30,7 @@ jobs:
     steps:
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.117.0
 
       - name: Dump roles, schema and data
         env:
@@ -58,5 +68,64 @@ jobs:
         with:
           name: ${{ env.BACKUP_NAME }}
           path: ${{ env.BACKUP_NAME }}.tar.gz.gpg
+          retention-days: 90
+          if-no-files-found: error
+
+  performance-release:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'tsuonosuke-bot/personal-dashboard' &&
+      github.ref == 'refs/heads/claude/performance-release-ops-20261026'
+    needs: backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: Run reviewed performance release phase
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node .release/performance-20261026/ci-runner.mjs --bundle .release/performance-20261026
+      - name: Encrypt private verification evidence
+        if: always()
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          if [ ! -d private-output ]; then
+            exit 0
+          fi
+          if [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::Private evidence encryption is unavailable"
+            exit 1
+          fi
+          tar -czf performance-private.tar.gz -C private-output .
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --symmetric --cipher-algo AES256 \
+            -o performance-private.tar.gz.gpg performance-private.tar.gz
+          rm -f performance-private.tar.gz
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-release-result-${{ github.sha }}
+          path: |
+            result-output/release-result.json
+            result-output/generated-database.types.ts
+          retention-days: 14
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always() && hashFiles('performance-private.tar.gz.gpg') != ''
+        with:
+          name: performance-release-private-${{ github.sha }}
+          path: performance-private.tar.gz.gpg
           retention-days: 90
           if-no-files-found: error

@@ -1,0 +1,1282 @@
+{
+  "format": "performance-release-verification-v1",
+  "sourceCommit": "0e74c32570dd61677f87050b1605f4a4306242af",
+  "generatedAt": "2026-10-26T05:28:52.131Z",
+  "migrations": [
+    {
+      "path": "apps/knowledge/supabase/migrations/20261026035236_performance_batch_writes.sql",
+      "version": "20261026035236",
+      "name": "performance_batch_writes",
+      "fileSha256": "9a5101ce3384a810415d1e9b7018ccccfda50f40d81b3405053996c211223821",
+      "sqlLfSha256": "9a5101ce3384a810415d1e9b7018ccccfda50f40d81b3405053996c211223821",
+      "bytes": 8076
+    },
+    {
+      "path": "apps/knowledge/supabase/migrations/20261026035400_theme_material_scope.sql",
+      "version": "20261026035400",
+      "name": "theme_material_scope",
+      "fileSha256": "153093288ad7a183a015d167f01f8b095acd44e2a1498c628a8e74eab276165d",
+      "sqlLfSha256": "8b67ab90080756a795a0d5191e77f9e5a005474ef9bc89e373e09686efc48aba",
+      "bytes": 5320
+    },
+    {
+      "path": "apps/finance/supabase/migrations/20261026035600_finance_read_models.sql",
+      "version": "20261026035600",
+      "name": "finance_read_models",
+      "fileSha256": "7495cd0f42b96be1debb4e6ab59403b84ae28c62daeaa4c0a86ed0b0704c2188",
+      "sqlLfSha256": "7495cd0f42b96be1debb4e6ab59403b84ae28c62daeaa4c0a86ed0b0704c2188",
+      "bytes": 9606
+    },
+    {
+      "path": "apps/knowledge/supabase/migrations/20261026040000_learning_read_models.sql",
+      "version": "20261026040000",
+      "name": "learning_read_models",
+      "fileSha256": "2311385ae2063e8d5fd5a95d1bc846ecc08b96db6e9911f74c052078d264c5de",
+      "sqlLfSha256": "2311385ae2063e8d5fd5a95d1bc846ecc08b96db6e9911f74c052078d264c5de",
+      "bytes": 10804
+    },
+    {
+      "path": "apps/hub/supabase/migrations/20261026040132_hub_local_summary.sql",
+      "version": "20261026040132",
+      "name": "hub_local_summary",
+      "fileSha256": "6a1d692b3103538a08b7daabb2489e8626d0d0076a7d560eb1c6e0012ba0d79e",
+      "sqlLfSha256": "6a1d692b3103538a08b7daabb2489e8626d0d0076a7d560eb1c6e0012ba0d79e",
+      "bytes": 3036
+    },
+    {
+      "path": "apps/hub/supabase/migrations/20261026040133_project_read_model.sql",
+      "version": "20261026040133",
+      "name": "project_read_model",
+      "fileSha256": "7a374f9f3dfe978d01ae8cb40a4bb556b9d252fe06e60003befb41f473e4731d",
+      "sqlLfSha256": "7a374f9f3dfe978d01ae8cb40a4bb556b9d252fe06e60003befb41f473e4731d",
+      "bytes": 11917
+    },
+    {
+      "path": "apps/hub/supabase/migrations/20261026040500_idea_read_model.sql",
+      "version": "20261026040500",
+      "name": "idea_read_model",
+      "fileSha256": "88ed7c495a7f278b1297c151381ee93aca9c97b424ddb115b2ba6082a5a1f482",
+      "sqlLfSha256": "88ed7c495a7f278b1297c151381ee93aca9c97b424ddb115b2ba6082a5a1f482",
+      "bytes": 8636
+    },
+    {
+      "path": "apps/finance/supabase/migrations/20261026041122_bulk_expense_categories.sql",
+      "version": "20261026041122",
+      "name": "bulk_expense_categories",
+      "fileSha256": "4d007cb590b7e39927bb062bea964cf021bc89078183a09f0c1c2353fdaa42eb",
+      "sqlLfSha256": "4d007cb590b7e39927bb062bea964cf021bc89078183a09f0c1c2353fdaa42eb",
+      "bytes": 4908
+    }
+  ],
+  "functions": [
+    {
+      "signature": "public.add_insight_group_members(bigint,bigint[],timestamp with time zone)",
+      "name": "add_insight_group_members",
+      "arguments": "p_group_id bigint, p_insight_ids bigint[], p_expected_updated_at timestamp with time zone",
+      "identity_arguments": "p_group_id bigint, p_insight_ids bigint[], p_expected_updated_at timestamp with time zone",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_group_id",
+        "p_insight_ids",
+        "p_expected_updated_at"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 0,
+      "defaults": null,
+      "security_definer": false,
+      "volatility": "v",
+      "input_types": [
+        "bigint",
+        "bigint[]",
+        "timestamp with time zone"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "d8dd1e822123f1a562849f4c9013283af154858eb26fa44d232ff62f54968c65",
+      "language": "plpgsql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.attach_review_generation_jobs(bigint)",
+      "name": "attach_review_generation_jobs",
+      "arguments": "p_run_id bigint",
+      "identity_arguments": "p_run_id bigint",
+      "returns": "void",
+      "argument_names": [
+        "p_run_id"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 0,
+      "defaults": null,
+      "security_definer": false,
+      "volatility": "v",
+      "input_types": [
+        "bigint"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "214f0890c8cac74a8f039028a55aa3956b008562bf2039619b1024444fe92ffd",
+      "language": "sql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.bulk_categorize_expenses(text,jsonb)",
+      "name": "bulk_categorize_expenses",
+      "arguments": "p_category text, p_items jsonb",
+      "identity_arguments": "p_category text, p_items jsonb",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_category",
+        "p_items"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 0,
+      "defaults": null,
+      "security_definer": false,
+      "volatility": "v",
+      "input_types": [
+        "text",
+        "jsonb"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "2af439142efa13835b308c9ec74a7004c91f815d48b8fa543a5a4a875f2075bb",
+      "language": "plpgsql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.claim_relearning_generation()",
+      "name": "claim_relearning_generation",
+      "arguments": "",
+      "identity_arguments": "",
+      "returns": "bigint",
+      "argument_names": null,
+      "argument_modes": null,
+      "default_argument_count": 0,
+      "defaults": null,
+      "security_definer": false,
+      "volatility": "v",
+      "input_types": [],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "cfb4d03a9c2ad9e0270518aec032b43577875cd0c9f62c7a8605d42ae8860f42",
+      "language": "plpgsql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.finish_review_generation_jobs(bigint,boolean)",
+      "name": "finish_review_generation_jobs",
+      "arguments": "p_run_id bigint, p_succeeded boolean",
+      "identity_arguments": "p_run_id bigint, p_succeeded boolean",
+      "returns": "void",
+      "argument_names": [
+        "p_run_id",
+        "p_succeeded"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 0,
+      "defaults": null,
+      "security_definer": false,
+      "volatility": "v",
+      "input_types": [
+        "bigint",
+        "boolean"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "5a8b9a3aa96077d2ab0a51bffd81a40c0d18780c76e17a2145cb0bf0cd2085b2",
+      "language": "sql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.get_finance_expense_page(date,text[],text,text,text,date,date,text,numeric,numeric,text,boolean,integer,integer,boolean)",
+      "name": "get_finance_expense_page",
+      "arguments": "p_month date, p_categories text[] DEFAULT NULL::text[], p_category_mode text DEFAULT 'include'::text, p_payer text DEFAULT NULL::text, p_query text DEFAULT ''::text, p_from date DEFAULT NULL::date, p_to date DEFAULT NULL::date, p_type text DEFAULT 'all'::text, p_amount_min numeric DEFAULT NULL::numeric, p_amount_max numeric DEFAULT NULL::numeric, p_sort text DEFAULT 'newest'::text, p_voided boolean DEFAULT false, p_limit integer DEFAULT 50, p_offset integer DEFAULT 0, p_count boolean DEFAULT true",
+      "identity_arguments": "p_month date, p_categories text[], p_category_mode text, p_payer text, p_query text, p_from date, p_to date, p_type text, p_amount_min numeric, p_amount_max numeric, p_sort text, p_voided boolean, p_limit integer, p_offset integer, p_count boolean",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_month",
+        "p_categories",
+        "p_category_mode",
+        "p_payer",
+        "p_query",
+        "p_from",
+        "p_to",
+        "p_type",
+        "p_amount_min",
+        "p_amount_max",
+        "p_sort",
+        "p_voided",
+        "p_limit",
+        "p_offset",
+        "p_count"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 14,
+      "defaults": "NULL::text[], 'include'::text, NULL::text, ''::text, NULL::date, NULL::date, 'all'::text, NULL::numeric, NULL::numeric, 'newest'::text, false, 50, 0, true",
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "date",
+        "text[]",
+        "text",
+        "text",
+        "text",
+        "date",
+        "date",
+        "text",
+        "numeric",
+        "numeric",
+        "text",
+        "boolean",
+        "integer",
+        "integer",
+        "boolean"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "4cb5563a8b4a6e8788895ed1fdd0015219e7bb8b1405a7acd30cf0a450327ab2",
+      "language": "plpgsql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.get_finance_hub_summary(date)",
+      "name": "get_finance_hub_summary",
+      "arguments": "p_today date",
+      "identity_arguments": "p_today date",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_today"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 0,
+      "defaults": null,
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "date"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "89141441c29fb2fb068cef4b17b55ce9e6e5f3b9eda2c2cf20ee861f2b87b368",
+      "language": "sql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.get_finance_overview(date,text[],text,text)",
+      "name": "get_finance_overview",
+      "arguments": "p_month date, p_categories text[] DEFAULT NULL::text[], p_category_mode text DEFAULT 'include'::text, p_payer text DEFAULT NULL::text",
+      "identity_arguments": "p_month date, p_categories text[], p_category_mode text, p_payer text",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_month",
+        "p_categories",
+        "p_category_mode",
+        "p_payer"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 3,
+      "defaults": "NULL::text[], 'include'::text, NULL::text",
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "date",
+        "text[]",
+        "text",
+        "text"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "fcf9c2fd1d7a59e3d283b49d978d2f80c75517e88fdb41166be195d3122df230",
+      "language": "plpgsql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.get_hub_local_summary(text,date)",
+      "name": "get_hub_local_summary",
+      "arguments": "p_source text, p_today date",
+      "identity_arguments": "p_source text, p_today date",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_source",
+        "p_today"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 0,
+      "defaults": null,
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "text",
+        "date"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "8a4e2cc1edcc81ddd0bd85d1cc77dd59c5e1feb13a80c639cdebfbbbde2760d7",
+      "language": "plpgsql",
+      "config": [
+        "search_path=public"
+      ]
+    },
+    {
+      "signature": "public.get_idea_read_model(text,text,text,text,text,integer,integer,bigint,integer,date)",
+      "name": "get_idea_read_model",
+      "arguments": "p_view text DEFAULT 'inbox'::text, p_status text DEFAULT 'pending'::text, p_search text DEFAULT ''::text, p_filter text DEFAULT ''::text, p_category text DEFAULT ''::text, p_offset integer DEFAULT 0, p_limit integer DEFAULT 50, p_id bigint DEFAULT NULL::bigint, p_route_offset integer DEFAULT 0, p_today date DEFAULT ((now() AT TIME ZONE 'Asia/Tokyo'::text))::date",
+      "identity_arguments": "p_view text, p_status text, p_search text, p_filter text, p_category text, p_offset integer, p_limit integer, p_id bigint, p_route_offset integer, p_today date",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_view",
+        "p_status",
+        "p_search",
+        "p_filter",
+        "p_category",
+        "p_offset",
+        "p_limit",
+        "p_id",
+        "p_route_offset",
+        "p_today"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 10,
+      "defaults": "'inbox'::text, 'pending'::text, ''::text, ''::text, ''::text, 0, 50, NULL::bigint, 0, ((now() AT TIME ZONE 'Asia/Tokyo'::text))::date",
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "integer",
+        "integer",
+        "bigint",
+        "integer",
+        "date"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "361163ce446920c656fc7e0dd2381667501c31624d7314f53f8ea2fc2dd19d45",
+      "language": "sql",
+      "config": [
+        "search_path=public"
+      ]
+    },
+    {
+      "signature": "public.get_inbox_triage_summary(bigint)",
+      "name": "get_inbox_triage_summary",
+      "arguments": "p_inbox_id bigint",
+      "identity_arguments": "p_inbox_id bigint",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_inbox_id"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 0,
+      "defaults": null,
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "bigint"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "d6877286e068a382d9fc95ddfcc3e584975f2a79ded4da654ced370a06cef5f0",
+      "language": "sql",
+      "config": [
+        "search_path=public"
+      ]
+    },
+    {
+      "signature": "public.get_knowledge_hub_summary(date)",
+      "name": "get_knowledge_hub_summary",
+      "arguments": "p_today date DEFAULT jst_today()",
+      "identity_arguments": "p_today date",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_today"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 1,
+      "defaults": "jst_today()",
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "date"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "530a1c4b5887cb6f7593596d9ce1f59309901257a3873a564543479f75ac66ee",
+      "language": "sql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.get_learning_log_page(integer,integer,date,text,text,boolean,uuid,boolean,bigint[])",
+      "name": "get_learning_log_page",
+      "arguments": "p_limit integer DEFAULT 30, p_offset integer DEFAULT 0, p_from date DEFAULT NULL::date, p_category text DEFAULT NULL::text, p_verdict text DEFAULT NULL::text, p_unconfirmed boolean DEFAULT false, p_knowledge_id uuid DEFAULT NULL::uuid, p_misses boolean DEFAULT false, p_ids bigint[] DEFAULT NULL::bigint[]",
+      "identity_arguments": "p_limit integer, p_offset integer, p_from date, p_category text, p_verdict text, p_unconfirmed boolean, p_knowledge_id uuid, p_misses boolean, p_ids bigint[]",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_limit",
+        "p_offset",
+        "p_from",
+        "p_category",
+        "p_verdict",
+        "p_unconfirmed",
+        "p_knowledge_id",
+        "p_misses",
+        "p_ids"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 9,
+      "defaults": "30, 0, NULL::date, NULL::text, NULL::text, false, NULL::uuid, false, NULL::bigint[]",
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "integer",
+        "integer",
+        "date",
+        "text",
+        "text",
+        "boolean",
+        "uuid",
+        "boolean",
+        "bigint[]"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "f4cf0e075a57d064cdeb8f4581c1ae5ab2e058d10e34ffa3322ba0dadc876438",
+      "language": "plpgsql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.get_learning_summary(date)",
+      "name": "get_learning_summary",
+      "arguments": "p_today date DEFAULT jst_today()",
+      "identity_arguments": "p_today date",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_today"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 1,
+      "defaults": "jst_today()",
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "date"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "a8153853bb619919cd73809278dbe42aff2206d4102b6d4fa7b1f52e00ef8e7f",
+      "language": "sql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.get_project_read_model(text,text,integer,integer,bigint,integer,integer,integer,date,boolean,text)",
+      "name": "get_project_read_model",
+      "arguments": "p_view text DEFAULT 'active'::text, p_search text DEFAULT ''::text, p_offset integer DEFAULT 0, p_limit integer DEFAULT 50, p_project_id bigint DEFAULT NULL::bigint, p_history_offset integer DEFAULT 0, p_history_limit integer DEFAULT 10, p_item_offset integer DEFAULT 0, p_today date DEFAULT ((now() AT TIME ZONE 'Asia/Tokyo'::text))::date, p_attention boolean DEFAULT false, p_sort text DEFAULT 'recommended'::text",
+      "identity_arguments": "p_view text, p_search text, p_offset integer, p_limit integer, p_project_id bigint, p_history_offset integer, p_history_limit integer, p_item_offset integer, p_today date, p_attention boolean, p_sort text",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_view",
+        "p_search",
+        "p_offset",
+        "p_limit",
+        "p_project_id",
+        "p_history_offset",
+        "p_history_limit",
+        "p_item_offset",
+        "p_today",
+        "p_attention",
+        "p_sort"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 11,
+      "defaults": "'active'::text, ''::text, 0, 50, NULL::bigint, 0, 10, 0, ((now() AT TIME ZONE 'Asia/Tokyo'::text))::date, false, 'recommended'::text",
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "text",
+        "text",
+        "integer",
+        "integer",
+        "bigint",
+        "integer",
+        "integer",
+        "integer",
+        "date",
+        "boolean",
+        "text"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "86caf1609178ef0cc2716c444522e0815d94064f6363a05d2beca1484304f685",
+      "language": "sql",
+      "config": [
+        "search_path=public"
+      ]
+    },
+    {
+      "signature": "public.get_scheduled_action_counts()",
+      "name": "get_scheduled_action_counts",
+      "arguments": "",
+      "identity_arguments": "",
+      "returns": "jsonb",
+      "argument_names": null,
+      "argument_modes": null,
+      "default_argument_count": 0,
+      "defaults": null,
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "e8734d5acf4af44d747e0b149650b565b6b2e67da0666e64e862cbc7977cfcb4",
+      "language": "sql",
+      "config": [
+        "search_path=public"
+      ]
+    },
+    {
+      "signature": "public.learning_log_matches(date,text,text,boolean,uuid)",
+      "name": "learning_log_matches",
+      "arguments": "p_from date DEFAULT NULL::date, p_category text DEFAULT NULL::text, p_verdict text DEFAULT NULL::text, p_unconfirmed boolean DEFAULT false, p_knowledge_id uuid DEFAULT NULL::uuid",
+      "identity_arguments": "p_from date, p_category text, p_verdict text, p_unconfirmed boolean, p_knowledge_id uuid",
+      "returns": "SETOF quiz_log",
+      "argument_names": [
+        "p_from",
+        "p_category",
+        "p_verdict",
+        "p_unconfirmed",
+        "p_knowledge_id"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 5,
+      "defaults": "NULL::date, NULL::text, NULL::text, false, NULL::uuid",
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "date",
+        "text",
+        "text",
+        "boolean",
+        "uuid"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "367a2801638591bf1c59c5ad6f38af2d0afa51292e4a6da7effd41ccabc85f84",
+      "language": "sql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.list_theme_materials(text,text,integer,double precision)",
+      "name": "list_theme_materials",
+      "arguments": "p_tag text, p_model text, p_per_type integer DEFAULT 8, p_min_similarity double precision DEFAULT 0.65",
+      "identity_arguments": "p_tag text, p_model text, p_per_type integer, p_min_similarity double precision",
+      "returns": "TABLE(source_type text, source_id text, title text, body text, meta text, knowledge_id uuid, entry_date date, similarity double precision, origin text)",
+      "argument_names": [
+        "p_tag",
+        "p_model",
+        "p_per_type",
+        "p_min_similarity",
+        "source_type",
+        "source_id",
+        "title",
+        "body",
+        "meta",
+        "knowledge_id",
+        "entry_date",
+        "similarity",
+        "origin"
+      ],
+      "argument_modes": [
+        "i",
+        "i",
+        "i",
+        "i",
+        "t",
+        "t",
+        "t",
+        "t",
+        "t",
+        "t",
+        "t",
+        "t",
+        "t"
+      ],
+      "default_argument_count": 2,
+      "defaults": "8, 0.65",
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "text",
+        "text",
+        "integer",
+        "double precision"
+      ],
+      "all_argument_types": [
+        "text",
+        "text",
+        "integer",
+        "double precision",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "uuid",
+        "date",
+        "double precision",
+        "text"
+      ],
+      "expectedBeforePresent": true,
+      "bodySha256": "5199b2cbace80a4758048f54ada7d1a535a7dcb09b56bc8942c0ccbec470a450",
+      "language": "sql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.record_project_todo_read_cache(jsonb)",
+      "name": "record_project_todo_read_cache",
+      "arguments": "p_items jsonb",
+      "identity_arguments": "p_items jsonb",
+      "returns": "void",
+      "argument_names": [
+        "p_items"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 0,
+      "defaults": null,
+      "security_definer": false,
+      "volatility": "v",
+      "input_types": [
+        "jsonb"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "8eaddd423afd2ad8a971997d5625c66f41b9c4e7c29c7b9bcfa6d62a9c69d651",
+      "language": "plpgsql",
+      "config": [
+        "search_path=public"
+      ]
+    },
+    {
+      "signature": "public.record_review_grades_batch(jsonb,jsonb)",
+      "name": "record_review_grades_batch",
+      "arguments": "p_grades jsonb, p_errors jsonb DEFAULT '[]'::jsonb",
+      "identity_arguments": "p_grades jsonb, p_errors jsonb",
+      "returns": "TABLE(item_id bigint, recorded boolean, status text, relearning boolean, error text)",
+      "argument_names": [
+        "p_grades",
+        "p_errors",
+        "item_id",
+        "recorded",
+        "status",
+        "relearning",
+        "error"
+      ],
+      "argument_modes": [
+        "i",
+        "i",
+        "t",
+        "t",
+        "t",
+        "t",
+        "t"
+      ],
+      "default_argument_count": 1,
+      "defaults": "'[]'::jsonb",
+      "security_definer": false,
+      "volatility": "v",
+      "input_types": [
+        "jsonb",
+        "jsonb"
+      ],
+      "all_argument_types": [
+        "jsonb",
+        "jsonb",
+        "bigint",
+        "boolean",
+        "text",
+        "boolean",
+        "text"
+      ],
+      "expectedBeforePresent": false,
+      "bodySha256": "2ba12aff79c74796686ffd27373f20c58abbbbdc481d50826faf976efa920013",
+      "language": "plpgsql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.search_archived_knowledge(text,integer,integer)",
+      "name": "search_archived_knowledge",
+      "arguments": "p_search text DEFAULT ''::text, p_limit integer DEFAULT 30, p_offset integer DEFAULT 0",
+      "identity_arguments": "p_search text, p_limit integer, p_offset integer",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_search",
+        "p_limit",
+        "p_offset"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 3,
+      "defaults": "''::text, 30, 0",
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "text",
+        "integer",
+        "integer"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "1a1ade9d54cba75adfe9c4c515027dc3f125ad51d373b76af18e6d04da9840b7",
+      "language": "plpgsql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.snapshot_review_result_ids(date,text,text,boolean)",
+      "name": "snapshot_review_result_ids",
+      "arguments": "p_from date DEFAULT NULL::date, p_category text DEFAULT NULL::text, p_verdict text DEFAULT NULL::text, p_misses boolean DEFAULT false",
+      "identity_arguments": "p_from date, p_category text, p_verdict text, p_misses boolean",
+      "returns": "jsonb",
+      "argument_names": [
+        "p_from",
+        "p_category",
+        "p_verdict",
+        "p_misses"
+      ],
+      "argument_modes": null,
+      "default_argument_count": 4,
+      "defaults": "NULL::date, NULL::text, NULL::text, false",
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "date",
+        "text",
+        "text",
+        "boolean"
+      ],
+      "all_argument_types": [],
+      "expectedBeforePresent": false,
+      "bodySha256": "5d337bf2e017131b2c756d3d9a8bc8c4cdc6f643ecd809832568114698502588",
+      "language": "sql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.theme_material_keys(text,integer,double precision)",
+      "name": "theme_material_keys",
+      "arguments": "p_model text, p_per_type integer DEFAULT 8, p_min_similarity double precision DEFAULT 0.65",
+      "identity_arguments": "p_model text, p_per_type integer, p_min_similarity double precision",
+      "returns": "TABLE(tag text, source_type text, source_id text, similarity double precision, origin text)",
+      "argument_names": [
+        "p_model",
+        "p_per_type",
+        "p_min_similarity",
+        "tag",
+        "source_type",
+        "source_id",
+        "similarity",
+        "origin"
+      ],
+      "argument_modes": [
+        "i",
+        "i",
+        "i",
+        "t",
+        "t",
+        "t",
+        "t",
+        "t"
+      ],
+      "default_argument_count": 2,
+      "defaults": "8, 0.65",
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "text",
+        "integer",
+        "double precision"
+      ],
+      "all_argument_types": [
+        "text",
+        "integer",
+        "double precision",
+        "text",
+        "text",
+        "text",
+        "double precision",
+        "text"
+      ],
+      "expectedBeforePresent": true,
+      "bodySha256": "95fc0e15558373280136f0fdc8f23bafc0605241cef4d0e5ae874cacda4a31d2",
+      "language": "sql",
+      "config": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "signature": "public.theme_material_keys_for_tag(text,integer,double precision,text)",
+      "name": "theme_material_keys_for_tag",
+      "arguments": "p_model text, p_per_type integer DEFAULT 8, p_min_similarity double precision DEFAULT 0.65, p_tag text DEFAULT NULL::text",
+      "identity_arguments": "p_model text, p_per_type integer, p_min_similarity double precision, p_tag text",
+      "returns": "TABLE(tag text, source_type text, source_id text, similarity double precision, origin text)",
+      "argument_names": [
+        "p_model",
+        "p_per_type",
+        "p_min_similarity",
+        "p_tag",
+        "tag",
+        "source_type",
+        "source_id",
+        "similarity",
+        "origin"
+      ],
+      "argument_modes": [
+        "i",
+        "i",
+        "i",
+        "i",
+        "t",
+        "t",
+        "t",
+        "t",
+        "t"
+      ],
+      "default_argument_count": 3,
+      "defaults": "8, 0.65, NULL::text",
+      "security_definer": false,
+      "volatility": "s",
+      "input_types": [
+        "text",
+        "integer",
+        "double precision",
+        "text"
+      ],
+      "all_argument_types": [
+        "text",
+        "integer",
+        "double precision",
+        "text",
+        "text",
+        "text",
+        "text",
+        "double precision",
+        "text"
+      ],
+      "expectedBeforePresent": false,
+      "bodySha256": "8d598f59e5abf65e98769626ec558c079ab0f0d3e23ae4ef8163eaa8f3aa3cbc",
+      "language": "plpgsql",
+      "config": [
+        "search_path=public, extensions, pg_temp"
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "name": "review_generation_jobs",
+      "columns": [
+        {
+          "ordinal": 1,
+          "name": "item_id",
+          "type": "bigint",
+          "nullable": false,
+          "default_expression": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "ordinal": 2,
+          "name": "status",
+          "type": "text",
+          "nullable": false,
+          "default_expression": "'pending'::text",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "ordinal": 3,
+          "name": "generation_run_id",
+          "type": "bigint",
+          "nullable": true,
+          "default_expression": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "ordinal": 4,
+          "name": "next_attempt_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default_expression": "now()",
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "ordinal": 5,
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default_expression": "now()",
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "name": "review_generation_jobs_generation_run_id_fkey",
+          "type": "f",
+          "definition": "FOREIGN KEY (generation_run_id) REFERENCES review_batch_runs(id) ON DELETE SET NULL"
+        },
+        {
+          "name": "review_generation_jobs_item_id_fkey",
+          "type": "f",
+          "definition": "FOREIGN KEY (item_id) REFERENCES review_queue(id) ON DELETE CASCADE"
+        },
+        {
+          "name": "review_generation_jobs_pkey",
+          "type": "p",
+          "definition": "PRIMARY KEY (item_id)"
+        },
+        {
+          "name": "review_generation_jobs_status_check",
+          "type": "c",
+          "definition": "CHECK (status = ANY (ARRAY['pending'::text, 'running'::text, 'done'::text]))"
+        }
+      ],
+      "rls": true,
+      "forcedRls": false,
+      "policies": 0,
+      "requiredServicePrivileges": [
+        "SELECT",
+        "INSERT",
+        "UPDATE",
+        "DELETE"
+      ]
+    },
+    {
+      "name": "project_todo_read_cache",
+      "columns": [
+        {
+          "ordinal": 1,
+          "name": "scheduled_action_id",
+          "type": "bigint",
+          "nullable": false,
+          "default_expression": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "ordinal": 2,
+          "name": "todo_updated_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default_expression": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "ordinal": 3,
+          "name": "effective_date",
+          "type": "date",
+          "nullable": false,
+          "default_expression": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "ordinal": 4,
+          "name": "schedule",
+          "type": "jsonb",
+          "nullable": true,
+          "default_expression": null,
+          "identity": "",
+          "generated": ""
+        },
+        {
+          "ordinal": 5,
+          "name": "fetched_at",
+          "type": "timestamp with time zone",
+          "nullable": false,
+          "default_expression": null,
+          "identity": "",
+          "generated": ""
+        }
+      ],
+      "constraints": [
+        {
+          "name": "project_todo_read_cache_pkey",
+          "type": "p",
+          "definition": "PRIMARY KEY (scheduled_action_id)"
+        },
+        {
+          "name": "project_todo_read_cache_scheduled_action_id_fkey",
+          "type": "f",
+          "definition": "FOREIGN KEY (scheduled_action_id) REFERENCES scheduled_actions(id) ON DELETE CASCADE"
+        }
+      ],
+      "rls": true,
+      "forcedRls": false,
+      "policies": 0,
+      "requiredServicePrivileges": [
+        "SELECT",
+        "INSERT",
+        "UPDATE"
+      ]
+    }
+  ],
+  "indexes": [
+    {
+      "name": "expenses_active_page_idx",
+      "table": "expenses",
+      "ddl": "create index if not exists expenses_active_page_idx\n  on public.expenses (transaction_date desc, id desc) where voided_at is null;"
+    },
+    {
+      "name": "review_generation_jobs_pending_idx",
+      "table": "review_generation_jobs",
+      "ddl": "create index review_generation_jobs_pending_idx on public.review_generation_jobs(next_attempt_at) where status <> 'done';"
+    },
+    {
+      "name": "quiz_log_knowledge_answered_idx",
+      "table": "quiz_log",
+      "ddl": "create index if not exists quiz_log_knowledge_answered_idx on public.quiz_log\n  (knowledge_id, (coalesce(answered_at, created_at)) desc, id desc);"
+    },
+    {
+      "name": "quiz_log_learning_log_idx",
+      "table": "quiz_log",
+      "ddl": "create index if not exists quiz_log_learning_log_idx on public.quiz_log(created_at desc, id desc);"
+    },
+    {
+      "name": "quiz_log_first_answer_idx",
+      "table": "quiz_log",
+      "ddl": "create index if not exists quiz_log_first_answer_idx on public.quiz_log(knowledge_id, asked_on, id);"
+    },
+    {
+      "name": "project_actions_project_status_updated_idx",
+      "table": "project_actions",
+      "ddl": "create index if not exists project_actions_project_status_updated_idx on public.project_actions(project_id,status,updated_at desc,id desc);"
+    },
+    {
+      "name": "project_items_project_updated_idx",
+      "table": "project_items",
+      "ddl": "create index if not exists project_items_project_updated_idx on public.project_items(project_id,updated_at desc,id desc);"
+    },
+    {
+      "name": "wants_source_inbox_created_idx",
+      "table": "wants",
+      "ddl": "create index if not exists wants_source_inbox_created_idx on public.wants(source_inbox_id,created_at desc,id desc);"
+    },
+    {
+      "name": "want_routes_want_created_idx",
+      "table": "want_routes",
+      "ddl": "create index if not exists want_routes_want_created_idx on public.want_routes(want_id,created_at desc,id desc);"
+    }
+  ],
+  "cron": [
+    {
+      "name": "review-generate-questions",
+      "schedule": "*/30 * * * *",
+      "active": true
+    },
+    {
+      "name": "review-grade-answers",
+      "schedule": "0 * * * *",
+      "active": true
+    },
+    {
+      "name": "semantic-embeddings",
+      "schedule": "40 * * * *",
+      "active": true
+    },
+    {
+      "name": "calendar-todo-sync",
+      "schedule": "*/15 * * * *",
+      "active": true
+    },
+    {
+      "name": "prune-dashboard-handoff-nonce",
+      "schedule": "20 18 * * *",
+      "active": true
+    }
+  ],
+  "schemaMarkers": {
+    "after": {
+      "financial-dashboard": "20261026041122_bulk_expense_categories",
+      "knowledge-dashboard": "20261026040000_learning_read_models"
+    },
+    "preserveBeforeAfter": "All other app markers, including Hub, must retain their full-row digest."
+  },
+  "history": {
+    "relation": "supabase_migrations.schema_migrations",
+    "columns": "version, name, statements text[]",
+    "before": "All eight target versions absent. Existing history rows outside the target versions preserve count and digest.",
+    "after": "Exactly one row per target version; name equals filename without version prefix/extension; statements contains exactly one complete migration file; SQL LF SHA256 equals expected value.",
+    "canonicalization": "SQL text: join statements with LF, replace CRLF by LF, preserve every other byte including trailing newline. Function body: replace CRLF by LF, trim edge whitespace; SHA256 UTF8."
+  },
+  "preservation": {
+    "tables": [
+      "expenses",
+      "budget_categories",
+      "recurring_expenses",
+      "recurring_expense_occurrences",
+      "knowledge",
+      "quiz_log",
+      "knowledge_mastery_history",
+      "speaking_practice_log",
+      "knowledge_insights",
+      "insight_groups",
+      "insight_group_members",
+      "knowledge_tag_vocabulary",
+      "knowledge_auto_tags",
+      "knowledge_auto_tag_state",
+      "theme_material_exclusions",
+      "question_material_exclusions",
+      "question_embeddings",
+      "semantic_embeddings",
+      "insight_analysis_cache",
+      "daily_journal",
+      "idea_inbox",
+      "wants",
+      "want_routes",
+      "writing_topics",
+      "habits",
+      "habit_logs",
+      "focus_items",
+      "projects",
+      "project_actions",
+      "project_items",
+      "project_milestones",
+      "project_action_todos",
+      "scheduled_actions",
+      "scheduled_action_schedule_history",
+      "inbox_sf6_routes",
+      "sf6_drills",
+      "sf6_drill_logs",
+      "sf6_matches",
+      "sf6_situations",
+      "sf6_sequences",
+      "sf6_sequence_starts",
+      "sf6_sequence_results",
+      "sf6_move_sets",
+      "sf6_moves",
+      "personal_profile",
+      "integration_connections",
+      "review_queue",
+      "review_batch_runs",
+      "review_generation_holds",
+      "review_ai_batches"
+    ],
+    "algorithm": "SHA256(concat(sorted(SHA256(UTF8(to_jsonb(whole_row)::text))))) with UTC, ISO/YMD and extra_float_digits=3; duplicates retained; empty digest is SHA256(empty string).",
+    "rule": "Every existing table is present; before and after count/digest equal. These eight migrations do not update existing domain rows. Any difference requires attribution to concurrent application/cron activity before declaring preservation."
+  },
+  "expectedChecks": {
+    "before": [
+      "requiredExtensionsPresent",
+      "roleConfigurationMatches",
+      "allExistingTablesPresent",
+      "allDependenciesPresent",
+      "beforeObjectPresenceMatches",
+      "beforeHistoryAbsent",
+      "expectedCronActive"
+    ],
+    "after": [
+      "requiredExtensionsPresent",
+      "roleConfigurationMatches",
+      "allExistingTablesPresent",
+      "allDependenciesPresent",
+      "postFunctionsMatch",
+      "postTablesMatch",
+      "postIndexesValid",
+      "postHistoryMatches",
+      "postMarkersMatch",
+      "expectedCronActive"
+    ]
+  },
+  "stateRules": {
+    "alwaysZero": [
+      "operationalState.review.activeQueueDuplicateKnowledge",
+      "operationalState.review.duplicateQuizLogQueueIds",
+      "operationalState.links.orphanProjectTodoAction",
+      "operationalState.links.orphanProjectTodo",
+      "operationalState.links.projectsWithMultipleNextActions",
+      "operationalState.links.orphanGroupInsight"
+    ],
+    "afterZero": [
+      "operationalState.generation_jobs.invalidStatus",
+      "operationalState.generation_jobs.orphanQueueItem",
+      "operationalState.generation_jobs.orphanRun",
+      "operationalState.todo_cache.orphanTodo",
+      "operationalState.todo_cache.invalidRequiredFields"
+    ],
+    "observeOnly": [
+      "Cron last-run timestamps/status and failed24h",
+      "Review batch running/staleRunning/failures",
+      "Generation pending/duePending/staleRunning/oldestDuePendingAt",
+      "Cache staleTodoVersion and nullSchedule are permitted by cache invalidation/nullable contract"
+    ],
+    "noJobTrigger": "Verification never calls claim/generate/grade/finish/trigger or net/http functions."
+  },
+  "validation": {
+    "productionAccess": false,
+    "nativeFixtureRestarted": false,
+    "migrationsReapplied": false,
+    "sourceModified": false,
+    "sqlExecution": "Generated from reviewed committed source and prior disposable schema contract; verification SQL itself is checked separately in minimal fresh in-memory scratch data only. See verification-sql-validation.json."
+  },
+  "outputShape": {
+    "verification": {
+      "format": "performance-release-verification-v1",
+      "phase": "before|after",
+      "sourceCommit": "0e74c32570dd61677f87050b1605f4a4306242af",
+      "capturedAt": "UTC timestamp",
+      "environment": {
+        "transactionReadOnly": "on",
+        "isolation": "repeatable read"
+      },
+      "preservation": [
+        {
+          "name": "expenses",
+          "is_new": false,
+          "present": true,
+          "row_count": "integer",
+          "row_digest_sha256": "64 hex chars"
+        }
+      ],
+      "functions": "24 rows",
+      "newTables": "2 rows",
+      "indexes": "9 rows",
+      "historyChecks": "8 rows",
+      "checks": "phase-specific booleans"
+    }
+  }
+}
