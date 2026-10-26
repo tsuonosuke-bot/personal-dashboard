@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "observedOn": "2026-10-26",
+  "environment": "knowledge-db / Production",
+  "sourceCommit": "2b7bf63678939a67de5a6038eb22741f71a14a3d",
+  "historyRows": 111,
+  "baselines": [
+    {
+      "path": "apps/knowledge/supabase/migrations/baseline/allow-choice-quiz-format.sql",
+      "history": {
+        "status": "identified",
+        "version": "20260920023245",
+        "name": "allow_choice_quiz_format",
+        "evidence": "保存されたmigration SQLの制約定義と照合。現在のquiz_log_format_checkも5形式を許可。"
+      },
+      "observedChecks": ["quiz_log_format_check: 一問一答 / 四択 / ソクラテス式 / 記述説明 / 産出"],
+      "differences": []
+    },
+    {
+      "path": "apps/knowledge/supabase/migrations/baseline/disable-anon-access.sql",
+      "history": {
+        "status": "unresolved",
+        "version": null,
+        "name": null,
+        "evidence": "111件の履歴の名前・SQL本文から元スクリプトの適用経路を特定できず。現在の権限確認と過去の実行証明は区別する。"
+      },
+      "observedChecks": [
+        "knowledge / quiz_log: RLS有効、anonのSELECT / INSERT / UPDATE / DELETEは全てfalse"
+      ],
+      "differences": []
+    },
+    {
+      "path": "apps/finance/supabase/migrations/baseline/disable-anon-access.sql",
+      "history": {
+        "status": "unresolved",
+        "version": null,
+        "name": null,
+        "evidence": "111件の履歴の名前・SQL本文から元スクリプトの適用経路を特定できず。現在の権限確認と過去の実行証明は区別する。"
+      },
+      "observedChecks": [
+        "expenses / budget_categories: RLS有効、anonのSELECT / INSERT / UPDATE / DELETEは全てfalse"
+      ],
+      "differences": []
+    },
+    {
+      "path": "apps/finance/supabase/migrations/baseline/expenses-category-not-null.sql",
+      "history": {
+        "status": "identified",
+        "version": "20260920043311",
+        "name": "expenses_category_not_null_with_unclassified_fallback",
+        "evidence": "履歴名と現在のcategory列・補完トリガーを照合。ファイルのバイト一致を示すものではない。"
+      },
+      "observedChecks": [
+        "expenses.category: NOT NULL、既定値97_未分類、expenses_fill_categoryのBEFORE INSERT OR UPDATEトリガー有効"
+      ],
+      "differences": []
+    },
+    {
+      "path": "apps/finance/supabase/migrations/baseline/recurring-expenses.sql",
+      "history": {
+        "status": "unresolved",
+        "version": null,
+        "name": null,
+        "evidence": "初期作成全体の適用履歴を特定できず。後続RPCの履歴を初期定義の適用証明に流用しない。"
+      },
+      "relatedHistory": [
+        {
+          "version": "20261009020520",
+          "name": "recurring_create_without_template",
+          "note": "後続の10引数create RPC。ローカルの202610090001とはversionが異なる。"
+        }
+      ],
+      "observedChecks": [
+        "recurring_expenses / recurring_expense_occurrencesの列・制約を確認。RLS有効、anon/authenticatedのCRUDは全てfalse、service_roleは全てtrue",
+        "現行create / set-active / updateの本体は空白正規化後に一致。next_recurring_dateも本体は一致",
+        "更新RPC（create / materialize / set-active / update）と旧4引数create RPCのEXECUTEはanon/authenticatedでfalse、service_roleでtrue",
+        "日付計算のnext_recurring_dateはanon/authenticated/service_roleの全てでEXECUTEがtrue",
+        "recurring_expenses_id_seqのservice_role USAGE / SELECTはtrue",
+        "materialize-recurring-expenses-jstはactive、10 15 * * *、期待する実行コマンドと一致"
+      ],
+      "differences": [
+        "next_recurring_dateには本番でsearch_pathを空にする設定が追加されている",
+        "materialize_recurring_expensesのconcat_wsは本番で実際のCRLFリテラル、baselineではE'\\n'。このリテラルを正規化すると残りの本体は一致するが、保存する改行値まで同じとはしない",
+        "本番には旧4引数create_recurring_expense_ruleのoverloadが残る",
+        "本番にはsource_expense_idのUNIQUE制約がある。baselineの初期CREATE TABLEには記載がない"
+      ]
+    }
+  ]
+}

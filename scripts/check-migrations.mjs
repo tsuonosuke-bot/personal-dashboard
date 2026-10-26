@@ -2,6 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { resolve, relative } from "node:path";
+import { validateBaselineLedger } from "./migration-baselines.mjs";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const catalog = JSON.parse(
@@ -39,6 +40,10 @@ for (const app of ["hub", "knowledge", "finance"]) {
 for (const key of exceptions.keys()) {
   if (!seen.has(key)) throw new Error(`${key}: historical migration is missing or renamed.`);
 }
+const baselineCount = validateBaselineLedger(
+  catalog,
+  JSON.parse(await readFile(new URL("./migration-baselines.json", import.meta.url), "utf8")),
+);
 console.log(
-  `Migration locations/names and ${seen.size} historical snapshots verified (no DB connection).`,
+  `Migration locations/names, ${seen.size} historical snapshots and ${baselineCount} baseline history assessments verified (offline; no DB connection).`,
 );

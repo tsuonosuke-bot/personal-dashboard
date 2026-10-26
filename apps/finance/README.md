@@ -58,6 +58,14 @@ npm test          # API・認証・入力検証
 npm run preview   # ビルド成果物のプレビュー
 ```
 
+## SQL・適用履歴
+
+SQLは `supabase/migrations/` に置き、新規名はUTCの
+`YYYYMMDDHHmmss_description.sql` とする。既存12桁版は履歴保全の例外。
+`migrations/baseline/` の旧SQLは保管用で、現在のDBに再適用しない。
+履歴の記録・照合は全アプリ共通の[SQLの運用](../../docs/migrations.md)に従う。
+
+
 ## 機能
 
 - 表示月の選択（ドロップダウン・前月／翌月ボタン）

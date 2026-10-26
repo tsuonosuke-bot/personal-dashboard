@@ -1,8 +1,13 @@
 # Supabase migrations
 
 These migrations target the `knowledge-db` Supabase project
-(`plwlxwidpqbunugfxjhp`). Apply them in filename order before deploying an app
-build that depends on them.
+(`plwlxwidpqbunugfxjhp`). New migrations use UTC
+`YYYYMMDDHHmmss_description.sql` (14 digits, lowercase snake_case).
+Follow the shared [migration/history policy](../../../../docs/migrations.md).
+Apply only reviewed, pending migrations after checking the actual DB history and
+cross-app dependencies, before deploying the app build that depends on them.
+The archived `baseline/` files are not pending migrations; never replay them to
+repair missing history. Existing versions and archived SQL remain unchanged.
 
 - `20261022100000_insight_analysis_cache.sql` adds service-role-only storage of
   validated insight analyses keyed by the exact input and analysis policy.

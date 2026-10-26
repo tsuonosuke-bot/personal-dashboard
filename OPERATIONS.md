@@ -43,6 +43,8 @@ SQLの正本は `apps/<app>/supabase/migrations/`。
    入力して読み戻し一致を確認する。失敗時は原因と適用状況を確認してから再実行する。
 5. 列・制約・関数定義・権限を確認し、履歴へ実際のversion/nameを記録する。
    旧SQLの移動だけではDB実行や履歴の書換えは行わない。
+   履歴の正本・SQL Editorでの記録・過去の経路不明時の扱いは
+   [記録方針](docs/migrations.md#履歴の記録方針)に従う。
 6. [DB型の再生成](packages/database-types/README.md)を行い、差分をレビューして型検査する。
    `npm run db:types:check` は認証済み環境でライブ型とのズレを検出する。
    通常CIは保存済み型との整合だけを検査し、DBへ接続しない。
