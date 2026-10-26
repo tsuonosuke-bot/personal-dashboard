@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.17"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -2914,9 +2909,7 @@ export type Database = {
         Returns: number
       }
       attach_review_generation_jobs: {
-        Args: {
-          p_run_id: number
-        }
+        Args: { p_run_id: number }
         Returns: undefined
       }
       begin_review_batch: {
@@ -2924,16 +2917,10 @@ export type Database = {
         Returns: number
       }
       bulk_categorize_expenses: {
-        Args: {
-          p_category: string
-          p_items: Json
-        }
+        Args: { p_category: string; p_items: Json }
         Returns: Json
       }
-      claim_relearning_generation: {
-        Args: never
-        Returns: number | null
-      }
+      claim_relearning_generation: { Args: never; Returns: number }
       claim_review_answers: {
         Args: { p_limit?: number }
         Returns: {
@@ -3119,10 +3106,7 @@ export type Database = {
         Returns: undefined
       }
       finish_review_generation_jobs: {
-        Args: {
-          p_run_id: number
-          p_succeeded: boolean
-        }
+        Args: { p_run_id: number; p_succeeded: boolean }
         Returns: undefined
       }
       get_daily_review_status: {
@@ -3147,51 +3131,43 @@ export type Database = {
       get_database_usage: { Args: never; Returns: Json }
       get_finance_expense_page: {
         Args: {
-          p_amount_max?: number | null
-          p_amount_min?: number | null
-          p_categories?: string[] | null
+          p_amount_max?: number
+          p_amount_min?: number
+          p_categories?: string[]
           p_category_mode?: string
           p_count?: boolean
-          p_from?: string | null
+          p_from?: string
           p_limit?: number
           p_month: string
           p_offset?: number
-          p_payer?: string | null
+          p_payer?: string
           p_query?: string
           p_sort?: string
-          p_to?: string | null
+          p_to?: string
           p_type?: string
           p_voided?: boolean
         }
         Returns: Json
       }
-      get_finance_hub_summary: {
-        Args: {
-          p_today: string
-        }
-        Returns: Json
-      }
+      get_finance_hub_summary: { Args: { p_today: string }; Returns: Json }
       get_finance_overview: {
         Args: {
-          p_categories?: string[] | null
+          p_categories?: string[]
           p_category_mode?: string
           p_month: string
-          p_payer?: string | null
+          p_payer?: string
         }
         Returns: Json
       }
       get_hub_local_summary: {
-        Args: {
-          p_source: string
-          p_today: string
-        }
+        Args: { p_source: string; p_today: string }
         Returns: Json
       }
       get_idea_read_model: {
         Args: {
           p_category?: string
           p_filter?: string
-          p_id?: number | null
+          p_id?: number
           p_limit?: number
           p_offset?: number
           p_route_offset?: number
@@ -3202,38 +3178,23 @@ export type Database = {
         }
         Returns: Json
       }
-      get_inbox_triage_summary: {
-        Args: {
-          p_inbox_id: number
-        }
-        Returns: Json
-      }
-      get_knowledge_hub_summary: {
-        Args: {
-          p_today?: string
-        }
-        Returns: Json
-      }
+      get_inbox_triage_summary: { Args: { p_inbox_id: number }; Returns: Json }
+      get_knowledge_hub_summary: { Args: { p_today?: string }; Returns: Json }
       get_learning_log_page: {
         Args: {
-          p_category?: string | null
-          p_from?: string | null
-          p_ids?: number[] | null
-          p_knowledge_id?: string | null
+          p_category?: string
+          p_from?: string
+          p_ids?: number[]
+          p_knowledge_id?: string
           p_limit?: number
           p_misses?: boolean
           p_offset?: number
           p_unconfirmed?: boolean
-          p_verdict?: string | null
+          p_verdict?: string
         }
         Returns: Json
       }
-      get_learning_summary: {
-        Args: {
-          p_today?: string
-        }
-        Returns: Json
-      }
+      get_learning_summary: { Args: { p_today?: string }; Returns: Json }
       get_project_read_model: {
         Args: {
           p_attention?: boolean
@@ -3242,7 +3203,7 @@ export type Database = {
           p_item_offset?: number
           p_limit?: number
           p_offset?: number
-          p_project_id?: number | null
+          p_project_id?: number
           p_search?: string
           p_sort?: string
           p_today?: string
@@ -3280,10 +3241,7 @@ export type Database = {
           waiting_grading: number
         }[]
       }
-      get_scheduled_action_counts: {
-        Args: never
-        Returns: Json
-      }
+      get_scheduled_action_counts: { Args: never; Returns: Json }
       get_semantic_index_status: {
         Args: { p_model: string }
         Returns: {
@@ -3340,13 +3298,33 @@ export type Database = {
       jst_today: { Args: never; Returns: string }
       learning_log_matches: {
         Args: {
-          p_category?: string | null
-          p_from?: string | null
-          p_knowledge_id?: string | null
+          p_category?: string
+          p_from?: string
+          p_knowledge_id?: string
           p_unconfirmed?: boolean
-          p_verdict?: string | null
+          p_verdict?: string
         }
-        Returns: Database["public"]["Tables"]["quiz_log"]["Row"][]
+        Returns: {
+          answered_at: string | null
+          asked_on: string
+          attempt_id: string | null
+          confirmed_at: string | null
+          correct_answer: string | null
+          created_at: string
+          explanation: string | null
+          format: string
+          id: number
+          knowledge_id: string
+          note: string | null
+          quality: number
+          question: string | null
+          review_queue_id: number | null
+          schedule_updated: boolean
+          sync_event_id: string | null
+          user_answer: string | null
+          verdict: string
+          was_early: boolean
+        }[]
         SetofOptions: {
           from: "*"
           to: "quiz_log"
@@ -3676,9 +3654,7 @@ export type Database = {
         }[]
       }
       record_project_todo_read_cache: {
-        Args: {
-          p_items: Json
-        }
+        Args: { p_items: Json }
         Returns: undefined
       }
       record_review_grade: {
@@ -3699,12 +3675,9 @@ export type Database = {
         }[]
       }
       record_review_grades_batch: {
-        Args: {
-          p_errors?: Json
-          p_grades: Json
-        }
+        Args: { p_errors?: Json; p_grades: Json }
         Returns: {
-          error: string | null
+          error: string
           item_id: number
           recorded: boolean
           relearning: boolean
@@ -3899,11 +3872,7 @@ export type Database = {
         Returns: number
       }
       search_archived_knowledge: {
-        Args: {
-          p_limit?: number
-          p_offset?: number
-          p_search?: string
-        }
+        Args: { p_limit?: number; p_offset?: number; p_search?: string }
         Returns: Json
       }
       search_semantic: {
@@ -4013,10 +3982,10 @@ export type Database = {
       }
       snapshot_review_result_ids: {
         Args: {
-          p_category?: string | null
-          p_from?: string | null
+          p_category?: string
+          p_from?: string
           p_misses?: boolean
-          p_verdict?: string | null
+          p_verdict?: string
         }
         Returns: Json
       }
@@ -4076,7 +4045,7 @@ export type Database = {
           p_min_similarity?: number
           p_model: string
           p_per_type?: number
-          p_tag?: string | null
+          p_tag?: string
         }
         Returns: {
           origin: string
