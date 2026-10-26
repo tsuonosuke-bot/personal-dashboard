@@ -1,3 +1,5 @@
+共通の開発・マイグレーション・環境変数の手順は [OPERATIONS.md](../../OPERATIONS.md) を参照。
+
 # 家計簿ダッシュボード
 
 Supabaseの `budget_categories` / `expenses` テーブルを使った、自分専用の家計簿ダッシュボードです。
@@ -97,7 +99,7 @@ Supabaseプロジェクト `plwlxwidpqbunugfxjhp` の次のテーブルを参照
 - `GET /api/export` — 全明細をCSVで書き出す。Hubの全体スナップショットは `?format=json` を使用
 - `GET /api/status` — 認証方式、DB接続先、適用migration、最終成功時刻だけを返す
 
-定期登録を使う前、および定期登録の仕様更新後は、Supabase SQL Editorで `supabase/recurring-expenses.sql` を実行します。
+定期登録の変更は番号付きの新しいmigrationで適用します。`supabase/migrations/baseline/recurring-expenses.sql` は初期定義の保管用で、既存環境へ再適用しません。新規環境・復旧時も現在のスキーマと後続migrationをレビューし、必要な定義だけを準備します。
 生成履歴には `(ルール, 予定日)` の一意制約があり、Cronと手動反映が重なっても同じ明細は二重登録されません。
 共通の接続状態画面を有効にする場合は、公開より先に `supabase/migrations/202609220001_connection_status.sql` を適用します。
 
@@ -160,7 +162,7 @@ Cloudflare PagesのProductionとPreviewの両方へ、「実行時の環境変�
 2. Previewへ環境変数を設定し、Basic認証後に実データ表示を確認する。
 3. Productionへ同じ構成を設定してデプロイする。
 4. 本番の件数・最新取引・月別集計をSupabaseと照合する。
-5. `supabase/disable-anon-access.sql` を実行する。
+5. anon権限が無効であることを確認する。未対応の新規環境では保管用 `supabase/migrations/baseline/disable-anon-access.sql` を参考に、必要な権限変更を新しいmigrationとしてレビュー・適用する。
 6. 本番表示を再確認し、旧anon keyからのSELECTが拒否されることを確認する。
 
 ## UIの方針

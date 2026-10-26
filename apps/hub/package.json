@@ -8,13 +8,14 @@
     "dev": "vite",
     "build": "vite build",
     "dev:pages": "npm run build && wrangler pages dev dist --port 4183",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.client.json",
     "test": "node --test --test-isolation=none tests/*.test.ts",
     "check:client": "node scripts/check-client.mjs",
     "check": "npm run check:client && npm run typecheck",
     "predeploy:check": "npm test && npm run check && npm run build",
     "theme": "node scripts/build-dark-theme.mjs public/hub.css public/styles.css public/dashboard-shell.css public/habits.css public/projects.css public/sf6.css public/status.css public/writing.css public/project-todo-link.css",
-    "theme:check": "node scripts/build-dark-theme.mjs --check public/hub.css public/styles.css public/dashboard-shell.css public/habits.css public/projects.css public/sf6.css public/status.css public/writing.css public/project-todo-link.css"
+    "theme:check": "node scripts/build-dark-theme.mjs --check public/hub.css public/styles.css public/dashboard-shell.css public/habits.css public/projects.css public/sf6.css public/status.css public/writing.css public/project-todo-link.css",
+    "lint": "oxlint"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

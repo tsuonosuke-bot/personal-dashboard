@@ -1,3 +1,4 @@
+import { readAppSource } from "./appSource.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -5,7 +6,7 @@ import test from "node:test";
 const read = (path: string) => readFile(new URL(`../src/${path}`, import.meta.url), "utf8");
 
 test("問い・示唆・タグは1つの整理ページのタブにまとめ、ダッシュボードの入口も1つにする", async () => {
-  const [app, view, help] = await Promise.all([read("App.tsx"), read("components/OrganizeView.tsx"), read("components/HelpView.tsx")]);
+  const [app, view, help] = await Promise.all([readAppSource(), read("components/OrganizeView.tsx"), read("components/HelpView.tsx")]);
   assert.match(app, /<OrganizeView/);
   assert.match(app, /onClick=\{\(\) => setOrganizeOpen\("questions"\)\}/);
   assert.doesNotMatch(app, /タグで探す/);
@@ -60,7 +61,7 @@ test("示唆には入っている問いを表示し、整理ページのその�
 
 test("詳細・学習ログ・整理ページで同じ問いの状態を共有する", async () => {
   const [app, log, parts, detail] = await Promise.all([
-    read("App.tsx"),
+    readAppSource(),
     read("components/LearningLogView.tsx"),
     read("components/ReviewLogParts.tsx"),
     read("components/KnowledgeDetailModal.tsx"),

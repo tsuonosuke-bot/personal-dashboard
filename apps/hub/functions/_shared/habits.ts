@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 import { supabaseHeaders } from "./supabaseAuth.ts";
 
@@ -152,7 +153,7 @@ async function fetchRows(
     configure?.(endpoint);
     let response: Response;
     try {
-      response = await fetch(endpoint, { headers: headers(info) });
+      response = await fetchSupabase(endpoint, { headers: headers(info) });
     } catch {
       throw new DashboardError("SUPABASE_UNAVAILABLE", `Could not reach ${table}.`);
     }
@@ -708,7 +709,7 @@ export async function createHabit(env: DashboardEnv, input: HabitCreateInput, no
   endpoint.searchParams.set("select", HABIT_SELECT);
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetchSupabase(endpoint, {
       method: "POST",
       headers: headers(info, { "Content-Type": "application/json", Prefer: "return=representation" }),
       body: JSON.stringify({
@@ -739,7 +740,7 @@ export async function updateHabit(env: DashboardEnv, input: HabitUpdateInput, no
   endpoint.searchParams.set("select", HABIT_SELECT);
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetchSupabase(endpoint, {
       method: "PATCH",
       headers: headers(info, { "Content-Type": "application/json", Prefer: "return=representation" }),
       body: JSON.stringify({
@@ -787,7 +788,7 @@ async function updateLog(info: Connection, log: HabitLogRow, fields: { note?: st
   endpoint.searchParams.set("select", LOG_SELECT);
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetchSupabase(endpoint, {
       method: "PATCH",
       headers: headers(info, { "Content-Type": "application/json", Prefer: "return=representation" }),
       body: JSON.stringify(fields),
@@ -826,7 +827,7 @@ export async function applyHabitLog(env: DashboardEnv, input: HabitLogInput, now
     endpoint.searchParams.set("select", LOG_SELECT);
     let response: Response;
     try {
-      response = await fetch(endpoint, {
+      response = await fetchSupabase(endpoint, {
         method: "DELETE",
         headers: headers(info, { Prefer: "return=representation" }),
       });
@@ -853,7 +854,7 @@ export async function applyHabitLog(env: DashboardEnv, input: HabitLogInput, now
   endpoint.searchParams.set("select", LOG_SELECT);
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetchSupabase(endpoint, {
       method: "POST",
       headers: headers(info, { "Content-Type": "application/json", Prefer: "return=representation" }),
       body: JSON.stringify({ habit_id: input.habitId, practiced_on: target, kind: input.kind ?? "done", note: input.note ?? null, tracking_key: trackingKey }),

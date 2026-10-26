@@ -1,13 +1,15 @@
+import { readAppSource } from "./appSource.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("復習・英会話・検索・ヘルプ・タグ・ダッシュボードの切替時にスクロール位置を先頭へ戻す", async () => {
-  const app = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const app = await readAppSource();
 
   assert.match(app, /const view = showQuiz \? "quiz" : showSpeaking \? "speaking" : showLog \? "log" : showSearch \? "search" : showHelp \? "help" : organize \? "organize" : "dashboard";/);
   assert.match(app, /useLayoutEffect\(\(\) => \{[\s\S]*?window\.scrollTo\(0, 0\);[\s\S]*?\}, \[view\]\);/);
-  assert.ok(app.indexOf("window.scrollTo(0, 0)") < app.indexOf("if (showQuiz) {"));
+  // The navigation hook (including the layout effect) must run before any view returns.
+  assert.ok(app.indexOf("const navigation = useKnowledgeNavigation") < app.indexOf("if (showQuiz) {"));
 });
 
 test("復習画面はAIを呼ばず、キューの上から解き続け、いつでも終えられる", async () => {
@@ -67,7 +69,7 @@ test("復習画面から手動で採点と問題生成ができ、上限到達�
 test("答え合わせ画面に学習ログと同じ操作（示唆・あとで深掘り・習熟度・優先度・詳細・アーカイブ）を出し、そのまま次へ進める", async () => {
   const [view, app, parts] = await Promise.all([
     readFile(new URL("../src/components/ReviewView.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/App.tsx", import.meta.url), "utf8"),
+    readAppSource(),
     readFile(new URL("../src/components/ReviewLogParts.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(app, /<ReviewView[\s\S]*?onKnowledgeUpdate=\{updateKnowledge\}[\s\S]*?insightStore=\{insightStore\}[\s\S]*?insightGroupStore=\{insightGroupStore\}/);

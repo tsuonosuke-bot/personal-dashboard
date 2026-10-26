@@ -1,3 +1,4 @@
+import { readAppSource } from "./appSource.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -39,7 +40,7 @@ test("詳細を開いても一覧の条件はURLに残り、閉じる・戻る�
 });
 
 test("App は一覧状態をURLから初期化し、replaceStateで書き、戻る操作で復元する", async () => {
-  const app = await read("../src/App.tsx");
+  const app = await readAppSource();
   assert.match(app, /useState\(\(\) => parseListState\(window\.location\.href\)\)/);
   assert.match(app, /window\.history\.replaceState\(window\.history\.state, "", path\)/);
   assert.match(app, /if \(!sameListState\(urlList, listStateRef\.current\)\) applyListState\(urlList\)/);

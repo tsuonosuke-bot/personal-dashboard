@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 
 const MAX_REQUEST_CHARS = 5_000;
@@ -179,7 +180,7 @@ export async function insertItem(
   if (input.sourceInboxId) payload.source_inbox_id = input.sourceInboxId;
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetchSupabase(endpoint, {
       method: "POST",
       headers: {
         Accept: "application/json",

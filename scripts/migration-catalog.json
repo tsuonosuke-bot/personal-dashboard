@@ -1,0 +1,237 @@
+[
+  {
+    "path": "apps/hub/supabase/migrations/202609200001_want_triage.sql",
+    "kind": "legacy-version",
+    "sha256": "77135a5d0195027213121006fd2ec5c82ab9da4fd1a4df73657cac6f4565a633"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609200002_google_calendar.sql",
+    "kind": "legacy-version",
+    "sha256": "1c7b718f0e884d492354d141a1c54729c4bef3c3ad9cd600f093653ce9fcb935"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609200003_habits_mvp.sql",
+    "kind": "legacy-version",
+    "sha256": "f2df3420b6c6106ec8c8c3d57e9e0d6c1c309df554dabee08daf6d153b9ab948"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609200004_focus_board.sql",
+    "kind": "legacy-version",
+    "sha256": "683431a88a180b977bdb839e8e0c31b7ce6f7e7bf22d3a57d4a11701deda988f"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609200005_auto_complete_routed_wants.sql",
+    "kind": "legacy-version",
+    "sha256": "726083b5a5cbe8d2fd3c2e4f67d5608105d277059984989035deb10105df55c0"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609210001_wants_source_inbox.sql",
+    "kind": "legacy-version",
+    "sha256": "10051b7fc61c00f1459504983bdb1287d71bac2c069f1cc2f9c91a0b885a17e2"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609220001_wants_wish_type.sql",
+    "kind": "legacy-version",
+    "sha256": "3d1a6002ce71c21047bb15ce38569f9194e5629f037950a6d263b2748402b296"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609220002_writing_two_statuses.sql",
+    "kind": "legacy-version",
+    "sha256": "3b918294bb5cc7cbe02ec5a7ad142c1397ad4b0089bceab74f7b7e1e3c4805a3"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609220003_projects_mvp.sql",
+    "kind": "legacy-version",
+    "sha256": "3bab719047dcb31b1f860cab2e9f9712ba5daed2b923986663e5d58fbbd8e8f2"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609220004_scheduled_actions.sql",
+    "kind": "legacy-version",
+    "sha256": "deea56df3eedd7802e93a77cefa3f1130b7df26aae4fe3bb1836b52198503693"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609220005_connection_status.sql",
+    "kind": "legacy-version",
+    "sha256": "5159635863eef9785d0fbe63365c53324c6a361e5de19c01f357840f8f133438"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609230001_inbox_route_rpc.sql",
+    "kind": "legacy-version",
+    "sha256": "f7bc8ce3020966a164f917083c5fa3c9526fb14e0aae2e79d313faa5c81fb9fc"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609240001_focus_overflow_and_swap.sql",
+    "kind": "legacy-version",
+    "sha256": "ca6f86a1191866988dc581fe62da770348e16305eb0da99bd791891738dd97a1"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609240002_focus_knowledge_links.sql",
+    "kind": "legacy-version",
+    "sha256": "10b8aab62871bee7617c984483a00af7668783040cafe92b29f67c5bbf16d31b"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609240003_drop_focus_knowledge_links.sql",
+    "kind": "legacy-version",
+    "sha256": "b44c12bd63f76d5c09f400ea5238f71cb8dca5b909500f49db1c48bb620ea140"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202609270001_wants_comment_current_flow.sql",
+    "kind": "legacy-version",
+    "sha256": "08b104f3b58f230c8aa207b953f2cc826aa123c66d9ec08260e5d91f509c368d"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610050001_advisor_cleanup.sql",
+    "kind": "legacy-version",
+    "sha256": "066db0729bff7a5c65e93fd64ac709f0644555e026aa75fd697febfdc2898fe2"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610050002_database_usage.sql",
+    "kind": "legacy-version",
+    "sha256": "74306edae0935f006571a4bf4fdf612db781b96e3e6e17416bafd3a08df467f0"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610060001_inbox_route_question.sql",
+    "kind": "legacy-version",
+    "sha256": "0eb104dc26cfcb402f8a50a121fd1ed72f9435c14a4a80f829fd4e12c742514b"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610060002_wants_category.sql",
+    "kind": "legacy-version",
+    "sha256": "b0e5a601eec7026b2f89bb51c53fc4fdaa4bef9b53964f30e8d6cf2128879fc3"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610080001_personal_profile.sql",
+    "kind": "legacy-version",
+    "sha256": "661aaa5628b8d711b7757900a17e6b756071cb223c0967292c9fe05ad0f5d739"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610090001_project_action_edit.sql",
+    "kind": "legacy-version",
+    "sha256": "73df9b4c8ca78cc3e140be83258ba5a4d859415b2edc7494bceba10b0ea4cb44"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610100001_project_milestones.sql",
+    "kind": "legacy-version",
+    "sha256": "c7c44483c8e2bea988d993062e403bb29358bfdca83011c5dedfb5fff99bafb1"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610100002_habit_weekly_target.sql",
+    "kind": "legacy-version",
+    "sha256": "cfc31c85cc0008e70e1e244fdca95e7e403069e27221bd4c7b746518a7f89cab"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610100003_habit_log_skip.sql",
+    "kind": "legacy-version",
+    "sha256": "9c1403e9f26fc8ae270159d247ea08eec9b416e8634957ff85930145a2570098"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610110001_sf6_training.sql",
+    "kind": "legacy-version",
+    "sha256": "62fe96346851943ce3bc10e4836042cb9e8b53eba0ecd98e77943d5bf00191b4"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610120001_sf6_situations_setplays.sql",
+    "kind": "legacy-version",
+    "sha256": "56deb812a7ffb188b3c5bd3c6bca9bdbb4d8dc314aab92ef8d4bc16c6b508ec2"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610120002_sf6_sequences.sql",
+    "kind": "legacy-version",
+    "sha256": "2fc269ab3a1f870421012952156a3c80799136af244f2f9bc3134e5176489a44"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610120003_sf6_drop_legacy.sql",
+    "kind": "legacy-version",
+    "sha256": "d0b388d8dea0c3e41dc26749c46211ca00c180dd3f48e531edebd2b2d94cf29c"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610180001_calendar_todo_sync.sql",
+    "kind": "legacy-version",
+    "sha256": "0450bd61d8a465e28cb2529b287dbca810c414eac480154f64c4d05e855d42f0"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610180002_calendar_sync_full_unique_index.sql",
+    "kind": "legacy-version",
+    "sha256": "864d60e46eb660ec556aaae717b904ff5e3afbd97edb2a37ce34c58b556b5207"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610230001_project_action_todos.sql",
+    "kind": "legacy-version",
+    "sha256": "a1de5bb78b1f6b9a1501ca9f0863688ca18909443db8d9405eefd1336b60c5ca"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610230002_inbox_sf6_routes.sql",
+    "kind": "legacy-version",
+    "sha256": "d4b32dcb69b64ac378c73aeb199cc5b6a140668c7ccc7e102f8d5fc54542a94e"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610250001_sf6_counter_hit_mash_impact.sql",
+    "kind": "legacy-version",
+    "sha256": "76127c2ed48e10c5c8fc6574448ab0c211b37af8d32737a1a67ec2df8055c135"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610250002_sf6_punish_counter_hit_other.sql",
+    "kind": "legacy-version",
+    "sha256": "d843d3838fa032b20676189ffa0c6b754399c779a21713e27ada2c223589155e"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610250003_sf6_result_hit_type.sql",
+    "kind": "legacy-version",
+    "sha256": "16876da062b6b2417dba06448de7c012674a5d3c621e7d6e8fb7869d1a40425c"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610250004_sf6_situation_throw_range.sql",
+    "kind": "legacy-version",
+    "sha256": "334bcb25ead66757c26a38fd7e7a789f85ae31038451bd3eb03bfd825790bda1"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610250005_sf6_unify_parts.sql",
+    "kind": "legacy-version",
+    "sha256": "3466ce668ca4b1be64847f1d23e003c2b5d9a830cbd4ed48dbf6ccb8dc4d2769"
+  },
+  {
+    "path": "apps/hub/supabase/migrations/202610260001_sf6_result_multi_next.sql",
+    "kind": "legacy-version",
+    "sha256": "506f9341866f3b764057c7c2ab95a88b296050df7cdadf629a3cf788d52204e4"
+  },
+  {
+    "path": "apps/knowledge/supabase/migrations/baseline/allow-choice-quiz-format.sql",
+    "kind": "baseline-snapshot",
+    "sha256": "046a032efef35f168e995bebffb9f9510da9ec05eae927f8b05712fc43f85aba"
+  },
+  {
+    "path": "apps/knowledge/supabase/migrations/baseline/disable-anon-access.sql",
+    "kind": "baseline-snapshot",
+    "sha256": "8a7aa2f5517a557ff68f07fcdcc5951f26b5129a1ba8708be642809d63aff589"
+  },
+  {
+    "path": "apps/finance/supabase/migrations/202609220001_connection_status.sql",
+    "kind": "legacy-version",
+    "sha256": "db4799c3b367b7f8f2299b95627b40b9c860d10147f65cd0bf2a2280aa08b2a0"
+  },
+  {
+    "path": "apps/finance/supabase/migrations/202610090001_recurring_create_without_template.sql",
+    "kind": "legacy-version",
+    "sha256": "8f564b4227c764463845952ed0c95405d7bac3a15b5294eed7db74b66b27fa5f"
+  },
+  {
+    "path": "apps/finance/supabase/migrations/202610090002_expense_void.sql",
+    "kind": "legacy-version",
+    "sha256": "7fd79f989073e21f154904b0694777b37c9cf93275fb37e4406f53ba6a536a20"
+  },
+  {
+    "path": "apps/finance/supabase/migrations/baseline/disable-anon-access.sql",
+    "kind": "baseline-snapshot",
+    "sha256": "4f81ee8fb58f875e1be794c0a4e43a236326928f11d4558ee528e702bd157e5a"
+  },
+  {
+    "path": "apps/finance/supabase/migrations/baseline/expenses-category-not-null.sql",
+    "kind": "baseline-snapshot",
+    "sha256": "5ffe9ca89d62a4e52da4c0589e334cd7e485779875fbcf9e30e1501585f9010d"
+  },
+  {
+    "path": "apps/finance/supabase/migrations/baseline/recurring-expenses.sql",
+    "kind": "baseline-snapshot",
+    "sha256": "a34fa50ac73487a7d2ac29865d1bbdae0988e6f06747aeac6d295c0ee7302385"
+  }
+]

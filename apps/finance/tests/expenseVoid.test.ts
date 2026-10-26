@@ -1,3 +1,4 @@
+import { readAppSource } from "./appSource.ts";
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -122,7 +123,7 @@ test('通常CSVは取消済みを除き、監査用CSVとJSONは取消日時つ�
 test('取消は列追加だけで行と定期生成の履歴を残し、画面から取消・復元できる', async () => {
   const [migration, app, table, modal, hook] = await Promise.all([
     readFile(new URL('../supabase/migrations/202610090002_expense_void.sql', import.meta.url), 'utf8'),
-    readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
+    readAppSource(),
     readFile(new URL('../src/components/ExpenseTable.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/components/ExpenseFormModal.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/hooks/useExpenses.ts', import.meta.url), 'utf8'),

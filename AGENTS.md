@@ -1,3 +1,5 @@
+共通の開発・マイグレーション・環境変数の手順は [OPERATIONS.md](OPERATIONS.md) を参照。
+
 # AGENTS.md
 
 npm workspacesのモノレポ。アプリごとの規約は各アプリのドキュメントに従う。
@@ -14,5 +16,5 @@ npm workspacesのモノレポ。アプリごとの規約は各アプリのドキ
 - 変更したアプリで最低限 `npm run typecheck -w apps/<app>` を通す
 - 3アプリは別々のCloudflare Pagesプロジェクト。共通コードをアプリ間で `import` する場合は、
   Pagesのビルドが通ることを確認してから入れる。Functionsは `vite build` ではバンドルされないので、
-  `cd apps/<app> && node ../hub/node_modules/wrangler/bin/wrangler.js pages functions build --outdir <tmp>` で確かめる
+  ルートの `npm run build:functions`（3アプリ）、または `node scripts/build-functions.mjs <app>` で確かめる
   （Build commandがルートで `npm ci` するので、`@personal-dashboards/auth` はnode_modulesのリンクとして解決される）

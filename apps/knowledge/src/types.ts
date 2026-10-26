@@ -1,3 +1,5 @@
+import type { Tables } from "../../../packages/database-types/database.types";
+
 /** DB の knowledge.mastery 制約で許可されている値。 */
 export type Mastery = "未学習" | "学習中" | "習得中" | "定着";
 
@@ -8,61 +10,28 @@ export type KnowledgeKind = "未分類" | "事実" | "著者の主張" | "自分
 /** 誤答後の再学習段階。recognition=再認、recall=自由想起。 */
 export type RelearningStage = "recognition" | "recall";
 
-export interface Knowledge {
-  id: string;
-  title: string;
-  explanation: string | null;
-  source_note: string | null;
-  /** 著者の主張を支える数値・研究・事例。出典元は source_note に書く。 */
-  claim_evidence: string | null;
-  category: string;
+/** API columns from the generated DB row; auto_tags is an enrichment. */
+export interface Knowledge extends Pick<Tables<"knowledge">,
+  | "id" | "title" | "explanation" | "source_note" | "claim_evidence" | "category"
+  | "ef" | "reps" | "interval_days" | "times_asked" | "times_correct" | "learned_on"
+  | "last_asked_on" | "tags" | "accuracy" | "next_review_on" | "next_review_at"
+  | "stability_hours" | "last_reviewed_at" | "mastery_streak" | "archived"
+  | "created_at" | "content_version"
+> {
   knowledge_kind: KnowledgeKind;
   mastery: Mastery;
   priority: KnowledgePriority;
-  ef: number;
-  reps: number;
-  interval_days: number;
-  times_asked: number;
-  times_correct: number;
-  learned_on: string;
-  last_asked_on: string | null;
-  /** 自分で付けたタグ。出題（単語・文法など）にも使う。 */
-  tags: string[];
-  /** 自動で付いたタグ（#93）。表示と絞り込みだけに使い、出題には渡さない。近い順。 */
-  auto_tags: string[];
-  accuracy: number | null;
-  next_review_on: string | null;
-  /** 時刻まで含む、実際の次回出題時刻。 */
-  next_review_at: string;
-  /** 現在保持している定着間隔（時間）。 */
-  stability_hours: number;
   relearning_stage: RelearningStage | null;
-  last_reviewed_at: string | null;
-  mastery_streak: number;
-  archived: boolean;
-  created_at: string;
-  /** 編集競合を検出するための単調増加バージョン。 */
-  content_version: number;
+  /** 自動タグは関連テーブルからAPIが補完する。 */
+  auto_tags: string[];
 }
 
-export interface QuizLog {
-  id: number;
-  knowledge_id: string;
-  asked_on: string;
-  quality: number;
+export interface QuizLog extends Pick<Tables<"quiz_log">,
+  | "id" | "knowledge_id" | "asked_on" | "quality" | "format" | "note" | "created_at"
+  | "question" | "user_answer" | "correct_answer" | "explanation" | "answered_at"
+  | "confirmed_at" | "review_queue_id"
+> {
   verdict: QuizVerdict;
-  format: string;
-  note: string | null;
-  created_at: string;
-  /** 以下は問題キュー経由の回答だけが持つ。以前の記録と都度採点の記録ではnull。 */
-  question: string | null;
-  user_answer: string | null;
-  correct_answer: string | null;
-  explanation: string | null;
-  answered_at: string | null;
-  /** nullかつreview_queue_idがある記録が「未確認の採点結果」。 */
-  confirmed_at: string | null;
-  review_queue_id: number | null;
 }
 
 /** 新規更新数と、DBの再読取で確認済みと検証できたIDは区別する。 */

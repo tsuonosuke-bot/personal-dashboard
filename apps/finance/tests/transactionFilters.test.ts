@@ -1,3 +1,4 @@
+import { readAppSource } from "./appSource.ts";
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -5,7 +6,7 @@ import test from 'node:test'
 const read = (path: string) => readFile(new URL(path, import.meta.url), 'utf8')
 
 test('月・カテゴリ・支払者を変えても明細表を作り直さず、月の外を指す期間だけを理由つきで解除する', async () => {
-  const [app, table] = await Promise.all([read('../src/App.tsx'), read('../src/components/ExpenseTable.tsx')])
+  const [app, table] = await Promise.all([readAppSource(), read('../src/components/ExpenseTable.tsx')])
   assert.doesNotMatch(app, /<ExpenseTable\s+key=/)
   assert.match(app, /scopeKey=\{`\$\{selectedMonth\}:\$\{categoryMode\}/)
   assert.match(table, /previousScope\.month !== selectedMonth/)

@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 
 export const INBOX_UPDATE_ACTION_HEADER = "inbox-update";
@@ -142,7 +143,7 @@ export async function updateInbox(env: DashboardEnv, input: InboxUpdateInput): P
 
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetchSupabase(endpoint, {
       method: "PATCH",
       headers: {
         Accept: "application/json",

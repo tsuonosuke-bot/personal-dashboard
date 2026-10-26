@@ -19,7 +19,7 @@ async function checkDirectory(directory) {
 await checkDirectory(new URL("../public/", import.meta.url));
 await checkDirectory(new URL("./", import.meta.url));
 
-// Browser JS is intentionally untyped. Still check unresolved names, invalid imports and
+// Strict browser typing is staged in tsconfig.client.json. For every file, check unresolved names, invalid imports and
 // use-before-initialization: syntax and bundling alone cannot detect a moved closure's state.
 const program = ts.createProgram(files, {
   allowJs: true, checkJs: true, noEmit: true, skipLibCheck: true,

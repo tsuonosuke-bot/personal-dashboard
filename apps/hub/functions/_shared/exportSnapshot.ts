@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import type { HubEnv } from "./hub.ts";
 
 const PAGE_SIZE = 1_000;
@@ -41,7 +42,7 @@ async function fetchAllTableRows(env: HubEnv, table: string): Promise<unknown[]>
     endpoint.searchParams.set("select", "*");
     endpoint.searchParams.set("limit", String(PAGE_SIZE));
     endpoint.searchParams.set("offset", String(offset));
-    const response = await fetch(endpoint, { headers: { Accept: "application/json", apikey: key } });
+    const response = await fetchSupabase(endpoint, { headers: { Accept: "application/json", apikey: key } });
     if (!response.ok || !response.headers.get("Content-Type")?.toLowerCase().includes("json")) {
       throw new ExportError(`Personal export failed for ${table}.`);
     }

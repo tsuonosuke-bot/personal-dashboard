@@ -8,6 +8,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
+    "lint": "oxlint",
     "typecheck": "tsc --noEmit",
     "test": "node --test --test-isolation=none tests/*.test.ts"
   },

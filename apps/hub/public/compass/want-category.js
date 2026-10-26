@@ -17,13 +17,16 @@ export const WANT_CATEGORIES = [
 export const STORED_WANT_CATEGORIES = WANT_CATEGORIES.filter((category) => category.key !== "other").map((category) => category.key);
 
 const CATEGORY_BY_KEY = new Map(WANT_CATEGORIES.map((category) => [category.key, category]));
+const OTHER_CATEGORY = WANT_CATEGORIES[WANT_CATEGORIES.length - 1];
 
 /** @param {string} key */
+/** @type {typeof import("./want-category.d.ts").wantCategoryMeta} */
 export function wantCategoryMeta(key) {
-  return CATEGORY_BY_KEY.get(key) || CATEGORY_BY_KEY.get("other");
+  return CATEGORY_BY_KEY.get(key) || OTHER_CATEGORY;
 }
 
 /** @param {{ type?: string | null, category?: string | null }} want */
+/** @type {typeof import("./want-category.d.ts").wantCategory} */
 export function wantCategory(want) {
   if (want.category && STORED_WANT_CATEGORIES.includes(want.category)) return want.category;
   return want.type === "wish" ? "wish" : "other";
@@ -34,6 +37,7 @@ export function wantCategory(want) {
  * @param {{ revisitOn?: string | null }} want
  * @param {string} today YYYY-MM-DD
  */
+/** @type {typeof import("./want-category.d.ts").wantBacklogStage} */
 export function wantBacklogStage(want, today) {
   if (!want.revisitOn) return "ready";
   return want.revisitOn <= today ? "due" : "sleeping";
@@ -50,14 +54,15 @@ const STAGE_ORDER = { due: 0, ready: 1, sleeping: 2 };
  * @returns {{ key: string, label: string, description: string, items: T[] }[]}
  */
 export function groupWantsByCategory(wants, today) {
+  /** @type {Map<string, T[]>} */
   const groups = new Map(WANT_CATEGORIES.map((category) => [category.key, []]));
-  wants.forEach((want) => groups.get(wantCategory(want)).push(want));
+  wants.forEach((want) => groups.get(wantCategory(want))?.push(want));
   return WANT_CATEGORIES
     .map(({ key, label, description }) => ({
       key,
       label,
       description,
-      items: groups.get(key).sort((a, b) => STAGE_ORDER[wantBacklogStage(a, today)] - STAGE_ORDER[wantBacklogStage(b, today)]
+      items: (groups.get(key) || []).sort((a, b) => STAGE_ORDER[wantBacklogStage(a, today)] - STAGE_ORDER[wantBacklogStage(b, today)]
         || String(b.createdAt || "").localeCompare(String(a.createdAt || ""))
         || (b.id ?? 0) - (a.id ?? 0)),
     }))

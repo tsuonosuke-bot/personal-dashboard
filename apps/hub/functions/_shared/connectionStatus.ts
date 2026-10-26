@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import type { HubEnv } from "./hub.ts";
 import { loadDatabaseUsage, type DatabaseUsage, type DatabaseUsageEnv } from "./databaseUsage.ts";
 import { readReviewBatches, type ReviewBatchesStatus } from "./reviewBatches.ts";
@@ -60,7 +61,7 @@ async function localStatus(env: ConnectionStatusEnv): Promise<ServiceConnectionS
   endpoint.searchParams.set("select", "migration");
   endpoint.searchParams.set("app_id", "eq.personal-dashboard");
   endpoint.searchParams.set("limit", "1");
-  const response = await fetch(endpoint, { headers: { Accept: "application/json", apikey: key } });
+  const response = await fetchSupabase(endpoint, { headers: { Accept: "application/json", apikey: key } });
   if (!response.ok || !response.headers.get("Content-Type")?.toLowerCase().includes("json")) {
     throw new Error("Personal DB status request failed.");
   }

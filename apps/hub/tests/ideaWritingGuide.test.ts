@@ -3,7 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { readCompassScript } from "./compassScript.ts";
 
-const read = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
+const read = (path: string) => readFile(new URL(path, import.meta.url), "utf8")
+  .then((content) => content.replaceAll("\r\n", "\n"));
 
 test("Idea ToDoはスマホで検索とリスト／カレンダーを常設し、ステータスと予定を表示条件に収め、適用中の条件をチップで示す", async () => {
   const [html, script, styles] = await Promise.all([read("../public/compass/index.html"), readCompassScript(), read("../public/styles.css")]);

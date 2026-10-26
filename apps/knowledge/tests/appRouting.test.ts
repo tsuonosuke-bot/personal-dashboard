@@ -1,9 +1,9 @@
+import { readAppSource } from "./appSource.ts";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 test("quiz view can be opened from and closed back to the URL", async () => {
-  const source = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const source = await readAppSource();
   assert.match(source, /initialRoute\.kind === "quiz"/);
   assert.match(source, /initialRoute\.kind === "quiz" \? initialRoute\.mode : "custom"/);
   assert.match(source, /replaceRoute\(open \? \{ kind: "quiz", mode \} : \{ kind: "dashboard" \}\)/);
@@ -16,7 +16,7 @@ test("quiz view can be opened from and closed back to the URL", async () => {
 });
 
 test("knowledge details follow direct URLs, history, and safe fallbacks", async () => {
-  const source = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const source = await readAppSource();
   assert.match(source, /window\.history\.pushState\(/);
   assert.match(source, /window\.addEventListener\("popstate", handlePopState\)/);
   assert.match(source, /knowledge\.find\(\(item\) => item\.id === route\.knowledgeId\)/);
@@ -28,7 +28,7 @@ test("knowledge details follow direct URLs, history, and safe fallbacks", async 
 });
 
 test("speaking practice has an independent URL and dashboard entry", async () => {
-  const source = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const source = await readAppSource();
   assert.match(source, /initialRoute\.kind === "speaking"/);
   assert.match(source, /replaceRoute\(open \? \{ kind: "speaking" \} : \{ kind: "dashboard" \}\)/);
   assert.match(source, /<SpeakingPracticePanel/);

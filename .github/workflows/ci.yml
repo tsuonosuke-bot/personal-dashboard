@@ -27,8 +27,28 @@ jobs:
           cache: npm
 
       - run: npm ci
+      - run: npm run lint
+      - run: npm run db:migrations:check
+      - run: npm run test:tools
       - run: npm run typecheck
       - run: npm run check:client -w apps/hub
       - run: npm test
       - run: npm run theme:check
       - run: npm run build
+
+  functions-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [hub, knowledge, finance]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build Pages Functions
+        run: node scripts/build-functions.mjs ${{ matrix.app }}

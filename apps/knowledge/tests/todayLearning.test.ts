@@ -1,3 +1,4 @@
+import { readAppSource } from "./appSource.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -115,7 +116,7 @@ test("正解の採点結果は記録時に確認済みになり、既存の正�
 
 test("ダッシュボードは今日の学習・講評の見直し・進み具合のグラフを出し、古い数字カードを出さない", async () => {
   const [app, charts, sheet, review] = await Promise.all([
-    readFile(new URL("../src/App.tsx", import.meta.url), "utf8"),
+    readAppSource(),
     readFile(new URL("../src/components/DashboardCharts.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/components/MissedReviewSheet.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/components/ReviewView.tsx", import.meta.url), "utf8"),

@@ -1,0 +1,15 @@
+# Dependencies, output, caches and test artifacts.
+node_modules/
+**/node_modules/
+**/dist/
+**/.wrangler/
+**/coverage/
+**/*.tsbuildinfo
+
+# Generated files have their own generators and freshness checks.
+package-lock.json
+**/*.dark.css
+packages/database-types/database.types.ts
+
+# Preserve reviewed migration snapshots; Prettier has no built-in SQL parser.
+**/*.sql

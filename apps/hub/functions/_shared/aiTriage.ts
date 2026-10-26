@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 
 const MAX_REQUEST_CHARS = 8_000;
@@ -171,7 +172,7 @@ async function verifySource(env: DashboardEnv, input: AiTriageInput): Promise<vo
   endpoint.searchParams.set("limit", "1");
   let response: Response;
   try {
-    response = await fetch(endpoint, { headers: { Accept: "application/json", apikey: connection.key } });
+    response = await fetchSupabase(endpoint, { headers: { Accept: "application/json", apikey: connection.key } });
   } catch {
     throw new DashboardError("SUPABASE_UNAVAILABLE", `Could not reach ${table}.`);
   }

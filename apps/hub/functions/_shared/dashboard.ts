@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 export interface DashboardEnv {
   SUPABASE_URL?: string;
   SUPABASE_SECRET_KEY?: string;
@@ -110,7 +111,7 @@ async function fetchTable(env: DashboardEnv, definition: TableDefinition): Promi
     endpoint.searchParams.set("offset", String(offset));
     let response: Response;
     try {
-      response = await fetch(endpoint, {
+      response = await fetchSupabase(endpoint, {
         headers: {
           Accept: "application/json",
           apikey: key,

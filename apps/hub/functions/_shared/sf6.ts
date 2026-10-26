@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 import { todayInTokyo } from "./habits.ts";
 import { supabaseHeaders } from "./supabaseAuth.ts";
@@ -539,7 +540,7 @@ async function responseError(response: Response, table: string): Promise<Dashboa
 async function send(info: Connection, table: string, endpoint: URL, init: RequestInit = {}): Promise<unknown> {
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetchSupabase(endpoint, {
       ...init,
       headers: supabaseHeaders(info.key, {
         ...(init.body ? { "Content-Type": "application/json" } : {}),

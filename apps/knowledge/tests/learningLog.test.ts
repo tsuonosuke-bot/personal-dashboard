@@ -1,5 +1,5 @@
+import { readAppSource } from "./appSource.ts";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { dashboardRoutePath, parseDashboardRoute } from "../src/lib/dashboardRoute.ts";
 import { buildLearningLog } from "../src/lib/learningLog.ts";
@@ -46,7 +46,7 @@ test("学習ログは専用URLを持ち、ダッシュボードから開ける",
   assert.deepEqual(parseDashboardRoute("https://x.test/?view=log"), { kind: "log" });
   assert.equal(dashboardRoutePath("https://x.test/?knowledge=abc", { kind: "log" }), "/?view=log");
 
-  const app = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const app = await readAppSource();
   assert.match(app, /initialRoute\.kind === "log"/);
   assert.match(app, /replaceRoute\(open \? \{ kind: "log" \} : \{ kind: "dashboard" \}\)/);
   assert.match(app, /onClick=\{\(\) => setLogOpen\(true\)\}>学習ログ</);

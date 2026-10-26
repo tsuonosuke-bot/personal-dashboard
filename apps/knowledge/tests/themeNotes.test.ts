@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readAppSource } from "./appSource.ts";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { onRequest as notesRoute } from "../functions/api/notes.ts";
@@ -150,7 +151,7 @@ test("ノートは整理ページのタブで開き、問いかテーマをURL�
 
 test("ノート画面は外す・詳細・期限分の復習を出し、テーマのナレッジは自動タグを外して抜く", async () => {
   const [panel, organize, app, review] = await Promise.all([
-    read("src/components/NotesPanel.tsx"), read("src/components/OrganizeView.tsx"), read("src/App.tsx"), read("src/components/ReviewView.tsx"),
+    read("src/components/NotesPanel.tsx"), read("src/components/OrganizeView.tsx"), readAppSource(), read("src/components/ReviewView.tsx"),
   ]);
   assert.match(organize, /\{ tab: "notes", label: "ノート" \}/);
   assert.match(organize, /<NotesPanel/);

@@ -1,3 +1,4 @@
+import { readAppSource } from "./appSource.ts";
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -5,7 +6,7 @@ import test from 'node:test'
 test('Finance uses the shared dashboard shell and requested title', async () => {
   const [html, app, css] = await Promise.all([
     readFile(new URL('../index.html', import.meta.url), 'utf8'),
-    readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
+    readAppSource(),
     readFile(new URL('../src/index.css', import.meta.url), 'utf8'),
   ])
   assert.match(html, /<title>Finance — Personal Hub<\/title>/)
@@ -27,7 +28,7 @@ test('Finance uses the shared dashboard shell and requested title', async () => 
 
 test('家計簿の登録メニューを表示し、専用APIへ送信する', async () => {
   const [app, modal, api] = await Promise.all([
-    readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
+    readAppSource(),
     readFile(new URL('../src/components/ExpenseFormModal.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/lib/api.ts', import.meta.url), 'utf8'),
   ])
@@ -41,7 +42,7 @@ test('家計簿の登録メニューを表示し、専用APIへ送信する', as
 
 test('明細行から既存値を編集し、更新専用APIへ送信する', async () => {
   const [app, modal, table, api] = await Promise.all([
-    readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
+    readAppSource(),
     readFile(new URL('../src/components/ExpenseFormModal.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/components/ExpenseTable.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/lib/api.ts', import.meta.url), 'utf8'),
@@ -68,7 +69,7 @@ test('明細一覧で種別・金額・日付・キーワード・並び順を�
 
 test('カテゴリ条件で複数選択と除外を切り替えられる', async () => {
   const [app, filter] = await Promise.all([
-    readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
+    readAppSource(),
     readFile(new URL('../src/components/CategoryFilter.tsx', import.meta.url), 'utf8'),
   ])
   assert.match(app, /filterExpensesByCategories/)
@@ -99,7 +100,7 @@ test('棒グラフと収支線を個別に表示切り替えできる', async ()
 })
 
 test('未分類の明細を件数で知らせ、タップでカテゴリ絞り込みに切り替える', async () => {
-  const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8')
+  const app = await readAppSource()
   assert.match(app, /summarizeUnclassified\(expenses\)/)
   assert.match(app, /unclassified\.count > 0/)
   assert.match(app, /未分類の明細が\{unclassified\.count/)
@@ -111,7 +112,7 @@ test('未分類の明細を件数で知らせ、タップでカテゴリ絞り�
 
 test('説明文はヘルプページにまとめ、ヘッダーの「?」から開く', async () => {
   const [app, help, recurring] = await Promise.all([
-    readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
+    readAppSource(),
     readFile(new URL('../src/components/HelpView.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/components/RecurringExpenseModal.tsx', import.meta.url), 'utf8'),
   ])

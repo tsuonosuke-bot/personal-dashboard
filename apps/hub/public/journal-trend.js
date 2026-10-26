@@ -1,44 +1,61 @@
 const MOOD_LABELS = ["かなり低い", "低い", "普通", "良い", "とても良い"];
 
+/** @param {number} value */
 function moodLabel(value) {
   return MOOD_LABELS[value + 2] || "記録なし";
 }
 
+/** @param {string} value */
 function displayDate(value) {
   const [year, month, day] = value.split("-").map(Number);
   return `${year}年${month}月${day}日`;
 }
 
+/** @param {string} value */
 function shortDate(value) {
   const [, month, day] = value.split("-").map(Number);
   return `${month}/${day}`;
 }
 
+/** @param {unknown} value */
 function isPlainDate(value) {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
+/** @param {number | null} value @returns {value is number} */
+function isMood(value) {
+  return typeof value === "number" && Number.isInteger(value) && value >= -2 && value <= 2;
+}
+
+/** @param {import("./journal-trend.d.ts").JournalTrendDay} day @returns {day is {date: string, mood: number}} */
+function isRecordedDay(day) {
+  return isMood(day.mood);
+}
+
+/** @type {typeof import("./journal-trend.d.ts").renderJournalTrendHtml} */
 export function renderJournalTrendHtml(trend, available = true) {
   if (!available) return '<p class="journal-trend-state">気分の推移を取得できませんでした</p>';
   const days = trend?.days;
-  if (!Array.isArray(days) || days.length !== 90 || !isPlainDate(trend.startDate) || !isPlainDate(trend.endDate) || days.some((day) => !isPlainDate(day.date))) {
+  if (!trend || !Array.isArray(days) || days.length !== 90 || !isPlainDate(trend.startDate) || !isPlainDate(trend.endDate) || days.some((day) => !isPlainDate(day.date))) {
     return '<p class="journal-trend-state">気分の推移を表示できませんでした</p>';
   }
-  const recorded = days.filter((day) => Number.isInteger(day.mood) && day.mood >= -2 && day.mood <= 2);
+  const recorded = days.filter(isRecordedDay);
   if (!recorded.length) return '<p class="journal-trend-state">直近90日に気分の記録はありません</p>';
 
-  const latest = recorded.at(-1);
+  const latest = recorded[recorded.length - 1];
   const width = 976;
+  /** @param {number} index */
   const x = (index) => 62 + index * 10;
+  /** @param {number} mood */
   const y = (mood) => 18 + (2 - mood) * 30;
   const grid = [2, 1, 0, -1, -2].map((mood) => `<g class="journal-trend-grid"><line x1="62" x2="952" y1="${y(mood)}" y2="${y(mood)}"/><text x="3" y="${y(mood) + 3}">${moodLabel(mood)}</text></g>`).join("");
   const marks = days.map((day, index) => {
-    if (!Number.isInteger(day.mood) || day.mood < -2 || day.mood > 2) return "";
+    if (!isMood(day.mood)) return "";
     return `<circle class="journal-trend-point" cx="${x(index)}" cy="${y(day.mood)}" r="3.5"><title>${displayDate(day.date)} · ${moodLabel(day.mood)}</title></circle>`;
   }).join("");
   const lines = days.slice(1).map((day, index) => {
     const previous = days[index];
-    if (!Number.isInteger(day.mood) || day.mood < -2 || day.mood > 2 || !Number.isInteger(previous.mood) || previous.mood < -2 || previous.mood > 2) return "";
+    if (!isMood(day.mood) || !isMood(previous.mood)) return "";
     return `<line class="journal-trend-line" x1="${x(index)}" y1="${y(previous.mood)}" x2="${x(index + 1)}" y2="${y(day.mood)}"/>`;
   }).join("");
   const axisDates = Array.from({ length: 13 }, (_, week) => week * 7).concat(89);

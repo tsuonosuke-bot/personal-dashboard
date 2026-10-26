@@ -8,9 +8,21 @@
     "apps/finance"
   ],
   "scripts": {
+    "lint": "oxlint scripts && npm run lint --workspaces",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm test --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
-    "theme:check": "npm run theme:check --workspaces --if-present"
+    "theme:check": "npm run theme:check --workspaces --if-present",
+    "build:functions": "node scripts/build-functions.mjs",
+    "db:types": "node scripts/database-types.mjs",
+    "db:types:check": "node scripts/database-types.mjs --check",
+    "db:migrations:check": "node scripts/check-migrations.mjs",
+    "test:tools": "node --test scripts/tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "oxlint": "^1.89.0",
+    "prettier": "^3.9.10"
   }
 }

@@ -1,3 +1,4 @@
+import { readAppSource } from "./appSource.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -5,7 +6,7 @@ import test from "node:test";
 test("Knowledge uses the shared dashboard shell and requested title", async () => {
   const [html, app, css] = await Promise.all([
     readFile(new URL("../index.html", import.meta.url), "utf8"),
-    readFile(new URL("../src/App.tsx", import.meta.url), "utf8"),
+    readAppSource(),
     readFile(new URL("../src/index.css", import.meta.url), "utf8"),
   ]);
 
@@ -33,7 +34,7 @@ test("Knowledge uses the shared dashboard shell and requested title", async () =
 
 test("ページ上部のボタンは高さと折り返しを揃え、問い・示唆を先頭に置き、低頻度のものはその他にまとめる", async () => {
   const [app, css] = await Promise.all([
-    readFile(new URL("../src/App.tsx", import.meta.url), "utf8"),
+    readAppSource(),
     readFile(new URL("../src/index.css", import.meta.url), "utf8"),
   ]);
 
