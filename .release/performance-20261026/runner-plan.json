@@ -1,6 +1,6 @@
 {
   "format": "performance-release-runner-v1",
-  "phase": "preflight",
+  "phase": "apply",
   "implementationHead": "0e74c32570dd61677f87050b1605f4a4306242af",
   "expectedProjectRef": "plwlxwidpqbunugfxjhp",
   "branch": "claude/performance-release-ops-20261026",

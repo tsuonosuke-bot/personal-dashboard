@@ -32,6 +32,7 @@ const VERSION = /^\d{14}$/;
 const FILE_LIMIT = 4 * 1024 * 1024;
 const OUTPUT_LIMIT = 32 * 1024 * 1024;
 const DDL_EXISTING_TABLES = Object.freeze(["expenses", "quiz_log", "project_actions", "project_items", "wants", "want_routes"]);
+const PRIVILEGE_CHECKS = Object.freeze(["database", "administratorRole", "readOnly", "publicSchema", "extensionSchema", "historySchema", "historyPrivileges", "markerPrivileges", "existingTableReadPrivileges", "existingTableFullVisibility", "ddlTableOwnership", "foreignKeyReferences", "replacementFunctionOwnership"]);
 const SQL_ENV = Object.freeze({
   PGCONNECT_TIMEOUT: "15", PGAPPNAME: "performance-release-20261026",
   PSQL_HISTORY: "/dev/null", PSQLRC: "/dev/null",
@@ -141,8 +142,8 @@ export function parseDatabaseUrl(raw, ref) {
 function baseChildEnv(env) {
   // In particular, do not inherit libpq overrides, access tokens, backup secrets,
   // NODE_OPTIONS, shell startup hooks, or the complete Actions environment.
-  const clean = { CI: "true", NO_COLOR: "1", SUPABASE_TELEMETRY_DISABLED: "1", DO_NOT_TRACK: "1", SUPABASE_NO_KEYRING: "1" };
-  for (const name of ["PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "SSL_CERT_FILE", "SSL_CERT_DIR"])
+  const clean = { CI: "true", NO_COLOR: "1", SUPABASE_TELEMETRY_DISABLED: "1", DO_NOT_TRACK: "1", SUPABASE_NO_KEYRING: "1", LANG: "C", LC_ALL: "C", LC_MESSAGES: "C" };
+  for (const name of ["PATH", "HOME", "TMPDIR", "SSL_CERT_FILE", "SSL_CERT_DIR"])
     if (typeof env[name] === "string") clean[name] = env[name];
   return clean;
 }
@@ -152,6 +153,60 @@ export function libpqEnvironment(connection, env) {
     PGHOST: connection.host, PGPORT: connection.port, PGUSER: connection.user, PGPASSWORD: connection.password,
     PGDATABASE: connection.database, PGSSLMODE: connection.sslmode,
   };
+}
+
+export function parseClientTls(value, connection) {
+  // PostgreSQL REL_18_STABLE src/bin/psql/command.c:
+  // exec_command_conninfo uses PQsslInUse and prints the two-column
+  // "SSL Connection" true/false row through pset.popt.topt. printSSLInfo uses
+  // PQsslAttribute("protocol"/"cipher") for the older classic text format.
+  // Only the fixed English, unaligned, tuples-only command below is accepted.
+  const text = lf(Buffer.isBuffer(value) ? value.toString("utf8") : String(value));
+  requireGuard(text.length > 0 && text.length < 32768 && !/[\u0000-\u0008\u000b-\u001f\u007f]/.test(text), "preflight", "client_conninfo_shape");
+  const lines = text.trimEnd().split("\n");
+  const protocol = (item) => /^TLSv\d+(?:\.\d+)?$/.test(item || "");
+  const cipher = (item) => /^[A-Za-z0-9_-]+$/.test(item || "") && item !== "unknown" && item !== "none";
+  if (lines.some((line) => line.includes("\t"))) {
+    const names = new Set(["Database", "Client User", "Host", "Host Address", "Socket Directory", "Server Port", "Options", "Protocol Version", "Password Used", "GSSAPI Authenticated", "Backend PID", "SSL Connection", "SSL Library", "SSL Protocol", "SSL Key Bits", "SSL Cipher", "SSL Compression", "ALPN", "Superuser", "Hot Standby"]);
+    const entries = lines.map((line) => line.split("\t"));
+    requireGuard(entries.every((row) => row.length === 2 && names.has(row[0])) && new Set(entries.map((row) => row[0])).size === entries.length,
+      "preflight", "client_conninfo_shape");
+    const fields = Object.fromEntries(entries);
+    requireGuard(fields.Database === "postgres" && fields["Client User"] === connection.user && fields.Host === connection.host && fields["Server Port"] === connection.port,
+      "preflight", "client_conninfo_target");
+    requireGuard(fields["SSL Connection"] === "true" && protocol(fields["SSL Protocol"]) && cipher(fields["SSL Cipher"]), "preflight", "client_tls_required");
+    return { clientTlsVerified: true, format: "psql18-tabular" };
+  }
+  requireGuard(lines.length === 2, "preflight", "client_conninfo_shape");
+  const target = /^You are connected to database "([^"]+)" as user "([^"]+)" on host "([^"]+)"(?: \(address "[^"]+"\))? at port "(\d+)"\.$/.exec(lines[0]);
+  requireGuard(target && target[1] === "postgres" && target[2] === connection.user && target[3] === connection.host && target[4] === connection.port,
+    "preflight", "client_conninfo_target");
+  const ssl = /^SSL connection \(protocol: ([A-Za-z0-9.]+), cipher: ([A-Za-z0-9_-]+), (?:bits: [1-9]\d*, )?compression: (?:on|off)(?:, ALPN: [A-Za-z0-9_./-]+)?\)$/.exec(lines[1]);
+  requireGuard(ssl && protocol(ssl[1]) && cipher(ssl[2]), "preflight", "client_tls_required");
+  return { clientTlsVerified: true, format: "classic" };
+}
+
+export async function collectPreflight(psql, expected, connection, onClientTls = async () => {}) {
+  const response = await psql("client-conninfo", ["--field-separator", "\t", "--pset=footer=off", "--command", "\\conninfo"]);
+  // No SQL, including read-only metadata/snapshots, runs without client proof.
+  const proof = parseClientTls(response.stdout, connection);
+  await onClientTls(proof);
+  const privilegeBytes = (await psql("privileges", [], ownershipSql(expected))).stdout;
+  const privilege = parseJson(privilegeBytes, "preflight", "privileges_json");
+  const checks = {
+    identity: privilege?.format === "performance-release-privileges-v1" && privilege.currentUser === "postgres" && privilege.sessionUser === "postgres",
+    clientTlsVerified: proof?.clientTlsVerified === true,
+    backendSSL: privilege?.backendSSL === true,
+    ...Object.fromEntries(PRIVILEGE_CHECKS.map((name) => [name, privilege?.checks?.[name] === true])),
+  };
+  return { proof, checks };
+}
+
+export function validatePreflight(collected) {
+  requireGuard(collected.checks.clientTlsVerified, "preflight", "client_tls_required");
+  requireGuard(collected.checks.identity, "preflight", "privileges_identity");
+  for (const check of PRIVILEGE_CHECKS) requireGuard(collected.checks[check], "preflight", `privileges.${check}`);
+  // backendSSL describes Supavisor -> PostgreSQL; it is diagnostic only.
 }
 
 export function classifyProcessFailure(stage, name, result) {
@@ -258,10 +313,10 @@ with role_state as (select rolsuper,rolcanlogin,rolbypassrls from pg_roles where
 table_owners as (select x.name,c.oid,c.relowner,c.relrowsecurity,c.relforcerowsecurity from (values ${tables}) x(name,oid) left join pg_class c on c.oid=x.oid),
 function_owners as (select p.oid,p.proowner from (values ${functions}) x(oid) left join pg_proc p on p.oid=x.oid)
 select jsonb_build_object('format','performance-release-privileges-v1','currentUser',current_user,'sessionUser',session_user,
+'backendSSL',coalesce((select ssl from pg_stat_ssl where pid=pg_backend_pid()),false),
 'checks',jsonb_build_object(
  'database',current_database()='postgres',
  'administratorRole',current_user='postgres' and session_user='postgres' and coalesce((select rolcanlogin from role_state),false),
- 'ssl',coalesce((select ssl from pg_stat_ssl where pid=pg_backend_pid()),false),
  'readOnly',current_setting('transaction_read_only')='on' and current_setting('transaction_isolation')='repeatable read',
  'publicSchema',has_schema_privilege(current_user,'public','USAGE') and has_schema_privilege(current_user,'public','CREATE'),
  'extensionSchema',has_schema_privilege(current_user,'extensions','USAGE'),
@@ -297,6 +352,15 @@ export function validateSnapshot(value, phase, expected) {
       "verification", `${phase}.preservation.${name}`);
   }
   return snapshot;
+}
+
+export function snapshotChecks(value, phase, expected) {
+  const snapshot = unwrap(value);
+  return {
+    ...Object.fromEntries(expected.expectedChecks[phase].map((name) => [name, snapshot?.checks?.[name] === true])),
+    ...Object.fromEntries([...expected.stateRules.alwaysZero, ...(phase === "after" ? expected.stateRules.afterZero : [])]
+      .map((name) => [`zero.${name}`, get(snapshot, name) === 0])),
+  };
 }
 
 export function validateGeneratedTypes(source, secrets) {
@@ -381,7 +445,7 @@ export async function runRunner({ bundle, before, root = process.cwd(), env = pr
   const result = {
     passed: false, phase: "unknown", databaseVerificationPassed: false, typesGenerated: false, typesMatch: false,
     head: APPROVAL.implementationHead, projectRef: APPROVAL.projectRef, opsCommit: SHA.test(env.GITHUB_SHA || "") ? env.GITHUB_SHA : null,
-    versions: [], appliedVersions: [], failures: [],
+    versions: [], appliedVersions: [], privilegeChecks: {}, snapshotChecks: { before: {}, after: {} }, failures: [],
   };
   let outputsReady = false;
   const privateWrite = async (name, value) => {
@@ -446,17 +510,23 @@ export async function runRunner({ bundle, before, root = process.cwd(), env = pr
     const psql = (name, args = [], input) => command("database", name, "psql",
       ["-X", "--no-password", "--quiet", "--no-align", "--tuples-only", "--set=ON_ERROR_STOP=1", "--set=VERBOSITY=sqlstate", "--set=SHOW_CONTEXT=never", ...args],
       { env: pgEnv, input, timeout: 240000 });
-    const privilegeBytes = (await psql("privileges", [], ownershipSql(release.expected))).stdout;
-    const privilege = parseJson(privilegeBytes, "preflight", "privileges_json");
-    requireGuard(privilege.format === "performance-release-privileges-v1" && privilege.currentUser === "postgres" && privilege.sessionUser === "postgres", "preflight", "privileges_identity");
-    const privilegeChecks = ["database", "administratorRole", "ssl", "readOnly", "publicSchema", "extensionSchema", "historySchema", "historyPrivileges", "markerPrivileges", "existingTableReadPrivileges", "existingTableFullVisibility", "ddlTableOwnership", "foreignKeyReferences", "replacementFunctionOwnership"];
-    for (const check of privilegeChecks) requireGuard(privilege.checks?.[check] === true, "preflight", `privileges.${check}`);
+    result.privilegeChecks = { clientTlsVerified: false };
+    const collected = await collectPreflight(psql, release.expected, connection, async (proof) => {
+      result.privilegeChecks.clientTlsVerified = true;
+      await privateWrite("client-tls-proof.json", JSON.stringify(proof));
+    });
+    result.privilegeChecks = collected.checks;
     const snapshot = async (phase, name = phase) => {
       const response = await psql(`snapshot-${name}`, ["--file", path.join(bundle, `verify-${phase}.sql`)]);
       const value = parseJson(response.stdout, "verification", `${phase}.json`);
-      validateSnapshot(value, phase, release.expected);
       const target = path.join(privateDir, `${name}.json`);
       await privateWrite(`${name}.json`, response.stdout);
+      // Publish every known bool before either validator can reject its first
+      // failure. No arbitrary server keys, counts, row values, or error text.
+      result.snapshotChecks[phase] = snapshotChecks(value, phase, release.expected);
+      await publish();
+      validateSnapshot(value, phase, release.expected);
+      validatePreflight(collected);
       return target;
     };
     const compare = async (beforePath, afterPath) => {
@@ -555,11 +625,32 @@ export async function selfTest() {
     const secrets = secretVariants(fakeUrl);
     const redacted = redact([fakeUrl, decodeURIComponent(fakeUrl), fakePassword, encodeURIComponent(fakePassword)].join("\n"), secrets);
     assert.ok(secrets.every((secret) => !redacted.includes(secret)));
-    const childEnv = libpqEnvironment(parseDatabaseUrl(fakeUrl, APPROVAL.projectRef), { PATH: "/mock", BACKUP_PASSPHRASE: "do-not-inherit", PGOPTIONS: "unsafe", SUPABASE_DB_URL: fakeUrl });
+    const childEnv = libpqEnvironment(parseDatabaseUrl(fakeUrl, APPROVAL.projectRef), { PATH: "/mock", BACKUP_PASSPHRASE: "do-not-inherit", PGOPTIONS: "unsafe", SUPABASE_DB_URL: fakeUrl, LANG: "ja_JP.UTF-8", LC_ALL: "ja_JP.UTF-8", LC_MESSAGES: "ja_JP.UTF-8" });
     assert.equal(childEnv.PGPASSWORD, fakePassword);
     assert.equal(childEnv.PGOPTIONS, undefined); assert.equal(childEnv.BACKUP_PASSPHRASE, undefined); assert.equal(childEnv.SUPABASE_DB_URL, undefined);
     for (const name of ["SUPABASE_TELEMETRY_DISABLED", "DO_NOT_TRACK", "SUPABASE_NO_KEYRING"]) assert.equal(childEnv[name], "1");
+    for (const name of ["LANG", "LC_ALL", "LC_MESSAGES"]) assert.equal(childEnv[name], "C");
     assert.equal(redact("[REDACTED]", ["REDACTED"]).includes("REDACTED"), false);
+  });
+  const connection = parseDatabaseUrl(fakeUrl, APPROVAL.projectRef);
+  const tabularConninfo = [
+    "Database\tpostgres", `Client User\t${connection.user}`, `Host\t${connection.host}`, "Host Address\t192.0.2.1", "Server Port\t5432",
+    "Options\t", "Protocol Version\t3.0", "Password Used\ttrue", "GSSAPI Authenticated\tfalse", "Backend PID\t123",
+    "SSL Connection\ttrue", "SSL Library\tOpenSSL", "SSL Protocol\tTLSv1.3", "SSL Key Bits\t256", "SSL Cipher\tTLS_AES_256_GCM_SHA384",
+    "SSL Compression\tfalse", "ALPN\tpostgresql", "Superuser\toff", "Hot Standby\toff",
+  ].join("\n") + "\n";
+  const classicTarget = `You are connected to database "postgres" as user "${connection.user}" on host "${connection.host}" (address "192.0.2.1") at port "5432".`;
+  const classicConninfo = `${classicTarget}\nSSL connection (protocol: TLSv1.3, cipher: TLS_AES_256_GCM_SHA384, compression: off, ALPN: postgresql)\n`;
+  await pass("client_tls_pg18_tabular_and_older_classic_formats", () => {
+    assert.deepEqual(parseClientTls(tabularConninfo, connection), { clientTlsVerified: true, format: "psql18-tabular" });
+    assert.deepEqual(parseClientTls(classicConninfo.replaceAll("\n", "\r\n"), connection), { clientTlsVerified: true, format: "classic" });
+    assert.equal(parseClientTls(classicConninfo.replace(" (address \"192.0.2.1\")", "").replace(", ALPN: postgresql", ""), connection).clientTlsVerified, true);
+    mustReject(() => parseClientTls(tabularConninfo.replace("SSL Connection\ttrue", "SSL Connection\tfalse"), connection), "client_tls_required");
+    mustReject(() => parseClientTls(tabularConninfo.replace("SSL Connection\ttrue", "SSL Connection\tt"), connection), "client_tls_required");
+    mustReject(() => parseClientTls(tabularConninfo + "SSL Connection\ttrue\n", connection), "client_conninfo_shape");
+    mustReject(() => parseClientTls(tabularConninfo.replace("Server Port\t5432", "Server Port\t6543"), connection), "client_conninfo_target");
+    mustReject(() => parseClientTls(classicConninfo.replace("TLSv1.3", "unknown"), connection), "client_tls_required");
+    mustReject(() => parseClientTls("SSL connection (protocol: TLSv1.3, cipher: TLS_AES_256_GCM_SHA384, compression: off)\n", connection), "client_conninfo_shape");
   });
   await pass("private_error_classification_excludes_message", () => {
     const error = classifyProcessFailure("database", "apply-fixed", { stderr: `psql:/private/fixed.sql:19: ERROR: 42501\n${fakeUrl}\nprivate row body` });
@@ -625,6 +716,77 @@ export async function selfTest() {
     return value;
   };
   const release = await verifyBundle(mockBundle, mockSource, mockRead());
+  const snapshotFixture = (phase = "before") => {
+    const value = {
+      format: release.expected.format, phase, sourceCommit: APPROVAL.implementationHead,
+      environment: { transactionReadOnly: "on", isolation: "repeatable read", database: "postgres", role: "postgres" },
+      checks: Object.fromEntries(release.expected.expectedChecks[phase].map((name) => [name, true])),
+      preservation: release.expected.preservation.tables.map((name) => ({ name, present: true, row_count: 0, row_digest_sha256: hash("") })),
+    };
+    for (const name of [...release.expected.stateRules.alwaysZero, ...(phase === "after" ? release.expected.stateRules.afterZero : [])]) {
+      const parts = name.split(".");
+      let target = value;
+      for (const part of parts.slice(0, -1)) target = target[part] ||= {};
+      target[parts.at(-1)] = 0;
+    }
+    return value;
+  };
+  await pass("client_tls_failure_stops_before_any_metadata_snapshot_or_ddl", async () => {
+    for (const output of ["", "You are currently not connected to a database.\n", tabularConninfo.replace("SSL Connection\ttrue", "SSL Connection\tfalse"), `${classicTarget}\nSSL is not in use\n`]) {
+      const calls = [];
+      const psql = async (name, args, input) => {
+        calls.push({ name, args, input });
+        assert.equal(name, "client-conninfo");
+        assert.deepEqual(args, ["--field-separator", "\t", "--pset=footer=off", "--command", "\\conninfo"]);
+        return { stdout: Buffer.from(output) };
+      };
+      await assert.rejects(collectPreflight(psql, release.expected, connection), GuardFailure);
+      assert.equal(calls.length, 1); assert.equal(calls[0].input, undefined);
+    }
+  });
+  await pass("client_tls_true_backend_ssl_false_is_diagnostic_and_all_gate_bools_are_safe", async () => {
+    const privilege = {
+      format: "performance-release-privileges-v1", currentUser: "postgres", sessionUser: "postgres", backendSSL: false,
+      checks: { ...Object.fromEntries(PRIVILEGE_CHECKS.map((name) => [name, true])), arbitraryServerKey: "private row text" },
+    };
+    const calls = [];
+    const psql = async (name) => {
+      calls.push(name);
+      return { stdout: Buffer.from(name === "client-conninfo" ? tabularConninfo : JSON.stringify(privilege)) };
+    };
+    const collected = await collectPreflight(psql, release.expected, connection);
+    assert.deepEqual(calls, ["client-conninfo", "privileges"]);
+    assert.equal(collected.checks.clientTlsVerified, true); assert.equal(collected.checks.backendSSL, false);
+    assert.equal(collected.checks.arbitraryServerKey, undefined); assert.ok(Object.values(collected.checks).every((item) => typeof item === "boolean"));
+    validatePreflight(collected);
+    privilege.checks.publicSchema = false; privilege.checks.historyPrivileges = false;
+    const denied = await collectPreflight(psql, release.expected, connection);
+    const snapshot = snapshotFixture();
+    snapshot.checks.arbitraryServerKey = "private row text";
+    const diagnostic = { privilegeChecks: denied.checks, snapshotChecks: {} };
+    let writes = 0;
+    await assert.rejects(executePhase({ ...plan, phase: "apply" }, { appliedVersions: [] }, {
+      migrations: release.manifest.migrations, clock: () => now,
+      snapshot: async (phase) => {
+        diagnostic.snapshotChecks[phase] = snapshotChecks(snapshot, phase, release.expected);
+        validateSnapshot(snapshot, phase, release.expected); validatePreflight(denied); return phase;
+      },
+      apply: async () => { writes++; }, publish: async () => {}, compare: async () => {}, generateTypes: async () => {},
+    }), (error) => error.check === "privileges.publicSchema");
+    assert.equal(writes, 0); assert.equal(diagnostic.privilegeChecks.publicSchema, false); assert.equal(diagnostic.privilegeChecks.historyPrivileges, false);
+    assert.ok(Object.values(diagnostic.snapshotChecks.before).every((item) => item === true));
+    assert.ok(!JSON.stringify(diagnostic).includes("private row text"));
+    for (const phase of ["before", "after"]) {
+      const value = snapshotFixture(phase);
+      value.checks.requiredExtensionsPresent = false; value.checks.roleConfigurationMatches = "true";
+      value.operationalState.review.activeQueueDuplicateKnowledge = "0";
+      const checks = snapshotChecks(value, phase, release.expected);
+      assert.equal(checks.requiredExtensionsPresent, false); assert.equal(checks.roleConfigurationMatches, false);
+      assert.equal(checks["zero.operationalState.review.activeQueueDuplicateKnowledge"], false);
+      assert.ok(Object.values(checks).every((item) => typeof item === "boolean"));
+      mustReject(() => validateSnapshot(value, phase, release.expected), `${phase}.checks.requiredExtensionsPresent`);
+    }
+  });
   await pass("frozen_bundle_mock_rejects_manifest_apply_source_and_expected_tampering", async () => {
     for (const [file, check] of [
       [path.join(mockBundle, "release-manifest.json"), "manifest_sha256"],
@@ -644,18 +806,7 @@ export async function selfTest() {
     assert.ok(!sql.includes("'SELECT,INSERT'"));
     assert.ok(!sql.includes("historyOwnership"));
     assert.ok(sql.includes("'public.review_batch_runs','REFERENCES'"));
-    const snapshot = {
-      format: release.expected.format, phase: "before", sourceCommit: APPROVAL.implementationHead,
-      environment: { transactionReadOnly: "on", isolation: "repeatable read", database: "postgres", role: "postgres" },
-      checks: Object.fromEntries(release.expected.expectedChecks.before.map((name) => [name, true])),
-      preservation: release.expected.preservation.tables.map((name) => ({ name, present: true, row_count: 0, row_digest_sha256: hash("") })),
-    };
-    for (const name of release.expected.stateRules.alwaysZero) {
-      const parts = name.split(".");
-      let target = snapshot;
-      for (const part of parts.slice(0, -1)) target = target[part] ||= {};
-      target[parts.at(-1)] = 0;
-    }
+    const snapshot = snapshotFixture();
     validateSnapshot(snapshot, "before", release.expected);
     const denied = structuredClone(snapshot); denied.checks.beforeHistoryAbsent = false;
     mustReject(() => validateSnapshot(denied, "before", release.expected), "before.checks.beforeHistoryAbsent");
