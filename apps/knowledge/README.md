@@ -215,5 +215,5 @@ Basic認証を継続する場合も、3サイトへ同じ `SSO_SHARED_SECRET` �
 表を削除するなどデータが消えるマイグレーションは、内容を確認したうえで所有者が自分で適用する。
 適用後は新しい列・トリガー・関数定義と実行権限を確認する。
 
-ブラウザ直接接続（anon key）からの移行は完了している。`supabase/disable-anon-access.sql` を適用済みで、
+ブラウザ直接接続（anon key）からの移行は完了している。`supabase/migrations/baseline/disable-anon-access.sql` を適用済みで、
 anonロールからは `knowledge` や `quiz_log` を読めない（2026-10-04に確認）。

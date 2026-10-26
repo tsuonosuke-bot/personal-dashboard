@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import type { HubEnv } from "./hub.ts";
 
 /** Supabase無料プランのDB容量。プランを変えたら `SUPABASE_DB_LIMIT_MB` で上書きする。 */
@@ -74,7 +75,7 @@ export async function loadDatabaseUsage(env: DatabaseUsageEnv): Promise<Database
   if (!rawUrl || !key) return null;
   try {
     const endpoint = new URL("/rest/v1/rpc/get_database_usage", rawUrl);
-    const response = await fetch(endpoint, {
+    const response = await fetchSupabase(endpoint, {
       method: "POST",
       headers: { Accept: "application/json", "Content-Type": "application/json", apikey: key },
       body: "{}",

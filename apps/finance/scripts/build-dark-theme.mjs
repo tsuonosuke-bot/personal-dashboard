@@ -402,6 +402,10 @@ function outputPath(input) {
   return input.replace(/\.css$/, ".dark.css");
 }
 
+function normalizeNewlines(value) {
+  return value.replace(/\r\n?/g, "\n");
+}
+
 // Tests import buildDarkTheme; under --test-isolation=none argv holds the test files, so only run as a CLI.
 const isCli = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 const args = isCli ? process.argv.slice(2) : [];
@@ -418,7 +422,8 @@ if (inputs.length > 0) {
     if (check) {
       let current = "";
       try { current = readFileSync(output, "utf8"); } catch { /* missing counts as stale */ }
-      if (current !== generated) {
+      // Match the Hub check: Git may use CRLF on Windows while generation writes LF.
+      if (normalizeNewlines(current) !== normalizeNewlines(generated)) {
         stale = true;
         console.error(`${output} is stale. Run the theme build script.`);
       }

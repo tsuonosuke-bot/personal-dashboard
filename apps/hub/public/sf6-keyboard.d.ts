@@ -1,4 +1,4 @@
-type NotationKeyEvent = {
+export type NotationKeyEvent = {
   key: string;
   code?: string;
   shiftKey?: boolean;

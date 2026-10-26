@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": []
+  },
+  // Incremental client coverage: pure browser models/formatters and the shared API boundary.
+  // Large DOM controllers (Hub, Compass, Projects, SF6, Today, Writing, Habits, Status)
+  // and shared theme/tabbar/service-worker scripts remain syntax-checked by check:client.
+  // Add files here as their data and DOM boundaries gain JSDoc; do not use ts-nocheck.
+  "files": [
+    "public/api-client.js",
+    "public/shared/html.js",
+    "public/compass/calendar-grid.js",
+    "public/compass/inbox-source.js",
+    "public/compass/want-category.js",
+    "public/compass-routing.js",
+    "public/journal-trend.js",
+    "public/learning-stages.js",
+    "public/sf6-keyboard.js",
+    "public/sf6-notation.js",
+    "public/sf6/text.js"
+  ],
+  "include": []
+}

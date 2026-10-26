@@ -1,3 +1,4 @@
+import { readAppSource } from "./appSource.ts";
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -89,7 +90,7 @@ test('再開は専用DB関数を使い、停止期間を遡及登録しない', 
 })
 
 test('SQLは生成履歴の一意制約と月次基準日と日次Cronを持つ', async () => {
-  const sql = await readFile(new URL('../supabase/recurring-expenses.sql', import.meta.url), 'utf8')
+  const sql = await readFile(new URL('../supabase/migrations/baseline/recurring-expenses.sql', import.meta.url), 'utf8')
   assert.match(sql, /primary key \(rule_id, scheduled_for\)/)
   assert.match(sql, /p_day_of_month/)
   assert.match(sql, /template_rule_id/)
@@ -103,7 +104,7 @@ test('SQLは生成履歴の一意制約と月次基準日と日次Cronを持つ'
 
 test('家計簿画面から定期登録管理画面を開き、内容を編集できる', async () => {
   const [app, manager, styles] = await Promise.all([
-    readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
+    readAppSource(),
     readFile(new URL('../src/components/RecurringExpenseModal.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/index.css', import.meta.url), 'utf8'),
   ])

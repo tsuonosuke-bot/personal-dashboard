@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 
 const MAX_REQUEST_CHARS = 8_000;
@@ -168,7 +169,7 @@ export async function updateItem(
 
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetchSupabase(endpoint, {
       method: "PATCH",
       headers: {
         Accept: "application/json",

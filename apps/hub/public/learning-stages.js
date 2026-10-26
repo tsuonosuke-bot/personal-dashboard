@@ -1,10 +1,12 @@
 import { escapeHtml } from "./shared/html.js";
 
+/** @param {unknown} value @param {string} label @param {string} [unit] */
 function countLabel(value, label, unit = "件") {
-  return Number.isSafeInteger(value) && value >= 0 ? `${label} ${value}${unit}` : "件数を取得できません";
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? `${label} ${value}${unit}` : "件数を取得できません";
 }
 
 /** Existing Hub summaries only; preview arrays are not totals. Links never come from API data. */
+/** @type {typeof import("./learning-stages.d.ts").learningStages} */
 export function learningStages(summary = {}, availability = {}) {
   return [
     { id: "strategy", title: "戦略", status: countLabel(availability.projects === false ? null : summary.activeProjects, "進行中"),
@@ -18,6 +20,7 @@ export function learningStages(summary = {}, availability = {}) {
   ];
 }
 
+/** @type {typeof import("./learning-stages.d.ts").renderLearningStages} */
 export function renderLearningStages(summary, availability) {
   return learningStages(summary, availability).map((stage, index) => `<li data-learning-stage="${stage.id}">
     <div class="learning-stage-heading"><span aria-hidden="true">${index + 1}</span><h3>${stage.title}</h3></div>

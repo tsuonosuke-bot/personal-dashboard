@@ -1,3 +1,4 @@
+import { readAppSource } from "./appSource.ts";
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -6,7 +7,7 @@ const read = (path: string) => readFile(new URL(path, import.meta.url), 'utf8')
 
 test('APIのエラーはstatusを持ち、一括変更で他画面の更新（409）を見分けられる', async () => {
   const api = await read('../src/lib/api.ts')
-  assert.match(api, /export class ApiError extends Error \{\n  readonly status: number/)
+  assert.match(api.replaceAll('\r\n', '\n'), /export class ApiError extends Error \{\n  readonly status: number/)
   assert.match(api, /throw new ApiError\(message, response\.status\)/)
 })
 
@@ -14,7 +15,7 @@ test('未分類だけを複数選択し、変更先と件数・合計を確認�
   const [table, bar, app] = await Promise.all([
     read('../src/components/ExpenseTable.tsx'),
     read('../src/components/BulkCategoryBar.tsx'),
-    read('../src/App.tsx'),
+    readAppSource(),
   ])
   assert.match(table, /expense\.category === UNCLASSIFIED_CATEGORY/)
   assert.match(table, /このページの未分類をすべて選択/)

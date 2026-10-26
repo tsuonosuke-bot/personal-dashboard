@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import { safeEqual } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 import {
@@ -139,7 +140,7 @@ function restEndpoint(env: DashboardEnv, table: string): URL {
 async function rest(env: DashboardEnv, endpoint: URL, init: RequestInit = {}): Promise<Response> {
   let response: Response;
   try {
-    response = await fetch(endpoint, { ...init, headers: supabaseHeaders(env.SUPABASE_SECRET_KEY!.trim(), (init.headers || {}) as Record<string, string>) });
+    response = await fetchSupabase(endpoint, { ...init, headers: supabaseHeaders(env.SUPABASE_SECRET_KEY!.trim(), (init.headers || {}) as Record<string, string>) });
   } catch {
     throw new DashboardError("SUPABASE_UNAVAILABLE", "Could not reach the calendar sync tables.");
   }

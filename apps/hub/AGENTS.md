@@ -1,3 +1,5 @@
+共通の開発・マイグレーション・環境変数の手順は [OPERATIONS.md](../../OPERATIONS.md) を参照。
+
 # Personal Dashboard instructions
 
 ## UI defaults

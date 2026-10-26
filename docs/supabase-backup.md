@@ -1,5 +1,7 @@
 # Supabaseバックアップ
 
+開発・変更適用の手順は [共通運用](../OPERATIONS.md#マイグレーション) を参照。
+
 共有DB（project ref `plwlxwidpqbunugfxjhp`。ナレッジ・家計簿・Hub）を
 `.github/workflows/supabase-backup.yml` が週1回（月曜 3:17 JST）バックアップする。
 Actionsタブの「Run workflow」から手動でも実行できる。
@@ -44,5 +46,5 @@ psql \
 
 - 本番DBへ直接上書きしない。新規プロジェクトへ復元して中身を確認してから切り替える
 - pg_cronのジョブ（`cron` スキーマ）はダンプに含まれない。復元後に各アプリの
-  `supabase/migrations/` と `apps/finance/supabase/recurring-expenses.sql` のcron登録部分を流し直す
+  現在のスキーマ・cron.jobと適用履歴を照合して、必要なcron登録だけを復旧用SQLとしてレビューする。`migrations/baseline/` は過去定義の参照用で、全体を再実行しない
 - 復元先ではCloudflare Pagesの `SUPABASE_URL` / `SUPABASE_SECRET_KEY` を差し替えて再デプロイする

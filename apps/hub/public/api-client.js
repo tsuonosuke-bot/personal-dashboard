@@ -1,3 +1,4 @@
+/** @param {Response} response */
 function responseMessage(response) {
   if (response.status === 401) return "認証の有効期限が切れました。ページを再読み込みしてログインしてください。";
   if (response.status === 403) return "この操作を行う権限を確認できませんでした。";
@@ -9,6 +10,7 @@ function responseMessage(response) {
     : "処理を完了できませんでした。再試行してください。";
 }
 
+/** @param {Response} response @returns {Promise<unknown>} */
 export async function readApiJson(response) {
   const contentType = response.headers.get("Content-Type")?.toLowerCase() || "";
   if (!contentType.includes("json")) throw new Error(responseMessage(response));
@@ -28,7 +30,13 @@ export async function readApiJson(response) {
   }
 }
 
-/** Run a page request without altering its headers, body or conflict-check values. */
+/**
+ * Run a page request without altering its headers, body or conflict-check values.
+ * @param {RequestInfo | URL} url
+ * @param {RequestInit | undefined} init
+ * @param {(payload: unknown) => Error} errorFor
+ * @returns {Promise<unknown>}
+ */
 export async function requestApiJson(url, init, errorFor) {
   const response = await fetch(url, init);
   const payload = await readApiJson(response);

@@ -1,9 +1,12 @@
 import { appendToken, removeLastToken } from "./sf6-notation.js";
 
 const ARROW_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
+/** @type {Record<string, string>} */
 const ATTACKS = { u: "弱P", i: "中P", o: "強P", j: "弱K", k: "中K", l: "強K" };
+/** @type {Record<string, string>} */
 const SHORTCUTS = { " ": ">", x: "xx", q: "J", r: "DR", f: "DI", p: "パリィ", t: "投げ", c: "TC" };
 
+/** @param {import("./sf6-keyboard.d.ts").NotationKeyEvent} event */
 function shortcut(event) {
   const key = event.key.toLowerCase();
   if (ATTACKS[key]) return event.shiftKey ? (ATTACKS[key].endsWith("P") ? "PP" : "KK") : ATTACKS[key];
@@ -19,8 +22,10 @@ function shortcut(event) {
  * フォーカス中のレシピ欄だけで使う入力。矢印を全部離すまでを1方向とし、同時押しは斜めに置き換える。
  * read/write は既存のパレットと同じテキストを使う。DOMに触れず、blur・閉じる操作では reset する。
  */
+/** @type {typeof import("./sf6-keyboard.d.ts").createNotationKeyboard} */
 export function createNotationKeyboard({ read, write }) {
   const arrows = new Set();
+  /** @type {string | null} */
   let beforeArrow = null;
 
   function reset() {
@@ -46,7 +51,7 @@ export function createNotationKeyboard({ read, write }) {
         const x = Number(arrows.has("ArrowRight")) - Number(arrows.has("ArrowLeft"));
         const y = Number(arrows.has("ArrowUp")) - Number(arrows.has("ArrowDown"));
         write(appendToken(beforeArrow, String(5 + x + y * 3)));
-      } else {
+      } else if (token) {
         beforeArrow = null;
         write(token === "backspace" ? removeLastToken(read()) : appendToken(read(), token));
       }

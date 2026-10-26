@@ -23,4 +23,4 @@ export {
   type NonceConsumer,
   type SessionEnv,
 } from "./session.ts";
-export { fetchSupabase, jsonResponse, methodNotAllowed, type SupabaseEnv } from "./supabase.ts";
+export { fetchSupabase, supabaseHeaders, SupabaseTransportError, SUPABASE_TIMEOUT_MS, jsonResponse, methodNotAllowed, type SupabaseEnv } from "./supabase.ts";

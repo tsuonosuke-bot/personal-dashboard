@@ -1,3 +1,5 @@
+共通の開発・マイグレーション・環境変数の手順は [OPERATIONS.md](../../OPERATIONS.md) を参照。
+
 # CLAUDE.md
 
 Supabase のナレッジDB（学習カード + クイズ履歴）を自分専用で管理する
@@ -131,7 +133,7 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
 - 正答率は `正解` だけを分子とし、`部分正解` は含めない
 - `format` は `一問一答` / `四択` / `記述説明` / `産出` / `ソクラテス式`。
   ダッシュボードから出題するのは `ソクラテス式` を除く4種（対話の往復が要るため）。
-  `四択` を許可するCHECK制約の変更は `supabase/allow-choice-quiz-format.sql`
+  `四択` を許可するCHECK制約の変更は `supabase/migrations/baseline/allow-choice-quiz-format.sql`
 - 他: `knowledge_id`, `asked_on`, `quality`, `note`, `attempt_id`（旧スキル契約v1の出題nonce）、
   `was_early`、`schedule_updated`
 - キュー経由の回答は `question`・`user_answer`・`correct_answer`・`explanation`・`answered_at`・`review_queue_id` も持つ。
@@ -309,7 +311,7 @@ Cloudflare APIはSecret keyでSupabase REST APIを呼ぶが、許可するのは
 一覧APIの `limit` は1〜1,000、`offset` は0以上に限定し、応答は
 `{ items, total, limit, offset }` とする。ブラウザ側は全ページを取得し、固定件数で
 黙って切り捨てない。任意テーブル、任意クエリの追加は禁止。移行完了後、
-`supabase/disable-anon-access.sql` でanon権限を外す。
+`supabase/migrations/baseline/disable-anon-access.sql` でanon権限を外す。
 
 ### 復習クイズのDB関数
 

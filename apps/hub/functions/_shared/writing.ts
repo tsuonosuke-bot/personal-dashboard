@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 
 const PAGE_SIZE = 1_000;
@@ -88,7 +89,7 @@ async function supabaseFetch(
   init: RequestInit = {},
 ): Promise<Response> {
   try {
-    return await fetch(endpoint, {
+    return await fetchSupabase(endpoint, {
       ...init,
       headers: { Accept: "application/json", apikey: connectionInfo.key, ...(init.headers || {}) },
     });

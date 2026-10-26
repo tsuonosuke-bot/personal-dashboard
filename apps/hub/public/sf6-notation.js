@@ -8,9 +8,11 @@ const ATTACK_ONLY = new RegExp(`^(?:${ATTACK})$`);
 const COMMAND = new RegExp(`^(J)?([1-9]*)(${ATTACK})$`);
 const TRAILING_ATTACK = new RegExp(`(?:${ATTACK})$`);
 
+/** @type {Record<string, string>} */
 export const ARROWS = { 1: "↙", 2: "↓", 3: "↘", 4: "←", 5: "N", 6: "→", 7: "↖", 8: "↑", 9: "↗" };
 
 /** つなぎの記号。カードでは小さく、または色付きの札で表示する。 */
+/** @type {typeof import("./sf6-notation.d.ts").LINKS} */
 export const LINKS = {
   ">": { label: "›", kind: "link", title: "つなぎ" },
   xx: { label: "キャンセル", kind: "cancel", title: "キャンセル" },
@@ -35,6 +37,7 @@ export const LINKS = {
   待ち: { label: "待ち", kind: "move", title: "何もせず待つ" },
 };
 
+/** @param {string} text */
 function tokensOf(text) {
   return String(text || "").trim().split(/\s+/).filter(Boolean);
 }
@@ -43,6 +46,7 @@ function tokensOf(text) {
  * パレットで押した部品をレシピの末尾に足す。方向（数字）とジャンプ（J）は、
  * 続く方向・攻撃ボタンと1語にまとめる（例: 2 → 3 → 6 → 強P で "236強P"）。
  */
+/** @type {typeof import("./sf6-notation.d.ts").appendToken} */
 export function appendToken(text, token) {
   const tokens = tokensOf(text);
   const last = tokens.at(-1);
@@ -54,6 +58,7 @@ export function appendToken(text, token) {
 }
 
 /** 最後に足した部品を1つ消す。"236強P" なら強P、"236" なら6、それ以外は最後の1語。 */
+/** @type {typeof import("./sf6-notation.d.ts").removeLastToken} */
 export function removeLastToken(text) {
   const tokens = tokensOf(text);
   const last = tokens.pop();
@@ -72,6 +77,7 @@ export function removeLastToken(text) {
  * @returns {Array<{type: "command", jump: boolean, arrows: string[], button: string, strength: string, limb: string}
  *   | {type: "motion", arrows: string[]} | {type: "link", label: string, kind: string, title: string} | {type: "text", text: string}>}
  */
+/** @type {typeof import("./sf6-notation.d.ts").parseNotation} */
 export function parseNotation(text) {
   return tokensOf(text).map((token) => {
     const command = token.match(COMMAND);
@@ -84,7 +90,7 @@ export function parseNotation(text) {
         // 5（ニュートラル）だけのときは矢印を出さない
         arrows: directions === "5" ? [] : [...directions].map((digit) => ARROWS[digit]),
         button,
-        strength: doubled ? "od" : button.length === 1 ? "any" : { 弱: "light", 中: "medium", 強: "heavy" }[button[0]],
+        strength: doubled ? "od" : button.length === 1 ? "any" : button[0] === "弱" ? "light" : button[0] === "中" ? "medium" : "heavy",
         limb: button.endsWith("P") ? "punch" : "kick",
       };
     }
@@ -100,6 +106,7 @@ export function parseNotation(text) {
  * 登録済みのレシピから、よく使う出だしを拾う。">" で区切った最初の1区間・2区間を候補にし、
  * 使われた回数の多い順に返す（同数なら短い順）。
  */
+/** @type {typeof import("./sf6-notation.d.ts").frequentFragments} */
 export function frequentFragments(notations, limit = 6) {
   const counts = new Map();
   for (const notation of notations) {
@@ -121,6 +128,7 @@ export function frequentFragments(notations, limit = 6) {
 }
 
 /** レシピの末尾に、よく使う出だしなどの複数語をまとめて足す。 */
+/** @type {typeof import("./sf6-notation.d.ts").appendFragment} */
 export function appendFragment(text, fragment) {
   return tokensOf(fragment).reduce((current, token) => appendToken(current, token), text);
 }

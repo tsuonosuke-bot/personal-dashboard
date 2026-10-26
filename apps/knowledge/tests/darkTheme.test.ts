@@ -1,3 +1,4 @@
+import { readAppSource } from "./appSource.ts";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
@@ -11,7 +12,7 @@ test("theme resolves before styles load and the switcher sits in the dashboard m
   const [html, main, app, select] = await Promise.all([
     readFile(new URL("../index.html", import.meta.url), "utf8"),
     readFile(new URL("../src/main.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/App.tsx", import.meta.url), "utf8"),
+    readAppSource(),
     readFile(new URL("../src/components/ThemeSelect.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(html, /<script src="\.\/theme\.js"><\/script>/);

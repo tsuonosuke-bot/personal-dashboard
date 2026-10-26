@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 import {
   createReplacementGoogleCalendarEvent,
@@ -144,7 +145,7 @@ function restEndpoint(env: DashboardEnv, table: string): URL {
 async function supabaseFetch(env: DashboardEnv, endpoint: URL, init: RequestInit = {}): Promise<Response> {
   const { key } = connection(env);
   try {
-    return await fetch(endpoint, {
+    return await fetchSupabase(endpoint, {
       ...init,
       headers: supabaseHeaders(key, (init.headers || {}) as Record<string, string>),
     });

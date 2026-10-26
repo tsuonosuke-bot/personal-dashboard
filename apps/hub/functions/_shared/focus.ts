@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 
 const MAX_REQUEST_CHARS = 16_000;
@@ -110,7 +111,7 @@ async function supabaseFetch(
   init: RequestInit = {},
 ): Promise<Response> {
   try {
-    return await fetch(endpoint, {
+    return await fetchSupabase(endpoint, {
       ...init,
       headers: {
         Accept: "application/json",

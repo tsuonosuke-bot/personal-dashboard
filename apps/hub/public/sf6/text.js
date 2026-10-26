@@ -1,4 +1,5 @@
 /** Textareas normalize CRLF in the DOM; preserve the original raw value until it is edited. */
+/** @type {typeof import("./text.d.ts").readSf6TextValue} */
 export function readSf6TextValue(raw, original, preserveWhitespace = false) {
   if (!raw.trim()) return null;
   if (!preserveWhitespace) return raw.trim();

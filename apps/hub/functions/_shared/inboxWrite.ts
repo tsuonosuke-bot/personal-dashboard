@@ -1,3 +1,4 @@
+import { fetchSupabase } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 
 export const INBOX_ACTION_HEADER = "inbox-create";
@@ -81,7 +82,7 @@ export async function insertInbox(env: DashboardEnv, input: { content: string; s
   endpoint.searchParams.set("select", "id,content,status,result,created_at");
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetchSupabase(endpoint, {
       method: "POST",
       headers: {
         Accept: "application/json",

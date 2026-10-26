@@ -1,3 +1,4 @@
+import { readAppSource } from "./appSource.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -54,7 +55,7 @@ test("Knowledge接続状態は4項目とバッチ状態だけを返す（バッ�
 
 test("Knowledge画面はJSON・共通状態・グラフ要約を提供する", async () => {
   const [app, card, dashboard, trend, style, migration] = await Promise.all([
-    readFile(new URL("../src/App.tsx", import.meta.url), "utf8"),
+    readAppSource(),
     readFile(new URL("../src/components/ChartCard.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/components/DashboardCharts.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/components/RegistrationTrendChart.tsx", import.meta.url), "utf8"),

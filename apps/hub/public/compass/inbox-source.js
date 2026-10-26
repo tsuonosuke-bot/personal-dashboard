@@ -2,6 +2,7 @@ const DEEP_DIVE_SOURCE = /^([\s\S]*?)\n\n深掘り元: ([^\n]+?)（knowledge ([0
 const ACTION_SOURCE = /^([\s\S]*?)\n\n行動元: ([^\n]+?)（(insight|journal) ([0-9-]+)）\s*$/;
 
 /** 登録APIが付けた出典行だけをリンクにする。任意のURLを本文から実行しない。 */
+/** @type {typeof import("./inbox-source.d.ts").splitInboxSource} */
 export function splitInboxSource(content) {
   const text = String(content ?? "");
   const action = ACTION_SOURCE.exec(text);

@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "lint": "oxlint",
     "dev": "vite",
     "dev:pages": "npm run build && npx wrangler@4 pages dev dist",
     "build": "tsc -b && vite build",

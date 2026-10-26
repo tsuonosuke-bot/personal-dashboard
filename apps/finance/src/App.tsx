@@ -1,345 +1,40 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { CategoryFilter } from './components/CategoryFilter'
+import { lazy, Suspense, useState } from 'react'
 import { ExpenseFormModal } from './components/ExpenseFormModal'
-import type { BulkCategoryResult } from './components/BulkCategoryBar'
 import { ExpenseTable } from './components/ExpenseTable'
 import { RecurringExpenseModal } from './components/RecurringExpenseModal'
 import { SummaryCards } from './components/SummaryCards'
 import { useExpenses } from './hooks/useExpenses'
-import {
-  categoryLabel,
-  currentMonthKey,
-  filterExpensesByCategories,
-  filterExpensesByPayer,
-  monthKey,
-  monthLabel,
-  summarizeUnclassified,
-  UNCLASSIFIED_CATEGORY,
-  type CategoryFilterMode,
-} from './lib/finance'
-import { ApiError, createRecurringExpense, getRecurringExpenses, runRecurringExpenses, setRecurringExpenseActive, updateRecurringExpense } from './lib/api'
-import type { Expense, ExpenseDraft, RecurringExpense, RecurringExpenseDraft, RecurringExpenseUpdate } from './lib/types'
+import { useFinanceFilters } from './hooks/useFinanceFilters'
+import { useExpenseActions } from './hooks/useExpenseActions'
+import { useRecurringExpenses } from './hooks/useRecurringExpenses'
+import { useFinanceHelp } from './hooks/useFinanceHelp'
 import { HelpView } from './components/HelpView'
-import { ThemeSelect } from './components/ThemeSelect'
+import { FinanceHeader } from './components/FinanceHeader'
+import { FinanceFilterToolbar } from './components/FinanceFilterToolbar'
 
 const MonthlyTrendChart = lazy(() => import('./components/MonthlyTrendChart').then((module) => ({ default: module.MonthlyTrendChart })))
 const CategoryPieChart = lazy(() => import('./components/CategoryPieChart').then((module) => ({ default: module.CategoryPieChart })))
 
 function App() {
-  const { expenses, voidedExpenses, categories, loading, error, lastUpdatedAt, reload, demoMode, mutating, createExpense, updateExpense, setVoided } = useExpenses()
-  const [requestedMonth, setRequestedMonth] = useState(currentMonthKey())
-  const [requestedCategories, setRequestedCategories] = useState<string[]>([])
-  const [categoryMode, setCategoryMode] = useState<CategoryFilterMode>('include')
-  const [requestedPayer, setRequestedPayer] = useState('')
-  const [entryOpen, setEntryOpen] = useState(() => new URLSearchParams(window.location.search).get('new') === 'expense')
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
-  const [actionError, setActionError] = useState<string | null>(null)
+  const data = useExpenses()
+  const { expenses, voidedExpenses, categories, loading, error, lastUpdatedAt, reload, demoMode, mutating } = data
   const [notice, setNotice] = useState<string | null>(null)
-  const [recurringOpen, setRecurringOpen] = useState(() => new URLSearchParams(window.location.search).get('view') === 'recurring')
-  const [helpOpen, setHelpOpen] = useState(() => new URLSearchParams(window.location.search).get('view') === 'help')
-  const [recurringRules, setRecurringRules] = useState<RecurringExpense[]>([])
-  const [recurringBusy, setRecurringBusy] = useState(false)
-  const [recurringError, setRecurringError] = useState<string | null>(null)
-  const [recurringLoadError, setRecurringLoadError] = useState<string | null>(null)
-
-  const loadRecurringRules = useCallback(async () => {
-    if (demoMode) return
-    try {
-      const rules = await getRecurringExpenses()
-      setRecurringRules(rules)
-      setRecurringLoadError(null)
-      setRecurringError(null)
-    } catch (caught) {
-      const message = caught instanceof Error ? caught.message : '定期登録を読み込めませんでした。'
-      setRecurringLoadError(message)
-      setRecurringError(message)
-    }
-  }, [demoMode])
-
-  // Initial server data must be synchronized after mount; the async loader also backs the visible retry action.
-  // oxlint-disable-next-line react/set-state-in-effect
-  useEffect(() => { void loadRecurringRules() }, [loadRecurringRules])
-  useEffect(() => {
-    const syncView = () => {
-      const view = new URLSearchParams(window.location.search).get('view')
-      setRecurringOpen(view === 'recurring')
-      setHelpOpen(view === 'help')
-    }
-    window.addEventListener('popstate', syncView)
-    return () => window.removeEventListener('popstate', syncView)
-  }, [])
-  const availableMonths = useMemo(
-    () => Array.from(new Set(expenses.map((expense) => monthKey(expense.transaction_date)))).sort().reverse(),
-    [expenses],
-  )
-  const availableCategories = useMemo(
-    () => Array.from(new Set([
-      ...categories.map((category) => category.name),
-      ...expenses.map((expense) => expense.category),
-    ])).sort(),
-    [categories, expenses],
-  )
-  const availablePayers = useMemo(
-    () => Array.from(new Set(
-      expenses.map((expense) => expense.payer).filter((payer): payer is string => Boolean(payer)),
-    )).sort((left, right) => left.localeCompare(right, 'ja')),
-    [expenses],
-  )
-  const selectedMonth = availableMonths.includes(requestedMonth)
-    ? requestedMonth
-    : (availableMonths[0] ?? requestedMonth)
-  const selectedCategories = useMemo(
-    () => requestedCategories.filter((category) => availableCategories.includes(category)),
-    [availableCategories, requestedCategories],
-  )
-  const selectedCategorySummary = useMemo(() => {
-    if (selectedCategories.length === 0) return ''
-    if (selectedCategories.length === availableCategories.length) return 'すべてのカテゴリ'
-    const labels = selectedCategories.map(categoryLabel)
-    if (labels.length <= 2) return labels.join('、')
-    return `${labels.slice(0, 2).join('、')} ほか${labels.length - 2}件`
-  }, [availableCategories.length, selectedCategories])
-  const selectedPayer = availablePayers.includes(requestedPayer) ? requestedPayer : ''
-  const filteredExpenses = useMemo(
-    () => filterExpensesByPayer(
-      filterExpensesByCategories(expenses, selectedCategories, categoryMode),
-      selectedPayer,
-    ),
-    [expenses, selectedCategories, categoryMode, selectedPayer],
-  )
-  const unclassified = useMemo(() => summarizeUnclassified(expenses), [expenses])
-  const unclassifiedMonthNote = unclassified.months.length > 1
-    ? `${monthLabel(unclassified.months[0])} ほか${unclassified.months.length - 1}ヶ月`
-    : unclassified.months.map(monthLabel).join('')
-  const selectedMonthIndex = availableMonths.indexOf(selectedMonth)
-  const newestTransaction = expenses.reduce(
-    (latest, expense) => expense.transaction_date > latest ? expense.transaction_date : latest,
-    '',
-  )
-
-  const closeEntry = () => {
-    setEntryOpen(false)
-    setEditingExpense(null)
-    setActionError(null)
-    if (new URLSearchParams(window.location.search).has('new')) window.history.replaceState(null, '', window.location.pathname)
-  }
-
-  const saveExpense = async (draft: ExpenseDraft) => {
-    setActionError(null)
-    try {
-      const saved = editingExpense
-        ? await updateExpense(editingExpense, draft)
-        : await createExpense(draft)
-      setRequestedMonth(monthKey(saved.transaction_date))
-      setNotice(editingExpense ? '家計簿を更新しました。' : '家計簿に保存しました。')
-      closeEntry()
-    } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : '家計簿を保存できませんでした。')
-    }
-  }
-
-  const voidExpense = async () => {
-    if (!editingExpense) return
-    const generated = /定期登録 #\d+/.test(editingExpense.memo ?? '')
-    const message = `「${editingExpense.title}」（${editingExpense.transaction_date}）を取り消しますか？\n集計とCSVから外れます。明細一覧の「取消済み」からいつでも復元できます。${generated ? '\n定期登録で作られた明細です。取り消しても同じ日の分は再生成されません。' : ''}`
-    if (!window.confirm(message)) return
-    setActionError(null)
-    try {
-      await setVoided(editingExpense, true)
-      setNotice('明細を取り消しました。明細一覧の「取消済み」から復元できます。')
-      closeEntry()
-    } catch (caught) {
-      setActionError(caught instanceof Error ? caught.message : '明細を取り消せませんでした。')
-    }
-  }
-
-  const restoreExpense = async (expense: Expense) => {
-    setActionError(null)
-    try {
-      await setVoided(expense, false)
-      setNotice(`「${expense.title}」を復元しました。`)
-    } catch (caught) {
-      setNotice(caught instanceof Error ? caught.message : '明細を復元できませんでした。')
-    }
-  }
-
-  // 未分類の明細を1件ずつ編集APIで更新する。編集前の値を条件にするので、他画面で変わった行は409で止まり上書きしない。
-  const bulkCategorize = async (targets: Expense[], category: string, hooks: { shouldStop: () => boolean; onProgress: (done: number) => void }) => {
-    const result: BulkCategoryResult = { updated: [], conflicts: [], failed: [], skipped: [] }
-    for (const [index, expense] of targets.entries()) {
-      if (hooks.shouldStop()) {
-        result.skipped.push(expense.id)
-        continue
-      }
-      const amount = Number(expense.amount)
-      try {
-        await updateExpense(expense, {
-          transaction_date: expense.transaction_date,
-          amount: Math.abs(amount),
-          title: expense.title,
-          category,
-          payer: expense.payer,
-          memo: expense.memo,
-          type: amount < 0 ? 'offset' : 'expense',
-        })
-        result.updated.push(expense.id)
-      } catch (caught) {
-        if (caught instanceof ApiError && caught.status === 409) result.conflicts.push(expense.id)
-        else result.failed.push(expense.id)
-      }
-      hooks.onProgress(index + 1)
-    }
-    return result
-  }
-
-  // 未分類だけを一覧・グラフに残し、明細が最も新しい月へ移動する。
-  const focusUnclassified = () => {
-    setRequestedCategories([UNCLASSIFIED_CATEGORY])
-    setCategoryMode('include')
-    setRequestedPayer('')
-    if (unclassified.months.length > 0) setRequestedMonth(unclassified.months[0])
-  }
-
-  const toggleCategory = (category: string) => {
-    setRequestedCategories((current) => current.includes(category)
-      ? current.filter((item) => item !== category)
-      : [...current, category])
-  }
-
-  const addRecurring = async (draft: RecurringExpenseDraft) => {
-    setRecurringBusy(true); setRecurringError(null)
-    try {
-      const created = await createRecurringExpense(draft)
-      setRecurringRules((current) => [...current, created])
-      setNotice('定期登録ルールを追加しました。')
-      return true
-    } catch (caught) { setRecurringError(caught instanceof Error ? caught.message : '定期登録を追加できませんでした。'); return false }
-    finally { setRecurringBusy(false) }
-  }
-
-  const toggleRecurring = async (rule: RecurringExpense) => {
-    setRecurringBusy(true); setRecurringError(null)
-    try {
-      const updated = await setRecurringExpenseActive(rule.id, !rule.active)
-      setRecurringRules((current) => current.map((item) => item.id === updated.id ? updated : item))
-    } catch (caught) { setRecurringError(caught instanceof Error ? caught.message : '定期登録を更新できませんでした。') }
-    finally { setRecurringBusy(false) }
-  }
-
-  const editRecurring = async (draft: RecurringExpenseUpdate) => {
-    setRecurringBusy(true); setRecurringError(null)
-    try {
-      const updated = await updateRecurringExpense(draft)
-      setRecurringRules((current) => current.map((item) => item.id === updated.id ? updated : item))
-      setNotice('定期登録ルールを更新しました。')
-      return true
-    } catch (caught) { setRecurringError(caught instanceof Error ? caught.message : '定期登録を更新できませんでした。'); return false }
-    finally { setRecurringBusy(false) }
-  }
-
-  const openRecurring = () => {
-    setRecurringError(recurringLoadError)
-    setRecurringOpen(true)
-    const url = new URL(window.location.href)
-    url.searchParams.set('view', 'recurring')
-    window.history.pushState(null, '', url)
-  }
-
-  const closeRecurring = () => {
-    if (recurringBusy) return
-    setRecurringOpen(false)
-    const url = new URL(window.location.href)
-    url.searchParams.delete('view')
-    window.history.replaceState(null, '', url)
-  }
-
-  // 説明はヘルプページにまとめ、ヘッダーの「?」から開く
-  const openHelp = () => {
-    setHelpOpen(true)
-    const url = new URL(window.location.href)
-    url.searchParams.set('view', 'help')
-    window.history.pushState(null, '', url)
-    window.scrollTo(0, 0)
-  }
-
-  const closeHelp = () => {
-    setHelpOpen(false)
-    const url = new URL(window.location.href)
-    url.searchParams.delete('view')
-    window.history.replaceState(null, '', url)
-  }
-
-  const runRecurring = async () => {
-    setRecurringBusy(true); setRecurringError(null)
-    try {
-      const generated = await runRecurringExpenses()
-      setRecurringRules(await getRecurringExpenses())
-      setRecurringLoadError(null)
-      reload()
-      setNotice(generated > 0 ? `${generated}件の定期明細を登録しました。` : '登録が必要な定期明細はありませんでした。')
-    } catch (caught) { setRecurringError(caught instanceof Error ? caught.message : '定期登録を実行できませんでした。') }
-    finally { setRecurringBusy(false) }
-  }
+  const filters = useFinanceFilters(expenses, categories)
+  const { availablePayers, selectedMonth, selectedCategories, categoryMode, selectedPayer, filteredExpenses,
+    unclassified, unclassifiedMonthNote, newestTransaction, focusUnclassified } = filters
+  const { entryOpen, setEntryOpen, editingExpense, setEditingExpense, actionError, setActionError,
+    closeEntry, saveExpense, voidExpense, restoreExpense, bulkCategorize } = useExpenseActions({ data, setRequestedMonth: filters.setRequestedMonth, setNotice })
+  const { recurringOpen, recurringRules, recurringBusy, recurringError, loadRecurringRules,
+    addRecurring, toggleRecurring, editRecurring, openRecurring, closeRecurring, runRecurring } = useRecurringExpenses({ demoMode, reload, setNotice })
+  const { helpOpen, openHelp, closeHelp } = useFinanceHelp()
 
   if (helpOpen) return <HelpView onExit={closeHelp} />
 
   return (
     <div className="app-page">
-      <header className="app-header">
-        <div className="app-header-inner">
-          <div className="dashboard-brand">
-            <span className="dashboard-brand-mark" aria-hidden="true">¥</span>
-            <h1>Finance</h1>
-          </div>
-          <div className="header-actions">
-            <a className="hub-button" href="https://personal-dashboard-7md.pages.dev/">
-              ← Hub
-            </a>
-            <details className="dashboard-switcher">
-              <summary aria-label="ページを切り替える">
-                <svg className="dashboard-switcher-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="5" cy="6" r="1" /><circle cx="5" cy="12" r="1" /><circle cx="5" cy="18" r="1" />
-                  <path d="M9 6h10M9 12h10M9 18h10" />
-                </svg>
-                <span>Dashboards</span>
-              </summary>
-              <div className="dashboard-switcher-menu">
-                <nav aria-label="ダッシュボードを切り替え">
-                  <a href="https://personal-dashboard-7md.pages.dev/compass/">Idea</a>
-                  <a href="https://personal-dashboard-7md.pages.dev/projects/">Projects</a>
-                  <a href="https://personal-dashboard-7md.pages.dev/writing/">Writing</a>
-                  <a href="https://personal-dashboard-7md.pages.dev/habits/">Habits</a>
-                  <a href="https://personal-dashboard-7md.pages.dev/sf6/">SF6</a>
-                  <span aria-current="page">Finance</span>
-                  <a href="https://personal-dashboard-7md.pages.dev/go/knowledge">Knowledge</a>
-                  <a href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
-                </nav>
-                <ThemeSelect />
-              </div>
-            </details>
-            {/* 正常時は何も出さず、確認中・デモ・失敗のときだけ知らせる */}
-            {(error || loading || demoMode) && (
-              <span className={`source-badge ${error ? 'error' : loading ? 'loading' : 'demo'}`}>
-                {error ? '取得失敗' : loading ? '接続確認中' : 'DEMO DATA'}
-              </span>
-            )}
-            <button type="button" onClick={reload} disabled={loading} aria-label="再読み込み" className="refresh-button">
-              <span aria-hidden="true">↻</span>
-            </button>
-            <button type="button" onClick={openHelp} aria-label="ヘルプ" title="ヘルプ" className="refresh-button help-button">?</button>
-            <button type="button" className="secondary-button recurring-button" onClick={openRecurring} disabled={loading || demoMode} aria-label="定期登録を管理">
-              <svg className="recurring-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="17" rx="2" />
-                <path d="M8 2v4M16 2v4M3 9h18M8 14a4 4 0 0 1 6.5-1.1L16 14M16 11v3h-3M16 17a4 4 0 0 1-6.5 1.1L8 17M8 20v-3h3" />
-              </svg>
-              <span>定期登録</span>
-            </button>
-            <button type="button" className="primary-button add-button" onClick={() => { setActionError(null); setEditingExpense(null); setEntryOpen(true) }} disabled={loading || demoMode}>
-              ＋ 家計簿を記録
-            </button>
-          </div>
-        </div>
-      </header>
+      <FinanceHeader error={error} loading={loading} demoMode={demoMode} reload={reload}
+        openHelp={openHelp} openRecurring={openRecurring}
+        openEntry={() => { setActionError(null); setEditingExpense(null); setEntryOpen(true) }} />
 
       <main className="app-main">
         <div className="page-tools" aria-label="データ管理">
@@ -392,94 +87,7 @@ function App() {
                 <span className="unclassified-alert-action" aria-hidden="true">絞り込む →</span>
               </button>
             )}
-            <section className="month-toolbar" aria-label="表示条件の選択">
-              <div className="filter-intro">
-                <div className="filter-intro-title">
-                  <p className="text-sm font-semibold text-slate-700">表示条件</p>
-                </div>
-              </div>
-              <div className="filter-controls">
-                <div>
-                  <label className="toolbar-label" htmlFor="month-filter">月</label>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      className="month-nav-button"
-                      disabled={selectedMonthIndex < 0 || selectedMonthIndex === availableMonths.length - 1}
-                      onClick={() => setRequestedMonth(availableMonths[selectedMonthIndex + 1])}
-                    >
-                      ← 前月
-                    </button>
-                    <select
-                      id="month-filter"
-                      className="month-select"
-                      value={selectedMonth}
-                      onChange={(event) => setRequestedMonth(event.target.value)}
-                    >
-                      {availableMonths.map((month) => (
-                        <option key={month} value={month}>{monthLabel(month)}</option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="month-nav-button"
-                      disabled={selectedMonthIndex <= 0}
-                      onClick={() => setRequestedMonth(availableMonths[selectedMonthIndex - 1])}
-                    >
-                      翌月 →
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <span className="toolbar-label">カテゴリ</span>
-                  <CategoryFilter
-                    categories={availableCategories}
-                    selected={selectedCategories}
-                    mode={categoryMode}
-                    onModeChange={setCategoryMode}
-                    onToggle={toggleCategory}
-                    onSelectAll={() => setRequestedCategories(availableCategories)}
-                    onClear={() => setRequestedCategories([])}
-                  />
-                </div>
-                <div>
-                  <label className="toolbar-label" htmlFor="payer-filter">支払者</label>
-                  <select
-                    id="payer-filter"
-                    className="category-select"
-                    value={selectedPayer}
-                    onChange={(event) => setRequestedPayer(event.target.value)}
-                  >
-                    <option value="">すべての支払者</option>
-                    {availablePayers.map((payer) => (
-                      <option key={payer} value={payer}>{payer}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </section>
-            {(selectedCategories.length > 0 || selectedPayer) && (
-              <div className="active-filter" role="status">
-                <div className="flex flex-wrap gap-x-5 gap-y-1">
-                  {selectedCategories.length > 0 && (
-                    <span>
-                      {categoryMode === 'include' ? '含める' : '除外する'}カテゴリ: {selectedCategorySummary}
-                    </span>
-                  )}
-                  {selectedPayer && <span>支払者: {selectedPayer}</span>}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRequestedCategories([])
-                    setCategoryMode('include')
-                    setRequestedPayer('')
-                  }}
-                >
-                  すべて解除
-                </button>
-              </div>
-            )}
+            <FinanceFilterToolbar filters={filters} />
             <SummaryCards expenses={filteredExpenses} selectedMonth={selectedMonth} />
             <Suspense fallback={<div className="panel grid min-h-80 place-items-center text-sm text-slate-500">グラフを読み込んでいます</div>}>
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">

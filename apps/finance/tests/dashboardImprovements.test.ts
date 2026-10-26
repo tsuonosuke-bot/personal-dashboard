@@ -1,3 +1,4 @@
+import { readAppSource } from "./appSource.ts";
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
@@ -71,7 +72,7 @@ test('Finance接続状態は要求された4項目だけを返す', async () => 
 
 test('Finance画面は直接記録・CSV・共通状態・グラフ要約・再読込を提供する', async () => {
   const [app, category, trend, recurring, style, migration] = await Promise.all([
-    readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
+    readAppSource(),
     readFile(new URL('../src/components/CategoryPieChart.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/components/MonthlyTrendChart.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../src/components/RecurringExpenseModal.tsx', import.meta.url), 'utf8'),

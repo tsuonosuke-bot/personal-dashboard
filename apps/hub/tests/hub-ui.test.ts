@@ -503,8 +503,8 @@ test("Knowledge and Finance ship the same tab bar script and styles as the Hub",
     read("../../finance/src/index.css"),
     read("../../knowledge/index.html"),
     read("../../finance/index.html"),
-    read("../../knowledge/src/App.tsx"),
-    read("../../finance/src/App.tsx"),
+    read("../../knowledge/src/components/KnowledgeHeader.tsx"),
+    read("../../finance/src/components/FinanceHeader.tsx"),
   ]);
   assert.equal(knowledgeScript, script);
   assert.equal(financeScript, script);

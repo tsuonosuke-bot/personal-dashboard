@@ -1,23 +1,12 @@
-export type BudgetCategory = {
-  id: number
-  name: string
-  notion_url: string | null
-}
+import type { Tables } from '../../../../packages/database-types/database.types'
 
-export type Expense = {
-  id: number
-  transaction_date: string
-  amount: number
-  title: string
-  category: string
-  payer: string | null
-  memo: string | null
-  notion_url: string | null
-  notion_created_at: string | null
-  created_at: string
-  /** 取消日時。nullなら有効な明細 */
-  voided_at: string | null
-}
+export type BudgetCategory = Pick<Tables<'budget_categories'>, 'id' | 'name' | 'notion_url'>
+
+/** The API normalizes a nullable DB title to an empty string. */
+export type Expense = Pick<Tables<'expenses'>,
+  | 'id' | 'transaction_date' | 'amount' | 'category' | 'payer' | 'memo'
+  | 'notion_url' | 'notion_created_at' | 'created_at' | 'voided_at'
+> & { title: string }
 
 export type ExpenseDraft = {
   transaction_date: string
@@ -35,26 +24,11 @@ export type ExpenseSnapshot = Pick<Expense,
 
 export type RecurringFrequency = 'daily' | 'weekly' | 'monthly'
 
-export type RecurringExpense = {
-  id: number
-  source_expense_id: number | null
-  template_rule_id: number | null
-  frequency: RecurringFrequency
-  interval_count: number
-  day_of_month: number
-  start_date: string
-  end_date: string | null
-  next_run_date: string
-  active: boolean
-  amount: number
-  title: string
-  category: string
-  payer: string | null
-  memo: string | null
-  last_generated_at: string | null
-  created_at: string
-  updated_at: string
-}
+export type RecurringExpense = Pick<Tables<'recurring_expenses'>,
+  | 'id' | 'source_expense_id' | 'template_rule_id' | 'interval_count' | 'day_of_month'
+  | 'start_date' | 'end_date' | 'next_run_date' | 'active' | 'amount' | 'title'
+  | 'category' | 'payer' | 'memo' | 'last_generated_at' | 'created_at' | 'updated_at'
+> & { frequency: RecurringFrequency }
 
 export type RecurringExpenseDraft = {
   template_rule_id: number | null
