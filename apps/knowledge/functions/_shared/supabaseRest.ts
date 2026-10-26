@@ -226,7 +226,10 @@ export async function requestSupabaseFunction(
       ) };
     }
 
-    return { ok: true, data: await response.json() };
+    // 戻り値が void の関数は 204 No Content で本文が空になる。json() に渡すと例外になり、成功した処理を
+    // 接続エラーと取り違えるため、本文が空なら null として扱う。
+    const text = await response.text();
+    return { ok: true, data: text.trim() ? JSON.parse(text) as unknown : null };
   } catch (error) {
     console.error(
       `Supabase rpc ${name} request failed`,
