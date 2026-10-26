@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const read = (path: string) => readFile(new URL(path, import.meta.url), "utf8")
-  .then((content) => content.replaceAll("\r\n", "\n"));
+  .then((content) => content.replace(/\r\n/g, "\n"));
 
 test("自分の情報は専用の表に置き、AIに渡さない行はスキルが読むビューに出さない", async () => {
   const [skill, sql] = await Promise.all([

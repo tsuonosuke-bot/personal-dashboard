@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const read = (path: string) => readFile(new URL(path, import.meta.url), "utf8")
-  .then((content) => content.replaceAll("\r\n", "\n"));
+  .then((content) => content.replace(/\r\n/g, "\n"));
 
 test("pending-routes スキルは want_routes の planned だけを待ちとして扱い、Hubの登録済みにすると同じ値を書く", async () => {
   const [skill, completion] = await Promise.all([
