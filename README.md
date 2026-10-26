@@ -25,6 +25,19 @@ npm run build -w apps/knowledge   # 1アプリだけ
 
 各アプリの `dev:pages` などは、そのアプリのディレクトリで実行する。
 
+## SQL・適用履歴
+
+新規の適用SQLは `apps/<app>/supabase/migrations/YYYYMMDDHHmmss_description.sql`
+に置く。日時はUTCの14桁、説明は小文字のsnake_caseとする。
+既存12桁版は適用versionを変えないための固定例外で、リネームしない。
+旧単発SQLの `migrations/baseline/` は保管用であり、未適用SQLとして実行しない。
+
+履歴は共有の `knowledge-db` の `supabase_migrations.schema_migrations` を参照する。
+旧SQL5本の[履歴対照表](scripts/migration-baselines.json)は、特定できた履歴と
+適用経路が不明な現状確認を分けている。`npm run db:migrations:check` は配置・
+命名・原文保全・対照表の網羅性をオフライン検査する。
+適用・記録・読み取り照合の手順は[SQLの運用](docs/migrations.md)を参照する。
+
 ## Cloudflare Pages設定
 
 プロジェクトごとに次を設定する（Settings → Build）。
