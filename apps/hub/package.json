@@ -20,10 +20,10 @@
   "devDependencies": {
     "@types/node": "^24.13.3",
     "typescript": "~6.0.2",
-    "vite": "^8.3.0",
-    "wrangler": "^4.37.1"
+    "vite": "^8.3.5",
+    "wrangler": "^4.152.0"
   },
   "dependencies": {
-    "jose": "^6.2.12"
+    "jose": "^6.2.13"
   }
 }
