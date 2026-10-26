@@ -88,7 +88,7 @@ function App() {
             )}
             <FinanceFilterToolbar filters={filters} />
             {refreshing && <p role="status">選択した条件の集計を読み込んでいます…</p>}
-            {overview && <SummaryCards monthly={overview.monthly} selectedMonth={selectedMonth} />}
+            {overview && <SummaryCards monthly={overview.monthly} selectedMonth={selectedMonth} cumulative={overview.cumulative} />}
             <Suspense fallback={<div className="panel grid min-h-80 place-items-center text-sm text-slate-500">グラフを読み込んでいます</div>}>
               {overview && <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                 <div className="min-w-0 xl:col-span-2"><MonthlyTrendChart monthly={overview.monthly} selectedMonth={selectedMonth} /></div>
