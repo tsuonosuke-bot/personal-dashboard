@@ -1,24 +1,26 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
 import { confirmReviewResultsDetailed } from "../lib/api";
-import { getJstToday } from "../lib/knowledge";
+import { useJstDate } from "../hooks/useJstDate";
+import { useLearningLogPage } from "../hooks/useLearningLogPage";
+import { getReviewConfirmationState, learningQuery, snapshotReviewResultIds } from "../lib/learningReadApi";
 import {
-  ALL_CATEGORIES, buildLearningLog, type LearningLogFilters, type LearningLogPeriod,
+  ALL_CATEGORIES, type LearningLogFilters, type LearningLogPeriod,
 } from "../lib/learningLog";
 import {
-  createReviewConfirmationCoordinator, isUnconfirmedResult, unconfirmedResultIds,
-  type ConfirmationProgress, type ConfirmationRunResult, type ReviewLogReloadResult,
+  createReviewConfirmationCoordinator, isUnconfirmedResult,
+  type ConfirmationProgress, type ConfirmationRunResult,
 } from "../lib/reviewConfirmation";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import { Pagination } from "./Pagination";
 import { GenerationHoldsPanel, PendingAnswersPanel, ReviewResultActions, type KnowledgeUpdate } from "./ReviewLogParts";
 import { SpeakingLogPanel } from "./SpeakingLogPanel";
-import type { Knowledge, QuizLog, QuizVerdict } from "../types";
+import type { Knowledge, QuizVerdict } from "../types";
+import type { KnowledgeReloadResult } from "../hooks/useKnowledgeData";
 
 interface Props {
   knowledge: Knowledge[];
-  quizLog: QuizLog[];
   loading: boolean;
   error: string | null;
   onExit: () => void;
@@ -26,11 +28,13 @@ interface Props {
   initialUnconfirmedOnly?: boolean;
   onKnowledgeUpdate: KnowledgeUpdate;
   /** 採点や確認のあとで、履歴と件数を読み直す。 */
-  onReload: () => Promise<ReviewLogReloadResult>;
+  onReload: () => Promise<KnowledgeReloadResult>;
   insightStore: InsightStore;
   insightGroupStore: InsightGroupStore;
   /** 問題を作れなかったカードを、編集できる詳細で開く。 */
   onOpenKnowledge: (id: string) => void;
+  onLoadSources: (ids: readonly string[]) => Promise<void>;
+  allCategories: string[];
 }
 
 const PERIOD_OPTIONS: { value: LearningLogPeriod; label: string }[] = [
@@ -60,23 +64,32 @@ function confirmationMessage(progress: ConfirmationProgress | null, result: Conf
 }
 
 export function LearningLogView({
-  knowledge, quizLog, loading, error, onExit, initialUnconfirmedOnly = false, onKnowledgeUpdate, onReload,
-  insightStore, insightGroupStore, onOpenKnowledge,
+  knowledge, loading: knowledgeLoading, error: knowledgeError, onExit, initialUnconfirmedOnly = false, onKnowledgeUpdate, onReload,
+  insightStore, insightGroupStore, onOpenKnowledge, onLoadSources, allCategories,
 }: Props) {
   const [tab, setTab] = useState<"review" | "speaking">("review");
   const [unconfirmedOnly, setUnconfirmedOnly] = useState(initialUnconfirmedOnly);
   /** この画面で確認した記録。一覧から消さずに「確認済み」として表示するため、手元で持つ。 */
   const [confirmedIds, setConfirmedIds] = useState<ReadonlySet<number>>(() => new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [sourceError, setSourceError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [progress, setProgress] = useState<ConfirmationProgress | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmationRunResult | null>(null);
+  const preparing = useRef(false);
   const reloadRef = useRef(onReload);
   reloadRef.current = onReload;
   const coordinatorRef = useRef<ReturnType<typeof createReviewConfirmationCoordinator> | null>(null);
   if (coordinatorRef.current === null) coordinatorRef.current = createReviewConfirmationCoordinator({
     confirm: confirmReviewResultsDetailed,
-    reload: () => reloadRef.current(),
+    reload: async (targetIds) => {
+      try {
+        const states = await getReviewConfirmationState(targetIds);
+        const refreshed = await reloadRef.current();
+        if (!refreshed.ok) return refreshed;
+        return { ok: true, quizLog: states };
+      } catch (caught) { return { ok: false, error: caught instanceof Error ? caught.message : "確認状態を取得できませんでした。" }; }
+    },
     onConfirmed: (ids) => setConfirmedIds((current) => new Set([...current, ...ids])),
     onProgress: setProgress,
   });
@@ -87,25 +100,38 @@ export function LearningLogView({
   });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(30);
+  const today = useJstDate();
+  const baseQuery = useMemo(() => learningQuery(filters, today), [filters, today]);
+  const query = new URLSearchParams(baseQuery);
+  if (unconfirmedOnly) query.set("unconfirmed", "true");
+  const history = useLearningLogPage(query.toString(), pageSize, page, tab === "review");
+  const loading = knowledgeLoading || history.loading;
+  const error = knowledgeError ?? history.error;
 
   const categories = useMemo(
-    () => [...new Set(knowledge.map((item) => item.category))].sort(),
-    [knowledge],
+    () => [...new Set([...knowledge.map((item) => item.category), ...allCategories])].sort(),
+    [knowledge, allCategories],
   );
   const knowledgeById = useMemo(() => new Map(knowledge.map((item) => [item.id, item])), [knowledge]);
   const titleById = useMemo(() => new Map(knowledge.map((item) => [item.id, item.title])), [knowledge]);
-  const entries = useMemo(
-    () => buildLearningLog(quizLog, knowledge, filters, getJstToday())
-      .filter((entry) => !unconfirmedOnly || isUnconfirmedResult(entry)),
-    [filters, knowledge, quizLog, unconfirmedOnly],
-  );
-  const unconfirmedIds = unconfirmedResultIds(entries, confirmedIds);
-  const unconfirmedCount = unconfirmedIds.length;
+  const entries = history.data?.items ?? [];
+  useEffect(() => {
+    let cancelled = false;
+    setSourceError(null);
+    if (history.data) void onLoadSources(history.data.items.map((entry) => entry.knowledge_id))
+      .catch((caught: unknown) => { if (!cancelled) setSourceError(caught instanceof Error ? caught.message : "出典を取得できませんでした。"); });
+    return () => { cancelled = true; };
+  }, [history.data, onLoadSources]);
+  const total = history.data?.total ?? 0;
+  const baseline = useRef({ data: history.data, confirmed: confirmedIds });
+  if (baseline.current.data !== history.data) baseline.current = { data: history.data, confirmed: confirmedIds };
+  const newlyConfirmed = [...confirmedIds].filter((id) => !baseline.current.confirmed.has(id)).length;
+  const unconfirmedCount = Math.max(0, (history.data?.unconfirmed ?? 0) - newlyConfirmed);
   const detail = detailId ? knowledgeById.get(detailId) ?? null : null;
 
-  const confirm = async (ids: number[], previous?: ConfirmationRunResult, recheckOnly = false) => {
+  const confirm = async (ids: number[], previous?: ConfirmationRunResult, recheckOnly = false, fromSnapshot = false) => {
     const coordinator = coordinatorRef.current!;
-    if (coordinator.busy || loading || (error && !recheckOnly)) return;
+    if (coordinator.busy || preparing.current && !fromSnapshot || loading || (error && !recheckOnly)) return;
     if (ids.length === 0 && !recheckOnly) return;
     setConfirming(true);
     setConfirmation(null);
@@ -123,13 +149,26 @@ export function LearningLogView({
       setProgress(null);
     }
   };
-  const correct = entries.filter((entry) => entry.verdict === "正解").length;
-  const totalPages = Math.max(1, Math.ceil(entries.length / pageSize));
+  const confirmAll = async () => {
+    if (preparing.current || coordinatorRef.current?.busy || loading || error) return;
+    preparing.current = true;
+    setConfirming(true);
+    try {
+      // Freeze all matching IDs at the server; only the visible page has bodies.
+      const ids = await snapshotReviewResultIds(baseQuery);
+      await confirm(ids, undefined, false, true);
+    } catch (caught) {
+      setConfirmation({ targetIds: [], confirmedIds: [], remainingIds: [], excludedIds: [], verified: false,
+        error: caught instanceof Error ? caught.message : "確認対象を取得できませんでした。" });
+    } finally { preparing.current = false; setConfirming(false); }
+  };
+  const correct = history.data?.correct ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const rows = entries.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const rows = entries;
 
   const updateFilters = (patch: Partial<LearningLogFilters>) => {
-    if (coordinatorRef.current?.busy) return;
+    if (coordinatorRef.current?.busy || preparing.current) return;
     setFilters((current) => ({ ...current, ...patch }));
     setConfirmation(null);
     setPage(1);
@@ -147,7 +186,7 @@ export function LearningLogView({
           <button type="button" disabled={confirming} aria-pressed={tab === "speaking"} onClick={() => setTab("speaking")}>英会話練習</button>
         </div>
         {tab === "speaking" ? <SpeakingLogPanel knowledge={knowledge} periodOptions={PERIOD_OPTIONS} /> : <>
-        <PendingAnswersPanel titleById={titleById} onGraded={async () => { await onReload(); }} />
+        <PendingAnswersPanel titleById={titleById} onGraded={async () => { await onReload(); history.reload(); }} />
         <GenerationHoldsPanel onOpenKnowledge={onOpenKnowledge} />
         <div className="learning-log-filters card">
           <label>
@@ -174,7 +213,7 @@ export function LearningLogView({
           <label>
             確認
             <select disabled={confirming} value={unconfirmedOnly ? "unconfirmed" : "all"} onChange={(event) => {
-              if (coordinatorRef.current?.busy) return;
+              if (coordinatorRef.current?.busy || preparing.current) return;
               setUnconfirmedOnly(event.target.value === "unconfirmed"); setPage(1); setConfirmation(null);
             }}>
               <option value="all">すべて</option>
@@ -182,8 +221,8 @@ export function LearningLogView({
             </select>
           </label>
           <p className="learning-log-summary" aria-live="polite">
-            {entries.length}件・正解{correct}件
-            {entries.length > 0 && `（正答率${Math.round((correct / entries.length) * 100)}%）`}
+            {total}件・正解{correct}件
+            {total > 0 && `（正答率${Math.round((correct / total) * 100)}%）`}
           </p>
         </div>
 
@@ -193,11 +232,11 @@ export function LearningLogView({
               {confirmationMessage(progress, confirmation, unconfirmedCount)}
             </span>
             {!confirming && confirmation && (!confirmation.verified || error) ? (
-              <button disabled={loading} onClick={() => void confirm(confirmation.targetIds, confirmation, true)}>状態を再読み込み</button>
+              <button disabled={loading} onClick={() => confirmation.targetIds.length ? void confirm(confirmation.targetIds, confirmation, true) : void confirmAll()}>状態を再読み込み</button>
             ) : !confirming && confirmation?.remainingIds.length ? (
               <button disabled={loading || Boolean(error)} onClick={() => void confirm(confirmation.targetIds, confirmation)}>残り{confirmation.remainingIds.length}件を再実行</button>
             ) : unconfirmedCount > 0 && (
-              <button disabled={confirming || loading || Boolean(error)} onClick={() => void confirm(unconfirmedIds)}>
+              <button disabled={confirming || loading || Boolean(error)} onClick={() => void confirmAll()}>
                 検索結果の未確認{unconfirmedCount}件すべてを確認済みにする
               </button>
             )}
@@ -205,7 +244,8 @@ export function LearningLogView({
         )}
         {confirmation?.error && <div className="err compact" role="alert">{confirmation.error}</div>}
         {error && <div className="err compact" role="alert">{error}</div>}
-        {error && !confirmation && <button disabled={loading || confirming} onClick={() => void confirm(unconfirmedIds, undefined, true)}>再読み込み</button>}
+        {sourceError && <div className="err compact" role="alert">{sourceError}<button onClick={history.reload}>再読み込み</button></div>}
+        {error && !confirmation && <button disabled={loading || confirming} onClick={history.reload}>再読み込み</button>}
         {loading && entries.length === 0 && <div className="msg">読み込み中...</div>}
         {!loading && !error && entries.length === 0 && (
           <div className="msg">条件に合う回答はありません。</div>
@@ -266,14 +306,14 @@ export function LearningLogView({
           </ol>
         )}
 
-        {entries.length > 0 && (
+        {total > 0 && (
           <Pagination
             page={currentPage}
             totalPages={totalPages}
             pageSize={pageSize}
-            totalItems={entries.length}
-            onChange={setPage}
-            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            totalItems={total}
+            onChange={(value) => { if (!coordinatorRef.current?.busy && !preparing.current) setPage(value); }}
+            onPageSizeChange={(size) => { if (!coordinatorRef.current?.busy && !preparing.current) { setPageSize(size); setPage(1); } }}
           />
         )}
         </>}
@@ -281,7 +321,6 @@ export function LearningLogView({
       {detail && (
         <KnowledgeDetailModal
           knowledge={detail}
-          quizLog={quizLog}
           mutating={false}
           onClose={() => setDetailId(null)}
           insightStore={insightStore}

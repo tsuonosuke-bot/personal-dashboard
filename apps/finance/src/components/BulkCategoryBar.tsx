@@ -29,7 +29,7 @@ function resultMessage(result: BulkCategoryResult, category: string) {
   return parts.join('')
 }
 
-// 未分類の明細を複数選んで、確認してから1件ずつカテゴリを変更する。収入（80_）への変更は符号が変わるため1件ずつ編集してもらう。
+// 未分類の明細を複数選んで、確認してからカテゴリを変更する。
 export function BulkCategoryBar({ selected, categories, disabled, onRun, onFinished, onClearSelection }: Props) {
   const options = categories.filter((item) => item.name !== UNCLASSIFIED_CATEGORY && !item.name.startsWith('80_'))
   const [category, setCategory] = useState('')
@@ -84,7 +84,7 @@ export function BulkCategoryBar({ selected, categories, disabled, onRun, onFinis
             {selected.slice(0, PREVIEW_LIMIT).map((expense) => <li key={expense.id}><span>{expense.transaction_date}</span><span>{expense.title}</span><span>{yen.format(Number(expense.amount))}</span></li>)}
           </ul>
           {selected.length > PREVIEW_LIMIT && <p className="bulk-category-more">ほか{(selected.length - PREVIEW_LIMIT).toLocaleString('ja-JP')}件</p>}
-          <p className="bulk-category-note">1件ずつ保存します。別の画面で更新された明細は上書きせずに残します。</p>
+          <p className="bulk-category-note">別の画面で更新された明細は上書きせずに残します。途中で中止した場合、保存済みの変更は残ります。</p>
           <div className="entry-actions">
             <button type="button" className="secondary-button" onClick={() => setPhase('select')}>戻る</button>
             <button type="button" className="primary-button" onClick={() => void run()}>{selected.length.toLocaleString('ja-JP')}件を変更する</button>

@@ -78,7 +78,7 @@ SQLは `supabase/migrations/` に置き、新規名はUTCの
 - 支出・収入・支出相殺の新規登録
 - Hubの「＋」から `?new=expense` で登録画面を直接開く
 - 既存明細の編集（他画面で変更されたレコードは競合として停止）
-- 未分類の明細を複数選択してカテゴリを一括変更（件数・変更先・合計を確認してから1件ずつ保存。他画面で更新された行は上書きせず、中止もできる）
+- 未分類の明細をページをまたいで複数選択し、件数・変更先・合計を確認して一括変更。25件単位で保存し、各明細の編集前の値を照合する。競合・失敗・中止分は選択したまま残す
 - 誤登録した明細の取消・復元（行は消さず `voided_at` に取消日時を残す。取消済みは一覧・集計・通常CSV・Hubから除外し、監査用CSV `api/export?scope=all` とJSON書き出しには取消日時つきで含める。定期登録で生成した明細を取り消しても同じ予定日は再生成しない）
 - ルール0件からの新規作成と、既存ルールの複製・編集ができる、日次・週次・月次の定期登録ルール管理
 - Supabase Cronによる毎日0:10（JST）の自動生成と、画面からの手動反映
@@ -97,12 +97,18 @@ Supabaseプロジェクト `plwlxwidpqbunugfxjhp` の次のテーブルを参照
 - `budget_categories(id, name, notion_url)`
 - `expenses(id, transaction_date, amount, title, category, payer, memo, notion_url, notion_created_at, created_at)`
 
-画面は同一オリジンAPIから全ページを取得し、認証済み画面から家計簿を1件ずつ登録します。
+画面は同一オリジンAPIから全期間の候補・12か月の集計と、選択月の明細50件を取得します。
+過去月・検索・取消済みの明細は操作時にページ単位で読み、定期ルールも管理画面を開いた時に初めて読みます。
+CSVと従来の全件APIは全履歴を取得できます。後続ページは `count=none` で総件数の再計算を省き、指定省略時は従来どおり正確な件数を返します。
 
 - `GET /api/expenses`
 - `POST /api/expenses`
 - `PATCH /api/expenses`
 - `GET /api/budget-categories`
+- `GET /api/finance-overview?month=YYYY-MM` — 全期間の月・カテゴリ・支払者・件数と、条件付き12か月集計
+- `GET /api/expense-page?month=YYYY-MM&limit=50&offset=0` — 選択月の全件検索・並び順・ページ。`voided=1` は取消済みを取得
+- `POST /api/expense-categories` — 最大25件のカテゴリ変更。成功・競合・失敗をID別に返す
+- `GET /api/hub-summary?today=YYYY-MM-DD` — Hubの集計と最新5件。Hubの支出は従来どおり正額だけを合算
 - `GET / POST / PATCH /api/recurring-expenses`
 - `GET /api/export` — 全明細をCSVで書き出す。Hubの全体スナップショットは `?format=json` を使用
 - `GET /api/status` — 認証方式、DB接続先、適用migration、最終成功時刻だけを返す
@@ -110,6 +116,9 @@ Supabaseプロジェクト `plwlxwidpqbunugfxjhp` の次のテーブルを参照
 定期登録の変更は番号付きの新しいmigrationで適用します。`supabase/migrations/baseline/recurring-expenses.sql` は初期定義の保管用で、既存環境へ再適用しません。新規環境・復旧時も現在のスキーマと後続migrationをレビューし、必要な定義だけを準備します。
 生成履歴には `(ルール, 予定日)` の一意制約があり、Cronと手動反映が重なっても同じ明細は二重登録されません。
 共通の接続状態画面を有効にする場合は、公開より先に `supabase/migrations/202609220001_connection_status.sql` を適用します。
+性能改善 #277・#293〜#295 は `20261026035600_finance_read_models.sql` と
+`20261026041122_bulk_expense_categories.sql` のレビュー・適用後に依存するアプリを公開します。
+ローカル検証と本番確認は[性能改善の検証記録](../../docs/performance-20261026.md)で区別します。
 
 APIは取得列、並び順、対象テーブル、1回あたり最大1,000件をサーバー側で固定しています。
 登録・編集時は同一オリジン・専用ヘッダー・JSON形式・日付・金額・文字数・許可項目を検証します。収入は金額を負数へ正規化して保存します。編集時は編集前の値も照合し、別画面で変更済みの場合は409を返して上書きを止めます。

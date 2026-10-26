@@ -47,6 +47,7 @@ async function withServices(
 ): Promise<void> {
   const calls = { rpc: [] as Rpc[], ai: [] as Record<string, unknown>[], batch: [] as { url: URL; method: string; body: Record<string, unknown> }[] };
   const originalFetch = globalThis.fetch;
+  let relearningPending = false;
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
     const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
@@ -67,6 +68,34 @@ async function withServices(
       calls.rpc.push({ name: rpc[1], body });
       if (rpc[1] === "list_pending_review_ai_batches") {
         return Response.json(handlers.pending ? handlers.pending(String(body.p_kind)) : []);
+      }
+      if (rpc[1] === "attach_review_generation_jobs" || rpc[1] === "finish_review_generation_jobs") return Response.json(null);
+      if (rpc[1] === "claim_relearning_generation") {
+        if (!relearningPending) return Response.json(null);
+        relearningPending = false;
+        return Response.json(handlers.rpc("begin_review_batch", { p_kind: "generate", p_trigger: "after_grade" }));
+      }
+      if (rpc[1] === "record_review_grades_batch") {
+        // Model the RPC's internal call of the established single-answer function.
+        // Network calls still contain one batch; SQL integration tests cover locks.
+        const rows = (body.p_grades as Record<string, unknown>[]).map((grade) => {
+          try {
+            const result = handlers.rpc("record_review_grade", { p_item_id: grade.item_id, p_quality: grade.quality,
+              p_verdict: grade.verdict, p_note: grade.note, p_correct_answer: grade.correct_answer, p_explanation: grade.explanation }) as Record<string, unknown>[];
+            const row = result[0];
+            const relearning = row.recorded === true && row.status === "graded" && Number(grade.quality) <= 3;
+            relearningPending ||= relearning;
+            return { item_id: grade.item_id, recorded: row.recorded, status: row.status, relearning, error: null };
+          } catch (error) {
+            handlers.rpc("release_review_answer", { p_item_id: grade.item_id, p_error: String(error) });
+            return { item_id: grade.item_id, recorded: false, status: "failed", relearning: false, error: String(error) };
+          }
+        });
+        for (const failure of body.p_errors as Record<string, unknown>[]) {
+          handlers.rpc("release_review_answer", { p_item_id: failure.item_id, p_error: failure.error });
+          rows.push({ item_id: failure.item_id, recorded: false, status: "failed", relearning: false, error: String(failure.error) });
+        }
+        return Response.json(rows);
       }
       return Response.json(handlers.rpc(rpc[1], body));
     }

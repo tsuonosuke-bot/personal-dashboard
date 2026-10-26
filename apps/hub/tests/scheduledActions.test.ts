@@ -58,6 +58,7 @@ test("Calendar化した予定をToDoとして現在のGoogle日時と一緒に�
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
     requests.push({ url, init });
+    if (url.pathname.endsWith("/rpc/get_scheduled_action_counts")) return Response.json({pending:1,completed:0,skipped:0});
     if (url.pathname.endsWith("/scheduled_actions")) return Response.json([actionRow()]);
     if (url.pathname.endsWith("/want_routes")) return Response.json([{ id: 41, want_id: 10, title: "調査する", detail: "60分", target_id: "event-1", target_url: "https://calendar.google.com/calendar/event?eid=old" }]);
     if (url.pathname.endsWith("/wants")) return Response.json([{ id: 10, content: "調査したい", source_inbox_id: 3 }]);
@@ -297,6 +298,7 @@ test("Googleのアクセストークンは有効な間は使い回し、401で�
   let rejectCalendar = false;
   globalThis.fetch = async (input) => {
     const url = new URL(String(input));
+    if (url.pathname.endsWith("/rpc/get_scheduled_action_counts")) return Response.json({pending:1,completed:0,skipped:0});
     if (url.pathname.endsWith("/scheduled_actions")) return Response.json([actionRow()]);
     if (url.pathname.endsWith("/want_routes")) return Response.json([{ id: 41, want_id: 10, title: "調査する", detail: null, target_id: "event-1", target_url: null }]);
     if (url.pathname.endsWith("/wants")) return Response.json([{ id: 10, content: "調査したい", source_inbox_id: 3 }]);

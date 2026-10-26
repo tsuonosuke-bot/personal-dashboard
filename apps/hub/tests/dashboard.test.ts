@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { ideaReadFixture } from "./readModelFixtures.ts";
 import { normalizeDashboard } from "../functions/_shared/dashboard.ts";
 import { onRequest as dashboardRoute } from "../functions/api/dashboard.ts";
 
@@ -109,7 +110,7 @@ test("dashboard route sends the secret key only in server-side headers", async (
   const requests: Array<{ url: string; headers: Record<string, string> }> = [];
   globalThis.fetch = async (input, init) => {
     requests.push({ url: String(input), headers: init?.headers as Record<string, string> });
-    return Response.json([]);
+    return Response.json(ideaReadFixture());
   };
   try {
     const response = await dashboardRoute({
@@ -118,7 +119,7 @@ test("dashboard route sends the secret key only in server-side headers", async (
     });
     const body = await response.text();
     assert.equal(response.status, 200);
-    assert.equal(requests.length, 3);
+    assert.equal(requests.length, 1);
     assert.ok(requests.every((entry) => entry.headers.apikey === "secret-server-key"));
     assert.ok(requests.every((entry) => !("Authorization" in entry.headers)));
     assert.ok(requests.every((entry) => !entry.url.includes("secret-server-key")));

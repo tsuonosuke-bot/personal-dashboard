@@ -63,8 +63,8 @@ test('明細一覧で種別・金額・日付・キーワード・並び順を�
   assert.match(table, /金額 下限/)
   assert.match(table, /金額 上限/)
   assert.match(table, /amount-desc/)
-  assert.match(table, /transaction_date < dateFrom/)
-  assert.match(table, /expense\.category.*expense\.payer/s)
+  assert.match(table, /useExpensePage\(scope, transactionFilters/)
+  assert.match(table, /dateFrom, dateTo, type, amountMin, amountMax, query, sort/)
 })
 
 test('カテゴリ条件で複数選択と除外を切り替えられる', async () => {
@@ -72,7 +72,7 @@ test('カテゴリ条件で複数選択と除外を切り替えられる', async
     readAppSource(),
     readFile(new URL('../src/components/CategoryFilter.tsx', import.meta.url), 'utf8'),
   ])
-  assert.match(app, /filterExpensesByCategories/)
+  assert.match(app, /selectedCategories/)
   assert.match(filter, /含める/)
   assert.match(filter, /除外する/)
   assert.match(filter, /type="checkbox"/)
@@ -101,7 +101,7 @@ test('棒グラフと収支線を個別に表示切り替えできる', async ()
 
 test('未分類の明細を件数で知らせ、タップでカテゴリ絞り込みに切り替える', async () => {
   const app = await readAppSource()
-  assert.match(app, /summarizeUnclassified\(expenses\)/)
+  assert.match(app, /unclassified = metadata\.unclassified/)
   assert.match(app, /unclassified\.count > 0/)
   assert.match(app, /未分類の明細が\{unclassified\.count/)
   assert.match(app, /onClick=\{focusUnclassified\}/)

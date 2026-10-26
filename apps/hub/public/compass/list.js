@@ -3,7 +3,7 @@ import { compassRoutePath, compassRouteAllowsClosed, parseCompassRoute } from ".
 import { clearBulkSelection, renderBulkControls } from "./bulk.js";
 import { renderTodoCalendar } from "./calendar.js";
 import { closedStatusesByView, defaultStatusByView, routeDestinationMeta, viewMeta } from "./constants.js";
-import { loadTodos } from "./data.js";
+import { loadTodos, loadDashboard } from "./data.js";
 import { hideDrawer, openDrawer } from "./drawer.js";
 import { escapeHtml, formatCalendarSchedule, formatDate, showToast, sortTodos, sourceChipMarkup, splitInboxSource, todayInTokyo, todoTiming, todoTimingLabel } from "./format.js";
 import { els, state } from "./state.js";
@@ -44,7 +44,7 @@ export function currentItems({ ignoreCategory = false } = {}) {
 
 export function updateStatusOptions() {
   const items = state.data?.[state.view] || [];
-  const statuses = [...new Set(items.map((item) => item.status))].sort();
+  const statuses = state.view === "todos" ? ["pending", "completed", "skipped"] : state.data?.statuses || [...new Set(items.map((item) => item.status))].sort();
   els.statusFilter.innerHTML = '<option value="">すべてのステータス</option>'
     + statuses.map((status) => `<option value="${escapeHtml(status)}">${escapeHtml(statusLabel(status))}</option>`).join("");
   els.statusFilter.value = state.status;
@@ -57,15 +57,22 @@ export function renderSummary() {
 }
 
 function renderCurrentTabCount(items) {
-  els.inboxTabCount.textContent = state.data.inbox.filter((item) => item.status === defaultStatusByView.inbox).length;
-  els.wantsTabCount.textContent = state.data.wants.filter((item) => item.status === defaultStatusByView.wants).length;
+  els.inboxTabCount.textContent = state.data.summary.pendingInbox;
+  els.wantsTabCount.textContent = state.data.summary.activeWants;
   els.todosTabCount.textContent = state.data.todosSummary?.pending ?? "—";
   const countElement = {
     inbox: els.inboxTabCount,
     wants: els.wantsTabCount,
     todos: els.todosTabCount,
   }[state.view];
-  countElement.textContent = items.length;
+  countElement.textContent = state.view === "todos" ? todoResultCount(items) : state.pages?.[state.view]?.total ?? items.length;
+}
+
+function todoResultCount(items) {
+  const summary = state.data?.todosSummary;
+  if (!summary || state.search.trim() || ["overdue", "today", "upcoming"].includes(state.metricFilter)) return items.length;
+  if (state.status) return summary[state.status] ?? items.length;
+  return summary.pending + summary.completed + summary.skipped;
 }
 
 export function statusLabel(status, view = state.view) {
@@ -179,7 +186,8 @@ function renderWantCategoryBar() {
   els.wantCategoryBar.hidden = !backlog;
   if (!backlog) return;
   const counts = new Map();
-  currentItems({ ignoreCategory: true }).forEach((item) => {
+  if (state.pages?.wants?.categoryCounts) Object.entries(state.pages.wants.categoryCounts).forEach(([key, count]) => counts.set(key, Number(count)));
+  else currentItems({ ignoreCategory: true }).forEach((item) => {
     const key = wantCategory(item);
     counts.set(key, (counts.get(key) || 0) + 1);
   });
@@ -193,7 +201,7 @@ function renderWantCategoryBar() {
       .map((category) => chip(category.key, category.label, counts.get(category.key) || 0)).join("");
   els.wantCategoryBar.querySelectorAll("[data-want-category]").forEach((button) => button.addEventListener("click", () => {
     state.wantCategory = state.wantCategory === button.dataset.wantCategory ? "" : button.dataset.wantCategory;
-    renderList();
+    void loadDashboard();
   }));
 }
 
@@ -203,9 +211,12 @@ function renderWantsBacklog(items) {
   const sleeping = items.filter((item) => wantBacklogStage(item, today) === "sleeping").length;
   const due = items.filter((item) => wantBacklogStage(item, today) === "due").length;
   const scope = state.wantCategory ? wantCategoryMeta(state.wantCategory).label : "やりたいこと";
-  els.resultCount.textContent = `${scope} ${items.length}件`
-    + (due ? ` · 再訪日が来た ${due}件` : "")
-    + (sleeping ? ` · 寝かせ中 ${sleeping}件` : "");
+  const page = state.pages?.wants;
+  const dueCount = page?.due ?? due;
+  const sleepingCount = page?.sleeping ?? sleeping;
+  els.resultCount.textContent = `${scope} ${page?.total ?? items.length}件`
+    + (dueCount ? ` · 再訪日が来た ${dueCount}件` : "")
+    + (sleepingCount ? ` · 寝かせ中 ${sleepingCount}件` : "");
   els.cardList.classList.add("backlog");
   if (!items.length) {
     els.cardList.innerHTML = `<div class="empty-state"><span>◇</span><h3>該当するやりたいことはありません</h3><p>Inboxで「欲しいもの」や「保留」に振り分けると、ここに積まれます。</p></div>`;
@@ -250,7 +261,8 @@ export function renderList() {
   const items = currentItems();
   renderCurrentTabCount(items);
   els.listTitle.textContent = viewMeta[state.view].title;
-  els.resultCount.textContent = `${items.length}件を表示`;
+  const total = state.view === "todos" ? todoResultCount(items) : state.pages?.[state.view]?.total ?? items.length;
+  els.resultCount.textContent = `${total}件中 ${items.length}件を表示`;
   els.clearFilter.hidden = state.view === "wants"
     ? !(state.status !== "active" || state.search || state.metricFilter || state.wantCategory)
     : !(state.status || state.search || state.metricFilter);
@@ -286,10 +298,12 @@ export function renderList() {
   els.cardList.classList.remove("backlog");
   if (isWantsBacklog()) {
     renderWantsBacklog(items);
+    appendMoreButton();
     return;
   }
   if (state.view === "todos" && state.todoLayout === "calendar") {
     renderTodoCalendar(items);
+    appendMoreButton();
     return;
   }
   if (!items.length) {
@@ -297,6 +311,7 @@ export function renderList() {
       ? "Google CalendarとToDoを同期しています。"
       : "検索条件やステータスを変えて確認できます。";
     els.cardList.innerHTML = `<div class="empty-state"><span>◇</span><h3>${escapeHtml(viewMeta[state.view].empty)}</h3><p>${escapeHtml(description)}</p></div>`;
+    appendMoreButton();
     return;
   }
   els.cardList.innerHTML = items.map(cardMarkup).join("");
@@ -311,6 +326,19 @@ export function renderList() {
   } else {
     els.cardList.querySelectorAll(".item-card").forEach((card) => card.addEventListener("click", () => openDrawer(Number(card.dataset.id))));
   }
+  appendMoreButton();
+}
+
+function appendMoreButton() {
+  const page = state.view === "todos" ? state.todoPage : state.pages?.[state.view];
+  if (!page?.hasMore) return;
+  els.cardList.insertAdjacentHTML("beforeend", '<button type="button" id="loadMoreIdeaItems">さらに表示</button>');
+  document.getElementById("loadMoreIdeaItems").addEventListener("click", (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    const loading = state.view === "todos" ? loadTodos(false, { append: true }) : loadDashboard({ append: true });
+    void loading.finally(() => { if (button.isConnected) button.disabled = false; });
+  });
 }
 
 export function syncCompassRoute(view, id = null, mode = "replace", filter = null) {
@@ -337,9 +365,10 @@ export function setView(view, filter = defaultStatusByView[view], sync = true) {
         : filter || "";
   updateStatusOptions();
   renderList();
-  if (view === "todos" && !state.todosLoaded) void loadTodos(true);
   const routeFilter = ["untriaged", "knowledge", "github", "overdue", "today", "upcoming"].includes(filter) ? filter : null;
   if (sync) syncCompassRoute(view, null, "push", routeFilter);
+  if (view === "todos") void loadTodos(true);
+  else void loadDashboard();
 }
 
 export function applyCompassRoute(notify = true) {

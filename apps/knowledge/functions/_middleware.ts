@@ -18,7 +18,7 @@ import { acceptHandoff, type SessionEnv } from "./_shared/sessionAuth.ts";
 interface Env extends AuthEnv, SessionEnv, ReviewBatchEnv {}
 
 // Hubが読むのは一覧・復習キューの件数・書き出し・接続状態のGETだけ。
-const HUB_PATHS = ["/api/knowledge", "/api/review-queue/status", "/api/export", "/api/status"] as const;
+const HUB_PATHS = ["/api/knowledge", "/api/hub-summary", "/api/review-queue/status", "/api/export", "/api/status"] as const;
 
 export const onRequest = createAuthMiddleware<Env>({
   realm: "knowledge-dashboard",

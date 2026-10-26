@@ -1,0 +1,104 @@
+{
+  "measuredAt": "2026-10-26T04:57:00.754Z",
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "arch": "x64",
+    "kind": "local synthetic operation counts and serialized JSON bytes; no production, browser timing or network latency"
+  },
+  "baseline": "d2146d4c545c3d094d24222ef9f2cfcdc60269dd",
+  "finance": [
+    {
+      "historicalRows": 1000,
+      "before": {
+        "requests": 3,
+        "expenseBodies": 1140,
+        "bytes": 599167
+      },
+      "after": {
+        "requests": 2,
+        "expenseBodies": 50,
+        "bytes": 26878
+      },
+      "allHistoricalMonths": ["2026-10", "2001-01"]
+    },
+    {
+      "historicalRows": 5000,
+      "before": {
+        "requests": 7,
+        "expenseBodies": 5140,
+        "bytes": 2708971
+      },
+      "after": {
+        "requests": 2,
+        "expenseBodies": 50,
+        "bytes": 26879
+      },
+      "allHistoricalMonths": ["2026-10", "2001-01"]
+    },
+    {
+      "historicalRows": 10000,
+      "before": {
+        "requests": 12,
+        "expenseBodies": 10140,
+        "bytes": 5346520
+      },
+      "after": {
+        "requests": 2,
+        "expenseBodies": 50,
+        "bytes": 26980
+      },
+      "allHistoricalMonths": ["2026-10", "2001-01"]
+    }
+  ],
+  "financeBulk80": {
+    "beforeRequests": 80,
+    "afterRequests": 4,
+    "beforeStateUpdates": 80,
+    "afterStateUpdates": 4
+  },
+  "sf6Graph": [
+    {
+      "sequences": 100,
+      "beforeStartReads": 10100,
+      "afterStartReads": 200,
+      "nodes": 100,
+      "links": 100,
+      "identicalOutput": true
+    },
+    {
+      "sequences": 200,
+      "beforeStartReads": 40200,
+      "afterStartReads": 400,
+      "nodes": 200,
+      "links": 200,
+      "identicalOutput": true
+    },
+    {
+      "sequences": 400,
+      "beforeStartReads": 160400,
+      "afterStartReads": 800,
+      "nodes": 400,
+      "links": 400,
+      "identicalOutput": true
+    }
+  ],
+  "sf6TabRender": {
+    "before": {
+      "sequences": 1,
+      "situations": 1,
+      "frames": 1,
+      "drills": 1,
+      "matches": 1,
+      "sheet": 0
+    },
+    "after": {
+      "sequences": 1,
+      "situations": 0,
+      "frames": 0,
+      "drills": 0,
+      "matches": 0,
+      "sheet": 0
+    }
+  }
+}

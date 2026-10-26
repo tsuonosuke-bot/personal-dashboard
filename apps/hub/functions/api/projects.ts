@@ -1,13 +1,13 @@
 import type { DashboardEnv } from "../_shared/dashboard.ts";
 import {
   createProject,
-  loadProjects,
   publicProjectError,
   readProjectCreateInput,
   readProjectUpdateInput,
   updateProject,
   validateProjectMutationRequest,
 } from "../_shared/projects.ts";
+import { loadProjectReadModel, readProjectQuery, projectMutationResult } from "../_shared/projectsRead.ts";
 
 interface FunctionContext {
   request: Request;
@@ -24,8 +24,10 @@ function failureResponse(error: unknown, operation: string): Response {
 
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
   if (context.request.method === "GET") {
+    const query = readProjectQuery(new URL(context.request.url));
+    if (!query) return Response.json({ error: "Projectの取得条件が正しくありません。" }, { status: 400, headers });
     try {
-      return Response.json(await loadProjects(context.env), { headers });
+      return Response.json(await loadProjectReadModel(context.env, query), { headers });
     } catch (error) {
       return failureResponse(error, "load");
     }
@@ -37,8 +39,8 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     const input = await readProjectCreateInput(context.request);
     if (!input.ok) return Response.json({ error: input.error }, { status: input.status, headers });
     try {
-      await createProject(context.env, input.value);
-      return Response.json(await loadProjects(context.env), { status: 201, headers });
+      const projectId = await createProject(context.env, input.value);
+      return Response.json(await projectMutationResult(context.env, projectId, context.request), { status: 201, headers });
     } catch (error) {
       return failureResponse(error, "create");
     }
@@ -51,7 +53,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     if (!input.ok) return Response.json({ error: input.error }, { status: input.status, headers });
     try {
       await updateProject(context.env, input.value);
-      return Response.json(await loadProjects(context.env), { headers });
+      return Response.json(await projectMutationResult(context.env, input.value.id, context.request), { headers });
     } catch (error) {
       return failureResponse(error, "update");
     }

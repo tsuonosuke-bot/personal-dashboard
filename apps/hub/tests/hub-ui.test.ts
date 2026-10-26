@@ -347,7 +347,7 @@ test("Idea starts with utility actions and the workspace, without summary cards 
   assert.doesNotMatch(script, /setClock|dayLabel|dateLabel|updatedLabel/);
   assert.match(html, /<main class="dashboard-main">/);
   assert.doesNotMatch(html, /<section class="metrics"|未整理のInbox|未整理のWants|未実施のToDo|整理済みのWants/);
-  assert.doesNotMatch(script, /pendingInbox|inboxTotal|activeWants|completedWants|pendingTodos|querySelectorAll\("\.metric"\)/);
+  assert.doesNotMatch(script, /getElementById\("(?:pendingInbox|inboxTotal|activeWants|completedWants|pendingTodos)"\)|querySelectorAll\("\.metric"\)/);
 });
 
 test("Idea updates the ToDo tab count as soon as background loading finishes", async () => {
@@ -401,7 +401,7 @@ test("Compass defaults each tab to actionable items and counts the filtered resu
   assert.match(script, /inbox: "pending",\s+wants: "active",/);
   assert.match(script, /function setView\(view, filter = defaultStatusByView\[view\], sync = true\)/);
   assert.match(script, /function renderCurrentTabCount\(items\)/);
-  assert.match(script, /countElement\.textContent = items\.length/);
+  assert.match(script, /countElement\.textContent = state\.view === "todos" \? todoResultCount\(items\) : state\.pages\?\.\[state\.view\]\?\.total \?\? items\.length/);
 });
 
 test("Idea exposes a Calendar-backed ToDo tab with completion and rescheduling", async () => {

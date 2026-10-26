@@ -4,6 +4,8 @@ import {
   methodNotAllowed,
   readPagination,
   requestSupabaseRows,
+  requestSupabaseFunction,
+  inFilter,
   type SupabaseEnv,
 } from "../_shared/supabaseRest.ts";
 import {
@@ -11,6 +13,7 @@ import {
   validateKnowledgeInput,
   validateMutationRequest,
 } from "../_shared/knowledgeValidation.ts";
+import { isUuid } from "../_shared/learningReads.ts";
 
 interface FunctionContext {
   request: Request;
@@ -38,10 +41,23 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       { error: "statusはactive、archived、allのいずれかで指定してください。" },
       400,
     );
+    const search = new URL(context.request.url).searchParams.get("search");
+    if (status === "archived" && search !== null) {
+      if (search.length > 500 || pagination.value.limit > 200) return jsonResponse({ error: "検索条件が正しくありません。" }, 400);
+      const result = await requestSupabaseFunction(context.env, "search_archived_knowledge", {
+        p_search: search, p_limit: pagination.value.limit, p_offset: pagination.value.offset,
+      });
+      return result.ok ? jsonResponse(result.data) : result.response;
+    }
     const params = new URLSearchParams({
       select: SELECT_COLUMNS,
       order: "created_at.desc,id.asc",
     });
+    const ids = new URL(context.request.url).searchParams.get("ids")?.split(",");
+    if (ids) {
+      if (ids.length > 100 || ids.some((id) => !isUuid(id))) return jsonResponse({ error: "ナレッジIDが正しくありません。" }, 400);
+      params.set("id", inFilter([...new Set(ids)]));
+    }
     if (status !== "all") params.set("archived", status === "archived" ? "eq.true" : "eq.false");
     return fetchSupabasePage(
       context.env,

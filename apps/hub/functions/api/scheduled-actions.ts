@@ -1,6 +1,7 @@
 import { publicError, type DashboardEnv } from "../_shared/dashboard.ts";
 import {
   listScheduledActions,
+  readScheduledActionQuery,
   readScheduledActionInput,
   updateScheduledAction,
   validateScheduledActionRequest,
@@ -16,8 +17,10 @@ const headers = { "Cache-Control": "private, no-store", "Content-Type": "applica
 
 export const onRequest = async (context: FunctionContext): Promise<Response> => {
   if (context.request.method === "GET") {
+    const query = readScheduledActionQuery(new URL(context.request.url));
+    if (!query) return Response.json({ error: "ToDoの取得条件が正しくありません。" }, { status: 400, headers });
     try {
-      return Response.json(await listScheduledActions(context.env), { headers });
+      return Response.json(await listScheduledActions(context.env, query), { headers });
     } catch (error) {
       const failure = publicError(error);
       console.error(`scheduled actions load failed: ${failure.code}`);

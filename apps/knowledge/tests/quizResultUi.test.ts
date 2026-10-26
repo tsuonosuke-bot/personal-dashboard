@@ -73,7 +73,7 @@ test("答え合わせ画面に学習ログと同じ操作（示唆・あとで�
     readFile(new URL("../src/components/ReviewLogParts.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(app, /<ReviewView[\s\S]*?onKnowledgeUpdate=\{updateKnowledge\}[\s\S]*?insightStore=\{insightStore\}[\s\S]*?insightGroupStore=\{insightGroupStore\}/);
-  assert.match(app, /<ReviewView[\s\S]*?quizLog=\{quizLog\}/);
+  assert.match(view, /<KnowledgeDetailModal[\s\S]*?knowledge=\{detail\}/);
   assert.match(view, /item=\{knowledgeById\.get\(session\.feedback\.question\.knowledge_id\)\}/);
   // 学習ログと同じ部品を使う
   assert.match(view, /<ReviewResultActions[\s\S]*?item=\{item\}[\s\S]*?insightStore=\{insightStore\}/);

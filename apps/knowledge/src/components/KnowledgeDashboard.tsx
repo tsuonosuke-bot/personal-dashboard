@@ -16,7 +16,6 @@ import type { useInsights } from "../hooks/useInsights";
 import type { useInsightGroups } from "../hooks/useInsightGroups";
 import type { KnowledgeNavigation } from "../hooks/useKnowledgeNavigation";
 import type { KnowledgeActions } from "../hooks/useKnowledgeActions";
-import { missesToReview } from "../lib/learningSummary";
 
 const DashboardCharts = lazy(() => import("./DashboardCharts").then((module) => ({ default: module.DashboardCharts })));
 type Props = {
@@ -31,7 +30,7 @@ type Props = {
 
 export function KnowledgeDashboard({ data, navigation, actions, dailyReview, reviewQueue, insightStore, insightGroupStore,
   actionError, setActionError, notice, setNotice, missesOpen, setMissesOpen, confirmMiss }: Props) {
-  const { knowledge, archivedKnowledge, quizLog, loading, error, mutating } = data;
+  const { knowledge, archivedKnowledge, loading, error, mutating, summary, summaryError, summaryLoading } = data;
   const { archiveOpen, setArchiveOpen, filters, sort, setSort, pageSize, setPageSize, setPage, filtered,
     totalPages, currentPage, rows, selected, closeKnowledge, openKnowledge, updateFilters, clearFilters,
     handleSort, setQuizOpen, setSpeakingOpen, setLogOpen, setSearchOpen, setOrganizeOpen, setHelpOpen } = navigation;
@@ -42,8 +41,8 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
     [knowledge],
   );
   const tagSuggestions = useMemo(
-    () => [...new Set([...knowledge, ...archivedKnowledge].flatMap((item) => item.tags))].sort((a, b) => a.localeCompare(b, "ja")),
-    [archivedKnowledge, knowledge],
+    () => [...new Set([...knowledge.flatMap((item) => item.tags), ...archivedKnowledge.flatMap((item) => item.tags), ...(summary?.tags ?? [])])].sort((a, b) => a.localeCompare(b, "ja")),
+    [archivedKnowledge, knowledge, summary?.tags],
   );
   const registrationKnowledge = useMemo(
     () => [...knowledge, ...archivedKnowledge],
@@ -53,7 +52,7 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
     () => new Map(registrationKnowledge.map((item) => [item.id, item])),
     [registrationKnowledge],
   );
-  const misses = useMemo(() => missesToReview(quizLog), [quizLog]);
+  const archiveCount = summary?.archivedCount ?? archivedKnowledge.length;
 
 
   return (
@@ -80,10 +79,10 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
           className="page-tool"
           onClick={() => { setActionError(null); setArchiveOpen(true); }}
           disabled={loading || mutating}
-          aria-label={`アーカイブ（${archivedKnowledge.length}件）`}
+          aria-label={`アーカイブ（${archiveCount}件）`}
         >
           <span className="page-tool-label">アーカイブ</span>
-          <span className="page-tool-count" aria-hidden="true">{archivedKnowledge.length}</span>
+          <span className="page-tool-count" aria-hidden="true">{archiveCount}</span>
         </button>
         <details className="page-tool-more">
           <summary className="page-tool">その他</summary>
@@ -126,13 +125,13 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
         <>
           <TodayLearningPanel
             status={dailyReview.status}
-            loading={dailyReview.loading}
-            error={dailyReview.error}
+            loading={dailyReview.loading || summaryLoading}
+            error={dailyReview.error ?? summaryError}
             queueStatus={reviewQueue.status}
-            quizLog={quizLog}
-            missCount={misses.length}
-            missWrong={misses.filter((row) => row.verdict === "不正解").length}
-            missPartial={misses.filter((row) => row.verdict === "部分正解").length}
+            summaryToday={summary?.today}
+            missCount={summary?.misses.total ?? 0}
+            missWrong={summary?.misses.wrong ?? 0}
+            missPartial={summary?.misses.partial ?? 0}
             onStart={() => setQuizOpen(true, "daily")}
             onCategoryReview={() => setQuizOpen(true, "custom")}
             onOpenMisses={() => setMissesOpen(true)}
@@ -143,13 +142,13 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
             onStart={() => setSpeakingOpen(true)}
           />
 
-          <Suspense fallback={<div className="card chart-loading" role="status">グラフを読み込み中...</div>}>
+          {summary && <Suspense fallback={<div className="card chart-loading" role="status">グラフを読み込み中...</div>}>
             <DashboardCharts
               knowledge={knowledge}
               registrationKnowledge={registrationKnowledge}
-              quizLog={quizLog}
+              summary={summary}
             />
-          </Suspense>
+          </Suspense>}
 
           <h2 className="section-title">ナレッジ</h2>
           <FilterBar
@@ -174,7 +173,6 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
       {selected && (
         <KnowledgeDetailModal
           knowledge={selected}
-          quizLog={quizLog}
           mutating={mutating}
           onClose={closeKnowledge}
           onEdit={selected.archived ? undefined : () => openEdit(selected)}
@@ -198,7 +196,7 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
       )}
       {missesOpen && (
         <MissedReviewSheet
-          misses={misses}
+          onLoadSources={data.loadSources}
           knowledgeById={knowledgeById}
           onConfirm={confirmMiss}
           onOpenKnowledge={(item) => { setMissesOpen(false); openKnowledge(item); }}
@@ -212,6 +210,7 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
           error={actionError}
           onClose={() => { setArchiveOpen(false); setActionError(null); }}
           onRestore={restoreKnowledge}
+          onLoadPage={data.loadArchivePage}
         />
       )}
       </main>

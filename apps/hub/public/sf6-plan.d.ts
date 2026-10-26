@@ -73,7 +73,8 @@ export declare function startSituationGroups<T extends PlanSituation>(situations
 export declare function routeBack(path: RouteStep[], index: number): { path: RouteStep[]; sequenceId: number | null } | null;
 export declare function stateLabel(situation: PlanSituation): string;
 export declare function findState<T extends PlanSituation>(situations: T[], key: { character: string; advantage: number; position: string; recovery: string | null }): T | null;
-export declare function sequencesFrom<T extends PlanSequence>(situation: PlanSituation, sequences: T[]): { sequence: T; via: PlanSituation }[];
+export declare function buildSequenceStartIndex<T extends PlanSequence>(sequences: T[]): Map<number, T[]>;
+export declare function sequencesFrom<T extends PlanSequence>(situation: PlanSituation, sequences: T[], startIndex?: Map<number, T[]> | null): { sequence: T; via: PlanSituation }[];
 export declare function hasOutcomes(sequence: PlanSequence): boolean;
 export declare function resultsOf(sequence: PlanSequence, kind: PlanResult["kind"]): PlanResult[];
 export declare function resultOf(sequence: PlanSequence, kind: "hit" | "guard"): PlanResult | null;

@@ -24,15 +24,7 @@ export interface WeakCategory {
 }
 
 export function getJstToday(now = new Date()): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Tokyo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(now);
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? "";
-  return `${value("year")}-${value("month")}-${value("day")}`;
+  return new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 export function filterKnowledge(
@@ -43,6 +35,7 @@ export function filterKnowledge(
 ): Knowledge[] {
   const search = filters.search.trim().toLowerCase();
   const todayStart = Date.parse(`${today}T00:00:00+09:00`);
+  const tomorrowStart = todayStart + 86_400_000;
   const nowMs = now.getTime();
   return knowledge.filter((item) => {
     if (filters.category !== ALL && item.category !== filters.category) return false;
@@ -50,7 +43,7 @@ export function filterKnowledge(
     if (filters.mastery !== ALL && item.mastery !== filters.mastery) return false;
     if (filters.priority !== ALL && item.priority !== filters.priority) return false;
     const dueAt = Date.parse(item.next_review_at);
-    if (filters.review === "today" && getJstToday(new Date(dueAt)) !== today) return false;
+    if (filters.review === "today" && !(dueAt >= todayStart && dueAt < tomorrowStart)) return false;
     if (filters.review === "overdue" && !(dueAt < todayStart)) return false;
     if (filters.review === "due" && !(dueAt <= nowMs)) return false;
     if (search) {
@@ -108,8 +101,12 @@ export function filterAndSortKnowledge(
 
 export function getReviewCounts(knowledge: Knowledge[], today = getJstToday(), now = new Date()) {
   const todayStart = Date.parse(`${today}T00:00:00+09:00`);
+  const tomorrowStart = todayStart + 86_400_000;
   const nowMs = now.getTime();
-  const todayCount = knowledge.filter((item) => getJstToday(new Date(item.next_review_at)) === today).length;
+  const todayCount = knowledge.filter((item) => {
+    const dueAt = Date.parse(item.next_review_at);
+    return dueAt >= todayStart && dueAt < tomorrowStart;
+  }).length;
   const overdue = knowledge.filter((item) => Date.parse(item.next_review_at) < todayStart).length;
   const due = knowledge.filter((item) => Date.parse(item.next_review_at) <= nowMs).length;
   return { today: todayCount, overdue, due };

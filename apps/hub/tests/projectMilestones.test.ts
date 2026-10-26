@@ -2,6 +2,7 @@ import { readClientScript } from "./clientScript.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { projectReadFixture } from "./readModelFixtures.ts";
 import {
   createProjectAction,
   normalizeProjects,
@@ -190,6 +191,7 @@ test("PATCH /api/project-milestones は専用ヘッダーで受け付け、最�
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
     const url = new URL(String(input));
+    if (url.pathname.endsWith("/rpc/get_project_read_model")) return Response.json(projectReadFixture([projectRow()],[actionRow({milestone_id:5})],[],[milestoneRow()]));
     if (url.pathname.includes("/rpc/")) return Response.json(5);
     if (url.pathname.endsWith("/projects")) return Response.json([projectRow()]);
     if (url.pathname.endsWith("/project_actions")) return Response.json([actionRow({ milestone_id: 5 })]);

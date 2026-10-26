@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   addInsightGroupMember,
+  addInsightGroupMembers,
   createInsightGroup,
   deleteInsightGroup,
   getInsightGroupMembers,
@@ -21,7 +22,7 @@ export interface InsightGroupStore {
   remove: (group: InsightGroup) => Promise<void>;
   addMember: (groupId: number, insightId: number) => Promise<void>;
   removeMember: (groupId: number, insightId: number) => Promise<void>;
-  /** 複数の示唆を順に追加し、最後に1回だけ読み直す。追加できなかった示唆IDを返す。 */
+  /** 一度の要求で所属を追加する。追加できなかった示唆IDを返す。 */
   addMembers: (groupId: number, insightIds: readonly number[]) => Promise<number[]>;
 }
 
@@ -31,6 +32,8 @@ function oldestFirst(groups: InsightGroup[]): InsightGroup[] {
 
 export function useInsightGroups(): InsightGroupStore {
   const [groups, setGroups] = useState<InsightGroup[]>([]);
+  const groupsRef = useRef(groups);
+  groupsRef.current = groups;
   const [members, setMembers] = useState<InsightGroupMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +56,7 @@ export function useInsightGroups(): InsightGroupStore {
 
   const create = useCallback(async (title: string, guidingQuestion: string) => {
     const created = await createInsightGroup(title, guidingQuestion);
+    groupsRef.current = oldestFirst([...groupsRef.current, created]);
     setGroups((current) => oldestFirst([...current, created]));
     return created;
   }, []);
@@ -83,19 +87,18 @@ export function useInsightGroups(): InsightGroupStore {
   }, [reload]);
 
   const addMembers = useCallback(async (groupId: number, insightIds: readonly number[]) => {
-    const failed: number[] = [];
-    for (const insightId of insightIds) {
-      try {
-        const member = await addInsightGroupMember(groupId, insightId);
-        setMembers((current) => current.some((item) => item.group_id === groupId && item.insight_id === insightId)
-          ? current : [...current, member]);
-      } catch {
-        failed.push(insightId);
-      }
-    }
-    await reload();
-    return failed;
-  }, [reload]);
+    const ids = [...new Set(insightIds)];
+    if (!ids.length) return [];
+    const group = groupsRef.current.find((item) => item.id === groupId);
+    if (!group) throw new Error("問いを再読み込みしてから追加してください。");
+    const result = await addInsightGroupMembers(groupId, ids, group.updated_at);
+    setMembers((current) => [...current.filter((member) => member.group_id !== groupId
+      || !result.members.some((added) => added.insight_id === member.insight_id)), ...result.members]);
+    // The returned timestamp includes membership triggers, so stale edit/delete still conflicts.
+    setGroups((current) => oldestFirst([...current.filter((group) => group.id !== groupId), result.group]));
+    groupsRef.current = oldestFirst([...groupsRef.current.filter((group) => group.id !== groupId), result.group]);
+    return result.failedIds;
+  }, []);
 
   return { groups, members, loading, error, reload, create, update, remove, addMember, removeMember, addMembers };
 }

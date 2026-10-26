@@ -5,7 +5,7 @@ import { acceptHandoff, type SessionEnv } from './_shared/sessionAuth.ts'
 interface Env extends AuthEnv, SessionEnv {}
 
 // Hubが読むのは家計簿一覧・書き出し・接続状態のGETだけ。
-const HUB_PATHS = ['/api/expenses', '/api/export', '/api/status'] as const
+const HUB_PATHS = ['/api/expenses', '/api/export', '/api/status', '/api/hub-summary'] as const
 
 export const onRequest = createAuthMiddleware<Env>({
   realm: 'financial-dashboard',

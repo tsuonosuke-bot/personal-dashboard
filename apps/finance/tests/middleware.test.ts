@@ -57,7 +57,7 @@ test('Hubサービスキーは読み取り専用の家計簿・書き出し・�
   assert.equal(allowed.status, 200)
   assert.equal(await allowed.text(), 'expenses')
 
-  for (const path of ['/api/export', '/api/status']) {
+  for (const path of ['/api/export', '/api/status', '/api/hub-summary']) {
     const readOnly = await onRequest({
       request: new Request(`https://dashboard.example${path}`, { headers: { 'X-Hub-Service': token } }),
       env,
@@ -73,6 +73,11 @@ test('Hubサービスキーは読み取り専用の家計簿・書き出し・�
     next: async () => new Response('categories'),
   })
   assert.equal(denied.status, 401)
+  for (const [path, method] of [['/api/hub-summary', 'POST'], ['/api/finance-overview?month=2026-10', 'GET'], ['/api/expense-page?month=2026-10', 'GET'], ['/api/expense-categories', 'POST']]) {
+    const closed = await onRequest({ request: new Request(`https://dashboard.example${path}`, { method, headers: { 'X-Hub-Service': token } }), env,
+      next: async () => new Response('private') })
+    assert.equal(closed.status, 401, `${method} ${path}`)
+  }
 })
 
 test('SSOの引き継ぎトークンは1回しか使えない（再利用は403、DBの失敗は502）', async () => {

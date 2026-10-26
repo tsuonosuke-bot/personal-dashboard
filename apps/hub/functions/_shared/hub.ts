@@ -1,37 +1,48 @@
 /** Hub orchestration: independent sources may fail without discarding successful sections. */
-import { type HubEnv, safeUrl, DEFAULT_FINANCIAL_URL, DEFAULT_KNOWLEDGE_URL, type InboxRow, type WantRow, type ProjectRow, type WritingRow, expenseWindowStart, type ExpenseRow, type KnowledgeRow, type KnowledgeReviewStatus, type HubAvailability, HubError, normalizeHub, emptyJournalMoments, normalizeJournalTrend } from "./hubModel.ts";
+import { type HubEnv, safeUrl, DEFAULT_FINANCIAL_URL, DEFAULT_KNOWLEDGE_URL, type InboxRow, type ExpenseRow, type KnowledgeRow, type KnowledgeReviewStatus, type HubAvailability, HubError, normalizeHub, emptyJournalMoments, normalizeJournalTrend } from "./hubModel.ts";
 import { loadDatabaseUsage } from "./databaseUsage.ts";
 import {
-  fetchRows,
-  fetchFocusRows,
-  fetchDashboardRows,
+  fetchLocalHubSummary,
+  sourceDeadline,
   fetchDashboardJson,
   loadJournalMoments,
   loadJournalTrend,
 } from "./hubSources.ts";
-import { loadHabits } from "./habits.ts";
 import { readReviewBatches } from "./reviewBatches.ts";
+import { type FocusRow } from "./focus.ts";
 
-export async function loadHub(env: HubEnv, now = new Date()) {
+interface KnowledgeHubSummary { dueCount: number; weakCount: number; items: KnowledgeRow[]; reviewStatus: KnowledgeReviewStatus }
+interface FinanceHubSummary { currentMonthSpend: number; previousMonthSpend: number; recentExpenses: ExpenseRow[] }
+
+function validRemoteSummary<T>(value: unknown, counts: string[], array: string): T {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new HubError("HUB_SERVICE_RESPONSE_INVALID", "Invalid summary.");
+  const row = value as Record<string, unknown>;
+  if (!Array.isArray(row[array]) || counts.some((name) => typeof row[name] !== "number" || !Number.isFinite(row[name]))) throw new HubError("HUB_SERVICE_RESPONSE_INVALID", "Invalid summary fields.");
+  if (array === "items" && (!row.reviewStatus || typeof row.reviewStatus !== "object" || Array.isArray(row.reviewStatus))) throw new HubError("HUB_SERVICE_RESPONSE_INVALID", "Missing review queue counts.");
+  return value as T;
+}
+
+export async function loadHub(env: HubEnv, now = new Date(), options: { sourceTimeoutMs?: number } = {}) {
   const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
   const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
   // DB容量は失敗してもnullで返るので、「すべての取得元が失敗したら503」の判定（results）には入れない。
-  const databaseUsage = loadDatabaseUsage(env);
-  const [inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, knowledgeStatus, journal, journalTrend, habits] = await Promise.allSettled([
-    fetchRows(env, { table: "idea_inbox", select: "id,content,status,created_at", order: "created_at.desc,id.desc" }) as Promise<InboxRow[]>,
-    fetchRows(env, { table: "wants", select: "status,type,revisit_on" }) as Promise<WantRow[]>,
-    fetchFocusRows(env),
-    fetchRows(env, { table: "projects", select: "status" }) as Promise<ProjectRow[]>,
-    fetchRows(env, { table: "writing_topics", select: "status" }) as Promise<WritingRow[]>,
-    fetchDashboardRows(env, financialUrl, `/api/expenses?from=${expenseWindowStart(now)}`) as Promise<ExpenseRow[]>,
-    fetchDashboardRows(env, knowledgeUrl, "/api/knowledge") as Promise<KnowledgeRow[]>,
-    fetchDashboardJson(env, knowledgeUrl, "/api/review-queue/status") as Promise<KnowledgeReviewStatus>,
+  const today = new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const timeout = Math.max(1, Math.min(6_000, options.sourceTimeoutMs ?? 6_000));
+  const databaseUsage = sourceDeadline(loadDatabaseUsage(env), timeout).catch(() => null);
+  const [inbox, wants, focus, projects, writing, expenses, knowledge, knowledgeStatus, journal, journalTrend, habits] = await Promise.allSettled([
+    fetchLocalHubSummary(env, "inbox", today),
+    fetchLocalHubSummary(env, "wants", today),
+    fetchLocalHubSummary(env, "focus", today),
+    fetchLocalHubSummary(env, "projects", today),
+    fetchLocalHubSummary(env, "writing", today),
+    fetchDashboardJson(env, financialUrl, `/api/hub-summary?today=${today}`).then((value) => validRemoteSummary<FinanceHubSummary>(value, ["currentMonthSpend", "previousMonthSpend"], "recentExpenses")),
+    fetchDashboardJson(env, knowledgeUrl, `/api/hub-summary?today=${today}`).then((value) => validRemoteSummary<KnowledgeHubSummary>(value, ["dueCount", "weakCount"], "items")),
     fetchDashboardJson(env, knowledgeUrl, "/api/status"),
     loadJournalMoments(env, now),
     loadJournalTrend(env, now),
-    loadHabits(env, now),
-  ] as const);
-  const results = { inbox, wants, focus, projects, writing, expenses, knowledge, reviewStatus, knowledgeStatus, journal, journalTrend, habits };
+    fetchLocalHubSummary(env, "habits", today),
+  ].map((work) => sourceDeadline(work, timeout)) as [Promise<Awaited<ReturnType<typeof fetchLocalHubSummary>>>, Promise<Awaited<ReturnType<typeof fetchLocalHubSummary>>>, Promise<Awaited<ReturnType<typeof fetchLocalHubSummary>>>, Promise<Awaited<ReturnType<typeof fetchLocalHubSummary>>>, Promise<Awaited<ReturnType<typeof fetchLocalHubSummary>>>, Promise<FinanceHubSummary>, Promise<KnowledgeHubSummary>, Promise<unknown>, Promise<Awaited<ReturnType<typeof loadJournalMoments>>>, Promise<Awaited<ReturnType<typeof loadJournalTrend>>>, Promise<Awaited<ReturnType<typeof fetchLocalHubSummary>>>]);
+  const results = { inbox, wants, focus, projects, writing, expenses, knowledge, knowledgeStatus, journal, journalTrend, habits };
   const availability: HubAvailability = {
     inbox: inbox.status === "fulfilled",
     wants: wants.status === "fulfilled",
@@ -39,7 +50,7 @@ export async function loadHub(env: HubEnv, now = new Date()) {
     projects: projects.status === "fulfilled",
     writing: writing.status === "fulfilled",
     expenses: expenses.status === "fulfilled",
-    knowledge: knowledge.status === "fulfilled" && reviewStatus.status === "fulfilled",
+    knowledge: knowledge.status === "fulfilled",
     journal: journal.status === "fulfilled",
     journalTrend: journalTrend.status === "fulfilled",
     habits: habits.status === "fulfilled",
@@ -52,24 +63,31 @@ export async function loadHub(env: HubEnv, now = new Date()) {
   }
   const rejected = Object.values(results).filter((result) => result.status === "rejected");
   if (rejected.length === Object.keys(results).length) throw rejected[0].reason;
-  return normalizeHub(
-    inbox.status === "fulfilled" ? inbox.value : [],
-    wants.status === "fulfilled" ? wants.value : [],
-    expenses.status === "fulfilled" ? expenses.value : [],
-    knowledge.status === "fulfilled" ? knowledge.value : [],
+  const result = normalizeHub(
+    inbox.status === "fulfilled" ? inbox.value.items as InboxRow[] : [],
+    [],
+    expenses.status === "fulfilled" ? expenses.value.recentExpenses : [],
+    knowledge.status === "fulfilled" ? knowledge.value.items : [],
     env,
     now,
     availability,
     journal.status === "fulfilled" ? journal.value : emptyJournalMoments(now),
-    habits.status === "fulfilled" ? habits.value : null,
-    focus.status === "fulfilled" ? focus.value : [],
-    reviewStatus.status === "fulfilled" ? reviewStatus.value : null,
-    projects.status === "fulfilled" ? projects.value : [],
-    writing.status === "fulfilled" ? writing.value : [],
+    habits.status === "fulfilled" ? { summary: habits.value.summary! } : null,
+    focus.status === "fulfilled" ? focus.value.items as FocusRow[] : [],
+    knowledge.status === "fulfilled" ? knowledge.value.reviewStatus : null,
+    [],
+    [],
     journalTrend.status === "fulfilled" ? journalTrend.value : normalizeJournalTrend([], now),
     knowledgeStatus.status === "fulfilled" ? readReviewBatches(knowledgeStatus.value) : null,
     await databaseUsage,
   );
+  if (inbox.status === "fulfilled") result.summary.pendingInbox = inbox.value.pendingInbox!;
+  if (wants.status === "fulfilled") { result.summary.activeWants = wants.value.activeWants!; result.summary.untriagedWants = wants.value.untriagedWants!; }
+  if (projects.status === "fulfilled") result.summary.activeProjects = projects.value.activeProjects!;
+  if (writing.status === "fulfilled") result.summary.writingIdeas = writing.value.writingIdeas!;
+  if (expenses.status === "fulfilled") { result.summary.currentMonthSpend = expenses.value.currentMonthSpend; result.summary.previousMonthSpend = expenses.value.previousMonthSpend; }
+  if (knowledge.status === "fulfilled") { result.summary.dueKnowledge = knowledge.value.dueCount; result.summary.weakKnowledge = knowledge.value.weakCount; }
+  return result;
 }
 
 export function publicHubError(error: unknown) {

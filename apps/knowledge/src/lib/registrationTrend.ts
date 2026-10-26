@@ -56,7 +56,7 @@ export function weekStart(civilDay: number): number {
  * 呼び出し側がactiveとarchivedの両方を渡すことで、アーカイブ後も登録実績を保持する。
  */
 export function buildRegistrationTrend(
-  knowledge: Pick<Knowledge, "created_at">[],
+  knowledge: (Pick<Knowledge, "created_at"> & { count?: number })[],
   granularity: RegistrationTrendGranularity,
   now = new Date(),
   periods = granularity === "day" ? 30 : 12,
@@ -74,7 +74,7 @@ export function buildRegistrationTrend(
     const createdDay = tokyoCivilDay(new Date(item.created_at));
     if (createdDay === null || createdDay < firstStart || createdDay > today) continue;
     const bucket = granularity === "week" ? weekStart(createdDay) : createdDay;
-    counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+    counts.set(bucket, (counts.get(bucket) ?? 0) + (item.count ?? 1));
   }
 
   return Array.from({ length: periods }, (_, index) => {

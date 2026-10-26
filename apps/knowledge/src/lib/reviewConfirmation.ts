@@ -1,9 +1,10 @@
 import type { QuizLog, ReviewConfirmation } from "../types.ts";
+import type { ReviewConfirmationState } from "./learningReadApi.ts";
 
 export const CONFIRM_CHUNK_SIZE = 200;
 
 export type ReviewLogReloadResult =
-  | { ok: true; quizLog: QuizLog[] }
+  | { ok: true; quizLog: ReviewConfirmationState[] }
   | { ok: false; error: string };
 
 export interface ConfirmationProgress {
@@ -33,7 +34,7 @@ export function unconfirmedResultIds(entries: QuizLog[], confirmedIds: ReadonlyS
     .map((entry) => entry.id))];
 }
 
-function reconcile(targetIds: number[], quizLog: QuizLog[]) {
+function reconcile(targetIds: number[], quizLog: ReviewConfirmationState[]) {
   const byId = new Map(quizLog.map((entry) => [entry.id, entry]));
   const confirmedIds: number[] = [];
   const excludedIds: number[] = [];
@@ -53,7 +54,7 @@ function reconcile(targetIds: number[], quizLog: QuizLog[]) {
  */
 export function createReviewConfirmationCoordinator(deps: {
   confirm: (ids: number[]) => Promise<ReviewConfirmation>;
-  reload: () => Promise<ReviewLogReloadResult>;
+  reload: (targetIds: readonly number[]) => Promise<ReviewLogReloadResult>;
   onConfirmed?: (ids: number[]) => void;
   onProgress?: (progress: ConfirmationProgress) => void;
 }) {
@@ -78,7 +79,7 @@ export function createReviewConfirmationCoordinator(deps: {
       const refresh = async () => {
         progress("refreshing");
         try {
-          const result = await deps.reload();
+          const result = await deps.reload(targetIds);
           if (!result.ok) throw new Error(result.error);
           ({ confirmedIds, excludedIds, remainingIds } = reconcile(targetIds, result.quizLog));
           verified = true;

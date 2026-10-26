@@ -266,15 +266,16 @@ export async function runGenerationBatch(
   env: BatchEnv,
   trigger: BatchTrigger,
   relearningOnly = false,
+  reservedRunId?: number,
 ): Promise<BatchSummary> {
   const base = { kind: "generate" as const, processed: 0, succeeded: 0, failed: 0 };
-  const runId = await beginRun(env, "generate", trigger);
+  const runId = reservedRunId ?? await beginRun(env, "generate", trigger);
   if (runId === null) return { ...base, status: "busy", note: "生成バッチが実行中のため見送りました。" };
 
   const tally = newTally();
-  const finish = (note?: string): Promise<BatchSummary> => {
+  const finish = async (note?: string): Promise<BatchSummary> => {
     if (note) tally.notes.push(note);
-    return finishRun(env, runId, {
+    const result = await finishRun(env, runId, {
       ...base,
       status: tally.broken ? "failed" : tally.worked ? "succeeded" : "skipped",
       processed: tally.processed,
@@ -282,9 +283,12 @@ export async function runGenerationBatch(
       failed: tally.failed,
       note: tallyNote(tally),
     });
+    await callRpc(env, "finish_review_generation_jobs", { p_run_id: runId, p_succeeded: !tally.broken });
+    return result;
   };
 
   try {
+    await callRpc(env, "attach_review_generation_jobs", { p_run_id: runId });
     const useBatchApi = trigger === "schedule";
     // 終わったバッチはどの実行でも回収する（トークンは支払い済みで、状態の確認だけで済む）。
     // 結果待ちのまま残ったカードは、回収されればキューに入るので、その分だけ新しく依頼する数を減らす。
@@ -548,7 +552,9 @@ function collectQuestions(
  * 失敗した回答は次のバッチへ戻し、規定回数を超えたら採点エラーにする。
  * 再学習に入った回答があれば、その分の問題だけを続けて生成する。
  */
-export async function runGradingBatch(env: BatchEnv, trigger: BatchTrigger): Promise<BatchSummary> {
+export async function runGradingBatch(
+  env: BatchEnv, trigger: BatchTrigger, defer?: (work: Promise<unknown>) => void,
+): Promise<BatchSummary> {
   const base = { kind: "grade" as const, processed: 0, succeeded: 0, failed: 0 };
   const runId = await beginRun(env, "grade", trigger);
   if (runId === null) return { ...base, status: "busy", note: "採点バッチが実行中のため見送りました。" };
@@ -582,7 +588,8 @@ export async function runGradingBatch(env: BatchEnv, trigger: BatchTrigger): Pro
     if (answers.length > 0) add(await gradeClaimedAnswers(env, answers, useBatchApi), answers.length);
     if (!tally.worked) {
       tally.notes.unshift("採点待ちの回答はありませんでした。");
-      return finishRun(env, runId, { ...base, status: "skipped", note: tallyNote(tally) });
+      summary = await finishRun(env, runId, { ...base, status: "skipped", note: tallyNote(tally) });
+      return continueGeneration(env, summary, defer);
     }
 
     if (tally.failed > 0) {
@@ -610,13 +617,33 @@ export async function runGradingBatch(env: BatchEnv, trigger: BatchTrigger): Pro
     });
   }
 
-  if (relearningRecorded) {
-    try {
-      summary.followUp = await runGenerationBatch(env, "after_grade", true);
-    } catch (error) {
-      console.error("Relearning generation after grading failed", errorMessage(error));
-    }
+  // Jobs were committed with grades. Checking pending jobs also retries a previous
+  // interrupted continuation without saving grades or asking AI to grade again.
+  return continueGeneration(env, summary, defer, relearningRecorded);
+}
+
+async function continueGeneration(
+  env: BatchEnv, summary: BatchSummary, defer?: (work: Promise<unknown>) => void, recorded?: boolean,
+): Promise<BatchSummary> {
+  let runId: unknown;
+  try { runId = await callRpc(env, "claim_relearning_generation", {}); }
+  catch (error) {
+    console.error("Relearning continuation is pending", errorMessage(error));
+    summary.note = `${summary.note ?? ""}再学習問題の生成は次の実行で再試行します。`;
+    return summary;
   }
+  if (typeof runId !== "number") {
+    if (recorded) summary.followUp = { kind: "generate", status: "busy", processed: 0, succeeded: 0, failed: 0,
+      note: "生成バッチが実行中のため、記録した再学習分は次の生成で処理します。" };
+    return summary;
+  }
+  const work = runGenerationBatch(env, "after_grade", true, runId).catch((error) => {
+    console.error("Relearning generation after grading failed", errorMessage(error));
+    // A failed/abandoned run and pending jobs remain visible/retriable on cron.
+    return { kind: "generate" as const, status: "failed" as const, processed: 0, succeeded: 0, failed: 0, note: errorMessage(error) };
+  });
+  if (defer) defer(work);
+  else summary.followUp = await work;
   return summary;
 }
 
@@ -700,34 +727,38 @@ async function recordGrades(
 ): Promise<{ succeeded: number; relearning: boolean }> {
   let succeeded = 0;
   let relearning = false;
-  for (const itemId of itemIds) {
+  const grades = itemIds.flatMap((itemId) => {
     const grade = gradeByItem.get(itemId);
-    if (!grade) continue;
-    try {
-      const row = firstRow(await callRpc(env, "record_review_grade", {
-        p_item_id: itemId,
-        p_quality: grade.quality,
-        p_verdict: grade.verdict,
-        p_note: grade.note,
-        p_correct_answer: grade.correctAnswer,
-        p_explanation: grade.explanation,
-      }));
-      // 別の経路で記録済み（recorded: false）の回答は数えず、再学習の生成も起こさない。
-      if (row?.status === "graded" && row.recorded === true) {
-        succeeded += 1;
-        if (grade.quality <= 3) relearning = true;
+    return grade ? [{ item_id: itemId, quality: grade.quality, verdict: grade.verdict, note: grade.note,
+      correct_answer: grade.correctAnswer, explanation: grade.explanation }] : [];
+  });
+  if (!grades.length && !errorByItem.size) return { succeeded, relearning };
+  try {
+    const rows = await callRpc(env, "record_review_grades_batch", {
+      p_grades: grades,
+      p_errors: [...errorByItem].map(([item_id, error]) => ({ item_id, error })),
+    });
+    if (!Array.isArray(rows) || rows.some((row) => !isRecord(row) || typeof row.item_id !== "number"
+      || typeof row.recorded !== "boolean" || typeof row.relearning !== "boolean" || typeof row.status !== "string"
+      || (row.error !== null && typeof row.error !== "string"))) throw new Error("採点の保存結果を確認できませんでした。");
+    const covered = new Set(rows.map((row) => row.item_id));
+    if (grades.some((grade) => !covered.has(grade.item_id))) throw new Error("採点の保存結果に不足があります。");
+    for (const row of rows) {
+      if (row.error) errorByItem.set(row.item_id, row.error);
+      if (row.status === "graded" && row.recorded === true) {
+        succeeded++;
+        relearning ||= row.relearning;
       }
-    } catch (error) {
-      errorByItem.set(itemId, errorMessage(error));
     }
-  }
-
-  for (const [itemId, error] of errorByItem) {
+  } catch (error) {
+    for (const grade of grades) errorByItem.set(grade.item_id, errorMessage(error));
     try {
-      await callRpc(env, "release_review_answer", { p_item_id: itemId, p_error: error });
+      // Unknown HTTP outcome: releasing an already graded row is a no-op. Never
+      // re-run AI here, and return only still-unrecorded answers to the next run.
+      await callRpc(env, "record_review_grades_batch", { p_grades: [],
+        p_errors: [...errorByItem].map(([item_id, error]) => ({ item_id, error })) });
     } catch (releaseError) {
-      // 戻せなかった回答は10分後に採点待ちへ自動で戻る。
-      console.error("Failed to release review answer", itemId, errorMessage(releaseError));
+      console.error("Failed to release review answers", errorMessage(releaseError));
     }
   }
   return { succeeded, relearning };

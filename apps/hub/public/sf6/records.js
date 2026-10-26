@@ -2,9 +2,10 @@ import { escapeHtml } from "../shared/html.js";
 import { notationHtml, chips, empty, percent, daysAgo, formatDay } from "./format.js";
 import { TABS, ADD_LABELS, POSITIONS, SA_LEVELS, OPPONENT_LABELS, OUTCOME_MARKS, RECOVERIES, LAYERINGS, GUARD_SETTINGS, COUNTER_SETTINGS, RECOVERY_SETTINGS, RESULTS, MODES } from "./constants.js";
 // 手順・状況・練習・振り返りの表示と絞り込み。
-import { MASTERY, resultOf, partsAfter, usableNow, sortSequences, OPPONENT_OPTIONS, bestStreakOf, raiseTargets, STREAK_GOAL, sequencesFrom, situationUsage } from "../sf6-plan.js";
+import { MASTERY, resultOf, usableNow, sortSequences, OPPONENT_OPTIONS, bestStreakOf, raiseTargets, STREAK_GOAL } from "../sf6-plan.js";
+import { createSf6Indexes } from "./indexes.js";
 
-export function createSf6Records({ state, els, situationsById, resultLabel, situationText, activeDrillFor, renderPunishPicker, findSequence }) {
+export function createSf6Records({ state, els, situationsById, resultLabel, situationText, activeDrillFor, renderPunishPicker, findSequence, getIndexes = () => createSf6Indexes(state.data) }) {
   // ---------- 描画 ----------
 
   function charactersIn(list, key) {
@@ -78,7 +79,7 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
     ].filter(Boolean);
     const hitState = byId.get(resultOf(part, "hit")?.nextSituationId);
     const results = resultLinesHtml(part, ["hit", "counter_hit", "punish_counter", "hit_other", "guard", "opponent"]);
-    const next = part.archived ? [] : partsAfter(part, state.data.sequences, state.data.situations);
+    const next = part.archived ? [] : getIndexes().partsAfter(part);
     const nextHtml = next.length
       ? `<div class="next-setplays"><span>次</span>${next.map(({ sequence }) =>
         `<button type="button" class="next-chip" data-goto-sequence="${sequence.id}">${escapeHtml(sequence.title)}</button>`).join("")}</div>`
@@ -187,14 +188,13 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
   }
 
   function maxAdvantage(sequence) {
-    return Math.max(-Infinity, ...startStatesOf(sequence).map((situation) => situation.advantage ?? -Infinity));
+    return getIndexes().maxAdvantages.get(sequence.id) ?? -Infinity;
   }
 
   // ---------- 練習・振り返り ----------
 
   /** 練習の手順どうしの間に出す結果の種類（前の手順のどの結果が、次の手順の始動につながるか）。 */
   function linkLabel(previous, next) {
-    const byId = situationsById();
     const result = previous.results.find((entry) => {
       return entry.nextSituationId !== null && next.starts.includes(entry.nextSituationId);
     });
@@ -202,7 +202,7 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
   }
 
   function drillStats(drill) {
-    const logs = state.data.logs.filter((log) => log.drillId === drill.id);
+    const logs = getIndexes().logs.get(drill.id) || [];
     const recent = logs.filter((log) => log.attempts !== null).slice(0, 5);
     const attempts = recent.reduce((sum, log) => sum + log.attempts, 0);
     const successes = recent.reduce((sum, log) => sum + log.successes, 0);
@@ -281,9 +281,9 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
 
   /** 状況タブ：キャラごとの局面（有利F・位置・ダウン）を有利Fの大きい順に並べ、そこから始まる手順を添える。 */
   function situationCardHtml(situation) {
-    const from = situation.archived ? [] : sequencesFrom(situation, state.data.sequences.filter((entry) => entry.character === situation.character), state.data.situations);
+    const from = situation.archived ? [] : getIndexes().from(situation, situation.character);
     const tags = [POSITIONS[situation.position], situation.recovery ? RECOVERIES[situation.recovery] : "", situation.throwRange ? "通常投げ間合い" : ""].filter(Boolean);
-    const counts = situationUsage(situation.id, state.data.sequences);
+    const counts = getIndexes().usage(situation.id);
     return `<article class="card situation-card">
       <div class="card-head">
         <h3><span class="adv${situation.advantage < 0 ? " minus" : ""}">${situation.advantage > 0 ? "+" : ""}${situation.advantage}F</span> ${escapeHtml(situation.name)}</h3>

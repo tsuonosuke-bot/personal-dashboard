@@ -1,12 +1,12 @@
 import { useState, type Dispatch, type SetStateAction } from 'react'
-import { ApiError } from '../lib/api'
+import { categorizeExpenseBatch } from '../lib/api'
+import { runCategoryBatches } from '../lib/bulkCategories'
 import { monthKey } from '../lib/finance'
 import type { Expense, ExpenseDraft } from '../lib/types'
-import type { BulkCategoryResult } from '../components/BulkCategoryBar'
 import type { useExpenses } from './useExpenses'
 
 type Options = {
-  data: Pick<ReturnType<typeof useExpenses>, 'createExpense' | 'updateExpense' | 'setVoided'>
+  data: Pick<ReturnType<typeof useExpenses>, 'createExpense' | 'updateExpense' | 'setVoided' | 'setMutating' | 'changed'>
   setRequestedMonth: Dispatch<SetStateAction<string>>
   setNotice: Dispatch<SetStateAction<string | null>>
 }
@@ -62,33 +62,12 @@ export function useExpenseActions({ data, setRequestedMonth, setNotice }: Option
     }
   }
 
-  // 未分類の明細を1件ずつ編集APIで更新する。編集前の値を条件にするので、他画面で変わった行は409で止まり上書きしない。
+  // 25件までをまとめる。各明細の編集前の値はDBで比較し、競合と失敗を個別に残す。
   const bulkCategorize = async (targets: Expense[], category: string, hooks: { shouldStop: () => boolean; onProgress: (done: number) => void }) => {
-    const result: BulkCategoryResult = { updated: [], conflicts: [], failed: [], skipped: [] }
-    for (const [index, expense] of targets.entries()) {
-      if (hooks.shouldStop()) {
-        result.skipped.push(expense.id)
-        continue
-      }
-      const amount = Number(expense.amount)
-      try {
-        await updateExpense(expense, {
-          transaction_date: expense.transaction_date,
-          amount: Math.abs(amount),
-          title: expense.title,
-          category,
-          payer: expense.payer,
-          memo: expense.memo,
-          type: amount < 0 ? 'offset' : 'expense',
-        })
-        result.updated.push(expense.id)
-      } catch (caught) {
-        if (caught instanceof ApiError && caught.status === 409) result.conflicts.push(expense.id)
-        else result.failed.push(expense.id)
-      }
-      hooks.onProgress(index + 1)
-    }
-    return result
+    data.setMutating(true)
+    try {
+      return await runCategoryBatches(targets, category, { ...hooks, onUpdated: data.changed }, categorizeExpenseBatch)
+    } finally { data.setMutating(false) }
   }
 
   return { entryOpen, setEntryOpen, editingExpense, setEditingExpense, actionError, setActionError,

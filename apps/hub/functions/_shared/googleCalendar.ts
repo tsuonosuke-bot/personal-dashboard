@@ -1,5 +1,6 @@
 /** Google event reads and mutations; preserves the public Calendar module exports. */
 import { type DashboardEnv, DashboardError } from "./dashboard.ts";
+import { mapConcurrent } from "./concurrency.ts";
 import { forgetGoogleAccessToken, configured, refreshAccessToken } from "./googleCalendarConnection.ts";
 import {
   CALENDAR_API,
@@ -17,12 +18,12 @@ import {
   listedEventSchedule,
 } from "./googleCalendarModel.ts";
 
-async function fetchGoogleCalendarEvent(accessToken: string, targetId: string): Promise<GoogleCalendarEventSnapshot> {
+async function fetchGoogleCalendarEvent(accessToken: string, targetId: string, timeoutMs = 6_000): Promise<GoogleCalendarEventSnapshot> {
   const endpoint = new URL(`${CALENDAR_API}/calendars/primary/events/${encodeURIComponent(targetId)}`);
   endpoint.searchParams.set("fields", "id,etag,htmlLink,status,summary,start,end");
   let response: Response;
   try {
-    response = await fetch(endpoint, { headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" } });
+    response = await fetch(endpoint, { signal: AbortSignal.timeout(timeoutMs), headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" } });
   } catch {
     throw new DashboardError("GOOGLE_CALENDAR_UNAVAILABLE", "Could not read the Google event.");
   }
@@ -50,12 +51,46 @@ export async function readGoogleCalendarEvents(
   targetIds: string[],
   pendingAccessToken?: Promise<string>,
 ): Promise<Map<string, GoogleCalendarEventSnapshot>> {
+  const result = await readGoogleCalendarEventsPartial(env, targetIds, pendingAccessToken);
+  if (result.failures.size) throw result.failures.values().next().value;
+  return result.events;
+}
+
+export const GOOGLE_EVENT_CONCURRENCY = 4;
+interface GoogleEventReadOptions { concurrency?: number; timeoutMs?: number; retries?: number; retryDelayMs?: number }
+
+/** Read failures remain unknown, never a fabricated missing/cancelled event. */
+export async function readGoogleCalendarEventsPartial(
+  env: DashboardEnv,
+  targetIds: string[],
+  pendingAccessToken?: Promise<string>,
+  options: GoogleEventReadOptions = {},
+): Promise<{ events: Map<string, GoogleCalendarEventSnapshot>; failures: Map<string, unknown> }> {
   if (!configured(env)) throw new DashboardError("GOOGLE_CALENDAR_NOT_CONFIGURED", "Google Calendar is not configured.", 503);
   const uniqueIds = [...new Set(targetIds.filter((id) => id.trim().length > 0))];
-  if (uniqueIds.length === 0) return new Map();
+  if (uniqueIds.length === 0) return { events: new Map(), failures: new Map() };
   const accessToken = await (pendingAccessToken ?? refreshAccessToken(env));
-  const snapshots = await Promise.all(uniqueIds.map((id) => fetchGoogleCalendarEvent(accessToken, id)));
-  return new Map(snapshots.map((snapshot) => [snapshot.targetId, snapshot]));
+  const concurrency = Math.max(1, Math.min(8, options.concurrency ?? GOOGLE_EVENT_CONCURRENCY));
+  const timeoutMs = Math.max(1, Math.min(15_000, options.timeoutMs ?? 6_000));
+  const retries = Math.max(0, Math.min(2, options.retries ?? 1));
+  const delay = Math.max(0, Math.min(1_000, options.retryDelayMs ?? 250));
+  const results = await mapConcurrent(uniqueIds, concurrency, async (id) => {
+    for (let attempt = 0; ; attempt++) {
+      try { return await fetchGoogleCalendarEvent(accessToken, id, timeoutMs); }
+      catch (error) {
+        if (attempt >= retries || !(error instanceof DashboardError)
+          || !["GOOGLE_CALENDAR_RATE_LIMITED", "GOOGLE_CALENDAR_UNAVAILABLE"].includes(error.code)) throw error;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  });
+  const events = new Map<string, GoogleCalendarEventSnapshot>();
+  const failures = new Map<string, unknown>();
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") events.set(uniqueIds[index], result.value);
+    else failures.set(uniqueIds[index], result.reason);
+  });
+  return { events, failures };
 }
 
 export async function rescheduleGoogleCalendarEvent(

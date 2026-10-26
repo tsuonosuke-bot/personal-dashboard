@@ -6,6 +6,7 @@ import { DEFAULT_FILTERS, listStatePath, parseListState, sameListState, type Lis
 import type { NoteSelection } from "../components/NotesPanel";
 import type { ReviewScope } from "../components/ReviewView";
 import type { Filters, Knowledge, SortKey, SortState } from "../types";
+import { ApiError } from "../lib/api";
 
 /** 整理ページのタブと、ノートタブで開いている問い・テーマ。 */
 type OrganizeState = { tab: OrganizeTab; questionId: number | null; theme: string | null };
@@ -14,10 +15,11 @@ type Options = {
   reviewQueue: Pick<ReturnType<typeof useReviewQueueStatus>, "refresh">;
   setNotice: Dispatch<SetStateAction<string | null>>;
   setActionError: Dispatch<SetStateAction<string | null>>;
+  loadKnowledgeItem: (id: string) => Promise<Knowledge>;
 };
 
 /** URL・一覧条件・画面間の往復を一か所で管理する。データ更新の成否は扱わない。 */
-export function useKnowledgeNavigation({ knowledge, archivedKnowledge, loading, error, reviewQueue, setNotice, setActionError }: Options) {
+export function useKnowledgeNavigation({ knowledge, archivedKnowledge, loading, error, reviewQueue, setNotice, setActionError, loadKnowledgeItem }: Options) {
   const initialRoute = parseDashboardRoute(window.location.href);
   const [showQuiz, setShowQuiz] = useState(() => initialRoute.kind === "quiz");
   const [showSpeaking, setShowSpeaking] = useState(() => initialRoute.kind === "speaking");
@@ -45,6 +47,7 @@ export function useKnowledgeNavigation({ knowledge, archivedKnowledge, loading, 
   const [pageSize, setPageSize] = useState(initialList.pageSize);
   const [selected, setSelected] = useState<Knowledge | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const detailRequest = useRef(0);
 
   // 画面を切り替えても同じdocumentのままなので、直前の画面のスクロール位置が残る。
   const view = showQuiz ? "quiz" : showSpeaking ? "speaking" : showLog ? "log" : showSearch ? "search" : showHelp ? "help" : organize ? "organize" : "dashboard";
@@ -82,6 +85,7 @@ export function useKnowledgeNavigation({ knowledge, archivedKnowledge, loading, 
   }, []);
 
   const applyDashboardRoute = useCallback((notify = true) => {
+    const requestId = ++detailRequest.current;
     const route = parseDashboardRoute(window.location.href);
     // 戻る・進むでは、その時点のURLにある一覧条件へ戻す。
     const urlList = parseListState(window.location.href);
@@ -132,9 +136,18 @@ export function useKnowledgeNavigation({ knowledge, archivedKnowledge, loading, 
         setSelected(archived);
       } else {
         setSelected(null);
-        replaceRoute({ kind: "dashboard" });
-        setArchiveOpen(false);
-        if (notify) setNotice("対象のナレッジが見つかりません。一覧を表示します。");
+        // Archived bodies are fetched only for a requested card, never with the
+        // initial active list. Reject a stale response after navigation.
+        void loadKnowledgeItem(route.knowledgeId).then((item) => {
+          const current = parseDashboardRoute(window.location.href);
+          if (requestId === detailRequest.current && current.kind === "knowledge" && current.knowledgeId === item.id) { setArchiveOpen(false); setSelected(item); }
+        }).catch((caught: unknown) => {
+          if (requestId !== detailRequest.current) return;
+          if (caught instanceof ApiError && caught.status === 404) {
+            replaceRoute({ kind: "dashboard" });
+            if (notify) setNotice("対象のナレッジが見つかりません。一覧を表示します。");
+          } else setActionError(caught instanceof Error ? caught.message : "ナレッジを取得できませんでした。");
+        });
       }
       return;
     }
@@ -144,7 +157,7 @@ export function useKnowledgeNavigation({ knowledge, archivedKnowledge, loading, 
       replaceRoute({ kind: "dashboard" });
       if (notify) setNotice("指定されたナレッジを開けません。一覧を表示します。");
     }
-  }, [applyListState, archivedKnowledge, error, knowledge, loading, replaceRoute, setNotice]);
+  }, [applyListState, archivedKnowledge, error, knowledge, loading, replaceRoute, setNotice, setActionError, loadKnowledgeItem]);
 
   useEffect(() => {
     applyDashboardRoute();

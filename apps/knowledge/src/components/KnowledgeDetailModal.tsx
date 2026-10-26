@@ -6,11 +6,10 @@ import type { InsightStore } from "../hooks/useInsights";
 import { useModalDialog } from "../hooks/useModalDialog";
 import { InsightNotes } from "./InsightNotes";
 import { KnowledgeReviewHistory } from "./KnowledgeReviewHistory";
-import type { Knowledge, QuizLog } from "../types";
+import type { Knowledge } from "../types";
 
 interface Props {
   knowledge: Knowledge;
-  quizLog: QuizLog[];
   mutating: boolean;
   onClose: () => void;
   /** 呼び出し元で許可する操作だけを表示できるよう省略可能にする。 */
@@ -41,7 +40,7 @@ function displayRelearning(stage: Knowledge["relearning_stage"]): string {
 }
 
 export function KnowledgeDetailModal({
-  knowledge, quizLog, mutating, onClose, onEdit, onArchive, insightStore, insightGroupStore, onRemoveAutoTag,
+  knowledge, mutating, onClose, onEdit, onArchive, insightStore, insightGroupStore, onRemoveAutoTag,
 }: Props) {
   const titleId = useId();
   const dialogRef = useModalDialog(onClose, mutating);
@@ -109,7 +108,7 @@ export function KnowledgeDetailModal({
             <div><dt>登録日時</dt><dd>{displayDateTime(knowledge.created_at)}</dd></div>
           </dl>
 
-          <KnowledgeReviewHistory key={knowledge.id} knowledgeId={knowledge.id} quizLog={quizLog} />
+          <KnowledgeReviewHistory key={knowledge.id} knowledgeId={knowledge.id} reloadKey={`${knowledge.content_version}:${knowledge.times_asked}`} />
         </div>
 
         <div className="modal-actions detail-actions">

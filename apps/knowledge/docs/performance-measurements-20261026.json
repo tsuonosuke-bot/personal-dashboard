@@ -1,0 +1,124 @@
+{
+  "environment": {
+    "node": "v24.19.0",
+    "platform": "win32",
+    "architecture": "x64",
+    "measuredAt": "2026-10-26T04:22:49.648Z",
+    "repetitions": 5,
+    "statistic": "median after one warm-up",
+    "scope": "synthetic local; no real network latency, browser long tasks, production data or production rates"
+  },
+  "todayFilter": [
+    {
+      "cards": 1000,
+      "matched": 500,
+      "beforeMs": 63.480999999999995,
+      "afterMs": 0.22950000000003,
+      "beforeFormatterConstructionsPerCall": 1000,
+      "afterFormatterConstructionsPerCall": 0
+    },
+    {
+      "cards": 5000,
+      "matched": 2500,
+      "beforeMs": 374.5160000000001,
+      "afterMs": 2.052299999999832,
+      "beforeFormatterConstructionsPerCall": 5000,
+      "afterFormatterConstructionsPerCall": 0
+    }
+  ],
+  "initialRead": [
+    {
+      "logRows": 1000,
+      "activeCards": 1000,
+      "archivedCards": 500,
+      "before": {
+        "requests": 4,
+        "bytes": 2737651,
+        "readyMs": 52.66830000000027,
+        "quizBodyRows": 1000,
+        "archivedBodyRows": 500
+      },
+      "after": {
+        "requests": 3,
+        "bytes": 791132,
+        "readyMs": 18.50720000000001,
+        "quizBodyRows": 0,
+        "archivedBodyRows": 0
+      }
+    },
+    {
+      "logRows": 5000,
+      "activeCards": 1000,
+      "archivedCards": 500,
+      "before": {
+        "requests": 9,
+        "bytes": 8961466,
+        "readyMs": 164.16599999999926,
+        "quizBodyRows": 5000,
+        "archivedBodyRows": 500
+      },
+      "after": {
+        "requests": 3,
+        "bytes": 791276,
+        "readyMs": 17.092400000000453,
+        "quizBodyRows": 0,
+        "archivedBodyRows": 0
+      }
+    },
+    {
+      "logRows": 10000,
+      "activeCards": 1000,
+      "archivedCards": 500,
+      "before": {
+        "requests": 14,
+        "bytes": 16741186,
+        "readyMs": 232.0045999999993,
+        "quizBodyRows": 10000,
+        "archivedBodyRows": 500
+      },
+      "after": {
+        "requests": 3,
+        "bytes": 791280,
+        "readyMs": 11.21349999999984,
+        "quizBodyRows": 0,
+        "archivedBodyRows": 0
+      }
+    }
+  ],
+  "chartHover": [
+    {
+      "logRows": 10000,
+      "mouseMoves": 10,
+      "beforeAggregationCalls": 10,
+      "afterAggregationCalls": 0,
+      "beforeMs": 170.88360000000011,
+      "afterDataAccessMs": 0.0015000000003055902,
+      "note": "Current charts receive this aggregate as props; aggregate access is a local comparison, not a browser event/long-task measurement."
+    },
+    {
+      "logRows": 100000,
+      "mouseMoves": 10,
+      "beforeAggregationCalls": 10,
+      "afterAggregationCalls": 0,
+      "beforeMs": 2251.8863999999994,
+      "afterDataAccessMs": 0.0018000000018218998,
+      "note": "Current charts receive this aggregate as props; aggregate access is a local comparison, not a browser event/long-task measurement."
+    }
+  ],
+  "cardMasteryPayload": [
+    {
+      "otherCards": 100,
+      "beforeRows": 3131,
+      "afterRowsIncludingPredecessor": 11,
+      "beforeBytes": 380493,
+      "afterBytes": 1353
+    },
+    {
+      "otherCards": 1000,
+      "beforeRows": 31031,
+      "afterRowsIncludingPredecessor": 11,
+      "beforeBytes": 3832355,
+      "afterBytes": 1353
+    }
+  ]
+}

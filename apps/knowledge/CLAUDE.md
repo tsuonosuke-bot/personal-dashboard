@@ -145,7 +145,7 @@ Supabase project ref: `plwlxwidpqbunugfxjhp`
   （`log_knowledge_mastery_change`、SECURITY DEFINER）が1行追記する
 - `is_baseline = true` は記録開始時点（2026-09-23のマイグレーション）の状態。それ以前の推移は存在しない
 - 他: `knowledge_id`, `from_mastery`, `to_mastery`, `changed_at`。アプリからは読み取りのみ
-- ナレッジ詳細の `KnowledgeReviewHistory` はそのカードの回答と習熟度の変化を10件ずつ表示する。APIが返す `to_mastery` の前の記録から変化を組み立て、回答と手動変更を同一視しない。履歴を開いても確認済みにはしない
+- ナレッジ詳細の `KnowledgeReviewHistory` はそのカードの回答を `/api/learning-log?knowledge_id=...` で10件ずつ取得する。習熟度はその欄を開いた時点から `/api/mastery-history?knowledge_id=...` で10件ずつ取得し、ページ末尾の直前1件も使って変更前の値を組み立てる。回答と手動変更を同一視せず、閲覧では確認済みにしない
 
 ### `speaking_practice_log`
 
@@ -417,7 +417,11 @@ src/
                             learningLog / learningSummary（学習ログと今日・今週の集計）、speakingLog / speakingPractice（英会話練習）、
                             masteryTrend / registrationTrend（推移グラフ）、tagGroups（手動タグと自動タグの集計）
   hooks/
-    useKnowledgeData.ts     APIからの取得とリロード
+    useKnowledgeData.ts     現役カード・自動タグの取得。学習集計は別の状態で取得し、一覧表示を待たせない
+    useLearningLogPage.ts   検索条件をDBへ渡す学習ログのページ取得（通常30件）
+    useCardAnswers.ts / useCardMasteryHistory.ts
+                            カードごとの回答と習熟度変更を10件ずつ取得
+    useJstDate.ts           JST午前0時・タブ復帰時に日付依存の集計を更新
     useFilteredKnowledge.ts 検索・カテゴリ・習熟度での絞り込み
     useModalDialog.ts       モーダルのフォーカス管理
     useReviewSession.ts     キューから出題された問題への回答の流れ
@@ -447,6 +451,9 @@ functions/
   api/knowledge.ts          ナレッジ一覧・新規登録API
   api/knowledge/[id].ts     ナレッジ編集・アーカイブ・復元API
   api/quiz-log.ts           クイズ履歴読み取りAPI
+  api/learning-summary.ts   今日・週別・日別の学習集計、記憶のもち、アーカイブ込みの登録推移・カテゴリ・タグの語彙
+  api/learning-log.ts       条件付きページと未確認IDの固定スナップショット。confirmation-state.ts は固定IDの状態だけを照合
+  api/hub-summary.ts        Hub用の件数と最大9件の候補。DBで絞り、全カードを読み出さない
   api/speaking-practice.ts  復習とは独立した英会話練習履歴API
   api/inbox.ts              採点結果から深掘りしたい点をidea_inboxへ登録するAPI
   api/grading-report.ts     「採点がおかしい」の報告をidea_inboxへ登録するAPI
@@ -487,9 +494,13 @@ public/
 - 学習ログで「問題と講評を見る」を開いた採点結果は確認済みになる（`confirm_review_results`）。
 - 学習ログの一括確認は検索条件に一致する未確認の全ページが対象。現ページ30件だけの操作は設けない。
   `reviewConfirmation` の固定ID集合・200件分割・同期ロックを単票確認と共有する。チャンク成功ごとに表示へ反映し、
-  部分失敗後は全ログを再取得して残る未確認だけを再送する。`useKnowledgeData.reload` の成否結果と最新全ログで
+  部分失敗後は固定対象IDの確認状態をDBで照合して残る未確認だけを再送する。`useKnowledgeData.reload` の成否結果と最新の確認状態で
   対象を照合し、再取得失敗は完了と断定しない。未存在/対象外は確認済みと区別する。
   一覧からは消さず、その場では「未確認」の印だけを外す
+- 初期一覧は現役カード・自動タグだけを待つ。`learning-summary` は別に取得し、全履歴の本文・アーカイブ本文を初期ロードやバックグラウンドで全取得しない。学習ログ・講評・アーカイブは画面の条件とページで取得し、登録推移はアーカイブ込みのDB集計を使う。問い・示唆の出典はその画面を開いたときに参照IDで取得する。問いのノートへの直リンクも選択中の問いに所属する示唆の出典だけを取得し、失敗時は取得失敗の表示と同じ参照IDでの再試行を出す。取得済みの自動タグは本文と別に保持し、遅延取得した出典・アーカイブのページ・保存と復元の応答にも付け直す
+- 複数示唆の所属追加は `/api/insight-group-members/batch`。`expected_updated_at` をグループ行ロックの下で比較し、成功した所属・失敗ID・更新後のグループを1回で返す。既存の単件APIも残す
+- 採点の保存と失敗回答の解放は `record_review_grades_batch` でまとめ、内部では既存の `record_review_grade` を使う。項目ごとのsavepointで部分失敗を扱い、二重記録・古い回答・アーカイブの判定は既存関数へ集約する
+- 再学習の後続生成は、採点保存と同じDBトランザクションで `review_generation_jobs` に記録する。`claim_relearning_generation` が既存の生成ロックと実行記録を確保した後、Pages Functionsの `waitUntil` で応答後も処理する。失敗・中断は通常の生成または後続の採点から再取得し、採点やAI採点をやり直さない
 
 ## デプロイと閲覧制限
 

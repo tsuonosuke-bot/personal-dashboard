@@ -9,6 +9,26 @@ cross-app dependencies, before deploying the app build that depends on them.
 The archived `baseline/` files are not pending migrations; never replay them to
 repair missing history. Existing versions and archived SQL remain unchanged.
 
+- `20261026035236_performance_batch_writes.sql` adds service-role-only membership
+  and grade batch RPCs. Membership compares the group's expected timestamp under
+  its row lock. Each grade reuses `record_review_grade` in a savepoint, and a
+  newly saved relearning grade also records durable `review_generation_jobs`.
+  The continuation claims the existing generation lock/run before the HTTP
+  response and can recover after interruption without grading the answer again.
+
+- `20261026035400_theme_material_scope.sql` filters a single theme at the
+  vocabulary CTE before semantic distance calculations and ranking. The existing
+  three-argument `theme_material_keys` remains the all-theme count path; a note
+  uses the shared four-argument `theme_material_keys_for_tag` implementation.
+
+- `20261026040000_learning_read_models.sql` adds dashboard aggregates, conditional
+  history pages, fixed unconfirmed-ID snapshots, archive search pages and the
+  bounded Hub read model. Initial reads do not retrieve answer/archive bodies.
+  Card answer reads use a `(knowledge_id, coalesce(answered_at, created_at), id)`
+  index. All new RPCs remain service-role-only. Apply these three migrations
+  before the app build that uses the new API contracts; there is no fallback to
+  downloading all history when a new RPC is unavailable.
+
 - `20261022100000_insight_analysis_cache.sql` adds service-role-only storage of
   validated insight analyses keyed by the exact input and analysis policy.
   Apply this before releasing the #118 API changes. It does not change insights,

@@ -4,6 +4,51 @@ import { fetchSupabase } from "@personal-dashboards/auth";
 import { type FocusRow, normalizeFocusRows } from "./focus.ts";
 
 const PAGE_SIZE = 1_000;
+export const HUB_SOURCE_TIMEOUT_MS = 6_000;
+
+/** Bound the wait even when a remote peer does not respect cancellation. */
+export async function sourceDeadline<T>(work: Promise<T>, timeoutMs = HUB_SOURCE_TIMEOUT_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([work, new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new HubError("HUB_SOURCE_TIMEOUT", "Source deadline exceeded.")), timeoutMs);
+    })]);
+  } finally { clearTimeout(timer); }
+}
+
+export interface LocalHubSummary {
+  pendingInbox?: number;
+  activeWants?: number;
+  untriagedWants?: number;
+  activeProjects?: number;
+  writingIdeas?: number;
+  items?: unknown[];
+  summary?: { active: number; completedToday: number; remainingToday: number };
+}
+
+export async function fetchLocalHubSummary(env: HubEnv, source: "inbox" | "wants" | "focus" | "projects" | "writing" | "habits", today: string): Promise<LocalHubSummary> {
+  const { url, key } = connection(env);
+  const endpoint = new URL("/rest/v1/rpc/get_hub_local_summary", url);
+  let response: Response;
+  try {
+    response = await fetchSupabase(endpoint, { method: "POST", headers: { Accept: "application/json", "Content-Type": "application/json", apikey: key },
+      body: JSON.stringify({ p_source: source, p_today: today }) });
+  } catch { throw new HubError("SUPABASE_UNAVAILABLE", `Could not reach ${source}.`); }
+  if (!response.ok) throw new HubError(response.status === 401 || response.status === 403 ? "SUPABASE_ACCESS_DENIED" : "SUPABASE_REQUEST_FAILED", `${source} summary returned ${response.status}.`);
+  const value: unknown = await response.json();
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new HubError("SUPABASE_RESPONSE_INVALID", "Invalid Hub summary.");
+  const summary = value as LocalHubSummary;
+  const countKeys = { inbox: ["pendingInbox"], wants: ["activeWants", "untriagedWants"], projects: ["activeProjects"], writing: ["writingIdeas"], focus: [], habits: [] }[source];
+  if (countKeys.some((name) => !Number.isSafeInteger((summary as Record<string, unknown>)[name]) || Number((summary as Record<string, unknown>)[name]) < 0)
+    || (["inbox", "focus"].includes(source) && !Array.isArray(summary.items))) throw new HubError("SUPABASE_RESPONSE_INVALID", "Invalid Hub counts.");
+  if (source === "focus") {
+    try { normalizeFocusRows(summary.items as FocusRow[]); }
+    catch { throw new HubError("SUPABASE_RESPONSE_INVALID", "Invalid Focus preview."); }
+  }
+  if (source === "habits" && (!summary.summary || Object.values(summary.summary).some((n) => !Number.isSafeInteger(n) || n < 0)
+    || !["active", "completedToday", "remainingToday"].every((name) => name in summary.summary!))) throw new HubError("SUPABASE_RESPONSE_INVALID", "Invalid Habit counts.");
+  return summary;
+}
 
 function connection(env: HubEnv): { url: URL; key: string } {
   const rawUrl = env.SUPABASE_URL?.trim();
@@ -75,6 +120,7 @@ export async function fetchDashboardRows(env: HubEnv, baseUrl: string, path: str
     let response: Response;
     try {
       response = await fetch(endpoint, {
+        signal: AbortSignal.timeout(HUB_SOURCE_TIMEOUT_MS),
         headers: { Accept: "application/json", "X-Hub-Service": token },
       });
     } catch {
@@ -103,7 +149,7 @@ export async function fetchDashboardJson(env: HubEnv, baseUrl: string, path: str
   const endpoint = new URL(path, baseUrl);
   let response: Response;
   try {
-    response = await fetch(endpoint, { headers: { Accept: "application/json", "X-Hub-Service": token } });
+    response = await fetch(endpoint, { signal: AbortSignal.timeout(HUB_SOURCE_TIMEOUT_MS), headers: { Accept: "application/json", "X-Hub-Service": token } });
   } catch {
     throw new HubError("HUB_SERVICE_UNAVAILABLE", `Could not reach ${endpoint.host}.`);
   }

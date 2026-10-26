@@ -10,6 +10,7 @@ import { jsonResponse, methodNotAllowed, type SupabaseEnv } from "./supabaseRest
 export interface BatchContext {
   request: Request;
   env: SupabaseEnv & AnthropicEnv & ReviewBatchEnv;
+  waitUntil?: (work: Promise<unknown>) => void;
 }
 
 /**
@@ -18,7 +19,7 @@ export interface BatchContext {
  */
 export async function handleBatch(
   context: BatchContext,
-  run: (env: BatchContext["env"], trigger: BatchTrigger) => Promise<BatchSummary>,
+  run: (env: BatchContext["env"], trigger: BatchTrigger, defer?: (work: Promise<unknown>) => void) => Promise<BatchSummary>,
 ): Promise<Response> {
   if (context.request.method !== "POST") return methodNotAllowed("POST");
   let trigger: BatchTrigger;
@@ -30,7 +31,7 @@ export async function handleBatch(
     trigger = "manual";
   }
   try {
-    return jsonResponse(await run(context.env, trigger));
+    return jsonResponse(await run(context.env, trigger, context.waitUntil ? (work) => context.waitUntil!(work) : undefined));
   } catch (error) {
     console.error("Review batch failed to start", error instanceof Error ? error.message : "unknown error");
     return jsonResponse({ error: "バッチを開始できませんでした。", reason: error instanceof Error ? error.message : null }, 502);

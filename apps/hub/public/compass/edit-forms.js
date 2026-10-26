@@ -1,12 +1,12 @@
 // 編集フォーム（Inbox・Item・Wish・保留）とクローズ。
 import { readApiJson } from "../api-client.js";
 import { closeMeta, itemEditMeta } from "./constants.js";
-import { loadDashboard } from "./data.js";
+import { loadDashboard, applySavedIdeaRow, loadIdeaDetail } from "./data.js";
 import { closeDrawer, renderDrawerItem } from "./drawer.js";
 import { defaultRevisitDate, escapeHtml, setDrawerTitle, showToast, sourceTextMarkup, todayInTokyo } from "./format.js";
 import { canCloseItem, statusLabel } from "./list.js";
 import { triageKicker } from "./route.js";
-import { els } from "./state.js";
+import { els, state } from "./state.js";
 import { continueInboxTriage } from "./triage-flow.js";
 import { STORED_WANT_CATEGORIES, WANT_CATEGORIES, wantCategory } from "./want-category.js";
 
@@ -158,11 +158,12 @@ async function saveInbox(event, item) {
     const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
     if (!response.ok) throw new Error(message || "Inboxを更新できませんでした。");
 
-    const refreshed = await loadDashboard();
-    if (!refreshed) {
-      setInboxEditError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
-      return;
+    let fresh = applySavedIdeaRow("inbox", payload, item);
+    if (fresh.result !== item.result) {
+      try { fresh = await loadIdeaDetail(item.id, "inbox"); }
+      catch { showToast("保存は完了しました。振り分け表示の最新状態は再読み込みしてください。"); }
     }
+    if (state.drawerItem?.id === item.id) renderDrawerItem(fresh, "inbox");
     showToast("Inboxを更新しました。");
   } catch (error) {
     setInboxEditError(error instanceof Error ? error.message : "Inboxを更新できませんでした。");
@@ -209,7 +210,8 @@ export async function saveWantCategory(item, value) {
   const payload = await readApiJson(response);
   const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
   if (!response.ok) throw new Error(message || "分類を保存できませんでした。");
-  await loadDashboard();
+  const fresh = applySavedIdeaRow("wants", payload, item);
+  if (state.drawerItem?.id === item.id) renderDrawerItem(fresh, "wants");
 }
 
 export function renderItemEditForm(item, view) {
@@ -296,11 +298,8 @@ async function saveItem(event, item, view) {
     const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
     if (!response.ok) throw new Error(message || `${meta.title}を保存できませんでした。`);
 
-    const refreshed = await loadDashboard();
-    if (!refreshed) {
-      setItemEditError("保存は完了しましたが、最新状態を再読み込みできませんでした。再読込してください。");
-      return;
-    }
+    const fresh = applySavedIdeaRow(view, payload, item);
+    if (state.drawerItem?.id === item.id) renderDrawerItem(fresh, view);
     showToast(meta.success);
   } catch (error) {
     setItemEditError(error instanceof Error ? error.message : `${meta.title}を保存できませんでした。`);
@@ -332,6 +331,7 @@ export async function routeInboxViaApi(inboxId, exit, params, idempotencyKey) {
   const payload = await readApiJson(response);
   const message = typeof payload.error === "string" ? payload.error : payload.error?.message;
   if (!response.ok) throw new Error(message || "振り分けを保存できませんでした。");
+  if (exit === "calendar") state.todosLoaded = false;
   return payload;
 }
 

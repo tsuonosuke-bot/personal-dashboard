@@ -1,5 +1,6 @@
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useModalDialog } from "../hooks/useModalDialog";
+import { Pagination } from "./Pagination";
 import type { Knowledge } from "../types";
 
 interface Props {
@@ -8,24 +9,35 @@ interface Props {
   error: string | null;
   onClose: () => void;
   onRestore: (knowledge: Knowledge) => Promise<void>;
+  onLoadPage: (search: string, offset: number, limit: number) => Promise<{ items: Knowledge[]; total: number }>;
 }
 
 export function ArchivedKnowledgeModal({
-  knowledge, mutating, error, onClose, onRestore,
+  knowledge, mutating, error, onClose, onRestore, onLoadPage,
 }: Props) {
   const titleId = useId();
   const [search, setSearch] = useState("");
   const dialogRef = useModalDialog(onClose, mutating);
-  const rows = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("ja");
-    if (!query) return knowledge;
-    return knowledge.filter((item) => [
-      item.title,
-      item.category,
-      item.explanation ?? "",
-      item.tags.join(" "),
-    ].join(" ").toLocaleLowerCase("ja").includes(query));
-  }, [knowledge, search]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(30);
+  const [rows, setRows] = useState<Knowledge[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true); setLoadError(null); setRows([]);
+    onLoadPage(search, (page - 1) * pageSize, pageSize)
+      .then((data) => { if (!cancelled) {
+        const lastPage = Math.max(1, Math.ceil(data.total / pageSize));
+        if (page > lastPage) setPage(lastPage);
+        else { setRows(data.items); setTotal(data.total); }
+      } })
+      .catch((caught: unknown) => { if (!cancelled) setLoadError(caught instanceof Error ? caught.message : "アーカイブを取得できませんでした。"); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [search, page, pageSize, version, knowledge, onLoadPage]);
 
   return (
     <div
@@ -55,12 +67,13 @@ export function ArchivedKnowledgeModal({
               type="text"
               placeholder="タイトル・カテゴリ・タグで検索"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => { setSearch(event.target.value); setPage(1); }}
             />
           </label>
-          <p className="archive-summary">{rows.length} / {knowledge.length}件</p>
+          <p className="archive-summary">{total}件</p>
           {error && <div className="form-error archive-error" role="alert">{error}</div>}
-          {rows.length === 0 ? (
+          {loadError && <div className="form-error archive-error" role="alert">{loadError}<button onClick={() => setVersion((value) => value + 1)}>再試行</button></div>}
+          {loading ? <div className="msg">読み込み中...</div> : !loadError && rows.length === 0 ? (
             <div className="msg">該当するアーカイブはありません。</div>
           ) : (
             <ul className="archive-list">
@@ -81,6 +94,8 @@ export function ArchivedKnowledgeModal({
               ))}
             </ul>
           )}
+          {total > 0 && <Pagination page={page} pageSize={pageSize} totalPages={Math.max(1, Math.ceil(total / pageSize))} totalItems={total} onChange={setPage}
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }} />}
         </div>
         <div className="modal-actions">
           <button type="button" onClick={onClose} disabled={mutating}>閉じる</button>

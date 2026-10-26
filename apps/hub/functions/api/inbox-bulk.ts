@@ -4,6 +4,7 @@ import {
   validateInboxBulkUpdateRequest,
 } from "../_shared/inboxBulkUpdate.ts";
 import { updateInbox } from "../_shared/inboxUpdate.ts";
+import { mapConcurrent } from "../_shared/concurrency.ts";
 
 interface FunctionContext {
   request: Request;
@@ -23,7 +24,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
 
   const updated: number[] = [];
   const failed: Array<{ id: number; error: string }> = [];
-  for (const item of input.value.items) {
+  await mapConcurrent(input.value.items, 4, async (item) => {
     try {
       await updateInbox(context.env, {
         id: item.id,
@@ -38,7 +39,12 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
       console.error(`inbox bulk update failed for ${item.id}: ${failure.code}`);
       failed.push({ id: item.id, error: failure.message });
     }
-  }
+  });
+
+  // Preserve the request's ordering even when independent updates finish out of order.
+  const order = new Map(input.value.items.map((item, index) => [item.id, index]));
+  updated.sort((left, right) => order.get(left)! - order.get(right)!);
+  failed.sort((left, right) => order.get(left.id)! - order.get(right.id)!);
 
   return Response.json({ status: input.value.status, updated, failed }, { status: failed.length ? 207 : 200, headers });
 };

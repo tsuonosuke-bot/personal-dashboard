@@ -558,6 +558,26 @@ export async function loadHabitHistory(env: DashboardEnv, query: HabitHistoryQue
   return normalizeHabitHistory(habits as HabitRow[], logs as HabitLogRow[], query, now);
 }
 
+/** The saved habit and the visible period only; unrelated definitions/logs are never reread. */
+export async function loadHabitMutationResult(env: DashboardEnv, habitId: number, query: HabitHistoryQuery, now = new Date()) {
+  const info = connection(env);
+  const habit = await findHabit(info, habitId);
+  if (!habit) throw new DashboardError("HABIT_NOT_FOUND", "Habit was not found.", 404);
+  const today = todayInTokyo(now);
+  const currentFrom = addDays(mondayOf(today), -7);
+  const range = habitHistoryRange(query);
+  const historyFrom = mondayOf(range.from);
+  const historyTo = addDays(mondayOf(range.to), 6);
+  const logs = await fetchRows(info, "habit_logs", LOG_SELECT, (endpoint) => {
+    endpoint.searchParams.set("habit_id", `eq.${habitId}`);
+    endpoint.searchParams.set("or", `(and(practiced_on.gte.${currentFrom},practiced_on.lte.${today}),and(practiced_on.gte.${historyFrom},practiced_on.lte.${historyTo}))`);
+    endpoint.searchParams.set("order", "practiced_on.asc,id.asc");
+  }) as HabitLogRow[];
+  const overview = normalizeHabits([habit], logs, now);
+  return { today, habit: overview.habits[0], lastWeek: overview.lastWeek.habits[0] ?? null,
+    history: normalizeHabitHistory([habit], logs, query, now) };
+}
+
 export function validateHabitMutationRequest(request: Request, action: "habit-create" | "habit-update" | "habit-log") {
   let origin: string;
   try {

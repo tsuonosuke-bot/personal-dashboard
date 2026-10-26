@@ -1,7 +1,6 @@
 import type { DashboardEnv } from "../_shared/dashboard.ts";
 import {
   createProjectAction,
-  loadProjects,
   publicProjectError,
   readProjectActionCreateInput,
   readProjectActionResolveInput,
@@ -10,6 +9,7 @@ import {
   updateProjectAction,
   validateProjectMutationRequest,
 } from "../_shared/projects.ts";
+import { findMutationProjectId, projectMutationResult } from "../_shared/projectsRead.ts";
 
 interface FunctionContext {
   request: Request;
@@ -32,7 +32,7 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     if (!input.ok) return Response.json({ error: input.error }, { status: input.status, headers });
     try {
       await createProjectAction(context.env, input.value);
-      return Response.json(await loadProjects(context.env), { status: 201, headers });
+      return Response.json(await projectMutationResult(context.env, input.value.projectId, context.request), { status: 201, headers });
     } catch (error) {
       return failureResponse(error, input.value.operation);
     }
@@ -44,8 +44,9 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     const input = await readProjectActionResolveInput(context.request);
     if (!input.ok) return Response.json({ error: input.error }, { status: input.status, headers });
     try {
+      const projectId = await findMutationProjectId(context.env, "project_actions", input.value.actionId);
       await resolveProjectAction(context.env, input.value);
-      return Response.json(await loadProjects(context.env), { headers });
+      return Response.json(await projectMutationResult(context.env, projectId, context.request), { headers });
     } catch (error) {
       return failureResponse(error, "resolve");
     }
@@ -57,8 +58,9 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
     const input = await readProjectActionUpdateInput(context.request);
     if (!input.ok) return Response.json({ error: input.error }, { status: input.status, headers });
     try {
+      const projectId = await findMutationProjectId(context.env, "project_actions", input.value.actionId);
       await updateProjectAction(context.env, input.value);
-      return Response.json(await loadProjects(context.env), { headers });
+      return Response.json(await projectMutationResult(context.env, projectId, context.request), { headers });
     } catch (error) {
       return failureResponse(error, input.value.operation);
     }

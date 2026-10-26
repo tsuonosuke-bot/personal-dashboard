@@ -88,5 +88,6 @@ test("AIがまとめたテーマを、問い文の下書きと根拠の示唆ご
   assert.match(questions, /<a href=\{questionHref\(saved\.group\.id\)\}>問いを開く<\/a>/);
   assert.match(questions, /件は入れられませんでした。問いのページから追加してください/);
   // 根拠の示唆は順に追加して、読み直しは最後の1回だけにする
-  assert.match(groups, /for \(const insightId of insightIds\) \{[\s\S]*?\}\s+await reload\(\);\s+return failed;/);
+  assert.match(groups, /addInsightGroupMembers\(groupId, ids, group.updated_at\)/);
+  assert.match(groups, /return result.failedIds/);
 });

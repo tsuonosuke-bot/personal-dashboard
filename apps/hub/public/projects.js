@@ -1,5 +1,5 @@
 import { createProjectState, projectsElements } from "./projects/state.js";
-import { projectRequest } from "./projects/api.js";
+import { projectRequest as rawProjectRequest } from "./projects/api.js";
 import { escapeHtml } from "./shared/html.js";
 import { createProjectModel } from "./projects/model.js";
 import { createProjectView } from "./projects/view.js";
@@ -8,8 +8,18 @@ import { nextActionResolution, openProjectTodoLink, unlinkProjectTodo } from "./
 const state = createProjectState();
 const els = projectsElements(document);
 
+function projectRequest(url, init, errorFactory) {
+  if (init?.method && init.method !== "GET") {
+    const target = new URL(url, window.location.origin);
+    for (const [name, value] of Object.entries({ view: state.view, q: state.search, sort: state.sort, attention: String(state.attentionOnly) })) target.searchParams.set(name, value);
+    url = `${target.pathname}${target.search}`;
+  }
+  return rawProjectRequest(url, init, errorFactory);
+}
+
 function showToast(message) {
-  els.toast.textContent = message;
+  els.toast.textContent = state.savedRefreshError ? `${message} ${state.savedRefreshError}` : message;
+  state.savedRefreshError = null;
   els.toast.hidden = false;
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(() => { els.toast.hidden = true; }, 3_500);
@@ -22,10 +32,23 @@ function setFormError(element, message) {
 
 
 function setData(payload) {
+  if (payload?.saved && payload.refreshError) { state.savedRefreshError = payload.refreshError; return; }
   if (!payload || !Array.isArray(payload.projects) || typeof payload.summary !== "object") {
     throw new Error("Projectデータの形式が正しくありません。");
   }
-  state.data = payload;
+  if (payload.partial && state.data) {
+    const updates = new Map(payload.projects.map((project) => [project.id, project]));
+    state.data.projects = state.data.projects.map((project) => updates.get(project.id) || project);
+    for (const project of payload.projects) if (!state.data.projects.some((entry) => entry.id === project.id)) state.data.projects.push(project);
+    state.data.summary = payload.summary;
+    state.data.source = payload.source;
+    if (state.data.page && Number.isSafeInteger(payload.page?.contextTotal)) state.data.page.total = payload.page.contextTotal;
+  } else state.data = payload;
+  if (payload.source) {
+    const partial = payload.source.state === "partial";
+    els.sourceBadge.textContent = partial ? "一部取得不可" : "SUPABASE LIVE";
+    els.sourceBadge.className = `source-badge ${partial ? "partial" : "live"}`;
+  }
   renderAll();
 }
 
@@ -37,25 +60,31 @@ function setView(view, attentionOnly = false) {
     tab.classList.toggle("active", selected);
     tab.setAttribute("aria-selected", String(selected));
   });
-  renderList();
+  void loadProjects({ skipRoute: true });
 }
 
-async function loadProjects() {
+let projectLoadGeneration = 0;
+async function loadProjects(options = {}) {
+  const generation = ++projectLoadGeneration;
   els.refreshButton.disabled = true;
   els.loadingState.hidden = false;
   els.errorState.hidden = true;
   els.projectList.hidden = true;
   try {
-    const payload = await projectRequest("/api/projects", { headers: { Accept: "application/json" }, cache: "no-store" },
+    const params = new URLSearchParams({ view: state.view, q: state.search, sort: state.sort, attention: String(state.attentionOnly), offset: String(options.append ? state.data?.projects.length || 0 : 0) });
+    const payload = await projectRequest(`/api/projects?${params}`, { headers: { Accept: "application/json" }, cache: "no-store" },
       (payload) => new Error(typeof payload.error === "string" ? payload.error : "Projectを読み込めませんでした。"));
+    if (generation !== projectLoadGeneration) return false;
+    if (options.append && state.data) payload.projects = [...state.data.projects, ...payload.projects];
     setData(payload);
-    els.sourceBadge.textContent = "SUPABASE LIVE";
-    els.sourceBadge.className = "source-badge live";
+    els.sourceBadge.textContent = payload.source?.state === "partial" ? "一部取得不可" : "SUPABASE LIVE";
+    els.sourceBadge.className = `source-badge ${payload.source?.state === "partial" ? "partial" : "live"}`;
     els.loadingState.hidden = true;
     els.projectList.hidden = false;
-    applyRoute(false);
+    if (!options.skipRoute) void applyRoute(false);
     return true;
   } catch (error) {
+    if (generation !== projectLoadGeneration) return false;
     els.sourceBadge.textContent = "接続エラー";
     els.sourceBadge.className = "source-badge error";
     els.loadingState.hidden = true;
@@ -63,8 +92,38 @@ async function loadProjects() {
     els.errorState.hidden = false;
     return false;
   } finally {
-    els.refreshButton.disabled = false;
+    if (generation === projectLoadGeneration) els.refreshButton.disabled = false;
   }
+}
+
+async function fetchProjectDetail(id, options = {}) {
+  const context = JSON.stringify([state.view, state.search, state.sort, state.attentionOnly]);
+  const params = new URLSearchParams({ id: String(id), historyOffset: String(options.historyOffset || 0), itemOffset: String(options.itemOffset || 0), view: state.view, q: state.search, sort: state.sort, attention: String(state.attentionOnly) });
+  const payload = await projectRequest(`/api/projects?${params}`, { headers: { Accept: "application/json" }, cache: "no-store" });
+  if (context !== JSON.stringify([state.view, state.search, state.sort, state.attentionOnly])) return fetchProjectDetail(id, options);
+  const project = payload.projects?.[0];
+  if (!project) throw new Error("対象のProjectが見つかりません。");
+  const previous = getProject(id);
+  if (options.append && previous) {
+    const history = previous.actions.filter((action) => ["done", "cancelled"].includes(action.status));
+    project.actions = [...new Map([...history, ...project.actions].map((action) => [action.id, action])).values()];
+    project.items = [...new Map([...previous.items, ...project.items].map((item) => [item.id, item])).values()];
+  }
+  setData(payload);
+  return getProject(id);
+}
+
+async function loadMoreDetail(project, kind, all = false) {
+  try {
+    let fresh = project;
+    do {
+      const historyOffset = kind === "history" ? Number(fresh.page.historyOffset) + 10 : Number(fresh.page.historyOffset);
+      const itemOffset = kind === "items" ? Number(fresh.page.itemOffset) + 50 : Number(fresh.page.itemOffset);
+      fresh = await fetchProjectDetail(project.id, { historyOffset, itemOffset, append: true });
+    } while (all && fresh.page[kind === "history" ? "historyHasMore" : "itemsHasMore"]);
+    if (state.selectedId === project.id) renderDetail(fresh);
+    return true;
+  } catch (error) { showToast(error.message || "詳細を取得できませんでした。再試行してください。"); return false; }
 }
 
 function routeProjectId() {
@@ -78,16 +137,11 @@ function routePath(id = null) {
   return id ? `/projects/?id=${id}` : "/projects/";
 }
 
-function applyRoute(notify = true) {
+function applyRoute(_notify = true) {
   const id = routeProjectId();
   if (id === null) return;
   const project = getProject(id);
-  if (!project) {
-    window.history.replaceState(null, "", routePath());
-    if (notify) showToast("対象のProjectが見つかりません。一覧を表示します。");
-    return;
-  }
-  openDetail(project, false);
+  void openDetail(project || { id }, false);
 }
 
 function openProjectEditor(project = null) {
@@ -168,16 +222,26 @@ async function saveProject(event) {
   }
 }
 
-function openDetail(project, updateRoute = true) {
+async function openDetail(project, updateRoute = true) {
   if (!project) return;
   if (state.selectedId !== project.id) state.completedShown = COMPLETED_PAGE;
   if (state.selectedId !== project.id) state.editingActionId = null;
   if (state.selectedId !== project.id) state.editingMilestoneId = null;
   state.selectedId = project.id;
-  renderDetail(project);
   els.detailModal.hidden = false;
   document.body.style.overflow = "hidden";
   if (updateRoute) window.history.pushState(null, "", routePath(project.id));
+  if (project.detailLoaded) { renderDetail(project); return; }
+  els.detailTitle.textContent = project.title || "Project";
+  els.detailBody.innerHTML = '<p role="status">詳細を読み込んでいます…</p>';
+  try {
+    const fresh = await fetchProjectDetail(project.id);
+    if (state.selectedId === project.id) renderDetail(fresh);
+  } catch (error) {
+    if (state.selectedId !== project.id) return;
+    els.detailBody.innerHTML = `<p role="alert">${escapeHtml(error.message)}</p><button type="button" id="retryProjectDetail">再試行</button>`;
+    document.getElementById("retryProjectDetail").addEventListener("click", () => openDetail({ id: project.id }, false));
+  }
 }
 
 function closeDetail(updateRoute = true) {
@@ -387,7 +451,12 @@ function updateResolveFields() {
   els.newNextActionField.hidden = Boolean(els.queuedActionSelect.value);
 }
 
-function openResolve(project, terminal = "done") {
+async function openResolve(project, terminal = "done") {
+  if (!project) return;
+  if (!project.detailLoaded) {
+    try { project = await fetchProjectDetail(project.id); }
+    catch (error) { showToast(error.message || "Projectを読み込めませんでした。"); return; }
+  }
   if (!project.nextAction) return;
   state.resolveProjectId = project.id;
   state.resolveTerminal = terminal;
@@ -475,7 +544,7 @@ const { completedDate, displayDate, futureDate, todayTokyo, dayDiff, getProject,
   state
 });
 
-const { renderList, renderAll, renderDetail } = createProjectView({
+const { renderAll, renderDetail } = createProjectView({
   displayDate: (...args) => displayDate(...args),
   dayDiff: (...args) => dayDiff(...args),
   staleDays: (...args) => staleDays(...args),
@@ -499,23 +568,26 @@ const { renderList, renderAll, renderDetail } = createProjectView({
   processRelatedItem: (...args) => processRelatedItem(...args),
   openActionTodo: (...args) => openActionTodo(...args),
   unlinkActionTodo: (...args) => unlinkActionTodo(...args)
+  ,loadMoreDetail: (...args) => loadMoreDetail(...args)
 });
 
 els.addProjectButton.addEventListener("click", () => openProjectEditor());
 els.refreshButton.addEventListener("click", loadProjects);
 els.retryButton.addEventListener("click", loadProjects);
-els.searchInput.addEventListener("input", () => { state.search = els.searchInput.value; renderList(); });
-els.sortSelect.addEventListener("change", () => { state.sort = els.sortSelect.value; renderList(); });
+let projectSearchTimer;
+els.searchInput.addEventListener("input", () => { state.search = els.searchInput.value; clearTimeout(projectSearchTimer); projectSearchTimer = setTimeout(() => loadProjects({skipRoute:true}), 200); });
+els.sortSelect.addEventListener("change", () => { state.sort = els.sortSelect.value; void loadProjects({skipRoute:true}); });
 els.clearFilters.addEventListener("click", () => {
   state.search = "";
   state.attentionOnly = false;
   els.searchInput.value = "";
-  renderList();
+  void loadProjects({skipRoute:true});
 });
 document.querySelectorAll("[data-view]").forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
 document.querySelectorAll("[data-summary-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.summaryView)));
 document.querySelector("[data-summary-filter=attention]").addEventListener("click", () => setView("active", true));
 els.projectList.addEventListener("click", (event) => {
+  if (event.target.closest("[data-projects-more]")) { void loadProjects({append:true,skipRoute:true}); return; }
   const detail = event.target.closest("[data-detail]");
   const resolve = event.target.closest("[data-resolve]");
   if (detail) openDetail(getProject(detail.dataset.detail));

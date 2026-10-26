@@ -753,10 +753,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       const saved = item
         ? await send("PATCH", resource, { id: item.id, updatedAt: item.updatedAt, ...fields })
         : await send("POST", resource, fields);
-      if (resource === "logs") {
-        state.data.logs.unshift(saved);
-        state.data.logs.sort((a, b) => b.practicedOn.localeCompare(a.practicedOn) || b.id - a.id);
-      } else applySaved(resource, saved);
+      applySaved(resource, saved);
       if (resource === "sequences" && fields.character) store("sf6-character", fields.character);
       if (resource === "matches") store("sf6-character", fields.myCharacter);
       closeModal(true);

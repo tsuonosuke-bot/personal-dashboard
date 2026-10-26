@@ -54,6 +54,7 @@ function optionalText(value: unknown, label: string, maxLength: number): { value
 export function validateExpenseMutationRequest(
   request: Request,
   expectedAction = EXPENSE_CREATE_ACTION_HEADER,
+  maxRequestChars = MAX_REQUEST_CHARS,
 ): { status: number; error: string } | null {
   let expectedOrigin: string
   try {
@@ -65,7 +66,7 @@ export function validateExpenseMutationRequest(
   if (request.headers.get('X-Dashboard-Action') !== expectedAction) return { status: 403, error: '更新用ヘッダーがありません。' }
   if (!request.headers.get('Content-Type')?.toLowerCase().startsWith('application/json')) return { status: 415, error: 'JSON形式で送信してください。' }
   const declaredLength = Number(request.headers.get('Content-Length') || '0')
-  if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_CHARS) return { status: 413, error: 'リクエストが大きすぎます。' }
+  if (Number.isFinite(declaredLength) && declaredLength > maxRequestChars) return { status: 413, error: 'リクエストが大きすぎます。' }
   return null
 }
 
@@ -101,12 +102,12 @@ function validateExpenseFields(input: Record<string, unknown>): ValidationResult
   }
 }
 
-function validOriginalSnapshot(value: unknown): value is ExpenseSnapshot {
+export function validOriginalSnapshot(value: unknown, allowZero = false): value is ExpenseSnapshot {
   if (!isPlainObject(value)) return false
   const keys = ['transaction_date', 'amount', 'title', 'category', 'payer', 'memo']
   if (Object.keys(value).length !== keys.length || keys.some((key) => !(key in value))) return false
   if (typeof value.transaction_date !== 'string' || !validDate(value.transaction_date)) return false
-  if (typeof value.amount !== 'number' || !Number.isSafeInteger(value.amount) || value.amount === 0 || Math.abs(value.amount) > 1_000_000_000) return false
+  if (typeof value.amount !== 'number' || !Number.isSafeInteger(value.amount) || (!allowZero && value.amount === 0) || Math.abs(value.amount) > 1_000_000_000) return false
   if (typeof value.title !== 'string' || !value.title.trim() || value.title.length > 200) return false
   if (typeof value.category !== 'string' || !value.category.trim() || value.category.length > 100) return false
   if (value.payer !== null && (typeof value.payer !== 'string' || value.payer.length > 100)) return false

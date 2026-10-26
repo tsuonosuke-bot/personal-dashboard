@@ -4,12 +4,15 @@ import {
 } from "recharts";
 import { buildRegistrationTrend, type RegistrationTrendGranularity } from "../lib/registrationTrend";
 import type { Knowledge } from "../types";
+import { useJstDate } from "../hooks/useJstDate";
 
-export function RegistrationTrendChart({ knowledge }: { knowledge: Knowledge[] }) {
+export function RegistrationTrendChart({ knowledge, registrationDays }: { knowledge: Knowledge[]; registrationDays?: { date: string; count: number }[] }) {
   const [granularity, setGranularity] = useState<RegistrationTrendGranularity>("day");
+  const today = useJstDate();
   const data = useMemo(
-    () => buildRegistrationTrend(knowledge, granularity),
-    [granularity, knowledge],
+    () => buildRegistrationTrend(registrationDays ? registrationDays.map((row) => ({ created_at: `${row.date}T00:00:00+09:00`, count: row.count })) : knowledge,
+      granularity, new Date(`${today}T00:00:00+09:00`)),
+    [granularity, knowledge, registrationDays, today],
   );
   const total = data.reduce((sum, point) => sum + point.count, 0);
   const periodLabel = granularity === "day" ? "直近30日" : "直近12週";
