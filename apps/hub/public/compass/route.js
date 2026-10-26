@@ -398,6 +398,7 @@ async function saveWantRoute(item, plan, controls) {
       routeStatus = payload.status;
     }
 
+    if (plan.destination === "calendar") state.todosLoaded = false;
     const refreshed = await loadDashboard();
     if (!refreshed) {
       errorElement.textContent = "振り分けは保存しましたが、最新状態を再読み込みできませんでした。再読込してください。";
@@ -409,7 +410,7 @@ async function saveWantRoute(item, plan, controls) {
       ? `Google Calendarへ予定を登録し、${closedLabel}。`
       : routeStatus === "created" ? `振り分け先へ登録し、${closedLabel}。` : `振り分け計画を保存し、${closedLabel}。外部への登録はまだ行っていません。`;
     if (fromInbox) continueInboxTriage(item, message);
-    else showToast(message);
+    else { closeDrawer(); showToast(message); }
   } catch (error) {
     errorElement.textContent = error instanceof Error ? error.message : "振り分けを保存できませんでした。";
     errorElement.hidden = false;

@@ -136,5 +136,6 @@ test('取消は列追加だけで行と定期生成の履歴を残し、画面�
   assert.match(app, /api\/export\?scope=all/)
   assert.match(table, /取消済みの明細/)
   assert.match(table, /復元/)
-  assert.match(hook, /filter\(\(expense\) => !expense\.voided_at\)/)
+  assert.match(hook, /getFinanceOverview\(scope/)
+  assert.match(table, /useExpensePage\(voidedScope, emptyTransactionFilters/)
 })

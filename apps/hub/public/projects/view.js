@@ -1,8 +1,9 @@
 import { escapeHtml } from "../shared/html.js";
 import { compassHistoryPath } from "../compass-routing.js";
+import { groupMilestoneActions } from "./milestones.js";
 // Projectsの一覧・レビュー・詳細の描画。変更操作はcontrollerから渡されたコールバックに委ねる。
 
-export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo, state, els, reviewData, STALE_DAYS, sortProjects, projectsForView, getProject, closeDetail, completedDate, COMPLETED_PAGE, openProjectEditor, openResolve, saveProjectAction, updateAction, updateMilestone, saveBulkActions, processRelatedItem, openActionTodo, unlinkActionTodo }) {
+export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo, state, els, reviewData, STALE_DAYS, sortProjects, projectsForView, getProject, closeDetail, completedDate, COMPLETED_PAGE, openProjectEditor, openResolve, saveProjectAction, updateAction, updateMilestone, saveBulkActions, processRelatedItem, openActionTodo, unlinkActionTodo, loadMoreDetail }) {
   const statusLabels = {
     active: "進行中",
     waiting: "確認待ち",
@@ -70,8 +71,8 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
   }
 
   function projectCard(project) {
-    const queued = project.actions.filter((action) => action.status === "queued").length;
-    const unprocessed = project.items.filter((item) => item.treatment === "unprocessed").length;
+    const queued = project.counts?.queued ?? project.actions.filter((action) => action.status === "queued").length;
+    const unprocessed = project.counts?.unprocessed ?? project.items.filter((item) => item.treatment === "unprocessed").length;
     const meta = [
       project.theme ? `テーマ: ${escapeHtml(project.theme)}` : null,
       project.targetOn ? `目標 ${displayDate(project.targetOn)}` : null,
@@ -103,7 +104,7 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
     els.activeTabCount.textContent = summary.active;
     els.waitingTabCount.textContent = summary.waiting;
     els.completedTabCount.textContent = summary.completed;
-    els.reviewTabCount.textContent = reviewData().pending;
+    els.reviewTabCount.textContent = state.view === "review" ? reviewData().pending : state.data.summary.reviewPending ?? "—";
   }
 
   function reviewSection(title, note, count, rows, empty) {
@@ -119,8 +120,8 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
     const data = reviewData();
     els.resultCount.textContent = `見直し項目 ${data.pending}件`;
     const attentionReason = (project) => {
-      const unprocessed = project.items.filter((item) => item.treatment === "unprocessed").length;
-      return [project.status === "active" && !project.actions.some((action) => ["next", "queued", "waiting"].includes(action.status)) ? "次の一手が未設定" : null,
+      const unprocessed = project.counts?.unprocessed ?? project.items.filter((item) => item.treatment === "unprocessed").length;
+      return [project.status === "active" && (project.counts ? project.counts.open === 0 : !project.actions.some((action) => ["next", "queued", "waiting"].includes(action.status))) ? "次の一手が未設定" : null,
         unprocessed ? `未整理 ${unprocessed}件` : null].filter(Boolean).join(" · ");
     };
     const doneCount = data.doneThisWeek.reduce((total, entry) => total + entry.actions.length, 0);
@@ -160,11 +161,12 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
       return;
     }
     const projects = sortProjects(projectsForView(), state.sort);
-    els.resultCount.textContent = `${projects.length}件${state.attentionOnly ? " · 要確認のみ" : ""}`;
+    els.resultCount.textContent = `${state.data.page?.total ?? projects.length}件${state.attentionOnly ? " · 要確認のみ" : ""}`;
     els.clearFilters.hidden = !state.search && !state.attentionOnly;
     els.projectList.innerHTML = projects.length
       ? projects.map(projectCard).join("")
       : '<div class="state-card">この条件のProjectはありません。</div>';
+    if (state.data.page?.hasMore) els.projectList.insertAdjacentHTML("beforeend", '<button type="button" data-projects-more>さらに表示</button>');
   }
 
   function renderAll() {
@@ -333,11 +335,10 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
       : "";
     // マイルストンごとに、あとで行うActionをまとめる（#161）。達成済みのマイルストンは後ろに回す。
     const ordered = [...project.milestones.filter((milestone) => milestone.status === "open"), ...project.milestones.filter((milestone) => milestone.status === "done")];
-    const knownMilestones = new Set(project.milestones.map((milestone) => milestone.id));
-    const loose = queued.filter((action) => !action.milestoneId || !knownMilestones.has(action.milestoneId));
+    const { groups: queuedByMilestone, loose, positions: milestonePositions } = groupMilestoneActions(queued, project.milestones);
     const groups = ordered.map((milestone) => milestoneGroup(
-      project, milestone, project.milestones.indexOf(milestone), project.milestones.length,
-      queued.filter((action) => action.milestoneId === milestone.id), today,
+      project, milestone, milestonePositions.get(milestone.id), project.milestones.length,
+      queuedByMilestone.get(milestone.id) || [], today,
     )).join("");
     const looseRows = loose.length
       ? `<div class="action-list">${loose.map((action, index) => queuedActionRow(action, index, loose.length, project, today)).join("")}</div>`
@@ -352,8 +353,8 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
     const queuedRows = `${groups}${looseGroup}`;
     // 完了Actionは新しい順に10件ずつ表示し、古い履歴まで「さらに表示」でたどれる（#140）。
     const shownCompleted = completed.slice(0, state.completedShown);
-    const remainingCompleted = completed.length - shownCompleted.length;
-    const completedRows = completed.length
+    const remainingCompleted = (project.counts?.done ?? completed.length) - shownCompleted.length;
+    const completedRows = (project.counts?.done ?? completed.length)
       ? `<div class="action-list">${shownCompleted.map((action) => `<div class="action-row"><div><span>${escapeHtml(action.content)}</span>${todoLinkControls(action, project)}</div><small>${action.completedAt ? `完了 ${completedDate(action.completedAt)}` : "完了"}</small></div>`).join("")}</div>${remainingCompleted > 0
         ? `<div class="history-more"><button type="button" data-completed-more="${COMPLETED_PAGE}">さらに${Math.min(COMPLETED_PAGE, remainingCompleted)}件表示</button><button type="button" data-completed-more="all">すべて表示（残り${remainingCompleted}件）</button></div>`
         : ""}`
@@ -362,7 +363,7 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
       ? `<div class="related-list">${project.items.map(relatedItemRow).join("")}</div>`
       : '<p class="empty-detail">Inbox／Wantから関連づけた項目はまだありません。</p>';
     const otherActions = project.actions.filter((action) => ["waiting", "cancelled"].includes(action.status));
-    const otherRows = otherActions.length ? `<section class="detail-section"><header><h3>確認待ち・取り消し済みのタスク</h3></header>${otherActions.map((action) => `<div class="action-row"><div>${escapeHtml(action.content)}${todoLinkControls(action, project)}</div><small>${action.status === "waiting" ? "確認待ち" : "取り消し"}</small></div>`).join("")}</section>` : "";
+    const otherRows = otherActions.length || project.page?.historyHasMore ? `<section class="detail-section"><header><h3>確認待ち・取り消し済みのタスク</h3></header>${otherActions.map((action) => `<div class="action-row"><div>${escapeHtml(action.content)}${todoLinkControls(action, project)}</div><small>${action.status === "waiting" ? "確認待ち" : "取り消し"}</small></div>`).join("")}${project.page?.historyHasMore && remainingCompleted <= 0 ? '<button type="button" data-other-history-more>履歴をさらに表示</button>' : ""}</section>` : "";
     const meta = [
       `<span>状態: ${statusLabels[project.status]}</span>`,
       project.theme ? `<span>テーマ: ${escapeHtml(project.theme)}</span>` : null,
@@ -377,13 +378,31 @@ export function createProjectView({ displayDate, dayDiff, staleDays, todayTokyo,
       <div class="detail-toolbar"><button id="detailEditButton" type="button">目標を編集</button></div>
       <section class="detail-section"><header><h3>現在のNext Action</h3></header>${current}</section>
       <section class="detail-section"><header><h3>道筋とあとで行うAction</h3><small>マイルストン${project.milestones.length}件 · 候補${queued.length}件</small></header>${queuedRows}${actionForm}${bulkAddForm(project)}${addMilestone}</section>
-      <section class="detail-section"><header><h3>関連するInbox／Wants</h3><small>${project.items.length}件</small></header>${relatedRows}</section>
-      <section class="detail-section" id="completedHistory"><header><h3>完了履歴</h3><small>${completed.length}件${completed.length > shownCompleted.length ? `中 ${shownCompleted.length}件を表示` : ""}</small></header>${completedRows}</section>`;
+      <section class="detail-section"><header><h3>関連するInbox／Wants</h3><small>${project.counts?.items ?? project.items.length}件</small></header>${relatedRows}${project.page?.itemsHasMore ? '<button type="button" data-items-more>さらに表示</button>' : ""}</section>
+      <section class="detail-section" id="completedHistory"><header><h3>完了履歴</h3><small>${project.counts?.done ?? completed.length}件${remainingCompleted > 0 ? `中 ${shownCompleted.length}件を表示` : ""}</small></header>${completedRows}</section>`;
     els.detailBody.insertAdjacentHTML("beforeend", otherRows);
+    els.detailBody.querySelector("[data-other-history-more]")?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try { await loadMoreDetail(project, "history"); }
+      finally { if (button.isConnected) button.disabled = false; }
+    });
 
-    els.detailBody.querySelectorAll("[data-completed-more]").forEach((button) => button.addEventListener("click", () => {
+    els.detailBody.querySelector("[data-items-more]")?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try { await loadMoreDetail(project, "items"); }
+      finally { if (button.isConnected) button.disabled = false; }
+    });
+    els.detailBody.querySelectorAll("[data-completed-more]").forEach((button) => button.addEventListener("click", async () => {
+      const previousShown = state.completedShown;
       state.completedShown = button.dataset.completedMore === "all" ? Infinity : state.completedShown + COMPLETED_PAGE;
-      renderDetail(project);
+      if (project.page?.historyHasMore) {
+        button.disabled = true;
+        try { if (!await loadMoreDetail(project, "history", button.dataset.completedMore === "all")) state.completedShown = previousShown; }
+        finally { if (button.isConnected) button.disabled = false; }
+      }
+      else renderDetail(project);
     }));
     document.getElementById("detailEditButton")?.addEventListener("click", () => openProjectEditor(project));
     document.getElementById("detailResolveButton")?.addEventListener("click", () => openResolve(project));

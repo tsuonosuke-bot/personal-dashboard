@@ -1,26 +1,7 @@
-import { useMemo } from "react";
 import {
   CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import type { QuizLog } from "../types";
-
-export function HistoryChart({ quizLog }: { quizLog: QuizLog[] }) {
-  const data = useMemo(() => {
-    const byDay = new Map<string, { total: number; correct: number }>();
-    for (const q of quizLog) {
-      const day = byDay.get(q.asked_on) ?? { total: 0, correct: 0 };
-      day.total++;
-      if (q.verdict === "正解") day.correct++;
-      byDay.set(q.asked_on, day);
-    }
-    return [...byDay.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, { total, correct }]) => ({
-        date,
-        total,
-        accuracy: Math.round((correct / total) * 100),
-      }));
-  }, [quizLog]);
+export function HistoryChart({ data }: { data: { date: string; total: number; accuracy: number }[] }) {
 
   return (
     <ResponsiveContainer width="100%" height="100%">

@@ -1,11 +1,11 @@
 import type { DashboardEnv } from "../_shared/dashboard.ts";
 import {
-  loadProjects,
   processProjectItem,
   publicProjectError,
   readProjectItemProcessInput,
   validateProjectMutationRequest,
 } from "../_shared/projects.ts";
+import { findMutationProjectId, projectMutationResult } from "../_shared/projectsRead.ts";
 
 interface FunctionContext {
   request: Request;
@@ -25,8 +25,9 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   if (!input.ok) return Response.json({ error: input.error }, { status: input.status, headers });
 
   try {
+    const projectId = await findMutationProjectId(context.env, "project_items", input.value.itemId);
     await processProjectItem(context.env, input.value);
-    return Response.json(await loadProjects(context.env), { headers });
+    return Response.json(await projectMutationResult(context.env, projectId, context.request), { headers });
   } catch (error) {
     const failure = publicProjectError(error);
     console.error(`project item process failed: ${failure.code}`);

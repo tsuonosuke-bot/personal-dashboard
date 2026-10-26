@@ -3,7 +3,7 @@ import { runReviewBatch } from "../lib/api";
 import type { InsightGroupStore } from "../hooks/useInsightGroups";
 import type { InsightStore } from "../hooks/useInsights";
 import { useReviewSession, type ReviewFeedback } from "../hooks/useReviewSession";
-import type { Knowledge, QuizLog, ReviewBatchSummary, ReviewQuestion, ReviewQueueStatus } from "../types";
+import type { Knowledge, ReviewBatchSummary, ReviewQuestion, ReviewQueueStatus } from "../types";
 import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import { ReviewResultActions, type KnowledgeUpdate } from "./ReviewLogParts";
 import { ReviewQueueSummary } from "./ReviewQueueSummary";
@@ -14,8 +14,6 @@ interface Props {
   knowledge: Knowledge[];
   knowledgeLoading?: boolean;
   knowledgeError?: string | null;
-  /** 答え合わせ画面から開く詳細に、そのカードの出題履歴を出す。 */
-  quizLog: QuizLog[];
   queueStatus: ReviewQueueStatus | null;
   onExit: () => void;
   /** 回答・採点・生成のあとで、ダッシュボードの件数や履歴を読み直す。 */
@@ -74,7 +72,7 @@ function batchMessage(summary: ReviewBatchSummary): string {
  * 回答した直後に想定解で答え合わせし、AIの採点と講評は学習ログで確認する。いつ終えてもよい。
  */
 export function ReviewView({
-  knowledge, knowledgeLoading = false, knowledgeError = null, quizLog, queueStatus, onExit, onRecorded, onKnowledgeUpdate, insightStore, insightGroupStore,
+  knowledge, knowledgeLoading = false, knowledgeError = null, queueStatus, onExit, onRecorded, onKnowledgeUpdate, insightStore, insightGroupStore,
   onOpenResults, onOpenLog, autoStartDaily = false, missCount = 0, onOpenMisses, scope = null,
 }: Props) {
   const session = useReviewSession(onRecorded, scope?.knowledgeIds);
@@ -305,7 +303,6 @@ export function ReviewView({
       {detail && (
         <KnowledgeDetailModal
           knowledge={detail}
-          quizLog={quizLog}
           mutating={false}
           onClose={() => setDetailId(null)}
           insightStore={insightStore}

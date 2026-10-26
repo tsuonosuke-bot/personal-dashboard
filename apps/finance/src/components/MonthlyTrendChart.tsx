@@ -12,11 +12,11 @@ import {
 } from 'recharts'
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent'
 import { categoryColor } from '../lib/chartColors'
-import { buildMonthlyTrendData, categoryLabel, monthLabel, yen } from '../lib/finance'
-import type { Expense } from '../lib/types'
+import { categoryLabel, monthLabel, yen } from '../lib/finance'
+import { trendFromAggregates, type MonthlyAggregate } from '../lib/financeOverview'
 
 type Props = {
-  expenses: Expense[]
+  monthly: MonthlyAggregate[]
   selectedMonth: string
 }
 
@@ -43,12 +43,12 @@ function TrendTooltip({ active, payload, label }: TooltipContentProps<ValueType,
   )
 }
 
-export function MonthlyTrendChart({ expenses, selectedMonth }: Props) {
+export function MonthlyTrendChart({ monthly, selectedMonth }: Props) {
   const [showBars, setShowBars] = useState(true)
   const [showBalance, setShowBalance] = useState(true)
   const { categories, data } = useMemo(
-    () => buildMonthlyTrendData(expenses, selectedMonth),
-    [expenses, selectedMonth],
+    () => trendFromAggregates(monthly, selectedMonth),
+    [monthly, selectedMonth],
   )
   const current = data.at(-1)
   const previous = data.at(-2)

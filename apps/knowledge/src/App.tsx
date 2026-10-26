@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { KnowledgeDetailModal } from "./components/KnowledgeDetailModal";
 import { HelpView } from "./components/HelpView";
 import { useDailyReview } from "./hooks/useDailyReview";
@@ -10,7 +10,7 @@ import { KnowledgeDashboard } from "./components/KnowledgeDashboard";
 import { useKnowledgeNavigation } from "./hooks/useKnowledgeNavigation";
 import { useKnowledgeActions } from "./hooks/useKnowledgeActions";
 import { confirmReviewResultsDetailed } from "./lib/api";
-import { missesToReview } from "./lib/learningSummary";
+import { loadOrganizeSources, organizeSourceIds, type OrganizeSourceState } from "./lib/organizeSources";
 
 const ReviewView = lazy(() => import("./components/ReviewView")
   .then((module) => ({ default: module.ReviewView })));
@@ -25,7 +25,7 @@ const SemanticSearchView = lazy(() => import("./components/SemanticSearchView")
 
 export default function App() {
   const data = useKnowledgeData();
-  const { knowledge, archivedKnowledge, quizLog, loading, error, mutating,
+  const { knowledge, archivedKnowledge, loading, error, mutating,
     reload, updateKnowledge, removeAutoTag, restoreAutoTag, markConfirmed } = data;
   const dailyReview = useDailyReview();
   const reviewQueue = useReviewQueueStatus();
@@ -34,16 +34,24 @@ export default function App() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [missesOpen, setMissesOpen] = useState(false);
-  const navigation = useKnowledgeNavigation({ knowledge, archivedKnowledge, loading, error, reviewQueue, setNotice, setActionError });
+  const navigation = useKnowledgeNavigation({ knowledge, archivedKnowledge, loading, error, reviewQueue, setNotice, setActionError,
+    loadKnowledgeItem: data.loadKnowledgeItem });
   const { showQuiz, showSpeaking, showLog, showSearch, showHelp, helpFrom, setHelpFrom,
     organize, setOrganize, reviewScope, quizMode, logUnconfirmedOnly, selected, replaceRoute,
     setQuizOpen, setSpeakingOpen, setLogOpen, setSearchOpen, setHelpOpen, setOrganizeOpen,
     noteSelection, selectNote, reviewNote, exitReview, openKnowledge, closeKnowledge, setShowHelp } = navigation;
   const actions = useKnowledgeActions({ data, navigation, setNotice, setActionError });
   const { removeAutoTagFrom, openEdit, archiveKnowledge } = actions;
+  const [sourceState, setSourceState] = useState<OrganizeSourceState>({ loading: false, error: null });
+  const [sourceRetry, setSourceRetry] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const ids = organizeSourceIds(organize, insightStore.insights, insightGroupStore.members);
+    void loadOrganizeSources(ids, data.loadSources, (state) => { if (!cancelled) setSourceState(state); });
+    return () => { cancelled = true; };
+  }, [organize?.tab, organize?.questionId, insightStore.insights, insightGroupStore.members, data.loadSources, sourceRetry]);
 
   const registrationKnowledge = useMemo(() => [...knowledge, ...archivedKnowledge], [knowledge, archivedKnowledge]);
-  const misses = useMemo(() => missesToReview(quizLog), [quizLog]);
 
   const confirmMiss = async (quizLogId: number) => {
     const receipt = await confirmReviewResultsDetailed([quizLogId]);
@@ -65,7 +73,6 @@ export default function App() {
           knowledge={registrationKnowledge}
           knowledgeLoading={loading}
           knowledgeError={error}
-          quizLog={quizLog}
           queueStatus={reviewQueue.status}
           onExit={exitReview}
           autoStartDaily={quizMode === "daily"}
@@ -76,7 +83,7 @@ export default function App() {
           insightGroupStore={insightGroupStore}
           onOpenResults={() => setLogOpen(true, true)}
           onOpenLog={() => setLogOpen(true)}
-          missCount={misses.length}
+          missCount={data.summary?.misses.total ?? 0}
           onOpenMisses={() => { setQuizOpen(false); setMissesOpen(true); }}
         />
       </Suspense>
@@ -121,11 +128,13 @@ export default function App() {
           onReviewNote={reviewNote}
           onRemoveAutoTag={removeAutoTag}
           onRestoreAutoTag={restoreAutoTag}
+          sourceLoading={sourceState.loading}
+          sourceError={sourceState.error}
+          onRetrySources={() => setSourceRetry((value) => value + 1)}
         />
         {selected && (
           <KnowledgeDetailModal
             knowledge={selected}
-            quizLog={quizLog}
             mutating={mutating}
             onClose={closeKnowledge}
             onEdit={() => openEdit(selected)}
@@ -150,7 +159,6 @@ export default function App() {
         {selected && (
           <KnowledgeDetailModal
             knowledge={selected}
-            quizLog={quizLog}
             mutating={mutating}
             onClose={closeKnowledge}
             onEdit={selected.archived ? undefined : () => openEdit(selected)}
@@ -190,7 +198,6 @@ export default function App() {
       <Suspense fallback={<div className="msg">読み込み中...</div>}>
         <LearningLogView
           knowledge={registrationKnowledge}
-          quizLog={quizLog}
           loading={loading}
           error={error}
           onExit={() => setLogOpen(false)}
@@ -199,6 +206,8 @@ export default function App() {
           onReload={reloadAfterConfirmation}
           insightStore={insightStore}
           insightGroupStore={insightGroupStore}
+          onLoadSources={data.loadSources}
+          allCategories={data.summary?.categories ?? []}
           onOpenKnowledge={(id) => {
             const item = knowledge.find((entry) => entry.id === id);
             if (item) openKnowledge(item);
@@ -208,7 +217,6 @@ export default function App() {
         {selected && (
           <KnowledgeDetailModal
             knowledge={selected}
-            quizLog={quizLog}
             mutating={mutating}
             onClose={closeKnowledge}
             onEdit={() => { setLogOpen(false); openEdit(selected); }}

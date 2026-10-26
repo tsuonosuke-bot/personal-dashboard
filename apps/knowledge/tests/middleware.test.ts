@@ -87,7 +87,7 @@ test("Hubサービスキーは読み取り専用の一覧・復習キューの�
     assert.equal(closed.status, 401, path);
   }
 
-  for (const path of ["/api/export", "/api/status"]) {
+  for (const path of ["/api/export", "/api/status", "/api/hub-summary"]) {
     const readOnly = await onRequest({
       request: new Request(`https://dashboard.example${path}`, { headers: { "X-Hub-Service": token } }),
       env,
@@ -106,4 +106,9 @@ test("Hubサービスキーは読み取り専用の一覧・復習キューの�
     next: async () => new Response("write"),
   });
   assert.equal(denied.status, 401);
+  for (const [path, method] of [["/api/hub-summary", "POST"], ["/api/learning-summary", "GET"], ["/api/learning-log", "GET"], ["/api/insight-group-members/1", "POST"]]) {
+    const closed = await onRequest({ request: new Request(`https://dashboard.example${path}`, { method, headers: { "X-Hub-Service": token } }), env,
+      next: async () => new Response("private") });
+    assert.equal(closed.status, 401, `${method} ${path}`);
+  }
 });

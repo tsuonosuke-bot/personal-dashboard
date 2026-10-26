@@ -1,6 +1,8 @@
 import { publicError, type DashboardEnv } from "../_shared/dashboard.ts";
 import {
   applyHabitLog,
+  loadHabitMutationResult,
+  readHabitHistoryQuery,
   readHabitLogInput,
   validateHabitMutationRequest,
 } from "../_shared/habits.ts";
@@ -20,8 +22,16 @@ export const onRequest = async (context: FunctionContext): Promise<Response> => 
   if (guard) return Response.json({ error: guard.error }, { status: guard.status, headers });
   const input = await readHabitLogInput(context.request);
   if (!input.ok) return Response.json({ error: input.error }, { status: input.status, headers });
+  const history = readHabitHistoryQuery(new URL(context.request.url));
+  if (!history.ok) return Response.json({ error: history.error }, { status: history.status, headers });
   try {
-    return Response.json(await applyHabitLog(context.env, input.value), { headers });
+    const saved = await applyHabitLog(context.env, input.value);
+    try {
+      return Response.json({ ...saved, update: await loadHabitMutationResult(context.env, input.value.habitId, history.value) }, { headers });
+    } catch {
+      // The write succeeded. A failed refresh must never encourage the user to repeat it.
+      return Response.json({ ...saved, saved: true, refreshError: "記録は保存されました。最新の集計を取得できませんでした。再読み込みしてください。" }, { headers });
+    }
   } catch (error) {
     const failure = publicError(error);
     console.error(`habit log failed: ${failure.code}`);

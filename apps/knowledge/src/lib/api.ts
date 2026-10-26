@@ -109,7 +109,7 @@ export async function readApiResponse(response: Response): Promise<unknown> {
   }
 }
 
-async function requestJson(path: string, init: RequestInit): Promise<unknown> {
+export async function requestJson(path: string, init: RequestInit): Promise<unknown> {
   let response: Response;
   try {
     response = await fetch(appPath(path), {
@@ -209,8 +209,20 @@ async function getAllPages<T>(
   return result;
 }
 
-export function getKnowledge(): Promise<Knowledge[]> {
-  return getAllPages("/api/knowledge?status=all", parseKnowledge);
+export function getKnowledge(status: "active" | "all" = "all"): Promise<Knowledge[]> {
+  return getAllPages(`/api/knowledge?status=${status}`, parseKnowledge);
+}
+
+/** Explicit source IDs for an opened view; never expands into all archived cards. */
+export async function getKnowledgeSources(ids: readonly string[]): Promise<Knowledge[]> {
+  const chunks: string[][] = [];
+  for (let start = 0; start < ids.length; start += 100) chunks.push(ids.slice(start, start + 100));
+  const pages = await Promise.all(chunks.map(async (chunk) => {
+    const page = parsePageEnvelope(await requestJson(`/api/knowledge?${new URLSearchParams({ status: "all", ids: chunk.join(","), limit: "100", offset: "0" })}`, { method: "GET" }));
+    if (page.total === null || page.total !== page.items.length || page.items.length > chunk.length) throw new Error("出典の取得件数が一致しません。");
+    return page.items.map(parseKnowledge);
+  }));
+  return pages.flat();
 }
 
 /** 外されていない自動タグ（#93）の一覧。 */
@@ -242,6 +254,15 @@ export function getQuizLog(): Promise<QuizLog[]> {
 
 export function getMasteryHistory(): Promise<MasteryHistoryEvent[]> {
   return getAllPages("/api/mastery-history", parseMasteryHistoryEvent);
+}
+
+export async function getCardMasteryHistory(knowledgeId: string, offset: number) {
+  const raw = await requestJson(`/api/mastery-history?${new URLSearchParams({ knowledge_id: knowledgeId, limit: "10", offset: String(offset) })}`, { method: "GET" });
+  const page = parsePageEnvelope(raw);
+  const previous = (raw as Record<string, unknown>).previous;
+  if (page.offset !== offset || page.limit !== 10 || page.total === null) throw new Error("履歴のページ情報が正しくありません。");
+  return { items: page.items.map(parseMasteryHistoryEvent), total: page.total,
+    previous: previous == null ? null : parseMasteryHistoryEvent(previous) };
 }
 
 export function getSpeakingPracticeLog(from: string): Promise<SpeakingPracticeLog[]> {
@@ -388,6 +409,23 @@ export async function addInsightGroupMember(groupId: number, insightId: number):
     body: JSON.stringify({ group_id: groupId, insight_id: insightId }),
   });
   return parseInsightGroupMember(data);
+}
+
+export async function addInsightGroupMembers(groupId: number, insightIds: readonly number[], expectedUpdatedAt: string) {
+  const raw = await requestJson("/api/insight-group-members/batch", {
+    method: "POST", headers: INSIGHT_GROUP_HEADERS,
+    body: JSON.stringify({ group_id: groupId, insight_ids: [...new Set(insightIds)], expected_updated_at: expectedUpdatedAt }),
+  });
+  if (!raw || typeof raw !== "object") throw new Error("所属を確認できませんでした。");
+  const body = raw as Record<string, unknown>;
+  const group = parseInsightGroup(body.group);
+  if (group.id !== groupId || !Array.isArray(body.members) || !Array.isArray(body.failedIds)) throw new Error("所属を確認できませんでした。");
+  const members = body.members.map(parseInsightGroupMember);
+  if (members.some((member) => member.group_id !== groupId || !insightIds.includes(member.insight_id))
+    || body.failedIds.some((id) => typeof id !== "number" || !insightIds.includes(id))) throw new Error("所属を確認できませんでした。");
+  const covered = new Set([...members.map((member) => member.insight_id), ...body.failedIds]);
+  if (insightIds.some((id) => !covered.has(id))) throw new Error("所属を確認できませんでした。");
+  return { group, members, failedIds: body.failedIds as number[] };
 }
 
 export async function removeInsightGroupMember(groupId: number, insightId: number): Promise<void> {

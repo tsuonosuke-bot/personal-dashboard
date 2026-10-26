@@ -64,7 +64,7 @@ export function renderTodoDrawer(item) {
     ? `<button class="primary-action" id="completeTodoButton" type="button">完了にする</button>
        <button class="secondary-action" id="rescheduleTodoButton" type="button" ${canReschedule ? "" : "disabled"}>日程を決め直す</button>
        ${!synced && (item.calendarState === "missing" || item.calendarState === "cancelled") ? '<button class="secondary-action" id="recreateTodoButton" type="button">新しい予定として再作成</button>' : ""}
-       <button class="close-action" id="skipTodoButton" type="button">見送る</button>`
+       <button class="close-action" id="skipTodoButton" type="button">見送る</button>${item.calendarState === "unavailable" ? '<button class="secondary-action" id="retryTodoCalendarButton" type="button">この予定を再確認</button>' : ""}`
     : `<button class="secondary-action" id="reopenTodoButton" type="button">未実施に戻す</button>`;
   const linked = item.linkedProjectAction;
   const projectLink = linked
@@ -86,6 +86,18 @@ export function renderTodoDrawer(item) {
   document.getElementById("reopenTodoButton")?.addEventListener("click", () => changeTodoStatus(item, "reopen"));
   document.getElementById("rescheduleTodoButton")?.addEventListener("click", () => renderTodoRescheduleForm(item));
   document.getElementById("recreateTodoButton")?.addEventListener("click", () => renderTodoRescheduleForm(item, "recreate"));
+  document.getElementById("retryTodoCalendarButton")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const response = await fetch(`/api/scheduled-actions?ids=${item.id}`, { headers: { Accept: "application/json" }, cache: "no-store" });
+      const payload = await readApiJson(response);
+      if (!response.ok || !payload.items?.[0]) throw new Error(payload.error?.message || "予定を再確認できませんでした。");
+      const fresh = payload.items[0];
+      state.data.todos = state.data.todos.map((todo) => todo.id === fresh.id ? fresh : todo);
+      if (state.drawerItem?.id === fresh.id && state.drawerItem?.view === "todos") renderTodoDrawer(fresh);
+    } catch (error) { setTodoActionError(error.message || "予定を再確認できませんでした。"); if (button.isConnected) button.disabled = false; }
+  });
   const reloadLink = async () => { hideDrawer(); await loadTodos(true); showToast("ToDoとProjectの紐づけを更新しました。"); };
   document.getElementById("linkProjectTodoButton")?.addEventListener("click", () => openProjectTodoLink({ todo: item, onSuccess: reloadLink }));
   document.getElementById("unlinkProjectTodoButton")?.addEventListener("click", async () => {

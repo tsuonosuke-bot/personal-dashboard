@@ -1,30 +1,28 @@
 import { useMemo, useState } from 'react'
-import { categoryLabel, currentMonthKey, filterExpensesByCategories, filterExpensesByPayer,
-  monthKey, monthLabel, summarizeUnclassified, UNCLASSIFIED_CATEGORY, type CategoryFilterMode } from '../lib/finance'
-import type { BudgetCategory, Expense } from '../lib/types'
+import { categoryLabel, currentMonthKey, monthLabel, UNCLASSIFIED_CATEGORY, type CategoryFilterMode } from '../lib/finance'
+import type { BudgetCategory } from '../lib/types'
+import type { FinanceMetadata } from '../lib/financeOverview'
 
 /** 集計と明細で共有する、月・カテゴリ・支払者の条件。 */
-export function useFinanceFilters(expenses: Expense[], categories: BudgetCategory[]) {
+export function useFinanceFilters(metadata: FinanceMetadata, categories: BudgetCategory[]) {
   const [requestedMonth, setRequestedMonth] = useState(currentMonthKey())
   const [requestedCategories, setRequestedCategories] = useState<string[]>([])
   const [categoryMode, setCategoryMode] = useState<CategoryFilterMode>('include')
   const [requestedPayer, setRequestedPayer] = useState('')
   const availableMonths = useMemo(
-    () => Array.from(new Set(expenses.map((expense) => monthKey(expense.transaction_date)))).sort().reverse(),
-    [expenses],
+    () => metadata.months,
+    [metadata.months],
   )
   const availableCategories = useMemo(
     () => Array.from(new Set([
       ...categories.map((category) => category.name),
-      ...expenses.map((expense) => expense.category),
+      ...metadata.categories,
     ])).sort(),
-    [categories, expenses],
+    [categories, metadata.categories],
   )
   const availablePayers = useMemo(
-    () => Array.from(new Set(
-      expenses.map((expense) => expense.payer).filter((payer): payer is string => Boolean(payer)),
-    )).sort((left, right) => left.localeCompare(right, 'ja')),
-    [expenses],
+    () => [...metadata.payers].sort((left, right) => left.localeCompare(right, 'ja')),
+    [metadata.payers],
   )
   const selectedMonth = availableMonths.includes(requestedMonth)
     ? requestedMonth
@@ -41,22 +39,12 @@ export function useFinanceFilters(expenses: Expense[], categories: BudgetCategor
     return `${labels.slice(0, 2).join('、')} ほか${labels.length - 2}件`
   }, [availableCategories.length, selectedCategories])
   const selectedPayer = availablePayers.includes(requestedPayer) ? requestedPayer : ''
-  const filteredExpenses = useMemo(
-    () => filterExpensesByPayer(
-      filterExpensesByCategories(expenses, selectedCategories, categoryMode),
-      selectedPayer,
-    ),
-    [expenses, selectedCategories, categoryMode, selectedPayer],
-  )
-  const unclassified = useMemo(() => summarizeUnclassified(expenses), [expenses])
+  const unclassified = metadata.unclassified
   const unclassifiedMonthNote = unclassified.months.length > 1
     ? `${monthLabel(unclassified.months[0])} ほか${unclassified.months.length - 1}ヶ月`
     : unclassified.months.map(monthLabel).join('')
   const selectedMonthIndex = availableMonths.indexOf(selectedMonth)
-  const newestTransaction = expenses.reduce(
-    (latest, expense) => expense.transaction_date > latest ? expense.transaction_date : latest,
-    '',
-  )
+  const newestTransaction = metadata.newestTransaction
 
   // 未分類だけを一覧・グラフに残し、明細が最も新しい月へ移動する。
   const focusUnclassified = () => {
@@ -74,7 +62,7 @@ export function useFinanceFilters(expenses: Expense[], categories: BudgetCategor
 
   return { setRequestedMonth, setRequestedCategories, categoryMode, setCategoryMode, setRequestedPayer,
     availableMonths, availableCategories, availablePayers, selectedMonth, selectedCategories, selectedCategorySummary,
-    selectedPayer, filteredExpenses, unclassified, unclassifiedMonthNote, selectedMonthIndex, newestTransaction,
+    selectedPayer, unclassified, unclassifiedMonthNote, selectedMonthIndex, newestTransaction,
     focusUnclassified, toggleCategory }
 }
 export type FinanceFilters = ReturnType<typeof useFinanceFilters>

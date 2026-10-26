@@ -4,7 +4,6 @@ import { ExpenseTable } from './components/ExpenseTable'
 import { RecurringExpenseModal } from './components/RecurringExpenseModal'
 import { SummaryCards } from './components/SummaryCards'
 import { useExpenses } from './hooks/useExpenses'
-import { useFinanceFilters } from './hooks/useFinanceFilters'
 import { useExpenseActions } from './hooks/useExpenseActions'
 import { useRecurringExpenses } from './hooks/useRecurringExpenses'
 import { useFinanceHelp } from './hooks/useFinanceHelp'
@@ -17,14 +16,14 @@ const CategoryPieChart = lazy(() => import('./components/CategoryPieChart').then
 
 function App() {
   const data = useExpenses()
-  const { expenses, voidedExpenses, categories, loading, error, lastUpdatedAt, reload, demoMode, mutating } = data
+  const { metadata, categories, loading, refreshing, error, lastUpdatedAt, reload, demoMode, mutating, overview, scope, revision, demoExpenses } = data
   const [notice, setNotice] = useState<string | null>(null)
-  const filters = useFinanceFilters(expenses, categories)
-  const { availablePayers, selectedMonth, selectedCategories, categoryMode, selectedPayer, filteredExpenses,
+  const filters = data.filters
+  const { availablePayers, selectedMonth,
     unclassified, unclassifiedMonthNote, newestTransaction, focusUnclassified } = filters
   const { entryOpen, setEntryOpen, editingExpense, setEditingExpense, actionError, setActionError,
     closeEntry, saveExpense, voidExpense, restoreExpense, bulkCategorize } = useExpenseActions({ data, setRequestedMonth: filters.setRequestedMonth, setNotice })
-  const { recurringOpen, recurringRules, recurringBusy, recurringError, loadRecurringRules,
+  const { recurringOpen, recurringRules, recurringBusy, recurringLoading, recurringError, loadRecurringRules,
     addRecurring, toggleRecurring, editRecurring, openRecurring, closeRecurring, runRecurring } = useRecurringExpenses({ demoMode, reload, setNotice })
   const { helpOpen, openHelp, closeHelp } = useFinanceHelp()
 
@@ -44,7 +43,7 @@ function App() {
         </div>
         {!loading && !error && (
           <div className="page-meta" aria-label="Financeデータの概要">
-            <span>{demoMode ? 'デモデータ' : `${expenses.length.toLocaleString('ja-JP')}件`} · {categories.length}カテゴリ</span>
+            <span>{demoMode ? 'デモデータ' : `${metadata.total.toLocaleString('ja-JP')}件`} · {categories.length}カテゴリ</span>
             <span>最新取引 {newestTransaction || '—'}</span>
           </div>
         )}
@@ -54,7 +53,7 @@ function App() {
             <div className="text-center">
               <div className="mx-auto mb-4 h-9 w-9 animate-spin rounded-full border-4 border-indigo-100 border-t-indigo-600" />
               <p className="font-medium text-slate-700">Supabaseから家計簿を読み込んでいます</p>
-              <p className="mt-1 text-sm text-slate-500">明細が多いため、数秒かかることがあります</p>
+              <p className="mt-1 text-sm text-slate-500">集計と選択月の明細を準備しています</p>
             </div>
           </div>
         )}
@@ -88,17 +87,18 @@ function App() {
               </button>
             )}
             <FinanceFilterToolbar filters={filters} />
-            <SummaryCards expenses={filteredExpenses} selectedMonth={selectedMonth} />
+            {refreshing && <p role="status">選択した条件の集計を読み込んでいます…</p>}
+            {overview && <SummaryCards monthly={overview.monthly} selectedMonth={selectedMonth} />}
             <Suspense fallback={<div className="panel grid min-h-80 place-items-center text-sm text-slate-500">グラフを読み込んでいます</div>}>
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-                <div className="min-w-0 xl:col-span-2"><MonthlyTrendChart expenses={filteredExpenses} selectedMonth={selectedMonth} /></div>
-                <div className="min-w-0"><CategoryPieChart expenses={filteredExpenses} selectedMonth={selectedMonth} /></div>
-              </div>
+              {overview && <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                <div className="min-w-0 xl:col-span-2"><MonthlyTrendChart monthly={overview.monthly} selectedMonth={selectedMonth} /></div>
+                <div className="min-w-0"><CategoryPieChart monthly={overview.monthly} selectedMonth={selectedMonth} /></div>
+              </div>}
             </Suspense>
             <ExpenseTable
-              scopeKey={`${selectedMonth}:${categoryMode}:${selectedCategories.join(',')}:${selectedPayer}`}
-              expenses={filteredExpenses}
-              selectedMonth={selectedMonth}
+              scope={scope}
+              revision={revision}
+              demoExpenses={demoMode ? demoExpenses : undefined}
               onEdit={demoMode ? undefined : (expense) => {
                 setActionError(null)
                 setEditingExpense(expense)
@@ -107,7 +107,7 @@ function App() {
               categories={categories}
               onBulkCategorize={demoMode ? undefined : bulkCategorize}
               bulkBusy={mutating}
-              voidedExpenses={demoMode ? undefined : voidedExpenses}
+              voidedCount={overview?.metadata.voidedCount ?? 0}
               onRestore={demoMode ? undefined : (expense) => void restoreExpense(expense)}
               restoring={mutating}
             />
@@ -134,6 +134,7 @@ function App() {
           categories={categories}
           rules={recurringRules}
           busy={recurringBusy}
+          loading={recurringLoading}
           error={recurringError}
           onClose={closeRecurring}
           onCreate={addRecurring}

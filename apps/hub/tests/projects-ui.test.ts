@@ -18,7 +18,7 @@ test("Projects page keeps the goal, current action, waiting, and review loop vis
   assert.match(html, /value="complete"/);
   assert.match(html, /value="waiting"/);
   assert.match(html, /value="on_hold"/);
-  assert.match(script, /projectRequest\("\/api\/projects"/);
+  assert.match(script, /projectRequest\(`\/api\/projects\?\$\{params\}`/);
   assert.match(script, /projectRequest\("\/api\/project-actions"/);
   assert.match(script, /projectRequest\("\/api\/project-items"/);
   assert.match(script, /"X-Dashboard-Action": "project-action-resolve"/);

@@ -1,21 +1,22 @@
-import { useMemo, useState } from 'react'
-import { categoryLabel, isIncome, monthKey, monthLabel, UNCLASSIFIED_CATEGORY } from '../lib/finance'
+import { useEffect, useMemo, useState } from 'react'
+import { categoryLabel, monthKey, monthLabel, UNCLASSIFIED_CATEGORY } from '../lib/finance'
+import { scopeKey as getScopeKey, type FinanceScope } from '../lib/financeOverview'
+import { emptyTransactionFilters, matchingExpenses } from '../lib/expensePaging'
+import { useExpensePage } from '../hooks/useExpensePage'
 import type { BudgetCategory, Expense } from '../lib/types'
 import { BulkCategoryBar, type BulkCategoryResult } from './BulkCategoryBar'
 import { TransactionAmount } from './TransactionAmount'
 
 type Props = {
-  expenses: Expense[]
-  selectedMonth: string
-  /** 月・カテゴリ・支払者の組み合わせ。変わったらページだけ先頭に戻す（明細の条件は保持する） */
-  scopeKey?: string
+  scope: FinanceScope
+  revision: number
+  demoExpenses?: Expense[]
   onEdit?: (expense: Expense) => void
   /** 渡すと未分類の行を複数選択してカテゴリを一括変更できる */
   categories?: BudgetCategory[]
   onBulkCategorize?: (targets: Expense[], category: string, hooks: { shouldStop: () => boolean; onProgress: (done: number) => void }) => Promise<BulkCategoryResult>
   bulkBusy?: boolean
-  /** 取消済みの明細（全期間）。表示中の月の分だけを復元用に出す */
-  voidedExpenses?: Expense[]
+  voidedCount: number
   onRestore?: (expense: Expense) => void
   restoring?: boolean
 }
@@ -24,7 +25,9 @@ function shortDate(value: string) {
   return value.slice(5).replace('-', '/')
 }
 
-export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth, onEdit, categories = [], onBulkCategorize, bulkBusy = false, voidedExpenses = [], onRestore, restoring = false }: Props) {
+export function ExpenseTable({ scope, revision, demoExpenses, onEdit, categories = [], onBulkCategorize, bulkBusy = false, voidedCount, onRestore, restoring = false }: Props) {
+  const selectedMonth = scope.month
+  const scopeKey = getScopeKey(scope)
   const pageSize = 50
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -35,7 +38,9 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
   const [sort, setSort] = useState<'newest' | 'oldest' | 'amount-desc' | 'amount-asc'>('newest')
   const [page, setPage] = useState(1)
   const [detailsOpen, setDetailsOpen] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<ReadonlySet<number>>(new Set())
+  const [selected, setSelected] = useState<ReadonlyMap<number, Expense>>(new Map())
+  const [voidedOpen, setVoidedOpen] = useState(false)
+  const [voidedPage, setVoidedPage] = useState(1)
   const [scopeNotice, setScopeNotice] = useState<string | null>(null)
   const [previousScope, setPreviousScope] = useState({ key: scopeKey, month: selectedMonth })
 
@@ -43,6 +48,7 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
   if (previousScope.key !== scopeKey || previousScope.month !== selectedMonth) {
     setPreviousScope({ key: scopeKey, month: selectedMonth })
     setPage(1)
+    setVoidedPage(1)
     if (previousScope.month !== selectedMonth) {
       const fromOutside = Boolean(dateFrom) && monthKey(dateFrom) !== selectedMonth
       const toOutside = Boolean(dateTo) && monthKey(dateTo) !== selectedMonth
@@ -57,65 +63,61 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
     }
   }
 
-  const monthExpenses = useMemo(
-    () => expenses.filter((expense) => monthKey(expense.transaction_date) === selectedMonth),
-    [expenses, selectedMonth],
-  )
+  const transactionFilters = useMemo(() => ({ dateFrom, dateTo, type, amountMin, amountMax, query, sort }),
+    [dateFrom, dateTo, type, amountMin, amountMax, query, sort])
+  const resultPage = useExpensePage(scope, transactionFilters, page, revision, demoExpenses)
+  const voidedScope = useMemo(() => ({ month: selectedMonth, categories: [], categoryMode: 'include' as const, payer: '' }), [selectedMonth])
+  const voidedResult = useExpensePage(voidedScope, emptyTransactionFilters, voidedPage, revision, demoExpenses, true, voidedOpen)
+  const visibleRows = resultPage.items
+  const total = resultPage.total
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  const currentPage = page
+  useEffect(() => {
+    if (!resultPage.loading && !resultPage.error && page > pageCount) setPage(pageCount)
+  }, [resultPage.loading, resultPage.error, page, pageCount])
+  useEffect(() => {
+    const count = Math.max(1, Math.ceil(voidedResult.total / pageSize))
+    if (voidedOpen && !voidedResult.loading && !voidedResult.error && voidedPage > count) setVoidedPage(count)
+  }, [voidedOpen, voidedResult.loading, voidedResult.error, voidedResult.total, voidedPage])
+  useEffect(() => {
+    if (resultPage.loading || resultPage.error) return
+    setSelected((current) => {
+      let changed = false
+      const next = new Map(current)
+      for (const row of visibleRows) {
+        if (!next.has(row.id)) continue
+        if (row.category !== UNCLASSIFIED_CATEGORY || row.voided_at) { next.delete(row.id); changed = true }
+        else if (JSON.stringify(next.get(row.id)) !== JSON.stringify(row)) { next.set(row.id, row); changed = true }
+      }
+      return changed ? next : current
+    })
+  }, [visibleRows, resultPage.loading, resultPage.error])
 
-  const monthVoided = useMemo(
-    () => voidedExpenses.filter((expense) => monthKey(expense.transaction_date) === selectedMonth),
-    [voidedExpenses, selectedMonth],
-  )
-
-  const filtered = useMemo(() => monthExpenses.filter((expense) => {
-    if (dateFrom && expense.transaction_date < dateFrom) return false
-    if (dateTo && expense.transaction_date > dateTo) return false
-    if (type === 'expense' && isIncome(expense)) return false
-    if (type === 'income' && !isIncome(expense)) return false
-    const absoluteAmount = Math.abs(Number(expense.amount))
-    if (amountMin && absoluteAmount < Number(amountMin)) return false
-    if (amountMax && absoluteAmount > Number(amountMax)) return false
-    if (query) {
-      const haystack = `${expense.title} ${expense.memo ?? ''} ${expense.category} ${expense.payer ?? ''}`.toLocaleLowerCase('ja')
-      if (!haystack.includes(query.toLocaleLowerCase('ja'))) return false
-    }
-    return true
-  }).sort((left, right) => {
-    if (sort === 'oldest') return left.transaction_date.localeCompare(right.transaction_date) || left.id - right.id
-    if (sort === 'amount-desc') return Math.abs(Number(right.amount)) - Math.abs(Number(left.amount)) || right.id - left.id
-    if (sort === 'amount-asc') return Math.abs(Number(left.amount)) - Math.abs(Number(right.amount)) || right.id - left.id
-    return right.transaction_date.localeCompare(left.transaction_date) || right.id - left.id
-  }), [monthExpenses, dateFrom, dateTo, type, amountMin, amountMax, query, sort])
-
-  // 選択できるのは表示中の条件に合う未分類の行だけ。変更済み・条件外になった行は自然に選択から外れる。
+  // ページをまたいでも選択した明細と編集前の値を保持する。保存時のCASで変更競合を検出する。
   const bulkEnabled = Boolean(onBulkCategorize)
-  const selectableRows = useMemo(() => filtered.filter((expense) => expense.category === UNCLASSIFIED_CATEGORY), [filtered])
-  const selectedRows = useMemo(() => selectableRows.filter((expense) => selectedIds.has(expense.id)), [selectableRows, selectedIds])
-  const toggleSelected = (id: number) => setSelectedIds((current) => {
-    const next = new Set(current)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
+  const selectedRows = useMemo(() => matchingExpenses([...selected.values()], scope, transactionFilters)
+    .filter((row) => row.category === UNCLASSIFIED_CATEGORY), [selected, scope, transactionFilters])
+  const toggleSelected = (expense: Expense) => setSelected((current) => {
+    const next = new Map(current)
+    if (next.has(expense.id)) next.delete(expense.id)
+    else next.set(expense.id, expense)
     return next
   })
-
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const currentPage = Math.min(page, pageCount)
-  const visibleRows = useMemo(
-    () => filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [currentPage, filtered],
-  )
-  const showSelect = bulkEnabled && selectableRows.length > 0
   const pageSelectable = visibleRows.filter((expense) => expense.category === UNCLASSIFIED_CATEGORY)
-  const pageAllSelected = pageSelectable.length > 0 && pageSelectable.every((expense) => selectedIds.has(expense.id))
-  const togglePage = () => setSelectedIds((current) => {
-    const next = new Set(current)
+  const showSelect = bulkEnabled && (pageSelectable.length > 0 || selectedRows.length > 0)
+  const pageAllSelected = pageSelectable.length > 0 && pageSelectable.every((expense) => selected.has(expense.id))
+  const togglePage = () => setSelected((current) => {
+    const next = new Map(current)
     for (const expense of pageSelectable) {
       if (pageAllSelected) next.delete(expense.id)
-      else next.add(expense.id)
+      else next.set(expense.id, expense)
     }
     return next
   })
-  const finishBulk = (result: BulkCategoryResult) => setSelectedIds(new Set([...result.conflicts, ...result.failed, ...result.skipped]))
+  const finishBulk = (result: BulkCategoryResult) => setSelected((current) => {
+    const remaining = new Set([...result.conflicts, ...result.failed, ...result.skipped])
+    return new Map([...current].filter(([id]) => remaining.has(id)))
+  })
 
   const updateFilter = (setter: (value: string) => void, value: string) => {
     setter(value)
@@ -140,7 +142,7 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
 
   const selectionInput = (expense: Expense) => expense.category === UNCLASSIFIED_CATEGORY && (
     <input type="checkbox" className="bulk-select" aria-label={`${expense.transaction_date} ${expense.title}を選択`}
-      checked={selectedIds.has(expense.id)} disabled={bulkBusy} onChange={() => toggleSelected(expense.id)} />
+      checked={selected.has(expense.id)} disabled={bulkBusy} onChange={() => toggleSelected(expense)} />
   )
   const pageSelectionInput = (
     <input type="checkbox" className="bulk-select" aria-label="このページの未分類をすべて選択"
@@ -162,7 +164,7 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
         <div className="text-right">
           <p className="text-xs font-semibold text-slate-500">{monthLabel(selectedMonth)}</p>
           <span className="mt-1 inline-block rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-            {filtered.length.toLocaleString('ja-JP')}件
+            {resultPage.loading ? '読み込み中' : `${total.toLocaleString('ja-JP')}件`}
           </span>
         </div>
       </div>
@@ -212,7 +214,7 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
           disabled={bulkBusy}
           onRun={onBulkCategorize}
           onFinished={finishBulk}
-          onClearSelection={() => setSelectedIds(new Set())}
+          onClearSelection={() => setSelected(new Map())}
         />
       )}
       <div className="transaction-results max-h-[34rem] overflow-auto rounded-xl border border-slate-200">
@@ -288,15 +290,20 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
             ))}
           </ul>
         </div>
-        {filtered.length === 0 && (
+        {resultPage.loading && <p role="status">明細を読み込んでいます…</p>}
+        {resultPage.error && <p role="alert">{resultPage.error} <button type="button" onClick={resultPage.reload}>再試行</button></p>}
+        {!resultPage.loading && !resultPage.error && total === 0 && (
           <div className="grid h-32 place-items-center bg-white text-sm text-slate-500">条件に一致する明細はありません</div>
         )}
       </div>
-      {onRestore && monthVoided.length > 0 && (
-        <details className="voided-expenses">
-          <summary>取消済みの明細 {monthVoided.length.toLocaleString('ja-JP')}件（{monthLabel(selectedMonth)}）</summary>
+      {onRestore && (voidedCount > 0 || voidedOpen) && (
+        <details className="voided-expenses" open={voidedOpen} onToggle={(event) => setVoidedOpen(event.currentTarget.open)}>
+          <summary>取消済みの明細 {voidedCount.toLocaleString('ja-JP')}件（{monthLabel(selectedMonth)}）</summary>
+          {voidedResult.loading && <p role="status">取消済みの明細を読み込んでいます…</p>}
+          {voidedResult.error && <p role="alert">{voidedResult.error} <button type="button" onClick={voidedResult.reload}>再試行</button></p>}
+          {!voidedResult.loading && !voidedResult.error && voidedResult.total === 0 && <p>取消済みの明細はありません。</p>}
           <ul>
-            {monthVoided.map((expense) => (
+            {voidedResult.items.map((expense) => (
               <li key={expense.id}>
                 <span>{expense.transaction_date}</span>
                 <strong>{expense.title}</strong>
@@ -306,19 +313,24 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
               </li>
             ))}
           </ul>
+          {voidedResult.total > pageSize && <div className="flex items-center gap-2">
+            <button type="button" className="pagination-button" disabled={voidedPage === 1 || voidedResult.loading} onClick={() => setVoidedPage((p) => p - 1)}>前へ</button>
+            <span>{voidedPage} / {Math.max(1, Math.ceil(voidedResult.total / pageSize))}</span>
+            <button type="button" className="pagination-button" disabled={voidedPage * pageSize >= voidedResult.total || voidedResult.loading} onClick={() => setVoidedPage((p) => p + 1)}>次へ</button>
+          </div>}
         </details>
       )}
-      {filtered.length > 0 && (
+      {!resultPage.error && total > 0 && (
         <div className="mt-4 flex flex-col gap-3 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>
-            {(currentPage - 1) * pageSize + 1}〜{Math.min(currentPage * pageSize, filtered.length)}件を表示
-            <span className="ml-1 text-slate-400">/ 全{filtered.length.toLocaleString('ja-JP')}件</span>
+            {(currentPage - 1) * pageSize + 1}〜{Math.min(currentPage * pageSize, total)}件を表示
+            <span className="ml-1 text-slate-400">/ 全{total.toLocaleString('ja-JP')}件</span>
           </p>
           <div className="flex items-center gap-2">
             <button
               type="button"
               className="pagination-button"
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || resultPage.loading}
               onClick={() => setPage(currentPage - 1)}
             >
               前へ
@@ -327,7 +339,7 @@ export function ExpenseTable({ expenses, selectedMonth, scopeKey = selectedMonth
             <button
               type="button"
               className="pagination-button"
-              disabled={currentPage === pageCount}
+              disabled={currentPage >= pageCount || resultPage.loading}
               onClick={() => setPage(currentPage + 1)}
             >
               次へ

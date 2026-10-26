@@ -11,7 +11,7 @@ test('APIのエラーはstatusを持ち、一括変更で他画面の更新（40
   assert.match(api, /throw new ApiError\(message, response\.status\)/)
 })
 
-test('未分類だけを複数選択し、変更先と件数・合計を確認してから1件ずつ更新する', async () => {
+test('未分類だけを複数選択し、変更先と件数・合計を確認してから一括更新する', async () => {
   const [table, bar, app] = await Promise.all([
     read('../src/components/ExpenseTable.tsx'),
     read('../src/components/BulkCategoryBar.tsx'),
@@ -25,11 +25,8 @@ test('未分類だけを複数選択し、変更先と件数・合計を確認�
   assert.match(bar, /setPhase\('select'\)}>戻る<\/button>/)
   // 収入カテゴリへは符号が変わるので一括変更の候補に出さない
   assert.match(bar, /!item\.name\.startsWith\('80_'\)/)
-  // 1件ずつ編集APIを使い、編集前の値を条件にする（他画面の更新を上書きしない）
-  assert.match(app, /for \(const \[index, expense\] of targets\.entries\(\)\)/)
-  assert.match(app, /await updateExpense\(expense, \{/)
-  assert.match(app, /caught instanceof ApiError && caught\.status === 409/)
-  assert.match(app, /type: amount < 0 \? 'offset' : 'expense'/)
+  assert.match(app, /runCategoryBatches\(targets, category/)
+  assert.match(app, /onUpdated: data\.changed/)
 })
 
 test('途中で中止でき、変更できなかった明細は理由つきで選択したまま残す', async () => {

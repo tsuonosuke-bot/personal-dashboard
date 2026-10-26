@@ -439,6 +439,19 @@ function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
 
+export function projectMilestoneProgress(actions: ReadonlyArray<Pick<ProjectAction, "milestoneId" | "status">>) {
+  const progress = new Map<number, { total: number; done: number }>();
+  for (const action of actions) {
+    const milestoneId = action.milestoneId;
+    if (milestoneId === null || action.status === "cancelled") continue;
+    const entry = progress.get(milestoneId) ?? { total: 0, done: 0 };
+    entry.total++;
+    if (action.status === "done") entry.done++;
+    progress.set(milestoneId, entry);
+  }
+  return progress;
+}
+
 export function normalizeProjects(
   projectRows: ProjectRow[],
   actionRows: ProjectActionRow[],
@@ -451,10 +464,10 @@ export function normalizeProjects(
   const items = itemRows.map(normalizeItemRow);
   const milestones = milestoneRows.map(normalizeMilestoneRow);
   const milestonesByProject = new Map<number, ProjectMilestone[]>();
+  const milestoneProgress = projectMilestoneProgress(actions);
   for (const milestone of milestones) {
-    const owned = actions.filter((action) => action.milestoneId === milestone.id && action.status !== "cancelled");
     const current = milestonesByProject.get(milestone.projectId) || [];
-    current.push({ ...milestone, total: owned.length, done: owned.filter((action) => action.status === "done").length });
+    current.push({ ...milestone, ...(milestoneProgress.get(milestone.id) ?? { total: 0, done: 0 }) });
     milestonesByProject.set(milestone.projectId, current);
   }
   const actionsByProject = new Map<number, ProjectAction[]>();

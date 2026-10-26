@@ -68,7 +68,7 @@ test("Knowledge画面はJSON・共通状態・グラフ要約を提供する", a
   assert.match(card, /aria-describedby/);
   assert.match(dashboard, /categorySummary/);
   assert.match(dashboard, /masterySummary/);
-  assert.match(dashboard, /historySummary/);
+  assert.match(dashboard, /summary=\{historyText\}/);
   assert.match(trend, /registration-trend-summary/);
   assert.match(style, /\.chart-summary/);
   assert.match(migration, /notify pgrst, 'reload schema'/i);

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { projectReadFixture } from "./readModelFixtures.ts";
 import {
   createProject,
   createProjectAction,
@@ -125,7 +126,9 @@ function sourceCreateBody(overrides: Record<string, unknown> = {}) {
 
 function tableResponse(input: RequestInfo | URL, init?: RequestInit): Response | null {
   const url = new URL(String(input));
+  if (url.pathname.endsWith("/rpc/get_project_read_model")) return Response.json(projectReadFixture([projectRow()],[actionRow()]));
   if (init?.method) return null;
+  if (url.searchParams.get("select") === "project_id") return Response.json([{project_id:1}]);
   if (url.pathname.endsWith("/projects")) return Response.json([projectRow()]);
   if (url.pathname.endsWith("/project_actions")) return Response.json([actionRow()]);
   if (url.pathname.endsWith("/project_items")) return Response.json([]);
@@ -196,14 +199,14 @@ test("Project GET loads all four tables without exposing the secret", async () =
   }
 });
 
-test("Project GET recovers from a transient JWT rejection without retrying successful tables", async () => {
+test("Project GET retries its read-only aggregate on transient JWT rejection", async () => {
   const originalFetch = globalThis.fetch;
   const calls = new Map<string, number>();
   globalThis.fetch = async (input, init) => {
     const table = new URL(String(input)).pathname.split("/").pop()!;
     const count = (calls.get(table) ?? 0) + 1;
     calls.set(table, count);
-    if (table === "project_actions" && count === 1) {
+    if (table === "get_project_read_model" && count === 1) {
       return Response.json({ code: "PGRST303", message: "JWT issued at future" }, {
         status: 401,
         headers: { "Proxy-Status": "PostgREST; error=PGRST303" },
@@ -216,8 +219,8 @@ test("Project GET recovers from a transient JWT rejection without retrying succe
     assert.equal(response.status, 200);
     const payload = await response.json();
     assert.equal(payload.projects.length, 1);
-    assert.equal(calls.get("project_actions"), 2);
-    for (const table of ["projects", "project_items", "project_milestones"]) assert.equal(calls.get(table), 1);
+    assert.equal(calls.get("get_project_read_model"), 2);
+    assert.equal(calls.size,1);
     assert.doesNotMatch(JSON.stringify(payload), /server-secret/);
   } finally {
     globalThis.fetch = originalFetch;
@@ -228,7 +231,7 @@ test("Project GET stops after one retry when the transient JWT rejection persist
   const originalFetch = globalThis.fetch;
   let attempts = 0;
   globalThis.fetch = async (input, init) => {
-    if (new URL(String(input)).pathname.endsWith("/project_actions")) {
+    if (new URL(String(input)).pathname.endsWith("/get_project_read_model")) {
       attempts += 1;
       return Response.json({ code: "PGRST303", message: "JWT issued at future" }, { status: 401 });
     }
@@ -252,7 +255,7 @@ test("Project GET does not retry genuine permission failures or expired JWTs", a
     ]) {
       let attempts = 0;
       globalThis.fetch = async (input, init) => {
-        if (new URL(String(input)).pathname.endsWith("/project_actions")) {
+        if (new URL(String(input)).pathname.endsWith("/get_project_read_model")) {
           attempts += 1;
           return Response.json({ code: failure.code, message: failure.message }, { status: failure.status });
         }
@@ -575,6 +578,7 @@ test("Project APIs return refreshed state and reject unsupported methods", async
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
+    if (url.pathname.endsWith("/rpc/get_project_read_model")) return Response.json(projectReadFixture([projectRow()],[actionRow()]));
     if (url.pathname.includes("/rpc/")) return Response.json(1);
     return tableResponse(input, init) || Response.json([], { status: 404 });
   };

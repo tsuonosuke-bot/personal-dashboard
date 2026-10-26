@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { hubReadFixture } from "./readModelFixtures.ts";
 import { expenseWindowStart, journalTargets, journalTrendRange, loadHub, normalizeHub, normalizeJournalMoment, normalizeJournalTrend } from "../functions/_shared/hub.ts";
 import { onRequest as hubRoute } from "../functions/api/hub.ts";
 
@@ -240,17 +241,15 @@ test("hub shows the review queue counts instead of the old daily queue", () => {
 test("hub reads the review queue status from Knowledge, not the old daily queue", async () => {
   const originalFetch = globalThis.fetch;
   const knowledgePaths: string[] = [];
-  globalThis.fetch = async (input) => {
+  globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
     if (url.hostname.includes("knowledge")) {
       knowledgePaths.push(url.pathname);
-      if (url.pathname === "/api/review-queue/status") {
-        return Response.json({ ready_due: 5, ready_total: 9, waiting_grading: 1, grading_errors: 0, unconfirmed_results: 2, generation_held: 0 });
+      if (url.pathname === "/api/hub-summary") {
+        return hubReadFixture(input,init,{knowledge:{reviewStatus:{ ready_due: 5, ready_total: 9, waiting_grading: 1, grading_errors: 0, unconfirmed_results: 2, generation_held: 0 }}});
       }
     }
-    return url.hostname.includes("pages.dev")
-      ? Response.json({ items: [], total: 0, limit: 1000, offset: 0 })
-      : Response.json([]);
+    return hubReadFixture(input,init);
   };
   try {
     const hub = await loadHub({
@@ -258,7 +257,7 @@ test("hub reads the review queue status from Knowledge, not the old daily queue"
       SUPABASE_SECRET_KEY: "server-secret",
       HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
     }, now);
-    assert.ok(knowledgePaths.includes("/api/review-queue/status"));
+    assert.ok(knowledgePaths.includes("/api/hub-summary"));
     assert.equal(knowledgePaths.includes("/api/review/queue"), false);
     assert.equal(hub.availability.knowledge, true);
     assert.equal(hub.summary.reviewReadyDue, 5);
@@ -271,7 +270,7 @@ test("hub reads the review queue status from Knowledge, not the old daily queue"
 test("Journal queries each target with a past-only descending lookup", async () => {
   const originalFetch = globalThis.fetch;
   const journalRequests: URL[] = [];
-  globalThis.fetch = async (input) => {
+  globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
     if (url.pathname.endsWith("/daily_journal")) {
       journalRequests.push(url);
@@ -279,9 +278,7 @@ test("Journal queries each target with a past-only descending lookup", async () 
       const entryDate = targetDate === "2026-08-14" ? "2026-08-10" : targetDate;
       return Response.json([{ entry_date: entryDate, summary: `Journal ${targetDate}`, emotions: [], themes: [], categories: [], source_pages: [] }]);
     }
-    return url.hostname.includes("pages.dev")
-      ? Response.json({ items: [], total: 0, limit: 1000, offset: 0 })
-      : Response.json([]);
+    return hubReadFixture(input,init);
   };
   try {
     const hub = await loadHub({
@@ -307,9 +304,7 @@ test("hub route keeps the Supabase secret in server-side headers", async () => {
   const requests: Array<{ url: string; headers: Record<string, string> }> = [];
   globalThis.fetch = async (input, init) => {
     requests.push({ url: String(input), headers: init?.headers as Record<string, string> });
-    return String(input).includes("pages.dev")
-      ? Response.json({ items: [], total: 0, limit: 1000, offset: 0 })
-      : Response.json([]);
+    return hubReadFixture(input,init);
   };
   try {
     const response = await hubRoute({
@@ -322,15 +317,13 @@ test("hub route keeps the Supabase secret in server-side headers", async () => {
     });
     const body = await response.text();
     assert.equal(response.status, 200);
-    assert.equal(requests.length, 16);
-    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 12);
-    assert.equal(requests.filter((entry) => entry.headers["X-Hub-Service"] === "hub-service-token-that-is-at-least-32-characters").length, 4);
+    assert.equal(requests.length, 14);
+    assert.equal(requests.filter((entry) => entry.headers.apikey === "server-secret").length, 11);
+    assert.equal(requests.filter((entry) => entry.headers["X-Hub-Service"] === "hub-service-token-that-is-at-least-32-characters").length, 3);
     assert.equal(requests.filter((entry) => entry.url.includes("/daily_journal?")).length, 4);
-    assert.ok(requests.some((entry) => entry.url.includes("/projects?select=status")));
-    assert.ok(requests.some((entry) => entry.url.includes("/writing_topics?select=status")));
-    // 支出は全期間ではなく、先月1日以降だけを家計簿から取る。
-    const expenseUrl = new URL(requests.find((entry) => entry.url.includes("/api/expenses"))!.url);
-    assert.match(expenseUrl.searchParams.get("from") || "", /^\d{4}-\d{2}-01$/);
+    assert.equal(requests.filter((entry) => entry.url.endsWith("/rpc/get_hub_local_summary")).length,6);
+    const expenseUrl = new URL(requests.find((entry) => entry.url.includes("finance") && entry.url.includes("/api/hub-summary"))!.url);
+    assert.match(expenseUrl.searchParams.get("today") || "", /^\d{4}-\d{2}-\d{2}$/);
     assert.ok(requests.every((entry) => !entry.url.includes("secret")));
     assert.doesNotMatch(body, /server-secret|hub-service-token/);
   } finally {
@@ -340,11 +333,10 @@ test("hub route keeps the Supabase secret in server-side headers", async () => {
 
 test("hub route keeps successful sections when one upstream is unavailable", async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (input) => {
+  globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("finance-9qq.pages.dev")) return Response.json({ error: "offline" }, { status: 503 });
-    if (url.includes("knowledge-50b.pages.dev")) return Response.json({ items: [], total: 0, limit: 1000, offset: 0 });
-    return Response.json([]);
+    return hubReadFixture(input,init);
   };
   try {
     const response = await hubRoute({
@@ -373,11 +365,10 @@ test("hub route keeps successful sections when one upstream is unavailable", asy
 
 test("Journal failure stays isolated from the other Hub sections", async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (input) => {
+  globalThis.fetch = async (input, init) => {
     const url = String(input);
     if (url.includes("/daily_journal?")) return Response.json({ error: "offline" }, { status: 503 });
-    if (url.includes("pages.dev")) return Response.json({ items: [], total: 0, limit: 1000, offset: 0 });
-    return Response.json([]);
+    return hubReadFixture(input,init);
   };
   try {
     const hub = await loadHub({
@@ -399,14 +390,13 @@ test("Journal failure stays isolated from the other Hub sections", async () => {
 
 test("Journal trend failure keeps the existing retrospective cards available", async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (input) => {
+  globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
     if (url.pathname.endsWith("/daily_journal") && url.searchParams.get("select") === "entry_date,mood") {
       return Response.json({ error: "offline" }, { status: 503 });
     }
     if (url.pathname.endsWith("/daily_journal")) return Response.json([]);
-    if (url.hostname.includes("pages.dev")) return Response.json({ items: [], total: 0, limit: 1000, offset: 0 });
-    return Response.json([]);
+    return hubReadFixture(input,init);
   };
   try {
     const hub = await loadHub({
@@ -425,12 +415,7 @@ test("Journal trend failure keeps the existing retrospective cards available", a
 
 test("invalid Focus data stays isolated from the other Hub sections", async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (input) => {
-    const url = String(input);
-    if (url.includes("/focus_items?")) return Response.json([{ id: "invalid" }]);
-    if (url.includes("pages.dev")) return Response.json({ items: [], total: 0, limit: 1000, offset: 0 });
-    return Response.json([]);
-  };
+  globalThis.fetch = async (input, init) => hubReadFixture(input,init,{focus:{items:[{id:"invalid"}]}});
   try {
     const hub = await loadHub({
       SUPABASE_URL: "https://compass.supabase.co",
@@ -449,17 +434,10 @@ test("invalid Focus data stays isolated from the other Hub sections", async () =
 test("Hub does not depend on want_routes after successful routing auto-completes Wants", async () => {
   const originalFetch = globalThis.fetch;
   const requests: string[] = [];
-  globalThis.fetch = async (input) => {
+  globalThis.fetch = async (input, init) => {
     const url = String(input);
     requests.push(url);
-    if (url.includes("/idea_inbox?")) return Response.json([
-      { id: 9, content: "Handle this first", status: "pending", created_at: "2026-09-01T00:00:00Z" },
-    ]);
-    if (url.includes("/wants?")) return Response.json([
-      { id: 1, content: "Still visible", status: "active", revisit_on: "2026-09-01", created_at: "2026-09-01T00:00:00Z" },
-    ]);
-    if (url.includes("pages.dev")) return Response.json({ items: [], total: 0, limit: 1000, offset: 0 });
-    return Response.json([]);
+    return hubReadFixture(input,init,{inbox:{pendingInbox:1,items:[{id:9,content:"Handle this first",status:"pending",created_at:"2026-09-01T00:00:00Z"}]},wants:{activeWants:1,untriagedWants:1}});
   };
   try {
     const hub = await loadHub({
@@ -473,7 +451,7 @@ test("Hub does not depend on want_routes after successful routing auto-completes
     assert.equal(hub.summary.untriagedWants, 1);
     assert.equal(hub.inbox[0].content, "Handle this first");
     assert.equal(hub.inbox[0].url, "/compass/?view=inbox&id=9");
-    assert.ok(requests.some((url) => decodeURIComponent(url).includes("/idea_inbox?select=id,content,status,created_at")));
+    assert.ok(requests.some((url) => url.endsWith("/rpc/get_hub_local_summary")));
     assert.ok(!requests.some((url) => url.includes("/want_routes?")));
     assert.deepEqual(hub.source.unavailable, []);
   } finally {

@@ -2,6 +2,7 @@ import { readClientScript } from "./clientScript.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { projectReadFixture } from "./readModelFixtures.ts";
 import {
   normalizeProjects,
   publicProjectError,
@@ -150,9 +151,11 @@ test("PUT /api/project-actions は専用ヘッダーで受け付け、最新のP
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input) => {
     const url = new URL(String(input));
+    if (url.pathname.endsWith("/rpc/get_project_read_model")) return Response.json(projectReadFixture([projectRow()],[actionRow({status:"next",due_on:"2026-10-20"})]));
     if (url.pathname.includes("/rpc/")) return Response.json(1);
     if (url.pathname.endsWith("/projects")) return Response.json([projectRow()]);
     if (url.pathname.endsWith("/project_actions")) {
+      if (url.searchParams.get("select") === "project_id") return Response.json([{project_id:1}]);
       assert.match(url.searchParams.get("select") || "", /start_on,sort_order/);
       return Response.json([actionRow({ status: "next", due_on: "2026-10-20" })]);
     }

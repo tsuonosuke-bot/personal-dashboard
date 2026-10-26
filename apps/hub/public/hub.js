@@ -402,14 +402,21 @@ function setSource(source, hasError = false) {
   if (!hasError) els.updatedLabel.textContent = `${formatDate(source.fetchedAt, true)} 更新${partial ? " · 一部取得不可" : ""}`;
 }
 
+let hubLoadGeneration = 0;
+let hubHasData = false;
+let hubLoadController = null;
 async function loadHub() {
+  const generation = ++hubLoadGeneration;
+  hubLoadController?.abort();
+  hubLoadController = new AbortController();
   els.refreshButton.disabled = true;
   els.loadingState.hidden = false;
   els.errorState.hidden = true;
-  els.hubContent.hidden = true;
+  els.hubContent.hidden = !hubHasData;
   try {
-    const response = await fetch("/api/hub", { headers: { Accept: "application/json" }, cache: "no-store" });
+    const response = await fetch("/api/hub", { signal: hubLoadController.signal, headers: { Accept: "application/json" }, cache: "no-store" });
     const payload = await readApiJson(response);
+    if (generation !== hubLoadGeneration) return;
     if (!response.ok) throw new Error(payload.error?.message || "データを読み込めませんでした。");
     const availability = payload.availability || { inbox: true, wants: true, focus: true, expenses: true, knowledge: true, journal: true, habits: true };
     renderNavigation(payload.navigation);
@@ -425,15 +432,17 @@ async function loadHub() {
     setSource(payload.source);
     els.loadingState.hidden = true;
     els.hubContent.hidden = false;
+    hubHasData = true;
     const journalViewport = els.journalTrend.querySelector(".journal-trend-viewport");
     if (journalViewport) journalViewport.scrollLeft = journalViewport.scrollWidth - journalViewport.clientWidth;
   } catch (error) {
+    if (generation !== hubLoadGeneration) return;
     setSource(null, true);
     els.loadingState.hidden = true;
     els.errorMessage.textContent = error instanceof Error ? error.message : "データを読み込めませんでした。";
     els.errorState.hidden = false;
   } finally {
-    els.refreshButton.disabled = false;
+    if (generation === hubLoadGeneration) els.refreshButton.disabled = false;
   }
 }
 

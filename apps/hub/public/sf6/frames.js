@@ -42,7 +42,7 @@ export function createSf6Frames({ state, els, movesOf, ensureMoves, renderTabs, 
     const character = state.opponent.character;
     state.opponent.loading = Boolean(character);
     state.opponent.error = "";
-    renderPunishPicker();
+    if (state.tab === "sequences") renderPunishPicker();
     try {
       await ensureMoves(character);
     } catch (error) {
@@ -50,7 +50,7 @@ export function createSf6Frames({ state, els, movesOf, ensureMoves, renderTabs, 
     } finally {
       if (state.opponent.character === character) {
         state.opponent.loading = false;
-        renderPunishPicker();
+        if (state.tab === "sequences") renderPunishPicker();
       }
     }
   }
@@ -75,9 +75,9 @@ export function createSf6Frames({ state, els, movesOf, ensureMoves, renderTabs, 
     if (!state.frames.character || state.moves.has(state.frames.character)) return;
     try {
       await ensureMoves(state.frames.character);
-      renderFrames();
+      if (state.tab === "frames") renderFrames();
     } catch (error) {
-      els.frameTable.innerHTML = empty(error instanceof Error ? error.message : "技データを読み込めませんでした。");
+      if (state.tab === "frames") els.frameTable.innerHTML = empty(error instanceof Error ? error.message : "技データを読み込めませんでした。");
     }
   }
 

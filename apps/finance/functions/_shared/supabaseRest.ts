@@ -9,7 +9,7 @@ type QueryDefinition = {
   params: URLSearchParams
 }
 
-export type Pagination = { limit: number; offset: number }
+export type Pagination = { limit: number; offset: number; count?: 'exact' | 'none' }
 
 const DEFAULT_PAGE_SIZE = 500
 const MAX_PAGE_SIZE = 1_000
@@ -136,7 +136,11 @@ export function readPagination(request: Request): Pagination | Response {
     return jsonResponse({ error: `limitは1〜${MAX_PAGE_SIZE}の整数で指定してください。` }, 400)
   }
   if (offset === null) return jsonResponse({ error: 'offsetは0以上の整数で指定してください。' }, 400)
-  return { limit, offset }
+  const count = url.searchParams.get('count')
+  if (count !== null && count !== 'exact' && count !== 'none') {
+    return jsonResponse({ error: 'countはexactまたはnoneで指定してください。' }, 400)
+  }
+  return count === null ? { limit, offset } : { limit, offset, count }
 }
 
 function parseContentRange(value: string | null): number | null {
@@ -173,7 +177,7 @@ export async function fetchSupabasePage(
       headers: {
         Accept: 'application/json',
         apikey: secretKey,
-        Prefer: 'count=exact',
+        ...(pagination.count === 'none' ? {} : { Prefer: 'count=exact' }),
       },
     })
     if (!response.ok) {
@@ -187,7 +191,7 @@ export async function fetchSupabasePage(
     }
     return jsonResponse({
       items: rows,
-      total: parseContentRange(response.headers.get('Content-Range')),
+      total: pagination.count === 'none' ? null : parseContentRange(response.headers.get('Content-Range')),
       limit: pagination.limit,
       offset: pagination.offset,
     })

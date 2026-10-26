@@ -2,7 +2,7 @@
 import { readApiJson } from "../api-client.js";
 import { parseCompassRoute } from "../compass-routing.js";
 import { PRIMARY_INBOX_ROUTES, defaultStatusByView, inboxQuickRoutes, quickWantRoutes, routeCompletionMeta, routeDestinationMeta, viewMeta } from "./constants.js";
-import { loadDashboard } from "./data.js";
+import { loadDashboard, loadIdeaDetail } from "./data.js";
 import { closeItem, renderInboxEditForm, renderItemEditForm, saveWantCategory, wantCategoryOptions } from "./edit-forms.js";
 import { calendarSchedule, escapeHtml, formatCalendarSchedule, formatDate, setDrawerTitle, showToast, sourceChipMarkup, splitInboxSource } from "./format.js";
 import { canCloseItem, itemStatusLabel, syncCompassRoute } from "./list.js";
@@ -109,7 +109,7 @@ export function renderDrawerItem(item, view) {
       : '<p class="route-empty">まだ振り分けられていません。</p>';
     body += `${item.note ? `<div class="detail-section"><span>メモ</span><p>${escapeHtml(item.note)}</p></div>` : ""}
       ${quickRouteMarkup}
-      <div class="detail-section"><span>振り分け履歴</span>${routeMarkup}</div>
+      <div class="detail-section"><span>振り分け履歴${item.routePage ? ` ${item.routePage.total}件` : ""}</span>${routeMarkup}${item.routePage?.hasMore ? '<button type="button" id="moreWantRoutes">履歴をさらに表示</button>' : ""}</div>
       <div class="drawer-actions">
         <button class="secondary-action" id="editWantButton" type="button">Wantを編集</button>
         ${item.status === "active" ? '<button class="primary-action" id="triageWantButton" type="button">整理する</button>' : ""}
@@ -118,6 +118,15 @@ export function renderDrawerItem(item, view) {
       <p class="form-error" id="closeItemError" role="alert" hidden></p>`;
   }
   els.drawerBody.innerHTML = body;
+  document.getElementById("moreWantRoutes")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const fresh = await loadIdeaDetail(item.id, "wants", item.routePage.offset + 50);
+      if (state.drawerItem?.id === item.id && state.drawerItem?.view === "wants") renderDrawerItem(fresh, "wants");
+    } catch (error) { showToast(error.message || "履歴を取得できませんでした。再試行してください。"); }
+    finally { if (button.isConnected) button.disabled = false; }
+  });
   document.getElementById("editWantButton")?.addEventListener("click", () => renderItemEditForm(item, "wants"));
   const categorySelect = document.getElementById("wantCategorySelect");
   categorySelect?.addEventListener("change", async () => {
@@ -157,7 +166,18 @@ export function openDrawer(id, view = state.view, historyMode = "push") {
   state.aiRequestToken += 1;
   state.drawerItem = { id, view };
   if (view === "inbox") rememberInboxOrder();
-  renderDrawerItem(item, view);
+  if (view !== "wants" || item.detailLoaded) renderDrawerItem(item, view);
+  else {
+    setDrawerTitle(item.content || "Want");
+    els.drawerBody.innerHTML = '<p role="status">詳細を読み込んでいます…</p>';
+    void loadIdeaDetail(id, view).then((fresh) => {
+      if (state.drawerItem?.id === id && state.drawerItem?.view === view) renderDrawerItem(fresh, view);
+    }).catch((error) => {
+      if (state.drawerItem?.id !== id || state.drawerItem?.view !== view) return;
+      els.drawerBody.innerHTML = `<p role="alert">${escapeHtml(error.message)}</p><button type="button" id="retryIdeaDetail">再試行</button>`;
+      document.getElementById("retryIdeaDetail").addEventListener("click", () => openDrawer(id, view, "none"));
+    });
+  }
   els.drawerBackdrop.hidden = false;
   els.drawer.classList.add("open");
   els.drawer.setAttribute("aria-hidden", "false");

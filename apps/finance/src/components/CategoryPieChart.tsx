@@ -1,20 +1,20 @@
 import { useMemo } from 'react'
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { categoryColor } from '../lib/chartColors'
-import { amountOf, categoryLabel, isSpending, monthKey, monthLabel, yen } from '../lib/finance'
-import type { Expense } from '../lib/types'
+import { categoryLabel, monthLabel, yen } from '../lib/finance'
+import type { MonthlyAggregate } from '../lib/financeOverview'
 
 type Props = {
-  expenses: Expense[]
+  monthly: MonthlyAggregate[]
   selectedMonth: string
 }
 
-export function CategoryPieChart({ expenses, selectedMonth }: Props) {
+export function CategoryPieChart({ monthly, selectedMonth }: Props) {
   const data = useMemo(() => {
     const totals = new Map<string, number>()
-    for (const expense of expenses) {
-      if (monthKey(expense.transaction_date) !== selectedMonth || !isSpending(expense)) continue
-      totals.set(expense.category, (totals.get(expense.category) ?? 0) + amountOf(expense))
+    for (const row of monthly) {
+      if (row.month !== selectedMonth || row.spendingCount === 0) continue
+      totals.set(row.category, (totals.get(row.category) ?? 0) + row.spending)
     }
 
     const sorted = Array.from(totals.entries())
@@ -24,7 +24,7 @@ export function CategoryPieChart({ expenses, selectedMonth }: Props) {
     const primary = sorted.slice(0, 7)
     const other = sorted.slice(7).reduce((sum, item) => sum + item.total, 0)
     return other > 0 ? [...primary, { categoryKey: '__other__', category: 'その他', total: other }] : primary
-  }, [expenses, selectedMonth])
+  }, [monthly, selectedMonth])
   const total = data.reduce((sum, item) => sum + item.total, 0)
   const top = data[0]
   const summary = total === 0 || !top

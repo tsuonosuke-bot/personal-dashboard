@@ -3,22 +3,25 @@
 import { applyInboxBulkUpdate, clearBulkSelection, renderBulkControls, setBulkMode } from "./compass/bulk.js";
 import { restoreTodoLayout, setTodoLayout } from "./compass/calendar.js";
 import { defaultStatusByView } from "./compass/constants.js";
-import { loadDashboard } from "./compass/data.js";
+import { loadDashboard, loadTodos } from "./compass/data.js";
 import { closeDrawer, createInbox, setModalOpen } from "./compass/drawer.js";
 import { showToast } from "./compass/format.js";
-import { applyCompassRoute, currentItems, renderList, setView, syncCompassRoute, updateStatusOptions } from "./compass/list.js";
+import { currentItems, renderList, setView, syncCompassRoute } from "./compass/list.js";
 import { els, state } from "./compass/state.js";
 
 document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
-els.searchInput.addEventListener("input", () => { state.search = els.searchInput.value; clearBulkSelection(); renderList(); });
+let ideaSearchTimer;
+els.searchInput.addEventListener("input", () => { state.search = els.searchInput.value; clearBulkSelection(); clearTimeout(ideaSearchTimer); ideaSearchTimer = setTimeout(() => state.view === "todos" ? loadTodos(true) : loadDashboard(), 200); });
 els.statusFilter.addEventListener("change", () => {
-  state.status = els.statusFilter.value; state.metricFilter = ""; clearBulkSelection(); renderList();
+  state.status = els.statusFilter.value; state.metricFilter = ""; clearBulkSelection();
+  if (state.view === "todos") void loadTodos(true); else void loadDashboard();
   syncCompassRoute(state.view);
 });
 els.clearFilter.addEventListener("click", () => {
   // Wantsはバックログ（Active）に戻す。他のタブはすべてのステータスを出す。
   state.status = state.view === "wants" ? "active" : ""; state.search = ""; state.metricFilter = ""; state.wantCategory = "";
-  els.searchInput.value = ""; clearBulkSelection(); updateStatusOptions(); renderList(); syncCompassRoute(state.view);
+  els.searchInput.value = ""; clearBulkSelection(); syncCompassRoute(state.view);
+  if (state.view === "todos") void loadTodos(true); else void loadDashboard();
 });
 els.bulkModeButton.addEventListener("click", () => setBulkMode(true));
 els.bulkCancelButton.addEventListener("click", () => setBulkMode(false));
@@ -80,7 +83,7 @@ document.addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
   if (!els.dashboardSwitcher.contains(event.target)) els.dashboardSwitcher.removeAttribute("open");
 });
-window.addEventListener("popstate", () => applyCompassRoute());
+window.addEventListener("popstate", () => loadDashboard({ route: true }));
 
 restoreTodoLayout();
 const initialParameters = new URLSearchParams(window.location.search);

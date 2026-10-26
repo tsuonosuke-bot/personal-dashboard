@@ -1,6 +1,5 @@
 import { useState, type CSSProperties, type MouseEvent } from "react";
-import { memoryHold, weeklyReviewAccuracy } from "../lib/learningSummary";
-import type { Knowledge, QuizLog } from "../types";
+import type { memoryHold, WeeklyAccuracy } from "../lib/learningSummary";
 
 interface Tip { x: number; y: number; text: string }
 
@@ -20,8 +19,8 @@ function percent(value: number, total: number): number {
 }
 
 /** 記憶のもち: 次に忘れるまでの見込み期間ごとのカード数。件数の多さではなく、どれだけ覚えていられるかで見る。 */
-export function MemoryHoldChart({ knowledge, quizLog }: { knowledge: Knowledge[]; quizLog: QuizLog[] }) {
-  const { buckets, unasked, total, atLeastWeek } = memoryHold(knowledge, quizLog);
+export function MemoryHoldChart({ data }: { data: ReturnType<typeof memoryHold> }) {
+  const { buckets, unasked, total, atLeastWeek } = data;
   const max = Math.max(1, unasked, ...buckets.map((bucket) => bucket.count));
   const { bind, node } = useTip();
   const summary = total === 0
@@ -59,8 +58,7 @@ function weekLabel(start: string, partial: boolean): string {
 }
 
 /** 復習の正答率（週別）: 2回目以降の出題だけ。今週は集計途中として斜線で示す。 */
-export function WeeklyAccuracyChart({ quizLog }: { quizLog: QuizLog[] }) {
-  const weeks = weeklyReviewAccuracy(quizLog);
+export function WeeklyAccuracyChart({ data: weeks }: { data: WeeklyAccuracy[] }) {
   const { bind, node } = useTip();
   const finished = weeks.filter((week) => !week.partial && week.accuracy !== null).slice(-4);
   const current = weeks[weeks.length - 1];

@@ -1,18 +1,17 @@
 import { useMemo } from 'react'
 import {
   monthLabel,
-  summarizeMonth,
   yen,
 } from '../lib/finance'
-import type { Expense } from '../lib/types'
+import { summaryFromAggregates, type MonthlyAggregate } from '../lib/financeOverview'
 
 type Props = {
-  expenses: Expense[]
+  monthly: MonthlyAggregate[]
   selectedMonth: string
 }
 
-export function SummaryCards({ expenses, selectedMonth }: Props) {
-  const summary = useMemo(() => summarizeMonth(expenses, selectedMonth), [expenses, selectedMonth])
+export function SummaryCards({ monthly, selectedMonth }: Props) {
+  const summary = useMemo(() => summaryFromAggregates(monthly, selectedMonth), [monthly, selectedMonth])
   const balanceChangeLabel = summary.balanceDiff === 0
     ? '前月と同額'
     : `${yen.format(Math.abs(summary.balanceDiff))}${summary.balanceDiff > 0 ? '増' : '減'}`

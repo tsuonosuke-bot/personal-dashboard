@@ -134,7 +134,7 @@ async function fetchRows(
   return allRows;
 }
 
-export async function loadProjects(env: DashboardEnv, now = new Date()) {
+export async function loadProjects(env: DashboardEnv, now = new Date(), sharedTodos?: Promise<Awaited<ReturnType<typeof listScheduledActions>>>) {
   const [projects, actions, items, milestones] = await Promise.all([
     fetchRows(env, "projects", PROJECT_SELECT, "updated_at.desc,id.desc") as Promise<ProjectRow[]>,
     fetchRows(env, "project_actions", ACTION_SELECT, "updated_at.desc,id.desc") as Promise<ProjectActionRow[]>,
@@ -147,7 +147,7 @@ export async function loadProjects(env: DashboardEnv, now = new Date()) {
     return todoId ? [[positiveInteger(row.id)!, todoId] as const] : [];
   }));
   if (linkedIds.size) {
-    const todos = new Map((await listScheduledActions(env)).items.map((todo) => [todo.id, todo]));
+    const todos = new Map((await (sharedTodos ?? listScheduledActions(env, { ids: [...new Set(linkedIds.values())] }))).items.map((todo) => [todo.id, todo]));
     for (const project of normalized.projects) for (const action of project.actions) {
       const todoId = linkedIds.get(action.id);
       if (!todoId) continue;
@@ -163,7 +163,7 @@ export async function loadProjects(env: DashboardEnv, now = new Date()) {
   return normalized;
 }
 
-export async function createProject(env: DashboardEnv, input: ProjectCreateInput): Promise<void> {
+export async function createProject(env: DashboardEnv, input: ProjectCreateInput): Promise<number> {
   const connectionInfo = connection(env);
   const endpoint = new URL("/rest/v1/rpc/create_project_with_next_action", connectionInfo.url);
   const response = await supabaseFetch(connectionInfo, endpoint, {
@@ -178,6 +178,9 @@ export async function createProject(env: DashboardEnv, input: ProjectCreateInput
     }),
   });
   if (!response.ok) throw await projectResponseError(response, "create_project_with_next_action");
+  const id = positiveInteger(await response.json());
+  if (!id) throw new DashboardError("SUPABASE_RESPONSE_INVALID", "Project creation returned an invalid id.");
+  return id;
 }
 
 export async function routeProjectSource(env: DashboardEnv, input: ProjectSourceRouteInput): Promise<number> {

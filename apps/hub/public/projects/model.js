@@ -46,6 +46,7 @@ export function createProjectModel({ state, now = () => new Date() }) {
           : project.status === "completed" || project.status === "dropped";
       if (!viewMatches || (state.attentionOnly && !project.needsAttention)) return false;
       if (!query) return true;
+      if (typeof project.searchMatched === "boolean") return project.searchMatched;
       const actionText = project.actions.map((action) => action.content).join(" ");
       const itemText = project.items.map((item) => item.sourceContent).join(" ");
       return [project.title, project.outcome, project.theme, actionText, itemText]

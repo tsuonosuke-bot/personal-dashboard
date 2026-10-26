@@ -25,6 +25,10 @@ const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]
 const cadenceLabels = { daily: "毎日", weekdays: "平日", weekly: "毎週", flexible: "自由" };
 const statusLabels = { active: "有効", paused: "休止", archived: "アーカイブ" };
 const dayLabels = ["日", "月", "火", "水", "木", "金", "土"];
+let habitLoadGeneration = 0;
+let habitMutationVersion = 0;
+let historyLoadGeneration = 0;
+const pendingHabitIds = new Set();
 
 
 function formatDay(value, includeYear = false) {
@@ -240,7 +244,7 @@ function closeLogSheet() {
 async function saveLogSheet(event) {
   event.preventDefault();
   const sheet = state.sheet;
-  if (!sheet?.editable || state.saving) return;
+  if (!sheet?.editable || state.saving || pendingHabitIds.has(sheet.habitId)) return;
   const kind = selectedKind();
   const practicedOn = sheet.date;
   const note = els.logSheetNote.value.trim() || null;
@@ -250,10 +254,11 @@ async function saveLogSheet(event) {
     ? { habitId: sheet.habitId, practicedOn, completed: false }
     : { habitId: sheet.habitId, practicedOn, completed: true, kind, note };
   state.saving = true;
+  pendingHabitIds.add(sheet.habitId);
   els.logSheetSave.disabled = true;
   els.logSheetError.hidden = true;
   try {
-    const response = await fetch("/api/habit-logs", {
+    const response = await fetch(habitLogUrl(), {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "X-Dashboard-Action": "habit-log" },
       body: JSON.stringify(body),
@@ -266,17 +271,21 @@ async function saveLogSheet(event) {
     showToast(kind === "none" ? `${day}の記録を取り消しました。`
       : kind === sheet.kind ? "メモを保存しました。"
         : kind === "skip" ? `${day}は休んだ日にしました。` : `${day}の分を記録しました。`);
-    await load();
+    applyHabitUpdate(payload);
   } catch (error) {
     els.logSheetError.textContent = error instanceof Error ? error.message : "実施記録を保存できませんでした。";
     els.logSheetError.hidden = false;
   } finally {
     state.saving = false;
+    pendingHabitIds.delete(sheet.habitId);
+    if (state.data) { render(); renderHistory(); }
     els.logSheetSave.disabled = false;
   }
 }
 
 async function loadHistory() {
+  const generation = ++historyLoadGeneration;
+  const mutationVersion = habitMutationVersion;
   state.history.loading = true;
   els.historyPrev.disabled = true;
   els.historyNext.disabled = true;
@@ -286,16 +295,65 @@ async function loadHistory() {
   try {
     const response = await fetch(`/api/habit-history?${params}`, { headers: { Accept: "application/json" }, cache: "no-store" });
     const payload = await readApiJson(response);
+    if (generation !== historyLoadGeneration) return;
+    if (mutationVersion !== habitMutationVersion) { void loadHistory(); return; }
     if (!response.ok) throw new Error(errorMessage(payload, "履歴を読み込めませんでした。"));
     state.history.data = payload;
   } catch (error) {
+    if (generation !== historyLoadGeneration) return;
     els.historyStatus.textContent = error instanceof Error ? error.message : "履歴を読み込めませんでした。";
     els.historyStatus.hidden = false;
   } finally {
-    state.history.loading = false;
-    renderHistory();
-    if (!state.history.data) { els.historyPrev.disabled = false; }
+    if (generation === historyLoadGeneration) {
+      state.history.loading = false;
+      renderHistory();
+      if (!state.history.data) { els.historyPrev.disabled = false; }
+    }
   }
+}
+
+function habitLogUrl() {
+  const params = new URLSearchParams({ period: state.history.period });
+  if (state.history.anchor) params.set("anchor", state.history.anchor);
+  return `/api/habit-logs?${params}`;
+}
+
+function applyHabitUpdate(payload) {
+  habitMutationVersion++;
+  if (!payload.update?.habit) {
+    showToast(payload.refreshError || "記録は保存されました。集計を再読み込みしてください。");
+    return;
+  }
+  const update = payload.update;
+  const requestedAnchor = state.history.anchor || (state.history.period === "week" ? state.data.weekStart : state.data.today.slice(0, 7));
+  const matchesRequestedHistory = update.history.period === state.history.period && update.history.anchor === requestedAnchor;
+  const matchesVisibleHistory = state.history.data && update.history.anchor === state.history.data.anchor
+    && update.history.period === state.history.data.period;
+  // A week save must not cancel a newer navigation to the month. If a pending
+  // history read predates this save, loadHistory retries that requested period.
+  if (matchesRequestedHistory && matchesVisibleHistory) {
+    historyLoadGeneration++;
+    state.history.loading = false;
+  }
+  state.data.habits = state.data.habits.map((habit) => habit.id === update.habit.id ? update.habit : habit);
+  const active = state.data.habits.filter((habit) => habit.status === "active");
+  state.data.summary.completedToday = active.filter((habit) => habit.completedToday).length;
+  state.data.summary.remainingToday = active.filter((habit) => habit.cadence === "weekly"
+    ? !habit.completedThisWeek && !habit.skippedThisWeek && update.today >= habit.startedOn
+    : habit.cadence !== "flexible" && habit.eligibleToday && !habit.completedToday && !habit.skippedToday).length;
+  state.data.lastWeek.habits = state.data.lastWeek.habits.filter((habit) => habit.id !== update.habit.id);
+  if (update.lastWeek) state.data.lastWeek.habits.push(update.lastWeek);
+  // Keep the same definition order as the main list.
+  const order = new Map(state.data.habits.map((habit, index) => [habit.id, index]));
+  state.data.lastWeek.habits.sort((left, right) => order.get(left.id) - order.get(right.id));
+  if (matchesRequestedHistory && matchesVisibleHistory) {
+    const historyHabit = update.history.habits[0];
+    state.history.data.habits = state.history.data.habits.filter((habit) => habit.id !== update.habit.id);
+    if (historyHabit) state.history.data.habits.push(historyHabit);
+    state.history.data.habits.sort((left, right) => order.get(left.id) - order.get(right.id));
+    renderHistory();
+  }
+  render();
 }
 
 function renderManage(habits) {
@@ -304,6 +362,10 @@ function renderManage(habits) {
 }
 
 function bindContentActions(root = els.habitContent) {
+  root.querySelectorAll("[data-log-id], [data-note-id], [data-edit-id]").forEach((button) => {
+    const id = Number(button.dataset.logId || button.dataset.noteId || button.dataset.editId);
+    if (pendingHabitIds.has(id)) button.disabled = true;
+  });
   root.querySelectorAll("[data-log-id]").forEach((button) => button.addEventListener("click", () => toggleLog(
     Number(button.dataset.logId), button.dataset.completed !== "true", button, button.dataset.logDate || state.data.today,
   )));
@@ -334,6 +396,8 @@ function render() {
 }
 
 async function load() {
+  const generation = ++habitLoadGeneration;
+  const mutationVersion = habitMutationVersion;
   els.loadingState.hidden = false;
   els.errorState.hidden = true;
   els.habitContent.hidden = true;
@@ -341,6 +405,7 @@ async function load() {
   try {
     const response = await fetch("/api/habits", { headers: { Accept: "application/json" }, cache: "no-store" });
     const payload = await readApiJson(response);
+    if (generation !== habitLoadGeneration || mutationVersion !== habitMutationVersion) return;
     if (!response.ok) throw new Error(errorMessage(payload, "Habitを読み込めませんでした。"));
     state.data = payload;
     setSource(payload.source);
@@ -348,19 +413,25 @@ async function load() {
     els.habitContent.hidden = false;
     void loadHistory();
   } catch (error) {
+    if (generation !== habitLoadGeneration || mutationVersion !== habitMutationVersion) return;
     setSource(null, true);
     els.errorMessage.textContent = error instanceof Error ? error.message : "Habitを読み込めませんでした。";
     els.errorState.hidden = false;
   } finally {
-    els.loadingState.hidden = true;
-    els.refreshButton.disabled = false;
+    if (generation === habitLoadGeneration) {
+      els.loadingState.hidden = true;
+      els.refreshButton.disabled = false;
+      if (state.data) els.habitContent.hidden = false;
+    }
   }
 }
 
 async function toggleLog(id, completed, button, practicedOn = state.data.today) {
+  if (pendingHabitIds.has(id)) return;
+  pendingHabitIds.add(id);
   button.disabled = true;
   try {
-    const response = await fetch("/api/habit-logs", {
+    const response = await fetch(habitLogUrl(), {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "X-Dashboard-Action": "habit-log" },
       body: JSON.stringify({ habitId: id, practicedOn, completed }),
@@ -369,10 +440,13 @@ async function toggleLog(id, completed, button, practicedOn = state.data.today) 
     if (!response.ok) throw new Error(errorMessage(payload, "実施記録を更新できませんでした。"));
     const day = practicedOn === state.data.today ? "今日" : formatDay(practicedOn);
     showToast(completed ? `${day}の分を実施済みとして記録しました。` : `${day}の記録を取り消しました。`);
-    await load();
+    applyHabitUpdate(payload);
   } catch (error) {
     showToast(error instanceof Error ? error.message : "実施記録を更新できませんでした。");
     button.disabled = false;
+  } finally {
+    pendingHabitIds.delete(id);
+    if (state.data) { render(); renderHistory(); }
   }
 }
 

@@ -1,5 +1,5 @@
-import { categoryBreakdown, todayAnswers } from "../lib/learningSummary";
-import type { DailyReviewStatus, QuizLog, ReviewQueueStatus } from "../types";
+import { categoryBreakdown, type TodayAnswers } from "../lib/learningSummary";
+import type { DailyReviewStatus, ReviewQueueStatus } from "../types";
 
 interface Props {
   status: DailyReviewStatus | null;
@@ -7,7 +7,7 @@ interface Props {
   error: string | null;
   /** 問題キューの件数。出題ボタンは期限が来た出題待ちの問題数で決める。 */
   queueStatus: ReviewQueueStatus | null;
-  quizLog: QuizLog[];
+  summaryToday?: TodayAnswers;
   /** 見直す講評（未確認の不正解・部分正解）の件数。 */
   missCount: number;
   missWrong: number;
@@ -30,10 +30,10 @@ function clockTime(value: string | null | undefined): string | null {
  * 出題間隔などの仕組みの説明はヘルプページ（HelpView）に置き、ここには数字と操作だけを出す。
  */
 export function TodayLearningPanel({
-  status, loading, error, queueStatus, quizLog, missCount, missWrong, missPartial, onStart, onCategoryReview, onOpenMisses, onOpenLog,
+  status, loading, error, queueStatus, summaryToday, missCount, missWrong, missPartial, onStart, onCategoryReview, onOpenMisses, onOpenLog,
 }: Props) {
   const readyDue = queueStatus?.ready_due ?? 0;
-  const today = todayAnswers(quizLog);
+  const today = summaryToday;
   const buttonLabel = readyDue > 0
     ? `復習を始める（${readyDue}問）`
     : status && status.remaining > 0
@@ -95,9 +95,9 @@ export function TodayLearningPanel({
         <div className="today-metric">
           <span>今日の回答</span>
           <strong>
-            {today.answered}<small>問{today.accuracy !== null && ` · 正答率 ${Math.round(today.accuracy * 100)}%`}</small>
+            {today?.answered ?? "—"}<small>問{today?.accuracy != null && ` · 正答率 ${Math.round(today.accuracy * 100)}%`}</small>
           </strong>
-          {today.answered > 0 && <em>{today.cards}枚を復習</em>}
+          {today && today.answered > 0 && <em>{today.cards}枚を復習</em>}
         </div>
         <div className={`today-metric${missCount > 0 ? " attention" : ""}`}>
           <span>見直す講評</span>

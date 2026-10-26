@@ -31,6 +31,9 @@ interface Props {
   onReviewNote: (scope: ReviewScope) => void;
   onRemoveAutoTag: (knowledgeId: string, tag: string) => Promise<void>;
   onRestoreAutoTag: (knowledgeId: string, tag: string) => Promise<void>;
+  sourceLoading: boolean;
+  sourceError: string | null;
+  onRetrySources: () => void;
 }
 
 const TABS: { tab: OrganizeTab; label: string }[] = [
@@ -44,6 +47,7 @@ const TABS: { tab: OrganizeTab; label: string }[] = [
 export function OrganizeView({
   tab, questionId, allKnowledge, activeKnowledge, insightStore, groupStore, loading, error,
   onTabChange, onOpenKnowledge, onExit, onOpenHelp, noteSelection, onNoteSelect, onReviewNote, onRemoveAutoTag, onRestoreAutoTag,
+  sourceLoading, sourceError, onRetrySources,
 }: Props) {
   // ノートは問いとテーマの数。テーマの数はノートの一覧を読むまで分からないので出さない。
   const counts: Record<OrganizeTab, number | null> = {
@@ -71,6 +75,13 @@ export function OrganizeView({
           ))}
         </div>
 
+        {sourceLoading && <p className="muted" role="status">出典を取得中…</p>}
+        {sourceError && (
+          <div className="err compact" role="alert">
+            出典を取得できませんでした。{sourceError}
+            <button type="button" onClick={onRetrySources} disabled={sourceLoading}>出典を再試行</button>
+          </div>
+        )}
         {tab === "notes" && (
           <NotesPanel
             knowledge={allKnowledge}
@@ -82,6 +93,8 @@ export function OrganizeView({
             onReview={onReviewNote}
             onRemoveAutoTag={onRemoveAutoTag}
             onRestoreAutoTag={onRestoreAutoTag}
+            sourceLoading={sourceLoading}
+            sourceError={sourceError}
           />
         )}
         {tab === "questions" && (

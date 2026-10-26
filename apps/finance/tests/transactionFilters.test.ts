@@ -8,13 +8,13 @@ const read = (path: string) => readFile(new URL(path, import.meta.url), 'utf8')
 test('月・カテゴリ・支払者を変えても明細表を作り直さず、月の外を指す期間だけを理由つきで解除する', async () => {
   const [app, table] = await Promise.all([readAppSource(), read('../src/components/ExpenseTable.tsx')])
   assert.doesNotMatch(app, /<ExpenseTable\s+key=/)
-  assert.match(app, /scopeKey=\{`\$\{selectedMonth\}:\$\{categoryMode\}/)
+  assert.match(app, /scope=\{scope\}/)
   assert.match(table, /previousScope\.month !== selectedMonth/)
   assert.match(table, /monthKey\(dateFrom\) !== selectedMonth/)
   assert.match(table, /月の外を指していた期間/)
   assert.match(table, /role="status"/)
   // 検索・種別・金額・並び順は集計条件の変更で触らない
-  const scopeBlock = table.slice(table.indexOf('if (previousScope.key'), table.indexOf('const monthExpenses'))
+  const scopeBlock = table.slice(table.indexOf('if (previousScope.key'), table.indexOf('const transactionFilters'))
   assert.doesNotMatch(scopeBlock, /setQuery|setType|setAmountMin|setAmountMax|setSort/)
 })
 

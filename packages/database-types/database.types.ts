@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.17"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -1075,6 +1070,38 @@ export type Database = {
           },
         ]
       }
+      project_todo_read_cache: {
+        Row: {
+          effective_date: string
+          fetched_at: string
+          schedule: Json | null
+          scheduled_action_id: number
+          todo_updated_at: string
+        }
+        Insert: {
+          effective_date: string
+          fetched_at: string
+          schedule?: Json | null
+          scheduled_action_id: number
+          todo_updated_at: string
+        }
+        Update: {
+          effective_date?: string
+          fetched_at?: string
+          schedule?: Json | null
+          scheduled_action_id?: number
+          todo_updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_todo_read_cache_scheduled_action_id_fkey"
+            columns: ["scheduled_action_id"]
+            isOneToOne: true
+            referencedRelation: "scheduled_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           completed_at: string | null
@@ -1492,6 +1519,45 @@ export type Database = {
             columns: ["knowledge_id"]
             isOneToOne: true
             referencedRelation: "knowledge"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_generation_jobs: {
+        Row: {
+          generation_run_id: number | null
+          item_id: number
+          next_attempt_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          generation_run_id?: number | null
+          item_id: number
+          next_attempt_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          generation_run_id?: number | null
+          item_id?: number
+          next_attempt_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_generation_jobs_generation_run_id_fkey"
+            columns: ["generation_run_id"]
+            isOneToOne: false
+            referencedRelation: "review_batch_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_generation_jobs_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: true
+            referencedRelation: "review_queue"
             referencedColumns: ["id"]
           },
         ]
@@ -2813,6 +2879,14 @@ export type Database = {
       }
     }
     Functions: {
+      add_insight_group_members: {
+        Args: {
+          p_expected_updated_at: string
+          p_group_id: number
+          p_insight_ids: number[]
+        }
+        Returns: Json
+      }
       add_project_queued_action: {
         Args: {
           p_content: string
@@ -2834,10 +2908,19 @@ export type Database = {
         Args: { p_limit?: number; p_model: string }
         Returns: number
       }
+      attach_review_generation_jobs: {
+        Args: { p_run_id: number }
+        Returns: undefined
+      }
       begin_review_batch: {
         Args: { p_kind: string; p_trigger: string }
         Returns: number
       }
+      bulk_categorize_expenses: {
+        Args: { p_category: string; p_items: Json }
+        Returns: Json
+      }
+      claim_relearning_generation: { Args: never; Returns: number }
       claim_review_answers: {
         Args: { p_limit?: number }
         Returns: {
@@ -3022,6 +3105,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      finish_review_generation_jobs: {
+        Args: { p_run_id: number; p_succeeded: boolean }
+        Returns: undefined
+      }
       get_daily_review_status: {
         Args: { p_limit?: number }
         Returns: {
@@ -3042,6 +3129,88 @@ export type Database = {
         }[]
       }
       get_database_usage: { Args: never; Returns: Json }
+      get_finance_expense_page: {
+        Args: {
+          p_amount_max?: number
+          p_amount_min?: number
+          p_categories?: string[]
+          p_category_mode?: string
+          p_count?: boolean
+          p_from?: string
+          p_limit?: number
+          p_month: string
+          p_offset?: number
+          p_payer?: string
+          p_query?: string
+          p_sort?: string
+          p_to?: string
+          p_type?: string
+          p_voided?: boolean
+        }
+        Returns: Json
+      }
+      get_finance_hub_summary: { Args: { p_today: string }; Returns: Json }
+      get_finance_overview: {
+        Args: {
+          p_categories?: string[]
+          p_category_mode?: string
+          p_month: string
+          p_payer?: string
+        }
+        Returns: Json
+      }
+      get_hub_local_summary: {
+        Args: { p_source: string; p_today: string }
+        Returns: Json
+      }
+      get_idea_read_model: {
+        Args: {
+          p_category?: string
+          p_filter?: string
+          p_id?: number
+          p_limit?: number
+          p_offset?: number
+          p_route_offset?: number
+          p_search?: string
+          p_status?: string
+          p_today?: string
+          p_view?: string
+        }
+        Returns: Json
+      }
+      get_inbox_triage_summary: { Args: { p_inbox_id: number }; Returns: Json }
+      get_knowledge_hub_summary: { Args: { p_today?: string }; Returns: Json }
+      get_learning_log_page: {
+        Args: {
+          p_category?: string
+          p_from?: string
+          p_ids?: number[]
+          p_knowledge_id?: string
+          p_limit?: number
+          p_misses?: boolean
+          p_offset?: number
+          p_unconfirmed?: boolean
+          p_verdict?: string
+        }
+        Returns: Json
+      }
+      get_learning_summary: { Args: { p_today?: string }; Returns: Json }
+      get_project_read_model: {
+        Args: {
+          p_attention?: boolean
+          p_history_limit?: number
+          p_history_offset?: number
+          p_item_offset?: number
+          p_limit?: number
+          p_offset?: number
+          p_project_id?: number
+          p_search?: string
+          p_sort?: string
+          p_today?: string
+          p_view?: string
+        }
+        Returns: Json
+      }
       get_recent_quiz_notes: {
         Args: { p_knowledge_ids: string[]; p_per_item?: number }
         Returns: {
@@ -3072,6 +3241,7 @@ export type Database = {
           waiting_grading: number
         }[]
       }
+      get_scheduled_action_counts: { Args: never; Returns: Json }
       get_semantic_index_status: {
         Args: { p_model: string }
         Returns: {
@@ -3126,6 +3296,42 @@ export type Database = {
         Returns: undefined
       }
       jst_today: { Args: never; Returns: string }
+      learning_log_matches: {
+        Args: {
+          p_category?: string
+          p_from?: string
+          p_knowledge_id?: string
+          p_unconfirmed?: boolean
+          p_verdict?: string
+        }
+        Returns: {
+          answered_at: string | null
+          asked_on: string
+          attempt_id: string | null
+          confirmed_at: string | null
+          correct_answer: string | null
+          created_at: string
+          explanation: string | null
+          format: string
+          id: number
+          knowledge_id: string
+          note: string | null
+          quality: number
+          question: string | null
+          review_queue_id: number | null
+          schedule_updated: boolean
+          sync_event_id: string | null
+          user_answer: string | null
+          verdict: string
+          was_early: boolean
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "quiz_log"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       link_project_action_todo: { Args: { p_request: Json }; Returns: number }
       link_project_source: {
         Args: {
@@ -3447,6 +3653,10 @@ export type Database = {
           stability_hours: number
         }[]
       }
+      record_project_todo_read_cache: {
+        Args: { p_items: Json }
+        Returns: undefined
+      }
       record_review_grade: {
         Args: {
           p_correct_answer: string
@@ -3461,6 +3671,16 @@ export type Database = {
           next_review_at: string
           quiz_log_id: number
           recorded: boolean
+          status: string
+        }[]
+      }
+      record_review_grades_batch: {
+        Args: { p_errors?: Json; p_grades: Json }
+        Returns: {
+          error: string
+          item_id: number
+          recorded: boolean
+          relearning: boolean
           status: string
         }[]
       }
@@ -3651,6 +3871,10 @@ export type Database = {
         Args: { p_items: Json; p_model: string }
         Returns: number
       }
+      search_archived_knowledge: {
+        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Returns: Json
+      }
       search_semantic: {
         Args: {
           p_embedding: string
@@ -3756,6 +3980,15 @@ export type Database = {
         }
         Returns: number
       }
+      snapshot_review_result_ids: {
+        Args: {
+          p_category?: string
+          p_from?: string
+          p_misses?: boolean
+          p_verdict?: string
+        }
+        Returns: Json
+      }
       submit_review_answer: {
         Args: { p_answer: string; p_item_id: number }
         Returns: {
@@ -3798,6 +4031,21 @@ export type Database = {
           p_min_similarity?: number
           p_model: string
           p_per_type?: number
+        }
+        Returns: {
+          origin: string
+          similarity: number
+          source_id: string
+          source_type: string
+          tag: string
+        }[]
+      }
+      theme_material_keys_for_tag: {
+        Args: {
+          p_min_similarity?: number
+          p_model: string
+          p_per_type?: number
+          p_tag?: string
         }
         Returns: {
           origin: string

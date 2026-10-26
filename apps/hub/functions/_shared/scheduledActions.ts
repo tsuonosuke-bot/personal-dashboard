@@ -5,6 +5,7 @@ import {
   googleAccessToken,
   parseCalendarSchedule,
   readGoogleCalendarEvents,
+  readGoogleCalendarEventsPartial,
   rescheduleGoogleCalendarEvent,
   type CalendarSchedule,
   type GoogleCalendarEventSnapshot,
@@ -12,6 +13,7 @@ import {
 import { supabaseHeaders } from "./supabaseAuth.ts";
 import { TODO_PROJECT_SELECT, linkedProjectAction, projectTodoRpc, validNextActionResolution,
   validProjectTimestamp, type NextActionResolution } from "./projectActionTodos.ts";
+import { mapConcurrent } from "./concurrency.ts";
 
 type ScheduledActionStatus = "pending" | "completed" | "skipped";
 type ScheduledActionCommand = "complete" | "skip" | "reopen" | "reschedule" | "recreate";
@@ -159,21 +161,47 @@ function responseError(response: Response, table: string): DashboardError {
   return new DashboardError(code, `${table} returned ${response.status}.`);
 }
 
-async function fetchRows(env: DashboardEnv, table: string, select: string, order?: string): Promise<unknown[]> {
+async function fetchRows(env: DashboardEnv, table: string, select: string, order?: string, filters: Record<string, string> = {}, page?: { limit: number; offset: number }): Promise<unknown[]> {
   const all: unknown[] = [];
-  for (let offset = 0; ; offset += 1000) {
+  for (let offset = page?.offset ?? 0; ; offset += 1000) {
     const endpoint = restEndpoint(env, table);
     endpoint.searchParams.set("select", select);
     if (order) endpoint.searchParams.set("order", order);
-    endpoint.searchParams.set("limit", "1000");
+    for (const [name, value] of Object.entries(filters)) endpoint.searchParams.set(name, value);
+    endpoint.searchParams.set("limit", String(page?.limit ?? 1000));
     endpoint.searchParams.set("offset", String(offset));
     const response = await supabaseFetch(env, endpoint);
     if (!response.ok) throw responseError(response, table);
     const rows: unknown = await response.json();
     if (!Array.isArray(rows)) throw new DashboardError("SUPABASE_RESPONSE_INVALID", `${table} returned invalid data.`);
     all.push(...rows);
-    if (rows.length < 1000) return all;
+    if (page || rows.length < 1000) return all;
   }
+}
+
+async function fetchRelatedRows(env: DashboardEnv, table: string, select: string, field: string, ids: number[]): Promise<unknown[]> {
+  const unique = [...new Set(ids)];
+  const chunks: number[][] = [];
+  for (let index = 0; index < unique.length; index += 100) chunks.push(unique.slice(index, index + 100));
+  const results = await mapConcurrent(chunks, 4, (chunk) => fetchRows(env, table, select, undefined, { [field]: `in.(${chunk.join(",")})` }));
+  return results.flatMap((result) => { if (result.status === "rejected") throw result.reason; return result.value; });
+}
+
+export interface ScheduledActionQuery {
+  scope?: "current" | "history" | "all" | "today";
+  offset?: number;
+  limit?: number;
+  ids?: number[];
+}
+
+export function readScheduledActionQuery(url: URL): ScheduledActionQuery | null {
+  const scope = url.searchParams.get("scope") ?? "current";
+  const offset = Number(url.searchParams.get("offset") ?? "0");
+  const limit = Number(url.searchParams.get("limit") ?? "50");
+  const ids = url.searchParams.get("ids")?.split(",").map(Number);
+  if (!["current", "history", "all"].includes(scope) || !Number.isSafeInteger(offset) || offset < 0
+    || !Number.isSafeInteger(limit) || limit < 1 || limit > 100 || (ids && (ids.length > 100 || ids.some((id) => !Number.isSafeInteger(id) || id <= 0)))) return null;
+  return { scope: scope as ScheduledActionQuery["scope"], offset, limit, ids };
 }
 
 function normalizeAction(row: ScheduledActionRow): StoredAction {
@@ -219,16 +247,31 @@ function safeGoogleUrl(value: unknown): string | null {
   }
 }
 
-export async function listScheduledActions(env: DashboardEnv) {
+export async function listScheduledActions(env: DashboardEnv, query: ScheduledActionQuery = {}) {
+  const syncStartedAt = new Date().toISOString();
   // Googleのトークン取得は表の読み込みを待たずに始める。失敗は下のカレンダー取得で扱う。
   const pendingAccessToken = googleAccessToken(env);
   pendingAccessToken.catch(() => undefined);
-  const [actionRows, routeRows, wantRows] = await Promise.all([
-    fetchRows(env, "scheduled_actions", ACTION_COLUMNS, "updated_at.desc,id.desc"),
-    fetchRows(env, "want_routes", "id,want_id,title,detail,target_id,target_url", "created_at.desc,id.desc"),
-    fetchRows(env, "wants", "id,content,source_inbox_id", "created_at.desc,id.desc"),
-  ]);
+  const scope = query.scope ?? "all";
+  const pendingCounts = scope !== "all" && scope !== "today" && !query.ids ? (async () => {
+    const endpoint = restEndpoint(env, "rpc/get_scheduled_action_counts");
+    const response = await supabaseFetch(env, endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    if (!response.ok) throw responseError(response, "scheduled action counts");
+    const value = await response.json() as { pending: number; completed: number; skipped: number };
+    if (!value || [value.pending, value.completed, value.skipped].some((n) => !Number.isSafeInteger(n) || n < 0)) throw new DashboardError("SUPABASE_RESPONSE_INVALID", "Invalid ToDo counts.");
+    return value;
+  })() : null;
+  pendingCounts?.catch(() => undefined);
+  const filters: Record<string, string> = query.ids ? { id: `in.(${query.ids.join(",")})` }
+    : scope === "current" ? { status: "eq.pending" } : scope === "history" ? { status: "in.(completed,skipped)" }
+      : scope === "today" ? { or: `(status.eq.pending,and(status.eq.completed,completed_at.gte.${new Date(Date.now()+9*3600000).toISOString().slice(0,10)}T00:00:00+09:00))` } : {};
+  const actionRows = query.ids ? await fetchRelatedRows(env, "scheduled_actions", ACTION_COLUMNS, "id", query.ids) : await fetchRows(env, "scheduled_actions", ACTION_COLUMNS, "updated_at.desc,id.desc", filters,
+    !query.ids && scope === "history" ? { limit: (query.limit ?? 50) + 1, offset: query.offset ?? 0 } : undefined);
+  const hasMore = scope === "history" && actionRows.length > (query.limit ?? 50);
+  if (hasMore) actionRows.pop();
   const actions = actionRows.map((row) => normalizeAction(row as ScheduledActionRow));
+  const routeRows = await fetchRelatedRows(env, "want_routes", "id,want_id,title,detail,target_id,target_url", "id", actions.flatMap((action) => action.sourceRouteId ? [action.sourceRouteId] : []));
+  const wantRows = await fetchRelatedRows(env, "wants", "id,content,source_inbox_id", "id", routeRows.flatMap((row) => isPlainObject(row) && integer(row.want_id) ? [integer(row.want_id)!] : []));
   const projectLinks = new Map(actions.map((action, index) => [action.id, linkedProjectAction(actionRows[index])]));
   const routes = new Map<number, CalendarRouteRow>();
   routeRows.forEach((row) => {
@@ -239,11 +282,18 @@ export async function listScheduledActions(env: DashboardEnv) {
     if (isPlainObject(row) && integer(row.id)) wants.set(integer(row.id)!, row as WantSourceRow);
   });
 
-  const targetIds = actions.map((action) => (action.sourceRouteId ? textOrNull(routes.get(action.sourceRouteId)?.target_id) : null)).filter((id): id is string => Boolean(id));
+  // History is read only on demand. Compatibility callers may ask for all rows, but
+  // only currently pending events take part in their initial Google synchronization.
+  const targetIds = actions.filter((action) => scope === "history" || query.ids || action.status === "pending")
+    .map((action) => (action.sourceRouteId ? textOrNull(routes.get(action.sourceRouteId)?.target_id) : null)).filter((id): id is string => Boolean(id));
   let calendarEvents = new Map<string, GoogleCalendarEventSnapshot>();
-  let calendarSync: "live" | "unavailable" = "live";
+  let calendarSync: "live" | "partial" | "unavailable" = "live";
+  let failedEventIds: string[] = [];
   try {
-    calendarEvents = await readGoogleCalendarEvents(env, targetIds, pendingAccessToken);
+    const result = await readGoogleCalendarEventsPartial(env, targetIds, pendingAccessToken);
+    calendarEvents = result.events;
+    failedEventIds = [...result.failures.keys()];
+    if (failedEventIds.length) calendarSync = calendarEvents.size ? "partial" : "unavailable";
   } catch {
     calendarSync = "unavailable";
   }
@@ -287,13 +337,13 @@ export async function listScheduledActions(env: DashboardEnv) {
       sourceWantId: wantId,
       sourceInboxId: integer(want?.source_inbox_id),
       schedule: event?.schedule || action.schedule,
-      calendarState: event?.status || (calendarSync === "live" ? "missing" : "unavailable"),
+      calendarState: event?.status || "unavailable",
       calendarUrl: event?.targetUrl || safeGoogleUrl(route.target_url),
-      calendarEtag: event?.etag || null,
+      calendarEtag: event?.etag || action.calendarEtag,
       completedAt: action.completedAt,
       note: action.note,
       rescheduleCount: action.rescheduleCount,
-      lastCalendarSyncAt: calendarSync === "live" ? new Date().toISOString() : action.lastCalendarSyncAt,
+      lastCalendarSyncAt: event ? new Date().toISOString() : action.lastCalendarSyncAt,
       createdAt: action.createdAt,
       updatedAt: action.updatedAt,
       linkedProjectAction: projectLinks.get(action.id) ?? null,
@@ -301,12 +351,13 @@ export async function listScheduledActions(env: DashboardEnv) {
   });
 
   return {
-    source: { system: "google-calendar", state: calendarSync, fetchedAt: new Date().toISOString() },
-    summary: {
+    source: { system: "google-calendar", state: calendarSync, fetchedAt: new Date().toISOString(), syncStartedAt, failedEventIds },
+    summary: await pendingCounts ?? {
       pending: items.filter((item) => item.status === "pending").length,
       completed: items.filter((item) => item.status === "completed").length,
       skipped: items.filter((item) => item.status === "skipped").length,
     },
+    page: { scope, offset: query.offset ?? 0, hasMore, nextOffset: hasMore ? (query.offset ?? 0) + (query.limit ?? 50) : null },
     items,
   };
 }

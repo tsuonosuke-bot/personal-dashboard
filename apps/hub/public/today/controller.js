@@ -16,17 +16,51 @@ export function createTodayPanel(root) {
 
   // 手元で反映した変更より前に始まった読み込みの結果で、画面を巻き戻さないための番号。
   const localEdits = { todos: 0, habits: 0, projects: 0 };
+  const loadGenerations = { todos: 0, habits: 0, projects: 0 };
+  let pendingCombined = null;
+
+  function combinedSource(key) {
+    const revision = `${localEdits.todos}:${localEdits.projects}`;
+    if (!pendingCombined || pendingCombined.revision !== revision) {
+      const request = { revision, promise: null };
+      request.promise = requestJson("/api/today").finally(() => { if (pendingCombined === request) pendingCombined = null; });
+      pendingCombined = request;
+    }
+    return pendingCombined.promise.then((payload) => {
+      if (payload[key]?.error) throw new Error(payload[key].error);
+      return payload[key].data;
+    });
+  }
+
+  function applyProjectResult(payload) {
+    if (!Array.isArray(payload.projects)) return payload.refreshError || "保存は完了しました。Projectを再読み込みしてください。";
+    localEdits.projects++;
+    const previous = state.projects.data;
+    if (payload.partial && previous) {
+      const changed = new Map(payload.projects.map((project) => [project.id, project]));
+      payload = { ...previous, summary: payload.summary, projects: previous.projects.map((project) => changed.get(project.id) || project) };
+    }
+    state.projects = { status: "ready", data: payload, error: null };
+    for (const project of payload.projects) for (const action of project.actions || []) {
+      if (action.linkedTodo && state.todos.data) {
+        localEdits.todos++;
+        state.todos.data.items = state.todos.data.items.map((todo) => todo.id === action.linkedTodo.id ? action.linkedTodo : todo);
+      }
+    }
+    return "";
+  }
 
   async function load(key) {
+    const generation = ++loadGenerations[key];
     state[key] = { ...state[key], status: "loading" };
     if (!state[key].data) render();
     const startedAt = localEdits[key];
     try {
-      const data = await requestJson(SOURCES[key].url);
-      if (localEdits[key] !== startedAt) return;
+      const data = await (key === "habits" ? requestJson(SOURCES[key].url) : combinedSource(key));
+      if (localEdits[key] !== startedAt || generation !== loadGenerations[key]) return;
       state[key] = { status: "ready", data, error: null };
     } catch (error) {
-      if (localEdits[key] !== startedAt) return;
+      if (localEdits[key] !== startedAt || generation !== loadGenerations[key]) return;
       state[key] = { status: "error", data: state[key].data, error: error instanceof Error ? error.message : `${SOURCES[key].label}を取得できませんでした。` };
       if (state[key].data) showToast(`${SOURCES[key].label}を最新にできませんでした。`);
     }
@@ -34,6 +68,7 @@ export function createTodayPanel(root) {
   }
 
   function loadAll() {
+    pendingCombined = null;
     return Promise.all(Object.keys(SOURCES).map(load));
   }
 
@@ -59,7 +94,9 @@ export function createTodayPanel(root) {
       const selected = await chooseTodoNextResolution(item.linkedProjectAction, command, async (resolution) => { result = await send(resolution); });
       if (!selected) throw new Error("変更をキャンセルしました。");
     } else result = await send();
-    if (item.linkedProjectAction) void load("projects");
+    localEdits.todos++;
+    if (item.linkedProjectAction) { localEdits.projects++; result = { ...result, projectChanged: true }; }
+    pendingCombined = null;
     return result;
   }
 
@@ -68,6 +105,7 @@ export function createTodayPanel(root) {
   function applyTodoResult(id, result) {
     const items = state.todos.data?.items;
     if (!items || !result || typeof result.updatedAt !== "string") {
+      if (result?.projectChanged) void load("projects");
       void load("todos");
       return;
     }
@@ -83,6 +121,7 @@ export function createTodayPanel(root) {
       },
     };
     render();
+    if (result.projectChanged) void load("projects");
     void load("todos");
   }
 
@@ -166,7 +205,7 @@ export function createTodayPanel(root) {
     if (!found) return;
     if (found.action.linkedTodo && found.action.status === "next") {
       button.disabled = true;
-      void updateTodo(found.action.linkedTodo, "complete").then(() => { void load("projects"); void load("todos"); showToast("ToDoとProjectタスクを完了しました。"); })
+      void updateTodo(found.action.linkedTodo, "complete").then((result) => { applyTodoResult(found.action.linkedTodo.id, result); showToast("ToDoとProjectタスクを完了しました。"); })
         .catch((error) => { button.disabled = false; showToast(error.message); });
       return;
     }
@@ -196,9 +235,9 @@ export function createTodayPanel(root) {
         startOn: null,
         ...(found.action.linkedTodo ? { todo: { id: found.action.linkedTodo.id, updatedAt: found.action.linkedTodo.updatedAt, status: found.action.linkedTodo.status } } : {}),
       });
-      state.projects = { status: "ready", data: payload, error: null };
+      const warning = applyProjectResult(payload);
       render();
-      showToast(`「${found.action.content}」を完了しました`);
+      showToast(`「${found.action.content}」を完了しました${warning ? `。${warning}` : ""}`);
     } catch (error) {
       button.disabled = false;
       button.focus();
@@ -222,11 +261,11 @@ export function createTodayPanel(root) {
         reviewOn: null,
         ...(found.action.linkedTodo ? { todo: { id: found.action.linkedTodo.id, updatedAt: found.action.linkedTodo.updatedAt, status: found.action.linkedTodo.status } } : {}),
       });
-      state.projects = { status: "ready", data: payload, error: null };
+      const warning = applyProjectResult(payload);
       state.resolvingActionId = null;
       render();
       const next = nextActionContent || found.project.actions.find((action) => action.id === nextActionId)?.content || "";
-      showToast(`「${found.action.content}」を完了。次の一手は「${next}」です`);
+      showToast(`「${found.action.content}」を完了。次の一手は「${next}」です${warning ? `。${warning}` : ""}`);
     } catch (error) {
       controls.forEach((element) => { element.disabled = false; });
       control?.focus();

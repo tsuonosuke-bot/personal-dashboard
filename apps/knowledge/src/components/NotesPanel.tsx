@@ -21,6 +21,8 @@ interface Props {
   onReview: (scope: ReviewScope) => void;
   onRemoveAutoTag: (knowledgeId: string, tag: string) => Promise<void>;
   onRestoreAutoTag: (knowledgeId: string, tag: string) => Promise<void>;
+  sourceLoading: boolean;
+  sourceError: string | null;
 }
 
 /** ノートの1項目。問いの材料とテーマの材料を同じ形にそろえる。 */
@@ -77,6 +79,7 @@ function topicSelection(topic: NoteTopic): NoteSelection {
  */
 export function NotesPanel({
   knowledge, insights, groupStore, selection, onSelect, onOpenKnowledge, onReview, onRemoveAutoTag, onRestoreAutoTag,
+  sourceLoading, sourceError,
 }: Props) {
   const [topics, setTopics] = useState<NoteTopic[] | null>(null);
   const [topicsError, setTopicsError] = useState<string | null>(null);
@@ -137,7 +140,7 @@ export function NotesPanel({
           return [{
             type: "insight" as const,
             id: String(id),
-            title: knowledgeById.get(insight.knowledge_id)?.title ?? "削除されたナレッジ",
+            title: knowledgeById.get(insight.knowledge_id)?.title ?? "出典が見つかりません",
             body: insight.body,
             meta: null,
             knowledgeId: insight.knowledge_id,
@@ -283,7 +286,7 @@ export function NotesPanel({
                                 {type === "insight" ? (
                                   <>
                                     <p>{item.body}</p>
-                                    <small>{item.title}</small>
+                                    <small>{source?.title ?? (sourceLoading ? "出典を取得中…" : sourceError ? "出典を取得できませんでした" : item.title)}</small>
                                   </>
                                 ) : (
                                   <>

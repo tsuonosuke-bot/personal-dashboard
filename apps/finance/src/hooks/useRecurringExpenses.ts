@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { createRecurringExpense, getRecurringExpenses, runRecurringExpenses, setRecurringExpenseActive, updateRecurringExpense } from '../lib/api'
 import type { RecurringExpense, RecurringExpenseDraft, RecurringExpenseUpdate } from '../lib/types'
 
@@ -10,24 +10,34 @@ export function useRecurringExpenses({ demoMode, reload, setNotice }: Options) {
   const [recurringBusy, setRecurringBusy] = useState(false)
   const [recurringError, setRecurringError] = useState<string | null>(null)
   const [recurringLoadError, setRecurringLoadError] = useState<string | null>(null)
+  const [recurringLoading, setRecurringLoading] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const pendingLoad = useRef<Promise<void> | null>(null)
 
-  const loadRecurringRules = useCallback(async () => {
-    if (demoMode) return
-    try {
-      const rules = await getRecurringExpenses()
+  const loadRecurringRules = useCallback((): Promise<void> => {
+    if (demoMode) return Promise.resolve()
+    if (pendingLoad.current) return pendingLoad.current
+    setRecurringLoading(true)
+    const request = getRecurringExpenses().then((rules) => {
+      setLoaded(true)
       setRecurringRules(rules)
       setRecurringLoadError(null)
       setRecurringError(null)
-    } catch (caught) {
+    }).catch((caught: unknown) => {
       const message = caught instanceof Error ? caught.message : '定期登録を読み込めませんでした。'
       setRecurringLoadError(message)
       setRecurringError(message)
-    }
+    }).finally(() => {
+      pendingLoad.current = null
+      setRecurringLoading(false)
+    })
+    pendingLoad.current = request
+    return request
   }, [demoMode])
 
-  // Initial server data must be synchronized after mount; the async loader also backs the visible retry action.
+  // Direct links and history navigation share the first-open loader; a failed read is retried explicitly.
   // oxlint-disable-next-line react/set-state-in-effect
-  useEffect(() => { void loadRecurringRules() }, [loadRecurringRules])
+  useEffect(() => { if (recurringOpen && !loaded) void loadRecurringRules() }, [recurringOpen, loaded, loadRecurringRules])
   useEffect(() => {
     const syncView = () => setRecurringOpen(new URLSearchParams(window.location.search).get('view') === 'recurring')
     window.addEventListener('popstate', syncView)
@@ -92,6 +102,7 @@ export function useRecurringExpenses({ demoMode, reload, setNotice }: Options) {
     finally { setRecurringBusy(false) }
   }
 
-  return { recurringOpen, recurringRules, recurringBusy, recurringError, loadRecurringRules,
+  const waitingForFirstLoad = recurringOpen && !demoMode && !loaded && !recurringLoadError
+  return { recurringOpen, recurringRules, recurringBusy, recurringLoading: recurringLoading || waitingForFirstLoad, recurringError, loadRecurringRules,
     addRecurring, toggleRecurring, editRecurring, openRecurring, closeRecurring, runRecurring }
 }

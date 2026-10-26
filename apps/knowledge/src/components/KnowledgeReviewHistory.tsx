@@ -1,9 +1,7 @@
-import { useMemo, useState } from "react";
-import { useMasteryHistory } from "../hooks/useMasteryHistory";
-import { knowledgeAnswers, knowledgeMasteryChanges } from "../lib/knowledgeReviewHistory";
-import type { QuizLog } from "../types";
+import { useState } from "react";
+import { useCardMasteryHistory } from "../hooks/useCardMasteryHistory";
+import { useCardAnswers } from "../hooks/useCardAnswers";
 
-const PAGE_SIZE = 10;
 const VERDICT_CLASS: Record<string, string> = {
   正解: "quiz-verdict-ok", 部分正解: "quiz-verdict-partial", 不正解: "quiz-verdict-ng",
 };
@@ -14,20 +12,22 @@ function dateTime(value: string): string {
 }
 
 /** 詳細から見返す読み取り専用の履歴。開いても採点結果を確認済みにはしない。 */
-export function KnowledgeReviewHistory({ knowledgeId, quizLog }: { knowledgeId: string; quizLog: QuizLog[] }) {
-  const [answerLimit, setAnswerLimit] = useState(PAGE_SIZE);
-  const [masteryLimit, setMasteryLimit] = useState(PAGE_SIZE);
-  const mastery = useMasteryHistory(quizLog);
-  const answers = useMemo(() => knowledgeAnswers(quizLog, knowledgeId), [quizLog, knowledgeId]);
-  const changes = useMemo(() => knowledgeMasteryChanges(mastery.events, knowledgeId), [mastery.events, knowledgeId]);
+export function KnowledgeReviewHistory({ knowledgeId, reloadKey }: { knowledgeId: string; reloadKey: unknown }) {
+  const [masteryOpen, setMasteryOpen] = useState(false);
+  const mastery = useCardMasteryHistory(knowledgeId, masteryOpen, reloadKey);
+  const history = useCardAnswers(knowledgeId, reloadKey);
+  const answers = history.items;
+  const changes = mastery.changes;
 
   return (
     <section className="history-section knowledge-review-history" aria-label="このナレッジの復習履歴">
-      <h3>復習履歴 <span>{answers.length}件</span></h3>
-      {answers.length === 0 ? <p className="muted">回答履歴はありません。</p> : (
+      <h3>復習履歴 <span>{history.total}件</span></h3>
+      {history.loading && <p role="status">読み込み中…</p>}
+      {history.error && <p className="err compact" role="alert">{history.error}<button onClick={() => void history.load()}>再試行</button></p>}
+      {!history.loading && !history.error && answers.length === 0 ? <p className="muted">回答履歴はありません。</p> : (
         <>
           <ol className="knowledge-answer-list">
-            {answers.slice(0, answerLimit).map((entry) => (
+            {answers.map((entry) => (
               <li key={entry.id}>
                 <details>
                   <summary>
@@ -49,24 +49,24 @@ export function KnowledgeReviewHistory({ knowledgeId, quizLog }: { knowledgeId: 
               </li>
             ))}
           </ol>
-          {answers.length > answerLimit && <button onClick={() => setAnswerLimit((limit) => limit + PAGE_SIZE)}>回答をさらに表示（残り{answers.length - answerLimit}件）</button>}
+          {history.total > answers.length && <button disabled={history.loading} onClick={() => void history.load()}>回答をさらに表示（残り{history.total - answers.length}件）</button>}
         </>
       )}
-      <details className="knowledge-mastery-history">
-        <summary>習熟度の変化 <span>{mastery.loading ? "読み込み中…" : mastery.error ? "取得失敗" : `${changes.length}件`}</span></summary>
+      <details className="knowledge-mastery-history" onToggle={(event) => setMasteryOpen(event.currentTarget.open)}>
+        <summary>習熟度の変化 <span>{mastery.loading ? "読み込み中…" : mastery.error ? "取得失敗" : masteryOpen ? `${mastery.total}件` : ""}</span></summary>
         {mastery.loading ? <p role="status">読み込み中…</p> : mastery.error ? (
-          <p className="err compact" role="alert">習熟度の履歴を取得できませんでした。</p>
+          <p className="err compact" role="alert">習熟度の履歴を取得できませんでした。<button onClick={() => void mastery.load()}>再試行</button></p>
         ) : changes.length === 0 ? <p className="muted">習熟度の変更履歴はありません。</p> : (
           <>
             <ol className="knowledge-mastery-list">
-              {changes.slice(0, masteryLimit).map((entry) => (
+              {changes.map((entry) => (
                 <li key={entry.id}>
                   <time dateTime={entry.changed_at}>{dateTime(entry.changed_at)}</time>
                   <span>{entry.is_baseline ? `記録開始時点：${entry.to_mastery}` : entry.from_mastery ? `${entry.from_mastery} → ${entry.to_mastery}` : entry.to_mastery}</span>
                 </li>
               ))}
             </ol>
-            {changes.length > masteryLimit && <button onClick={() => setMasteryLimit((limit) => limit + PAGE_SIZE)}>習熟度をさらに表示（残り{changes.length - masteryLimit}件）</button>}
+            {mastery.total > changes.length && <button disabled={mastery.loading} onClick={() => void mastery.load()}>習熟度をさらに表示（残り{mastery.total - changes.length}件）</button>}
           </>
         )}
       </details>

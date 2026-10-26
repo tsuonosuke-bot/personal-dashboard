@@ -18,6 +18,8 @@ export const state = {
   bulkSelected: new Set(),
   bulkSubmitting: false,
   bulkError: "",
+  bulkResult: null,
+  bulkRetryItems: new Map(),
   bulkRouteKeys: new Map(),
   todoLayout: "list",
   /** スマホのToDoで、ステータスと予定の条件を開いているか（#130）。 */

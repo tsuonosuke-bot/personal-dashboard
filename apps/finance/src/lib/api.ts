@@ -1,6 +1,8 @@
+import { readAllPages } from './allPages.ts'
 import type { BudgetCategory, Expense, ExpenseDraft, ExpenseSnapshot, RecurringExpense, RecurringExpenseDraft, RecurringExpenseUpdate } from './types'
 import { parseBudgetCategory, parseExpense, parsePageEnvelope, parseRecurringExpense } from './apiValidation'
 import { readApiResponse, responseMessage } from './http'
+import { parseFinanceOverview, scopeParams, type ExpensePage, type FinanceOverview, type FinanceScope, type TransactionFilters } from './financeOverview.ts'
 
 type ErrorBody = { error?: unknown }
 
@@ -44,47 +46,8 @@ async function requestJson(path: string, init: RequestInit = {}): Promise<unknow
   return responseBody
 }
 
-const API_PAGE_SIZE = 1_000
-const MAX_PAGE_REQUESTS = 10_000
-
-async function getAllPages<T>(path: string, parseItem: (value: unknown) => T): Promise<T[]> {
-  const separator = path.includes('?') ? '&' : '?'
-  const readPage = async (offset: number) => {
-    const data = await requestJson(`${path}${separator}limit=${API_PAGE_SIZE}&offset=${offset}`)
-    const page = parsePageEnvelope(data)
-    if (page.offset !== offset || page.limit !== API_PAGE_SIZE) {
-      throw new Error('APIのページ情報が要求内容と一致しません。')
-    }
-    return page
-  }
-
-  const first = await readPage(0)
-  const result: T[] = first.items.map(parseItem)
-  if (first.items.length === 0) return result
-
-  // 件数が分かっていれば、残りのページは1枚ずつ待たずにまとめて取る（明細は数千件ある）。
-  if (first.total !== null && first.items.length === API_PAGE_SIZE) {
-    const offsets: number[] = []
-    for (let offset = API_PAGE_SIZE; offset < first.total; offset += API_PAGE_SIZE) offsets.push(offset)
-    if (offsets.length + 1 > MAX_PAGE_REQUESTS) throw new Error('データ件数が安全な取得上限を超えています。')
-    const pages = await Promise.all(offsets.map(readPage))
-    for (const page of pages) result.push(...page.items.map(parseItem))
-    // 取得中に件数が増えていた場合は、続きを順に読む。
-    const lastPage = pages[pages.length - 1]
-    if (!lastPage || lastPage.items.length < API_PAGE_SIZE) return result
-  } else if (first.total !== null && first.items.length >= first.total) {
-    return result
-  }
-
-  let offset = result.length
-  for (let requestCount = Math.ceil(offset / API_PAGE_SIZE); requestCount < MAX_PAGE_REQUESTS; requestCount += 1) {
-    const page = await readPage(offset)
-    result.push(...page.items.map(parseItem))
-    if (page.items.length === 0) return result
-    offset += page.items.length
-    if (page.total !== null && offset >= page.total) return result
-  }
-  throw new Error('データ件数が安全な取得上限を超えています。')
+function getAllPages<T>(path: string, parseItem: (value: unknown) => T): Promise<T[]> {
+  return readAllPages(path, parseItem, requestJson)
 }
 
 // 復元できるように取消済みも取得する。集計に使う前に voided_at で分ける。
@@ -98,6 +61,53 @@ export function getBudgetCategories(): Promise<BudgetCategory[]> {
 
 export function getRecurringExpenses(): Promise<RecurringExpense[]> {
   return getAllPages('/api/recurring-expenses', parseRecurringExpense)
+}
+
+export async function getFinanceOverview(scope: FinanceScope, signal?: AbortSignal): Promise<FinanceOverview> {
+  return parseFinanceOverview(await requestJson(`/api/finance-overview?${scopeParams(scope)}`, { signal }))
+}
+
+export async function getExpensePage(scope: FinanceScope, filters: TransactionFilters, offset: number,
+  count = true, voided = false, signal?: AbortSignal): Promise<ExpensePage> {
+  const params = scopeParams(scope)
+  params.set('limit', '50')
+  params.set('offset', String(offset))
+  params.set('count', count ? 'exact' : 'none')
+  params.set('voided', voided ? '1' : '0')
+  if (filters.query) params.set('q', filters.query)
+  if (filters.dateFrom) params.set('from', filters.dateFrom)
+  if (filters.dateTo) params.set('to', filters.dateTo)
+  if (filters.amountMin) params.set('amount_min', filters.amountMin)
+  if (filters.amountMax) params.set('amount_max', filters.amountMax)
+  params.set('type', filters.type)
+  params.set('sort', filters.sort)
+  const page = parsePageEnvelope(await requestJson(`/api/expense-page?${params}`, { signal }))
+  if (page.limit !== 50 || page.offset !== offset || page.items.length > 50) throw new Error('APIのページ情報が要求内容と一致しません。')
+  return { ...page, items: page.items.map(parseExpense) }
+}
+
+export type BulkCategoryResponse = { id: number; status: 'updated' | 'conflict' | 'failed'; item?: Expense }
+export async function categorizeExpenseBatch(targets: Expense[], category: string): Promise<BulkCategoryResponse[]> {
+  const data = await requestJson('/api/expense-categories', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Dashboard-Action': 'expense-categories' },
+    body: JSON.stringify({ category, items: targets.map((row) => ({ id: row.id, original: {
+      transaction_date: row.transaction_date, amount: row.amount, title: row.title, category: row.category,
+      payer: row.payer, memo: row.memo,
+    } })) }),
+  })
+  if (typeof data !== 'object' || data === null || !('items' in data) || !Array.isArray(data.items) || data.items.length !== targets.length) throw new Error('一括変更の結果が正しくありません。')
+  const expected = new Set(targets.map((row) => row.id))
+  return data.items.map((row: unknown) => {
+    if (typeof row !== 'object' || row === null || !('id' in row) || !('status' in row)
+      || !Number.isSafeInteger(row.id) || !expected.delete(Number(row.id))
+      || !['updated', 'conflict', 'failed'].includes(String(row.status))) throw new Error('一括変更の結果が正しくありません。')
+    if (row.status === 'updated') {
+      const item = parseExpense('item' in row ? row.item : null)
+      if (item.id !== row.id || item.category !== category || item.voided_at) throw new Error('一括変更の結果が正しくありません。')
+      return { id: item.id, status: 'updated', item }
+    }
+    return { id: Number(row.id), status: row.status as 'conflict' | 'failed' }
+  })
 }
 
 export async function createRecurringExpense(input: RecurringExpenseDraft): Promise<RecurringExpense> {

@@ -1,7 +1,8 @@
 // Inboxの一括操作（複数選択・一括振り分け・一括更新）。
 import { readApiJson } from "../api-client.js";
+import { mapConcurrent } from "../shared/concurrency.js";
 import { BULK_ROUTE_KEYS, DEFER_ROUTE, WISH_ROUTE, inboxQuickRoutes } from "./constants.js";
-import { loadDashboard } from "./data.js";
+import { loadDashboard, loadAllIdeaItems } from "./data.js";
 import { inboxExpected, routeInboxViaApi } from "./edit-forms.js";
 import { defaultRevisitDate, showToast, todayInTokyo } from "./format.js";
 import { currentItems, renderList, statusLabel } from "./list.js";
@@ -9,10 +10,19 @@ import { els, state } from "./state.js";
 
 export function clearBulkSelection() {
   state.bulkSelected.clear();
+  state.bulkRetryItems = new Map();
+  state.bulkResult = null;
   state.bulkError = "";
 }
 
-export function setBulkMode(active) {
+export async function setBulkMode(active) {
+  if (!active && state.bulkSubmitting) { state.bulkStopRequested = true; els.bulkCancelButton.disabled = true; return; }
+  if (active) {
+    els.bulkModeButton.disabled = true;
+    try { await loadAllIdeaItems(); }
+    catch (error) { showToast(error.message || "選択対象を取得できませんでした。"); return; }
+    finally { els.bulkModeButton.disabled = false; }
+  }
   state.bulkMode = Boolean(active) && state.view === "inbox";
   state.bulkSubmitting = false;
   clearBulkSelection();
@@ -32,7 +42,8 @@ export function renderBulkControls(items) {
   els.bulkSelectAll.checked = visibleIds.length > 0 && selectedVisible.length === visibleIds.length;
   els.bulkSelectAll.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visibleIds.length;
   els.bulkApplyButton.disabled = state.bulkSubmitting || state.bulkSelected.size === 0;
-  els.bulkCancelButton.disabled = state.bulkSubmitting;
+  els.bulkCancelButton.disabled = Boolean(state.bulkStopRequested);
+  els.bulkCancelButton.textContent = state.bulkSubmitting ? "途中で停止" : "キャンセル";
   els.bulkStatusSelect.disabled = state.bulkSubmitting;
   const deferring = els.bulkStatusSelect.value === `route:${DEFER_ROUTE}`;
   els.bulkRevisitField.hidden = !deferring;
@@ -77,6 +88,34 @@ async function routeInboxItem(item, key, revisitOn) {
   }, idempotencyKey);
 }
 
+function rememberBulkResult(selected, updated, failed, summary, detail = "") {
+  const failedIds = new Set(failed.map((item) => Number(item.id)).filter(Number.isSafeInteger));
+  const result = { updated: [...updated], failed: failed.map((item) => ({ ...item })), summary, detail, refreshError: "" };
+  state.bulkResult = result;
+  state.bulkSubmitting = false;
+  state.bulkStopRequested = false;
+  state.bulkMode = failedIds.size > 0;
+  state.bulkSelected = failedIds;
+  state.bulkRetryItems = new Map(selected.filter((item) => failedIds.has(item.id)).map((item) => [item.id, { ...item }]));
+  state.bulkError = detail;
+  renderList();
+  return result;
+}
+
+async function refreshAfterBulk(result) {
+  try {
+    if (await loadDashboard() === false) throw new Error("一覧を取得できませんでした。");
+    if (state.bulkResult !== result) return;
+    if (result.failed.length) await loadAllIdeaItems();
+  } catch {
+    result.refreshError = "一覧の再読み込みに失敗しました。操作結果と再試行対象は保持しています。";
+  }
+  if (state.bulkResult !== result) return;
+  state.bulkError = [result.detail, result.refreshError].filter(Boolean).join("\n");
+  renderList();
+  showToast([result.summary, result.refreshError].filter(Boolean).join(" "));
+}
+
 async function applyInboxBulkRoute(selected, key) {
   const label = inboxQuickRoutes[key].label;
   const revisitOn = key === DEFER_ROUTE ? els.bulkRevisitOn.value : null;
@@ -97,35 +136,36 @@ async function applyInboxBulkRoute(selected, key) {
   if (!window.confirm(`${pending.length}件のInboxを${target}に振り分けますか？${skippedNote}\n\n各Inboxの内容をそのまま登録し、整理済みにします。`)) return;
 
   state.bulkSubmitting = true;
+  state.bulkStopRequested = false;
+  state.bulkResult = null;
   state.bulkError = "";
   renderBulkControls(currentItems());
   const failed = [];
-  for (const [index, item] of pending.entries()) {
-    els.bulkSelectionCount.textContent = `${index + 1}/${pending.length}件を処理中`;
+  let finished = 0;
+  const results = await mapConcurrent(pending, 3, async (item) => {
     try {
       await routeInboxItem(item, key, revisitOn);
       state.bulkRouteKeys.delete(`${item.id}:${key}`);
     } catch (error) {
       failed.push({ id: item.id, message: error instanceof Error ? error.message : "振り分けできませんでした。" });
     }
-  }
-  state.bulkSubmitting = false;
-  await loadDashboard();
-  if (failed.length) {
-    state.bulkMode = true;
-    state.bulkSelected = new Set(failed.map((item) => item.id));
-    state.bulkError = `${pending.length - failed.length}件を振り分けました。振り分けできなかったInbox: ${failed.map((item) => `#${item.id}（${item.message}）`).join("、")}`;
-    renderList();
-    return;
-  }
-  state.bulkMode = false;
-  clearBulkSelection();
-  renderList();
-  showToast(`${pending.length}件のInboxを${target}に振り分けました。`);
+    finished++;
+    els.bulkSelectionCount.textContent = `${finished}/${pending.length}件を処理中`;
+  }, () => state.bulkStopRequested);
+  pending.forEach((item, index) => { if (!results[index]) failed.push({ id: item.id, message: "停止したため未処理です。" }); });
+  const failedIds = new Set(failed.map((item) => item.id));
+  const updated = pending.filter((item) => !failedIds.has(item.id)).map((item) => item.id);
+  const summary = failed.length
+    ? `${updated.length}件を振り分けました。${failed.length}件は再試行できます。`
+    : `${updated.length}件のInboxを${target}に振り分けました。`;
+  const detail = failed.length ? `${summary} 振り分けできなかったInbox: ${failed.map((item) => `#${item.id}（${item.message}）`).join("、")}` : "";
+  const result = rememberBulkResult(pending, updated, failed, summary, detail);
+  await refreshAfterBulk(result);
 }
 
 export async function applyInboxBulkUpdate() {
-  const selected = (state.data?.inbox || []).filter((item) => state.bulkSelected.has(item.id));
+  const candidates = new Map([...(state.data?.inbox || []).map((item) => [item.id, item]), ...(state.bulkRetryItems || new Map()).entries()]);
+  const selected = [...candidates.values()].filter((item) => state.bulkSelected.has(item.id));
   if (!selected.length || state.bulkSubmitting) return;
   if (els.bulkStatusSelect.value.startsWith("route:")) {
     const key = els.bulkStatusSelect.value.slice("route:".length);
@@ -137,10 +177,19 @@ export async function applyInboxBulkUpdate() {
   if (!window.confirm(`${selected.length}件のInboxを「${nextLabel}」に変更しますか？\n\n既存の内容と整理結果はそのまま残ります。`)) return;
 
   state.bulkSubmitting = true;
+  state.bulkStopRequested = false;
+  state.bulkResult = null;
   state.bulkError = "";
   renderBulkControls(currentItems());
   try {
-    const response = await fetch("/api/inbox-bulk", {
+    const updated = [];
+    const failed = [];
+    // The API validates at most 100 snapshots; all-result selection may span more.
+    for (let offset = 0; offset < selected.length; offset += 100) {
+      const batch = selected.slice(offset, offset + 100);
+      if (state.bulkStopRequested) { failed.push(...selected.slice(offset).map((item) => ({id:item.id,error:"停止したため未処理です。"}))); break; }
+      try {
+      const response = await fetch("/api/inbox-bulk", {
       method: "PATCH",
       credentials: "same-origin",
       headers: {
@@ -150,31 +199,29 @@ export async function applyInboxBulkUpdate() {
       },
       body: JSON.stringify({
         status: nextStatus,
-        items: selected.map((item) => ({
+        items: batch.map((item) => ({
           id: item.id,
           original: { content: item.content, status: item.status, result: item.result ?? null },
         })),
       }),
     });
-    const payload = await readApiJson(response);
-    if (!response.ok && response.status !== 207) throw new Error(payload.error || "Inboxを一括変更できませんでした。");
-    const updated = Array.isArray(payload.updated) ? payload.updated : [];
-    const failed = Array.isArray(payload.failed) ? payload.failed : [];
-    state.bulkSubmitting = false;
-    if (failed.length) {
-      const failedIds = failed.map((item) => Number(item.id)).filter(Number.isSafeInteger);
-      const errorMessage = `${updated.length}件を変更しました。変更できなかったInbox: ${failed.map((item) => `#${item.id}`).join("、")}`;
-      await loadDashboard();
-      state.bulkMode = true;
-      state.bulkSelected = new Set(failedIds);
-      state.bulkError = errorMessage;
-      renderList();
-      return;
+      const payload = await readApiJson(response);
+      if (!response.ok && response.status !== 207) throw new Error(payload.error || "Inboxを一括変更できませんでした。");
+      updated.push(...(Array.isArray(payload.updated) ? payload.updated : []));
+      failed.push(...(Array.isArray(payload.failed) ? payload.failed : []));
+      els.bulkSelectionCount.textContent = `${Math.min(offset + batch.length, selected.length)}/${selected.length}件を処理中`;
+      } catch (error) {
+        failed.push(...batch.map((item) => ({id:item.id,error:error.message || "結果を確認できませんでした。"})),
+          ...selected.slice(offset + batch.length).map((item) => ({id:item.id,error:"未処理です。"})));
+        break;
+      }
     }
-    state.bulkMode = false;
-    clearBulkSelection();
-    await loadDashboard();
-    showToast(`${updated.length}件のInboxを「${nextLabel}」に変更しました。`);
+    const summary = failed.length
+      ? `${updated.length}件を変更しました。${failed.length}件は再試行できます。`
+      : `${updated.length}件のInboxを「${nextLabel}」に変更しました。`;
+    const detail = failed.length ? `${summary} 変更できなかったInbox: ${failed.map((item) => `#${item.id}`).join("、")}` : "";
+    const result = rememberBulkResult(selected, updated, failed, summary, detail);
+    await refreshAfterBulk(result);
   } catch (error) {
     state.bulkSubmitting = false;
     state.bulkError = error instanceof Error ? error.message : "Inboxを一括変更できませんでした。";

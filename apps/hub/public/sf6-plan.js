@@ -107,7 +107,21 @@ export function findState(situations, key) {
  * その状況から始まる手順。始動に選ばれている手順だけを、名前順で返す（有利Fなどからの自動的なつなぎはしない）。
  * アーカイブは除く。1段だけ返すので、ループする局面でも止まる。
  */
-export function sequencesFrom(situation, sequences) {
+export function buildSequenceStartIndex(sequences) {
+  const starts = new Map();
+  for (const sequence of sequences) {
+    if (sequence.archived) continue;
+    for (const id of new Set(sequence.starts)) {
+      if (!starts.has(id)) starts.set(id, []);
+      starts.get(id).push(sequence);
+    }
+  }
+  for (const list of starts.values()) list.sort(compareTitle);
+  return starts;
+}
+
+export function sequencesFrom(situation, sequences, startIndex = null) {
+  if (startIndex) return (startIndex.get(situation.id) || []).map((sequence) => ({ sequence, via: situation }));
   return sequences
     .filter((sequence) => !sequence.archived && sequence.starts.includes(situation.id))
     .map((sequence) => ({ sequence, via: situation }))

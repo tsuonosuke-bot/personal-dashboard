@@ -3,9 +3,10 @@ import { stored, notationHtml, options, empty } from "./format.js";
 import { OUTCOME_MARKS } from "./constants.js";
 // 手順のルート・フローチャート・状況管理に使うシート。
 import { exitsOf, buildFlow } from "../sf6-graph.js";
-import { sequencesFrom, usableNow, situationUsage, stateLabel } from "../sf6-plan.js";
+import { usableNow, stateLabel } from "../sf6-plan.js";
+import { createSf6Indexes } from "./indexes.js";
 
-export function createSf6Routes({ state, els, resultLabel, charactersIn, situationText, situationsById, findSequence, situationOptionsHtml, byAdvantage, patch, startStatesOf, outcomesHtml, sequencesById, conditionSummaryText, send, replaceItem, showToast }) {
+export function createSf6Routes({ state, els, resultLabel, charactersIn, situationText, situationsById, findSequence, situationOptionsHtml, byAdvantage, patch, startStatesOf, outcomesHtml, sequencesById, conditionSummaryText, send, replaceItem, showToast, getIndexes = () => createSf6Indexes(state.data) }) {
   // ---------- シート（ルート・状況の管理） ----------
 
   function openSheet(sheet) {
@@ -204,11 +205,10 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
     const { character, picking } = state.sheet;
     const sequence = findSequence(picking.sequenceId);
     const exit = { kind: picking.resultKind, opponentAction: picking.opponentAction, outcome: null };
-    const mine = state.data.sequences.filter((entry) => entry.character === character && !entry.archived);
     const usable = state.data.situations.filter((situation) => !situation.archived
       && (situation.kind === "trigger" ? situation.character === null || situation.character === character : situation.character === character));
     const row = (situation) => {
-      const count = sequencesFrom(situation, mine).length;
+      const count = getIndexes().from(situation, character).length;
       return `<button type="button" class="sheet-row" data-flow-pick="${situation.id}"><span>${escapeHtml(situationText(situation))}</span><small>${count ? `${count}手順が始まる` : "続く手順なし"}</small></button>`;
     };
     els.sheetBody.innerHTML = `
@@ -323,8 +323,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
       return;
     }
     const current = byId.get(last.situationId);
-    const candidates = state.data.sequences.filter((sequence) => !character || sequence.character === character);
-    const found = current ? sequencesFrom(current, candidates, state.data.situations) : [];
+    const found = current ? getIndexes().from(current, character) : [];
     els.sheetBody.innerHTML = `${head}
       <h3 class="sheet-title">この状況から</h3>
       <div class="card-list">${found.map((entry) => routeCardHtml(entry)).join("") || empty("この状況から始まる手順はありません")}</div>
@@ -338,7 +337,7 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
   function renderSituationManager() {
     const { character } = state.sheet;
     const usage = (situation) => {
-      const counts = situationUsage(situation.id, state.data.sequences);
+      const counts = getIndexes().usage(situation.id);
       return counts.starts + counts.results;
     };
     const row = (situation) => `<button type="button" class="sheet-row" data-edit-situation="${situation.id}">

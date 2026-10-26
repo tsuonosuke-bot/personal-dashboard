@@ -27,6 +27,7 @@ interface InboxRow {
   status?: unknown;
   result?: unknown;
   created_at?: unknown;
+  triage?: unknown;
 }
 
 interface WantRow {
@@ -302,9 +303,19 @@ export function normalizeDashboard(
     current.push(want);
     wantsByInbox.set(want.sourceInboxId, current);
   });
+  const suppliedTriage = new Map(inboxRows.map((row) => [integer(row.id), row.triage]));
   const inboxWithTriage = inbox.map((item) => ({
     ...item,
-    triage: inboxTriage(item.result, wantsByInbox.get(item.id ?? -1) || []),
+    triage: (() => {
+      const supplied = suppliedTriage.get(item.id);
+      if (supplied && typeof supplied === "object" && !Array.isArray(supplied)) {
+        const triage = supplied as InboxTriage;
+        if (triage.source === "route" && Array.isArray(triage.destinations)
+          && triage.destinations.every((row) => typeof row.destination === "string" && ["planned", "created"].includes(row.status))
+          && (triage.revisitOn === null || plainDate(triage.revisitOn))) return triage;
+      }
+      return inboxTriage(item.result, wantsByInbox.get(item.id ?? -1) || []);
+    })(),
   }));
 
   const activeWants = wants.filter((item) => item.status === "active");

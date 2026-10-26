@@ -1,7 +1,7 @@
 // SF6の手順をフローチャートにする計算（描画はしない）。
 // 箱＝手順、矢印＝結果（ヒット・ガード・相手の行動）。結果の「次の状況」から始まる手順へ矢印を引く。
 // 次の状況が未設定の結果と、次の状況に続く手順がない結果は、点線の「出口」として出す。
-import { OPPONENT_OPTIONS, sequencesFrom } from "./sf6-plan.js";
+import { OPPONENT_OPTIONS, sequencesFrom, buildSequenceStartIndex } from "./sf6-plan.js";
 
 export const NODE_W = 168;
 export const NODE_H = 52;
@@ -39,6 +39,7 @@ export function buildFlow({ sequences, situations, character, startSituationId =
   const situationById = new Map(situations.map((situation) => [situation.id, situation]));
   const mine = sequences.filter((sequence) => sequence.character === character && !sequence.archived);
   const byId = new Map(mine.map((sequence) => [sequence.id, sequence]));
+  const startIndex = buildSequenceStartIndex(mine);
 
   // 矢印と出口を先に全部作る。次の状況に続く手順は、その結果1つにつき矢印1本
   const edges = [];
@@ -53,7 +54,7 @@ export function buildFlow({ sequences, situations, character, startSituationId =
         stubs.push({ ...ref, label, type: "unset" });
         continue;
       }
-      const found = sequencesFrom(next, mine);
+      const found = sequencesFrom(next, mine, startIndex);
       if (found.some((entry) => entry.sequence.id === sequence.id)) loops.add(sequence.id);
       const targets = found.filter((entry) => entry.sequence.id !== sequence.id);
       if (!targets.length) stubs.push({ ...ref, label, type: "dead", situationId: next.id });
@@ -105,7 +106,7 @@ export function buildFlow({ sequences, situations, character, startSituationId =
     }
   };
   if (startSituationId !== null && situationById.has(startSituationId)) {
-    walk(sequencesFrom(situationById.get(startSituationId), mine).map((entry) => entry.sequence));
+    walk(sequencesFrom(situationById.get(startSituationId), mine, startIndex).map((entry) => entry.sequence));
   } else {
     walk(mine.filter((sequence) => !hasIncoming.has(sequence.id)).sort(byIdAsc));
     for (const sequence of [...mine].sort(byIdAsc)) if (!column.has(sequence.id) && !shadow.has(sequence.id)) walk([sequence]);
@@ -137,12 +138,13 @@ export function buildFlow({ sequences, situations, character, startSituationId =
   const maxCol = Math.max(-1, ...perColumn.keys(), ...stubColumns.keys());
   const colX = (col) => PAD + col * (NODE_W + COL_GAP);
   const nodes = [];
+  const sequencesWithStubs = new Set(stubs.map((stub) => stub.sequenceId));
   let bottom = 0;
   for (let col = 0; col <= maxCol; col += 1) {
     let y = PAD;
     for (const sequence of perColumn.get(col) || []) {
       nodes.push({ id: sequence.id, title: sequence.title, startLabel: situationById.get(sequence.starts[0])?.name || "", col, x: colX(col), y, w: NODE_W, h: NODE_H, loop: loops.has(sequence.id),
-        collapsible: outgoing.get(sequence.id).length > 0 || stubs.some((stub) => stub.sequenceId === sequence.id),
+        collapsible: outgoing.get(sequence.id).length > 0 || sequencesWithStubs.has(sequence.id),
         collapsed: folded.has(sequence.id),
         hiddenCount: folded.has(sequence.id) ? [...descendantsOf(sequence.id)].filter((id) => !column.has(id)).length : 0 });
       nodeRow.set(sequence.id, y);

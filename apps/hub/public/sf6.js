@@ -8,12 +8,15 @@ import { createSf6Frames } from "./sf6/frames.js";
 import { createSf6Routes } from "./sf6/routes.js";
 import { createSf6Editor } from "./sf6/editor.js";
 import { createSf6InboxFlow } from "./sf6/inbox.js";
+import { createSf6IndexCache } from "./sf6/indexes.js";
+import { renderSf6VisibleTab } from "./sf6/render.js";
 import { appendFragment, appendToken, removeLastToken } from "./sf6-notation.js";
 import { createNotationKeyboard } from "./sf6-keyboard.js";
 import { drillPreset, MASTERY, raiseTargets, resultOf, routeBack, routeDrillPreset, stateLabel } from "./sf6-plan.js";
 
 const state = createSf6State();
 const els = sf6Elements(document);
+const indexCache = createSf6IndexCache(() => state.data);
 
 
 let toastTimer;
@@ -27,19 +30,19 @@ function showToast(message) {
 // ---------- データの引き方 ----------
 
 function situationsById() {
-  return new Map(state.data.situations.map((situation) => [situation.id, situation]));
+  return indexCache.get().situations;
 }
 
 function sequencesById() {
-  return new Map(state.data.sequences.map((sequence) => [sequence.id, sequence]));
+  return indexCache.get().sequences;
 }
 
 function findSituation(id) {
-  return state.data.situations.find((situation) => situation.id === id) || null;
+  return situationsById().get(id) || null;
 }
 
 function findSequence(id) {
-  return state.data.sequences.find((sequence) => sequence.id === id) || null;
+  return sequencesById().get(id) || null;
 }
 
 /** 状況の表示名。局面は数値も添える（名前が数値そのものなら重ねない）。 */
@@ -58,7 +61,7 @@ function sequencesOf(kind) {
 }
 
 function activeDrillFor(sequenceId) {
-  return state.data.drills.find((drill) => drill.status === "active" && drill.sequenceIds.includes(sequenceId)) || null;
+  return indexCache.get().activeDrills.get(sequenceId) || null;
 }
 
 /** 状況の一覧を出すときのキャラ。タブの絞り込み → 最後に使ったキャラの順。 */
@@ -126,9 +129,11 @@ function applySaved(resource, saved) {
     return;
   }
   replaceItem(resource, saved);
+  if (resource === "logs") state.data.logs.sort((a, b) => b.practicedOn.localeCompare(a.practicedOn) || b.id - a.id);
 }
 
 function replaceItem(resource, item) {
+  indexCache.invalidate();
   const list = state.data[resource];
   const index = list.findIndex((entry) => entry.id === item.id);
   if (index >= 0) list[index] = item;
@@ -137,6 +142,7 @@ function replaceItem(resource, item) {
 
 /** DB側の「削除時に外す・nullにする」を手元にも反映する。 */
 function removeItem(resource, id) {
+  indexCache.invalidate();
   state.data[resource] = state.data[resource].filter((entry) => entry.id !== id);
   if (resource === "drills") state.data.logs = state.data.logs.filter((log) => log.drillId !== id);
   if (resource === "situations") {
@@ -179,11 +185,7 @@ function render() {
   const known = new Set([...CHARACTERS, ...charactersIn(sequences, "character"), ...charactersIn(matches, "opponent")]);
   els.characterOptions.innerHTML = [...known].map((name) => `<option value="${escapeHtml(name)}"></option>`).join("");
   renderTabs();
-  renderSequences();
-  renderSituations();
-  renderFrames();
-  renderDrills();
-  renderMatches();
+  renderCurrentTab();
   if (state.sheet) renderSheet();
 }
 
@@ -200,11 +202,18 @@ function selectTab(tab) {
   if (!state.data) return;
   renderTabs();
   if (tab === "frames") loadFrames();
+  else renderCurrentTab();
+}
+
+function renderCurrentTab() {
+  renderSf6VisibleTab(state.tab, { sequences: renderSequences, situations: renderSituations,
+    frames: renderFrames, drills: renderDrills, matches: renderMatches });
 }
 
 const { charactersIn, renderTabs, conditionSummaryText, situationOptionsHtml, byAdvantage, renderSequences, outcomesHtml, startStatesOf, renderDrills, renderSituations, renderMatches } = createSf6Records({
   state,
   els,
+  getIndexes: () => indexCache.get(),
   situationsById: (...args) => situationsById(...args),
   resultLabel: (...args) => resultLabel(...args),
   situationText: (...args) => situationText(...args),
@@ -226,6 +235,7 @@ const { WIDE_FRAMES, renderPunishPicker, loadOpponentMoves, applyOpponentMove, l
 const { openSheet, openFlow, setFlowNext, attachToSituation, newSequencePreset, situationSequencePreset, closeSheet, renderSheet, openRoute, addTrigger } = createSf6Routes({
   state,
   els,
+  getIndexes: () => indexCache.get(),
   resultLabel: (...args) => resultLabel(...args),
   charactersIn: (...args) => charactersIn(...args),
   situationText: (...args) => situationText(...args),
@@ -328,7 +338,7 @@ function readSequenceConditions(event) {
 }
 els.sequenceConditions.addEventListener("change", readSequenceConditions);
 els.conditionPunish.addEventListener("input", readSequenceConditions);
-WIDE_FRAMES.addEventListener("change", () => { if (state.data) renderFrames(); });
+WIDE_FRAMES.addEventListener("change", () => { if (state.data && state.tab === "frames") renderFrames(); });
 els.frameCharacter.addEventListener("change", () => {
   state.frames.character = els.frameCharacter.value;
   state.frames.open = null;
