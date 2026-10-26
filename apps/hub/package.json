@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
-    "typescript": "~6.0.2",
+    "typescript": "~7.0.2",
     "vite": "^8.3.0",
     "wrangler": "^4.37.1"
   },
