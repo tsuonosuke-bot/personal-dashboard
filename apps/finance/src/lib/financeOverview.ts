@@ -13,7 +13,10 @@ export type FinanceMetadata = {
   unclassified: { count: number; months: string[] }
   voidedCount: number
 }
-export type FinanceOverview = { selectedMonth: string; metadata: FinanceMetadata; categories: BudgetCategory[]; monthly: MonthlyAggregate[] }
+/** 収入の入力が始まった月(2026-01)から選択月までの累計。選択月がそれより前なら null。 */
+export const CUMULATIVE_SINCE_MONTH = '2026-01'
+export type CumulativeTotals = { since: string; spending: number; income: number }
+export type FinanceOverview = { selectedMonth: string; metadata: FinanceMetadata; categories: BudgetCategory[]; monthly: MonthlyAggregate[]; cumulative: CumulativeTotals | null }
 export type TransactionFilters = {
   query: string; dateFrom: string; dateTo: string; type: 'all' | 'expense' | 'income'
   amountMin: string; amountMax: string; sort: 'newest' | 'oldest' | 'amount-desc' | 'amount-asc'
@@ -58,12 +61,19 @@ export function parseFinanceOverview(value: unknown): FinanceOverview {
       || typeof row.category !== 'string' || !finite(row.spending) || !finite(row.income) || row.income < 0 || !count(row.spendingCount)) throw invalid()
     return { month: row.month, category: row.category, spending: row.spending, income: row.income, spendingCount: row.spendingCount }
   })
+  let cumulative: CumulativeTotals | null = null
+  if (value.cumulative !== undefined && value.cumulative !== null) {
+    const c = value.cumulative
+    if (!record(c) || typeof c.since !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(c.since)
+      || !finite(c.spending) || !finite(c.income) || c.income < 0) throw invalid()
+    cumulative = { since: c.since, spending: c.spending, income: c.income }
+  }
   return {
     selectedMonth: value.selectedMonth,
     metadata: { months: m.months, categories: m.categories, payers: m.payers, total: m.total,
       newestTransaction: m.newestTransaction as string | null, voidedCount: m.voidedCount,
       unclassified: { count: m.unclassified.count, months: m.unclassified.months } },
-    categories: value.categories.map(parseBudgetCategory), monthly,
+    categories: value.categories.map(parseBudgetCategory), monthly, cumulative,
   }
 }
 
@@ -111,7 +121,17 @@ export function demoFinanceOverview(all: Expense[], categories: BudgetCategory[]
     else { row.spending += expense.amount; if (expense.amount !== 0) row.spendingCount += 1 }
     totals.set(key, row)
   }
-  return { selectedMonth, categories, monthly: [...totals.values()], metadata: {
+  let cumulative: CumulativeTotals | null = null
+  if (selectedMonth >= CUMULATIVE_SINCE_MONTH) {
+    cumulative = { since: CUMULATIVE_SINCE_MONTH, spending: 0, income: 0 }
+    for (const expense of scoped) {
+      const month = monthKey(expense.transaction_date)
+      if (month < CUMULATIVE_SINCE_MONTH || month > selectedMonth) continue
+      if (isIncome(expense)) cumulative.income += Math.abs(expense.amount)
+      else cumulative.spending += expense.amount
+    }
+  }
+  return { selectedMonth, categories, monthly: [...totals.values()], cumulative, metadata: {
     months, categories: [...new Set(active.map((row) => row.category))],
     payers: [...new Set(active.map((row) => row.payer).filter((payer): payer is string => Boolean(payer)))],
     total: active.length, newestTransaction: active.reduce((latest, row) => row.transaction_date > latest ? row.transaction_date : latest, '') || null,

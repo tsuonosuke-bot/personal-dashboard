@@ -37,6 +37,23 @@ test('12か月集計は過去10,000件の全件計算と一致し、全期間の
   assert.equal(matchingExpenses(rows, { ...scope, month: '2001-01' }, emptyTransactionFilters).length, 9230)
 })
 
+test('累計収支は2026-01から選択月までを同じ絞り込み条件で合算し、それ以前の月では出さない', () => {
+  const rows = [
+    expense(1, { transaction_date: '2025-12-20', category: '80_給与', amount: 999 }),
+    expense(2, { transaction_date: '2026-01-05', category: '80_給与', amount: 300 }),
+    expense(3, { transaction_date: '2026-01-10', category: '10_食費', amount: 100 }),
+    expense(4, { transaction_date: '2026-10-20', category: '10_食費', amount: 50, payer: 'A' }),
+    expense(5, { transaction_date: '2026-11-01', category: '10_食費', amount: 7 }),
+    expense(6, { transaction_date: '2026-10-21', category: '10_食費', amount: 9, voided_at: '2026-10-22T00:00:00Z' }),
+  ]
+  assert.deepEqual(parseFinanceOverview(demoFinanceOverview(rows, [], scope)).cumulative, { since: '2026-01', spending: 150, income: 300 })
+  assert.deepEqual(parseFinanceOverview(demoFinanceOverview(rows, [], { ...scope, payer: 'A' })).cumulative, { since: '2026-01', spending: 50, income: 0 })
+  assert.equal(parseFinanceOverview(demoFinanceOverview(rows, [], { ...scope, month: '2025-12' })).cumulative, null)
+  const legacy = { ...demoFinanceOverview(rows, [], scope) } as Record<string, unknown>
+  delete legacy.cumulative
+  assert.equal(parseFinanceOverview(legacy).cumulative, null)
+})
+
 test('明細検索はキーワード/期間/絶対金額/種別/並び順を組み合わせ、50件ページの外も検索する', () => {
   const rows = Array.from({ length: 130 }, (_, i) => expense(i + 1, { amount: -i, memo: i === 2 ? '外_側%' : null }))
   assert.deepEqual(matchingExpenses(rows, scope, { ...emptyTransactionFilters, query: '外_側%', type: 'expense', amountMin: '2', amountMax: '2' }).map((row) => row.id), [3])
