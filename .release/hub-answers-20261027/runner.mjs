@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { guard, GuardFailure, lf, parseDatabaseUrl, childEnvironment, capture, checkProcess, parseClientTls } from './process-safety.mjs';
 
-export const MANIFEST_SHA256 = '9726e27e5774d9fed249bbe0538fea09effb201248208ff927239686bf3d7d8d';
+export const MANIFEST_SHA256 = 'a9e7f28b869dec3780f3afe90f447d189bcf46e0b67a93289c2180054f7a952c';
 export const REPO = 'tsuonosuke-bot/personal-dashboard';
 export const BUNDLE = '.release/hub-answers-20261027';
 export const WORKFLOW = '.github/workflows/supabase-backup.yml';

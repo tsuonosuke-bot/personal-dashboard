@@ -4,8 +4,8 @@
   "projectRef": "plwlxwidpqbunugfxjhp",
   "sourceCommit": "34dedee78369ad72c77d784e7bd45ef20fecea71",
   "branch": "claude/hub-answers-ops-20261027",
-  "phase": "preflight",
-  "expiresAt": "2026-10-27T21:37:33.932Z",
+  "phase": "apply",
+  "expiresAt": "2026-10-27T21:40:55.685Z",
   "version": "20261027085600",
   "name": "hub_today_answered",
   "migration": "apps/knowledge/supabase/migrations/20261027085600_hub_today_answered.sql",
@@ -27,5 +27,8 @@
     "workflowSha256": "026648c15c4df6edb356542c44a879af16e9892e3b28d9bd46bf7e22e36bd347",
     "encryptedArchiveVerified": true
   },
-  "baseline": null
+  "baseline": {
+    "file": "baseline.json",
+    "sha256": "f89cc7391c953215e959091d51b2a76ab6f714cf367492df03eca54df37ee465"
+  }
 }
