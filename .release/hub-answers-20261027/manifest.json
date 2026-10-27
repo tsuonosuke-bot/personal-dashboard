@@ -1,0 +1,31 @@
+{
+  "format": "hub-answers-release-v1",
+  "repository": "tsuonosuke-bot/personal-dashboard",
+  "projectRef": "plwlxwidpqbunugfxjhp",
+  "sourceCommit": "34dedee78369ad72c77d784e7bd45ef20fecea71",
+  "branch": "claude/hub-answers-ops-20261027",
+  "phase": "preflight",
+  "expiresAt": "2026-10-27T21:23:42.972Z",
+  "version": "20261027085600",
+  "name": "hub_today_answered",
+  "migration": "apps/knowledge/supabase/migrations/20261027085600_hub_today_answered.sql",
+  "migrationSha256": "4aee703ab5102f8dbf386e9884f7fee3cbf1e8ba9a4a72b07400453102a5b629",
+  "oldBodySha256": "566a489b4a65f9dadee3cf46d44a056b3336232c82615fa0d88af6033d978705",
+  "newBodySha256": "ce180540b2eb2352822046065350f81a317dab3d9acaee1aa7c4a079be2cb5b7",
+  "safetySha256": "683d8231db0f9824ddeeeb101104c308b7d801f3fa2ebcfa1c8028c9e329ad65",
+  "backup": {
+    "repository": "tsuonosuke-bot/personal-dashboard",
+    "workflowPath": ".github/workflows/supabase-backup.yml",
+    "branch": "main",
+    "conclusion": "success",
+    "runId": 40443089456,
+    "headSha": "32929b22f5543e1ce196717b617d9f9faf404c0f",
+    "artifactId": 12706947897,
+    "artifactName": "supabase-20261027T031720Z",
+    "artifactDigest": "sha256:e8d2a0885afbafbb352ae91e6a7d3f4f4f141984f237e35c2070f544e5f211a3",
+    "createdAt": "2026-10-27T03:17:24Z",
+    "workflowSha256": "026648c15c4df6edb356542c44a879af16e9892e3b28d9bd46bf7e22e36bd347",
+    "encryptedArchiveVerified": true
+  },
+  "baseline": null
+}
