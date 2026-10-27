@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useModalDialog } from '../lib/useModalDialog'
 import { categoryLabel } from '../lib/finance'
 import type { BudgetCategory, Expense, ExpenseDraft } from '../lib/types'
 
@@ -19,6 +20,7 @@ function todayKey() {
 }
 
 export function ExpenseFormModal({ categories, payers, saving, error, expense, onClose, onSave, onVoid }: Props) {
+  const dialogRef = useModalDialog(onClose, saving)
   const editing = Boolean(expense)
   const [type, setType] = useState<'expense' | 'income' | 'offset'>(() => {
     if (expense?.category.startsWith('80_')) return 'income'
@@ -40,12 +42,6 @@ export function ExpenseFormModal({ categories, payers, saving, error, expense, o
     ? category
     : (visibleCategories[0]?.name || '')
 
-  useEffect(() => {
-    const close = (event: KeyboardEvent) => { if (event.key === 'Escape' && !saving) onClose() }
-    document.addEventListener('keydown', close)
-    return () => document.removeEventListener('keydown', close)
-  }, [onClose, saving])
-
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
     onSave({
@@ -61,7 +57,7 @@ export function ExpenseFormModal({ categories, payers, saving, error, expense, o
 
   return (
     <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose() }}>
-      <section className="entry-modal" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
+      <section ref={dialogRef} tabIndex={-1} className="entry-modal" role="dialog" aria-modal="true" aria-labelledby="expense-modal-title">
         <div className="entry-modal-head">
           <div><h2 id="expense-modal-title">{editing ? '家計簿を編集' : '家計簿を記録'}</h2></div>
           <button type="button" className="modal-close" aria-label="閉じる" onClick={onClose} disabled={saving}>×</button>
@@ -74,7 +70,7 @@ export function ExpenseFormModal({ categories, payers, saving, error, expense, o
           </div>
           <div className="entry-grid">
             <label className="entry-field"><span>日付 <b>必須</b></span><input type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label>
-            <label className="entry-field"><span>金額 <b>必須</b></span><div className="amount-field"><span>¥</span><input type="number" min="1" max="1000000000" step="1" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0" autoFocus required /></div></label>
+            <label className="entry-field"><span>金額 <b>必須</b></span><div className="amount-field"><span>¥</span><input type="number" min="1" max="1000000000" step="1" inputMode="numeric" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0" data-modal-initial-focus required /></div></label>
             <label className="entry-field full-field"><span>内容 <b>必須</b></span><input type="text" maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="例: スーパー、給与" required /></label>
             <label className="entry-field"><span>カテゴリ <b>必須</b></span><select value={selectedCategory} onChange={(event) => setCategory(event.target.value)} required>{visibleCategories.map((item) => <option key={item.id} value={item.name}>{categoryLabel(item.name)}</option>)}</select></label>
             <label className="entry-field"><span>支払者</span><input type="text" maxLength={100} list="payer-options" value={payer} onChange={(event) => setPayer(event.target.value)} placeholder="任意" /><datalist id="payer-options">{payers.map((item) => <option key={item} value={item} />)}</datalist></label>

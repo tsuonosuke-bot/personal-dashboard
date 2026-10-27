@@ -1,3 +1,4 @@
+import { activateModal, deactivateModal } from "./shared/modal-focus.js";
 import { escapeHtml } from "./shared/html.js";
 import { readApiJson } from "./api-client.js";
 
@@ -145,9 +146,8 @@ function habitCard(habit, scope) {
     : "";
   const cadence = scope === "weekly" ? `週${habit.targetPerWeek}回` : cadenceLabels[habit.cadence];
   return `<article class="habit-card ${completed ? "completed" : rest ? "skipped" : ""}">
-    <button class="check-button" type="button" data-log-id="${habit.id}" data-completed="${completed}" aria-label="${escapeHtml(habit.name)}を${completed ? "未実施に戻す" : "実施済みにする"}">${completed ? "✓" : "○"}</button>
     <div class="habit-copy"><div><h3>${escapeHtml(habit.name)}</h3><span class="cadence-tag">${escapeHtml(cadence)}</span>${scope === "weekly" ? weeklyProgress(habit) : ""}${rest}${source}</div>${purpose}</div>
-    <div class="card-actions"><button class="record-button" type="button" data-log-id="${habit.id}" data-completed="${completed}">${label}</button><button class="edit-button${note ? " has-note" : ""}" type="button" data-note-id="${habit.id}" aria-label="${escapeHtml(habit.name)}のメモ${note ? "（あり）" : ""}">メモ</button><button class="edit-button" type="button" data-edit-id="${habit.id}" aria-label="${escapeHtml(habit.name)}を編集">編集</button></div>
+    <div class="card-actions"><button class="record-button" type="button" data-log-id="${habit.id}" data-completed="${completed}" aria-label="${escapeHtml(habit.name)}を${completed ? "未実施に戻す" : "実施済みにする"}"><span class="check-button" aria-hidden="true">${completed ? "✓" : "○"}</span>${label}</button><button class="edit-button${note ? " has-note" : ""}" type="button" data-note-id="${habit.id}" aria-label="${escapeHtml(habit.name)}のメモ${note ? "（あり）" : ""}">メモ</button><button class="edit-button" type="button" data-edit-id="${habit.id}" aria-label="${escapeHtml(habit.name)}の習慣を編集">習慣編集</button></div>
   </article>`;
 }
 
@@ -372,12 +372,14 @@ function openLogSheet({ habit, date, completed, skipped = false, note }) {
   if (editable) updateLogSheetFields();
   else els.logSheetHint.hidden = true;
   els.logSheet.hidden = false;
+  activateModal(els.logSheet, { fallback: els.addHabitButton });
   (editable ? els.logSheetNote : els.logSheetCancel).focus();
 }
 
 function closeLogSheet() {
   if (state.saving) return;
   els.logSheet.hidden = true;
+  deactivateModal(els.logSheet);
   state.sheet = null;
 }
 
@@ -654,6 +656,9 @@ async function toggleLog(id, completed, button, practicedOn = state.data.today) 
   if (pendingHabitIds.has(id)) return;
   pendingHabitIds.add(id);
   button.disabled = true;
+  // 同じHabitのメモ・習慣編集へ保存中に移らない。他のHabitは続けて操作できる。
+  els.habitContent.querySelectorAll(`[data-log-id="${id}"], [data-note-id="${id}"], [data-edit-id="${id}"]`)
+    .forEach((control) => { control.disabled = true; });
   try {
     const response = await fetch(habitLogUrl(), {
       method: "PATCH",
@@ -692,12 +697,14 @@ function openModal(habit = null) {
   els.saveButton.textContent = habit ? "変更を保存" : "登録する";
   els.formError.hidden = true;
   els.habitModal.hidden = false;
+  activateModal(els.habitModal, { fallback: els.addHabitButton });
   els.habitName.focus();
 }
 
 function closeModal() {
   if (state.saving) return;
   els.habitModal.hidden = true;
+  deactivateModal(els.habitModal);
   state.editing = null;
   els.habitForm.reset();
 }

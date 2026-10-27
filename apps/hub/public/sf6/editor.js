@@ -1,4 +1,5 @@
 import { escapeHtml } from "../shared/html.js";
+import { activateModal, deactivateModal } from "../shared/modal-focus.js";
 import { stored, chips, options, paletteHtml, notationHtml, store } from "./format.js";
 import { DRIVE_STEPS, SA_LEVELS, POSITIONS, LAYERINGS, SITUATION_KINDS, RECOVERIES, GUARD_SETTINGS, COUNTER_SETTINGS, RECOVERY_SETTINGS, MODES, RESULTS, OUTCOME_MARKS, OPPONENT_LABELS, HIT_TYPE_LABELS } from "./constants.js";
 // 共通モーダルでの手順・状況・練習の入力と保存。
@@ -672,6 +673,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     refreshPickers();
     if (resource === "sequences") prepareMoves();
     els.editModal.hidden = false;
+    activateModal(els.editModal, { fallback: () => document.querySelector('main h1, main h2') || document.querySelector('h1') });
     inboxFlow?.onOpened(state.editing);
     const first = els.formFields.querySelector("input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=date]), textarea");
     // スマホで勝手にキーボードが開かないよう、フォーカスはPC幅のときだけ
@@ -682,6 +684,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
     if (state.saving && force !== true) return;
     getNotationKeyboard().reset();
     els.editModal.hidden = true;
+    deactivateModal(els.editModal);
     state.editing = null;
   }
 

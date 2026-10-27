@@ -62,7 +62,7 @@ test("最終更新はProject・Action・マイルストンのうち最も新し�
   assert.equal(waiting.projects[0].stale, false);
 });
 
-test("Projects画面に週次レビューのタブを置き、期限超過・要確認・見直し日・停滞・今週の完了をまとめる", async () => {
+test("Projects画面に週次レビューのタブを置き、期限超過・要確認・見直し日・更新なし・今週の完了をまとめる", async () => {
   const [html, script, css] = await Promise.all([
     readFile(new URL("../public/projects/index.html", import.meta.url), "utf8"),
     readClientScript("projects"),
@@ -70,27 +70,43 @@ test("Projects画面に週次レビューのタブを置き、期限超過・要
   ]);
   assert.match(html, /data-view="review">週次レビュー <b id="reviewTabCount">/);
   assert.match(html, /id="filtersBar"/);
-  for (const title of ["期限超過のタスク", "要確認", "再確認・見直し日", "停滞", "今週完了したタスク"]) {
+  for (const title of ["期限超過のタスク", "要確認", "再確認・見直し日", "更新なし", "今週完了したタスク"]) {
     assert.match(script, new RegExp(`reviewSection\\(\\s*"${title}"`));
   }
   // 画面の説明に使う日数は、サーバーの判定と同じ
   assert.match(script, new RegExp(`const STALE_DAYS = ${STALE_DAYS};`));
   assert.match(script, /pending:\s*overdue\.length\s*\+ attention\.length\s*\+ reviewDue\.length\s*\+ stale\.length/);
-  assert.match(script, /if \(project\.stale\) return `<span class="badge stale">停滞/);
+  assert.match(script, /if \(project\.stale\) return `<span class="badge stale">更新なし/);
   assert.match(script, /data-detail="\$\{project\.id\}"/);
   assert.match(css, /\.review-section \{/);
   assert.match(css, /\.badge\.stale/);
 });
 
-test("Hubの「着手が必要」で、停滞しているProjectの行に「N日動きなし」を添える", () => {
+test("Hubの「着手が必要」で、更新のないProjectの行に「最終更新からN日」を添える", () => {
   const next = { id: 10, content: "教材を決める", status: "next" as const, completedAt: null, updatedAt: "2026-10-01T00:00:00Z" };
   const project = { id: 1, title: "英語", status: "active" as const, targetOn: null, reviewOn: null, nextAction: next, actions: [next] };
   const stale = renderProjectSection({
     status: "ready", data: { projects: [{ ...project, stale: true, lastActivityAt: "2026-10-01T00:00:00Z" }] }, error: null,
   }, { now: NOW });
-  assert.match(stale, /19日動きなし/);
+  assert.match(stale, /最終更新から19日/);
   const fresh = renderProjectSection({
     status: "ready", data: { projects: [{ ...project, stale: false, lastActivityAt: "2026-10-19T00:00:00Z" }] }, error: null,
   }, { now: NOW });
-  assert.doesNotMatch(fresh, /動きなし/);
+  assert.doesNotMatch(fresh, /最終更新から/);
+});
+
+test("更新なしの表示変更は14日のJST境界とactiveだけの判定を保つ", () => {
+  const last = "2026-10-06T14:59:59Z"; // October 6, 23:59:59 JST
+  const project = projectRow({ updated_at: last });
+  const action = actionRow({ updated_at: last });
+  const before = normalizeProjects([project], [action], [], [], new Date("2026-10-19T14:59:59Z"));
+  const after = normalizeProjects([project], [action], [], [], new Date("2026-10-19T15:00:00Z"));
+  assert.equal(before.projects[0].stale, false);
+  assert.equal(after.projects[0].stale, true);
+  assert.equal(after.summary.stale, 1);
+  for (const status of ["waiting", "on_hold", "completed", "dropped"]) {
+    const inactive = normalizeProjects([projectRow({ status, updated_at: last, review_on: "2026-11-01", waiting_for: "返信", completed_at: status === "completed" ? last : null })], [action], [], [], NOW);
+    assert.equal(inactive.projects[0].stale, false, status);
+    assert.equal(inactive.summary.stale, 0, status);
+  }
 });

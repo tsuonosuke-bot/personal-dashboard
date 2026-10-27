@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useModalDialog } from '../lib/useModalDialog'
 import { categoryLabel } from '../lib/finance'
 import type { BudgetCategory, RecurringExpense, RecurringExpenseDraft, RecurringExpenseUpdate, RecurringFrequency } from '../lib/types'
 
@@ -37,6 +38,7 @@ function entryType(rule: RecurringExpense): EntryType {
 }
 
 export function RecurringExpenseModal({ categories, rules, busy, loading = false, error, onClose, onCreate, onUpdate, onToggle, onRun, onReload }: Props) {
+  const dialogRef = useModalDialog(onClose, busy)
   const [editing, setEditing] = useState<RecurringExpense | null>(null)
   const [editFrequency, setEditFrequency] = useState<RecurringFrequency>('monthly')
   const [editInterval, setEditInterval] = useState(1)
@@ -60,12 +62,6 @@ export function RecurringExpenseModal({ categories, rules, busy, loading = false
   const [copyCategory, setCopyCategory] = useState('')
   const [copyPayer, setCopyPayer] = useState('')
   const [copyMemo, setCopyMemo] = useState('')
-
-  useEffect(() => {
-    const close = (event: KeyboardEvent) => { if (event.key === 'Escape' && !busy) onClose() }
-    document.addEventListener('keydown', close)
-    return () => document.removeEventListener('keydown', close)
-  }, [busy, onClose])
 
   const beginEdit = (rule: RecurringExpense) => {
     setCreating(null)
@@ -141,7 +137,7 @@ export function RecurringExpenseModal({ categories, rules, busy, loading = false
   }
 
   return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onClose() }}>
-    <section className="entry-modal recurring-modal" role="dialog" aria-modal="true" aria-labelledby="recurring-title">
+    <section ref={dialogRef} tabIndex={-1} className="entry-modal recurring-modal" role="dialog" aria-modal="true" aria-labelledby="recurring-title">
       <div className="entry-modal-head"><div><h2 id="recurring-title">定期登録を管理</h2></div><button type="button" className="modal-close" aria-label="家計簿へ戻る" onClick={onClose} disabled={busy}>×</button></div>
       <div className="recurring-body">
         <div className="recurring-section-head"><div><h3>登録中のルール</h3></div><button type="button" className="secondary-button" onClick={onRun} disabled={busy || loading}>今すぐ反映</button></div>

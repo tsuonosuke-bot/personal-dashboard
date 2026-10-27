@@ -1,4 +1,5 @@
 import { escapeHtml } from "./shared/html.js";
+import { activateModal, deactivateModal } from "./shared/modal-focus.js";
 import { readApiJson } from "./api-client.js";
 
 const statusMeta = {
@@ -126,6 +127,7 @@ function showEditor(item) {
   els.editorStatus.value = item.status;
   els.formError.hidden = true;
   els.editorModal.hidden = false;
+  activateModal(els.editorModal, { fallback: () => document.querySelector('main h1, main h2') || document.querySelector('h1') });
   document.body.style.overflow = "hidden";
   window.setTimeout(() => els.titleInput.focus(), 0);
 }
@@ -142,6 +144,7 @@ function hideEditor() {
   state.selectedId = null;
   els.editorModal.hidden = true;
   document.body.style.overflow = "";
+  deactivateModal(els.editorModal);
 }
 
 function closeEditor(sync = true) {

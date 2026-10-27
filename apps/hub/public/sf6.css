@@ -61,7 +61,7 @@ main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px
 .notation { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 3px; margin: 6px 0 0; padding: 7px 8px; border-radius: var(--radius-sm); background: var(--bg-subtle); font-size: 13px; line-height: 1.2; }
 .cmd { display: inline-flex; align-items: center; gap: 1px; }
 .cmd-arrows { font-size: 15px; font-weight: 700; letter-spacing: -.04em; }
-.cmd-jump { padding: 1px 3px; border-radius: 3px; background: var(--bg-active); color: var(--muted); font-size: 11px; font-weight: 700; }
+.cmd-jump { padding: 1px 3px; border-radius: 3px; background: var(--bg-active); color: var(--muted); font-size: 12px; font-weight: 700; }
 .cmd-button { min-width: 30px; padding: 3px 5px; border: 1px solid transparent; border-radius: 999px; font-size: 12px; font-weight: 700; text-align: center; }
 .cmd-button.punch.light { background: #fde8d7; color: #9a3412; }
 .cmd-button.punch.medium { background: #f7b98a; color: #7c2d12; }
@@ -130,7 +130,7 @@ main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px
 /* 状況・条件・締め後・起き攻め */
 .filters > select#sequenceSituation { min-width: 170px; }
 /* 「すべて」の一覧で、コンボと起き攻めを見分ける印 */
-.kind-badge { margin-right: 6px; padding: 1px 6px; border-radius: 4px; background: var(--bg-hover); color: var(--muted); font-size: 11px; font-weight: 600; vertical-align: 1px; }
+.kind-badge { margin-right: 6px; padding: 1px 6px; border-radius: 4px; background: var(--bg-hover); color: var(--muted); font-size: 12px; font-weight: 600; vertical-align: 1px; }
 /* 状況の「⋯」メニュー */
 .menu { position: relative; }
 .menu summary { width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--radius-sm); color: var(--muted); font-size: 18px; font-weight: 700; list-style: none; cursor: pointer; }
@@ -259,7 +259,7 @@ main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px
 .frame-row.open td { border-bottom-color: transparent; background: var(--bg-subtle); }
 .frame-name { width: 100%; min-height: 36px; display: grid; gap: 2px; padding: 2px 0; border: 0; background: none; font-size: 13px; font-weight: 600; text-align: left; }
 .notation.inline { display: inline-flex; margin: 0; padding: 0; background: none; font-size: 12px; }
-.notation.inline .cmd-button { min-width: 24px; padding: 1px 4px; font-size: 11px; }
+.notation.inline .cmd-button { min-width: 24px; padding: 1px 4px; font-size: 12px; }
 .notation.inline .cmd-arrows { font-size: 13px; }
 .frame-detail td { padding: 0 8px 10px; background: var(--bg-subtle); }
 .frame-detail dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; margin: 0; }
@@ -368,7 +368,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
   .tabs { gap: 0; scrollbar-width: none; }
   .tabs::-webkit-scrollbar { display: none; }
   .tabs button { flex: 1 1 auto; justify-content: center; gap: 3px; padding: 0 4px; font-size: 13px; }
-  .tabs b { font-size: 11px; }
+  .tabs b { font-size: 12px; }
   .filters select { flex: 1 1 140px; }
   .stats { grid-template-columns: 1fr; }
   .stat-main { display: flex; align-items: baseline; gap: 10px; }
@@ -393,12 +393,12 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 .flow-svg { display: block; font-size: 12px; }
 .flow-svg marker path { fill: var(--muted); }
 .flow-edge path { fill: none; stroke: var(--muted); stroke-width: 1.5; }
-.flow-edge text { fill: var(--muted); font-size: 11px; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; }
+.flow-edge text { fill: var(--muted); font-size: 12px; paint-order: stroke; stroke: var(--paper); stroke-width: 4px; }
 .flow-node { cursor: pointer; }
 .flow-node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; }
 .flow-toggle { cursor: pointer; }
 .flow-toggle rect { fill: var(--bg-hover); stroke: var(--line); stroke-width: 1; }
-.flow-toggle text { fill: var(--ink); font-size: 11px; font-weight: 700; }
+.flow-toggle text { fill: var(--ink); font-size: 12px; font-weight: 700; }
 .flow-toggle:hover rect { stroke: var(--accent); }
 .flow-node.folded rect:first-child { stroke-dasharray: 6 3; }
 .flow-node.selected > rect { fill: var(--bg-hover); stroke-width: 3; }
@@ -409,7 +409,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 .flow-stub.loop rect { stroke-dasharray: none; fill: var(--bg-hover); }
 .flow-stub.loop text { fill: var(--ink); }
 .flow-stub.unset rect { stroke: var(--accent); }
-.flow-stub text { fill: var(--muted); font-size: 11px; }
+.flow-stub text { fill: var(--muted); font-size: 12px; }
 .flow-stub.unset text { fill: var(--accent); font-weight: 600; }
 .flow-stub .flow-link { stroke: var(--muted); stroke-dasharray: 3 3; }
 .flow-node:focus-visible rect, .flow-stub:focus-visible rect { outline: 2px solid var(--accent); }

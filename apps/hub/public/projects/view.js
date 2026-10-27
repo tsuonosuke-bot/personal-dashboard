@@ -88,7 +88,7 @@ export function createProjectView({
 
   function statusBadge(project) {
     if (project.needsAttention) return '<span class="badge attention">要確認</span>';
-    if (project.stale) return `<span class="badge stale">停滞 ${staleDays(project)}日</span>`;
+    if (project.stale) return `<span class="badge stale">更新なし ${staleDays(project)}日</span>`;
     if (project.status === "waiting" || project.status === "on_hold")
       return `<span class="badge waiting">${statusLabels[project.status]}</span>`;
     if (project.status === "completed" || project.status === "dropped")
@@ -275,19 +275,19 @@ export function createProjectView({
         "見直し日が来たProjectはありません",
       )}
       ${reviewSection(
-        "停滞",
-        `進行中で${STALE_DAYS}日以上動きがない`,
+        "更新なし",
+        `進行中で最終更新から${STALE_DAYS}日以上`,
         data.stale.length,
         data.stale
           .map((project) =>
             reviewRow(
               project,
               escapeHtml(project.nextAction?.content || "Next Action未設定"),
-              `<span class="date-chip stale">${staleDays(project, data.today)}日動きなし</span>`,
+              `<span class="date-chip stale">最終更新から${staleDays(project, data.today)}日</span>`,
             ),
           )
           .join(""),
-        "停滞しているProjectはありません",
+        "14日以上更新のないProjectはありません",
       )}
       ${reviewSection(
         "今週完了したタスク",

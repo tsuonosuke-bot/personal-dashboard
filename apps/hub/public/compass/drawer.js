@@ -1,5 +1,6 @@
 // ドロワーとInbox追加モーダルの開閉、Inboxの追加。
 import { readApiJson } from "../api-client.js";
+import { activateModal, deactivateModal } from "../shared/modal-focus.js";
 import { parseCompassRoute } from "../compass-routing.js";
 import { PRIMARY_INBOX_ROUTES, defaultStatusByView, inboxQuickRoutes, quickWantRoutes, routeCompletionMeta, routeDestinationMeta, viewMeta } from "./constants.js";
 import { loadDashboard, loadIdeaDetail } from "./data.js";
@@ -156,8 +157,10 @@ export function hideDrawer() {
   state.drawerItem = null;
   els.drawer.classList.remove("open");
   els.drawer.setAttribute("aria-hidden", "true");
+  els.drawer.inert = true;
   els.drawerBackdrop.hidden = true;
   document.body.style.overflow = "";
+  deactivateModal(els.drawer);
 }
 
 export function openDrawer(id, view = state.view, historyMode = "push") {
@@ -181,6 +184,8 @@ export function openDrawer(id, view = state.view, historyMode = "push") {
   els.drawerBackdrop.hidden = false;
   els.drawer.classList.add("open");
   els.drawer.setAttribute("aria-hidden", "false");
+  els.drawer.inert = false;
+  activateModal(els.drawer, { fallback: () => document.querySelector('main h1, main h2') || document.querySelector('h1'), allowOutside: [els.drawerBackdrop] });
   document.body.style.overflow = "hidden";
   els.drawerClose.focus();
   if (historyMode !== "none") syncCompassRoute(view, id, historyMode);
@@ -199,7 +204,8 @@ export function closeDrawer(sync = true) {
 
 export function setModalOpen(open) {
   els.inboxModal.hidden = !open;
-  document.body.style.overflow = open ? "hidden" : "";
+  if (open) activateModal(els.inboxModal, { fallback: () => document.querySelector('#addInboxButton') || document.querySelector('#listTitle') });
+  else deactivateModal(els.inboxModal);
   if (!open && new URLSearchParams(window.location.search).get("new") === "inbox") {
     const cleaned = new URL(window.location.href);
     cleaned.searchParams.delete("new");
