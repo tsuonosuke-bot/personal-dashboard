@@ -5,7 +5,7 @@
   "sourceCommit": "a371bec5894a94b11251d5b6615b6a090e1f4286",
   "branch": "codex/projects-goals-ops-20261027",
   "expiresAt": "2026-10-28T03:00:00Z",
-  "phase": "preflight",
+  "phase": "apply",
   "cliVersion": "2.117.0",
   "migrations": [
     {
@@ -156,6 +156,18 @@
   "derivedCaches": [
     "project_todo_read_cache"
   ],
-  "backup": null,
+  "backup": {
+    "repository": "tsuonosuke-bot/personal-dashboard",
+    "workflowPath": ".github/workflows/supabase-backup.yml",
+    "branch": "main",
+    "conclusion": "success",
+    "runId": 40443089456,
+    "headSha": "32929b22f5543e1ce196717b617d9f9faf404c0f",
+    "artifactId": 12706947897,
+    "artifactName": "supabase-20261027T031720Z",
+    "artifactDigest": "sha256:e8d2a0885afbafbb352ae91e6a7d3f4f4f141984f237e35c2070f544e5f211a3",
+    "encryptedArchiveVerified": true,
+    "createdAt": "2026-10-27T03:14:50Z"
+  },
   "baseline": null
 }
