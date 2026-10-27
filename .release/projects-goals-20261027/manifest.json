@@ -5,7 +5,7 @@
   "sourceCommit": "a371bec5894a94b11251d5b6615b6a090e1f4286",
   "branch": "codex/projects-goals-ops-20261027",
   "expiresAt": "2026-10-28T03:00:00Z",
-  "phase": "types",
+  "phase": "verify",
   "cliVersion": "2.117.0",
   "migrations": [
     {
@@ -157,5 +157,8 @@
     "project_todo_read_cache"
   ],
   "backup": null,
-  "baseline": null
+  "baseline": {
+    "file": "baseline.json",
+    "sha256": "ab4a4adb28c1b024a5665f3e7d5dc377afeccc106d57e1b9b74b4dbfbff2f892"
+  }
 }
