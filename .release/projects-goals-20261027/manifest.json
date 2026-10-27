@@ -1,0 +1,161 @@
+{
+  "format": "projects-goals-release-v1",
+  "repository": "tsuonosuke-bot/personal-dashboard",
+  "projectRef": "plwlxwidpqbunugfxjhp",
+  "sourceCommit": "a371bec5894a94b11251d5b6615b6a090e1f4286",
+  "branch": "codex/projects-goals-ops-20261027",
+  "expiresAt": "2026-10-28T03:00:00Z",
+  "phase": "preflight",
+  "cliVersion": "2.117.0",
+  "migrations": [
+    {
+      "version": "20261027030001",
+      "name": "project_goal_capture_review",
+      "file": "apps/hub/supabase/migrations/20261027030001_project_goal_capture_review.sql",
+      "sha256": "c44b0dc7fe3ff40cbd5acc84a574ca02d4089c3920e19ba006249c3bb5c725c0",
+      "applyFile": "20261027030001.apply.sql",
+      "applySha256": "44d4cee7309161a781356d5b2250162cf4d28bc2915e4ccce0944d6fff0a8835"
+    },
+    {
+      "version": "20261027030002",
+      "name": "project_habits",
+      "file": "apps/hub/supabase/migrations/20261027030002_project_habits.sql",
+      "sha256": "ff0064e8b4b63f8391836219ab5ba859135a40c66da677155953ad5291650595",
+      "applyFile": "20261027030002.apply.sql",
+      "applySha256": "3f06a03687bc0a7df10c79c42a1ebd45f7a7b07a146490605b3250e12133ee10"
+    },
+    {
+      "version": "20261027030003",
+      "name": "project_action_schedule",
+      "file": "apps/hub/supabase/migrations/20261027030003_project_action_schedule.sql",
+      "sha256": "e8d1a3cf172fc3d31748fc01df71e15eca0625cf7207ba4a222e4e030faf9bf5",
+      "applyFile": "20261027030003.apply.sql",
+      "applySha256": "2e1aa47f0e685c204367ba610787d8e09ca570ef3ff304bbbf5645deed8c7f10"
+    },
+    {
+      "version": "20261027030004",
+      "name": "project_review_habit_snapshot",
+      "file": "apps/hub/supabase/migrations/20261027030004_project_review_habit_snapshot.sql",
+      "sha256": "9862c170e72bba843e295f111e72670e66d0b070f90e3ed6bc1a95d223b92a16",
+      "applyFile": "20261027030004.apply.sql",
+      "applySha256": "d441f0f60bafe65b22c8f3d0a84b2efb039840ba8d0383a4ac3d10a95a2495c8"
+    }
+  ],
+  "functions": [
+    {
+      "signature": "public.begin_project_schedule(jsonb)",
+      "bodySha256": "273b5a305e598bcbd183a1bf411424b93a96d8190e924c90c37b73e0cd1af4eb",
+      "language": "plpgsql",
+      "searchPath": "public",
+      "returnType": "jsonb",
+      "volatility": "v"
+    },
+    {
+      "signature": "public.capture_project_action(jsonb)",
+      "bodySha256": "e37c04d66a98a436bf70aede6d27b3d29b50ca77e1eb56b51cd6d4eac447bea5",
+      "language": "plpgsql",
+      "searchPath": "public",
+      "returnType": "jsonb",
+      "volatility": "v"
+    },
+    {
+      "signature": "public.delete_unlinked_scheduled_actions(bigint[],timestamptz)",
+      "bodySha256": "ebe104252fd219dcde3b70c05761baeb35e52d1f0465b5d8efdbf35805f190d5",
+      "language": "plpgsql",
+      "searchPath": "public",
+      "returnType": "integer",
+      "volatility": "v"
+    },
+    {
+      "signature": "public.fail_project_schedule(uuid,text)",
+      "bodySha256": "c48e9880981d8d13a40a8391d1f46db4ba99136cff7ea6c204d23985319b2d35",
+      "language": "plpgsql",
+      "searchPath": "public",
+      "returnType": "void",
+      "volatility": "v"
+    },
+    {
+      "signature": "public.finish_project_schedule(uuid)",
+      "bodySha256": "fa4122586f2e3b66d0140f1146f7f65485780d18d40d9c28c61f4698e21c1b2a",
+      "language": "plpgsql",
+      "searchPath": "public",
+      "returnType": "jsonb",
+      "volatility": "v"
+    },
+    {
+      "signature": "public.get_project_goal_status(bigint[],date)",
+      "bodySha256": "3c85c3360ccef0ce20001a74dbadcd0e4299a5da01cd1ffcee6ac7eadc1702f0",
+      "language": "sql",
+      "searchPath": "public",
+      "returnType": "jsonb",
+      "volatility": "s"
+    },
+    {
+      "signature": "public.link_project_habit(jsonb)",
+      "bodySha256": "cfef201c8185652d6eab69e016f74b37f4f2092ec0cc636108d7f63b2a609a86",
+      "language": "plpgsql",
+      "searchPath": "''",
+      "returnType": "bigint",
+      "volatility": "v"
+    },
+    {
+      "signature": "public.project_habit_review_fingerprint(bigint)",
+      "bodySha256": "dc91479d7d55b76e10480fe232e90d9ac0b0b35ffc308080877512c2e259d02d",
+      "language": "sql",
+      "searchPath": "public",
+      "returnType": "jsonb",
+      "volatility": "s"
+    },
+    {
+      "signature": "public.project_review_fingerprint(bigint)",
+      "bodySha256": "3c39bb49807fff0489fdb4dff3176d5981faba279b27d2a3d8357dca479c1a0e",
+      "language": "sql",
+      "searchPath": "public",
+      "returnType": "text",
+      "volatility": "s"
+    },
+    {
+      "signature": "public.record_project_review(jsonb)",
+      "bodySha256": "a63af485b98aa4e6f03f46f8c488968267c46e93707a663404664b6704f30eea",
+      "language": "plpgsql",
+      "searchPath": "public",
+      "returnType": "jsonb",
+      "volatility": "v"
+    },
+    {
+      "signature": "public.record_project_schedule_calendar(uuid,text,text,text)",
+      "bodySha256": "74df2c753f8f3b22ceb0259d801fddf7f2bf6a7687cf80b8f80e9706ae1b5e2d",
+      "language": "plpgsql",
+      "searchPath": "public",
+      "returnType": "jsonb",
+      "volatility": "v"
+    },
+    {
+      "signature": "public.save_project_schedule_todo(uuid)",
+      "bodySha256": "811d98470e54e300431213ff222a511be20b94a211f3bdf00edadf021b769e66",
+      "language": "plpgsql",
+      "searchPath": "public",
+      "returnType": "jsonb",
+      "volatility": "v"
+    },
+    {
+      "signature": "public.unlink_project_habit(jsonb)",
+      "bodySha256": "01a46daf3ffb1e2964d305445d0bcb42bc48d9054a3a5b3ed90a6ae0380805fd",
+      "language": "plpgsql",
+      "searchPath": "''",
+      "returnType": "bigint",
+      "volatility": "v"
+    }
+  ],
+  "newTables": [
+    "project_goal_requests",
+    "project_reviews",
+    "project_habits",
+    "project_schedule_operations"
+  ],
+  "derivedCaches": [
+    "project_todo_read_cache"
+  ],
+  "backup": null,
+  "baseline": null
+}
