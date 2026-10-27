@@ -419,6 +419,26 @@
   background: var(--waiting-soft);
   color: var(--waiting);
 }
+:root[data-theme="dark"] .project-progress {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .detail-review {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .goal-review-row {
+  border-top: 1px solid var(--line);
+}
+:root[data-theme="dark"] .goal-review-row:first-child {
+  border-top: 0;
+}
+:root[data-theme="dark"] .goal-review-open {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+:root[data-theme="dark"] .goal-review-open small {
+  color: var(--muted);
+}
 :root[data-theme="dark"] .review-section {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -850,6 +870,26 @@
   border-color: rgba(108, 86, 131, .4);
   background: var(--waiting-soft);
   color: var(--waiting);
+}
+:root[data-theme="light"][data-palette="cream"] .project-progress {
+  color: var(--muted);
+}
+:root[data-theme="light"][data-palette="cream"] .detail-review {
+  color: var(--muted);
+}
+:root[data-theme="light"][data-palette="cream"] .goal-review-row {
+  border-top: 1px solid var(--line);
+}
+:root[data-theme="light"][data-palette="cream"] .goal-review-row:first-child {
+  border-top: 0;
+}
+:root[data-theme="light"][data-palette="cream"] .goal-review-open {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+:root[data-theme="light"][data-palette="cream"] .goal-review-open small {
+  color: var(--muted);
 }
 :root[data-theme="light"][data-palette="cream"] .review-section {
   border: 1px solid var(--line);
@@ -1296,6 +1336,26 @@
   background: var(--waiting-soft);
   color: var(--waiting);
 }
+:root[data-theme="dark"][data-palette="navy"] .project-progress {
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="navy"] .detail-review {
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="navy"] .goal-review-row {
+  border-top: 1px solid var(--line);
+}
+:root[data-theme="dark"][data-palette="navy"] .goal-review-row:first-child {
+  border-top: 0;
+}
+:root[data-theme="dark"][data-palette="navy"] .goal-review-open {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+:root[data-theme="dark"][data-palette="navy"] .goal-review-open small {
+  color: var(--muted);
+}
 :root[data-theme="dark"][data-palette="navy"] .review-section {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1740,6 +1800,26 @@
   border-color: rgba(132, 107, 158, 0.4);
   background: var(--waiting-soft);
   color: var(--waiting);
+}
+:root[data-theme="dark"][data-palette="forest"] .project-progress {
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="forest"] .detail-review {
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="forest"] .goal-review-row {
+  border-top: 1px solid var(--line);
+}
+:root[data-theme="dark"][data-palette="forest"] .goal-review-row:first-child {
+  border-top: 0;
+}
+:root[data-theme="dark"][data-palette="forest"] .goal-review-open {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+:root[data-theme="dark"][data-palette="forest"] .goal-review-open small {
+  color: var(--muted);
 }
 :root[data-theme="dark"][data-palette="forest"] .review-section {
   border: 1px solid var(--line);
@@ -2186,6 +2266,26 @@
   background: var(--waiting-soft);
   color: var(--waiting);
 }
+:root[data-theme="dark"][data-palette="nord"] .project-progress {
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="nord"] .detail-review {
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="nord"] .goal-review-row {
+  border-top: 1px solid var(--line);
+}
+:root[data-theme="dark"][data-palette="nord"] .goal-review-row:first-child {
+  border-top: 0;
+}
+:root[data-theme="dark"][data-palette="nord"] .goal-review-open {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+:root[data-theme="dark"][data-palette="nord"] .goal-review-open small {
+  color: var(--muted);
+}
 :root[data-theme="dark"][data-palette="nord"] .review-section {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -2631,6 +2731,26 @@
   background: var(--waiting-soft);
   color: var(--waiting);
 }
+:root[data-theme="dark"][data-palette="gruvbox"] .project-progress {
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .detail-review {
+  color: var(--muted);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .goal-review-row {
+  border-top: 1px solid var(--line);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .goal-review-row:first-child {
+  border-top: 0;
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .goal-review-open {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .goal-review-open small {
+  color: var(--muted);
+}
 :root[data-theme="dark"][data-palette="gruvbox"] .review-section {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -3062,6 +3182,26 @@
   border-color: rgba(108, 86, 131, .4);
   background: var(--waiting-soft);
   color: var(--waiting);
+}
+:root[data-theme="light"][data-palette="solarized"] .project-progress {
+  color: var(--muted);
+}
+:root[data-theme="light"][data-palette="solarized"] .detail-review {
+  color: var(--muted);
+}
+:root[data-theme="light"][data-palette="solarized"] .goal-review-row {
+  border-top: 1px solid var(--line);
+}
+:root[data-theme="light"][data-palette="solarized"] .goal-review-row:first-child {
+  border-top: 0;
+}
+:root[data-theme="light"][data-palette="solarized"] .goal-review-open {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+:root[data-theme="light"][data-palette="solarized"] .goal-review-open small {
+  color: var(--muted);
 }
 :root[data-theme="light"][data-palette="solarized"] .review-section {
   border: 1px solid var(--line);

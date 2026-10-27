@@ -168,7 +168,7 @@ test("migrationと画面: kind 列、記録シートの3択、休んだ日の印
   assert.doesNotMatch(migration, /^\s*(begin|commit);/m);
   for (const value of ["done", "skip", "none"]) assert.match(html, new RegExp(`name="logKind" value="${value}"`));
   assert.match(html, /／ 休んだ/);
-  assert.match(script, /day\.skipped \? "／"/);
+  assert.match(script, /day\.skipped\s*\? "／"/);
   assert.match(script, /今日は休み/);
   assert.match(css, /\.log-sheet-kind/);
 });

@@ -7,7 +7,7 @@
 .project-todo-dialog button.primary { color: var(--bg); background: var(--page-accent); border-color: var(--page-accent); }
 .project-todo-dialog button:disabled { opacity: .5; cursor: default; }
 .project-todo-form > label, .project-todo-resolution div > label { display: grid; gap: 6px; margin: 12px 0; }
-.project-todo-form select, .project-todo-form input:not([type=radio]), .project-todo-form textarea { width: 100%; min-height: 40px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 4px; padding: 8px; background: var(--bg); color: var(--text); font: inherit; }
+.project-todo-form select, .project-todo-form input:not([type=radio]):not([type=checkbox]), .project-todo-form textarea { width: 100%; min-height: 40px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 4px; padding: 8px; background: var(--bg); color: var(--text); font: inherit; }
 .project-todo-form p { line-height: 1.6; overflow-wrap: anywhere; }
 .project-todo-preview { padding: 10px 0; border-block: 1px solid var(--border); }
 .project-todo-resolution { padding: 10px; border: 1px solid var(--border); }
@@ -15,3 +15,4 @@
 .project-todo-dialog [hidden] { display: none !important; }
 .project-todo-link { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
 .project-todo-link a { color: var(--page-accent); }
+.project-todo-form input[type=checkbox] { width: 18px; min-height: 18px; flex: none; }

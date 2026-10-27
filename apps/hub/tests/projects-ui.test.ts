@@ -19,8 +19,8 @@ test("Projects page keeps the goal, current action, waiting, and review loop vis
   assert.match(html, /value="waiting"/);
   assert.match(html, /value="on_hold"/);
   assert.match(script, /projectRequest\(`\/api\/projects\?\$\{params\}`/);
-  assert.match(script, /projectRequest\("\/api\/project-actions"/);
-  assert.match(script, /projectRequest\("\/api\/project-items"/);
+  assert.match(script, /projectRequest\(\s*"\/api\/project-actions"/);
+  assert.match(script, /projectRequest\(\s*"\/api\/project-items"/);
   assert.match(script, /"X-Dashboard-Action": "project-action-resolve"/);
   assert.match(script, /originalUpdatedAt: project\.nextAction\.updatedAt/);
   assert.match(script, /\/compass\/\?view=\$\{view\}&id=\$\{item\.sourceId\}/);
@@ -118,6 +118,6 @@ test("Project詳細の完了履歴は10件ずつ、またはすべてを表示�
   assert.match(script, /const shownCompleted = completed\.slice\(0, state\.completedShown\)/);
   assert.match(script, /data-completed-more="\$\{COMPLETED_PAGE\}"/);
   assert.match(script, /data-completed-more="all">すべて表示（残り\$\{remainingCompleted\}件）/);
-  assert.match(script, /state\.completedShown = button\.dataset\.completedMore === "all" \? Infinity : state\.completedShown \+ COMPLETED_PAGE/);
+  assert.match(script, /state\.completedShown\s*=\s*button\.dataset\.completedMore === "all"\s*\? Infinity\s*: state\.completedShown \+ COMPLETED_PAGE/);
   assert.match(script, /if \(state\.selectedId !== project\.id\) state\.completedShown = COMPLETED_PAGE/);
 });

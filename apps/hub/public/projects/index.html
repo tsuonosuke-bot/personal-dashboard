@@ -90,12 +90,13 @@
         <header><div><span class="eyebrow" id="projectEditorKicker">NEW PROJECT</span><h2 id="projectEditorTitle">Projectを作成</h2></div><button class="icon-button" id="projectClose" type="button" aria-label="閉じる">×</button></header>
         <form id="projectForm">
           <label><span>Project名</span><input id="projectTitleInput" maxlength="240" required /></label>
-          <label><span>完了条件</span><textarea id="projectOutcomeInput" rows="4" maxlength="2000" placeholder="何が実現したら完了か" required></textarea></label>
+          <label><span>完了条件 — 何ができたら達成？</span><textarea id="projectOutcomeInput" rows="4" maxlength="2000" placeholder="例：英語の会議で、冒頭説明と質疑応答を一人で進められる" required></textarea></label>
           <div class="form-grid">
             <label><span>テーマ（任意）</span><input id="projectThemeInput" maxlength="120" placeholder="例：個人の情報管理" /></label>
             <label><span>目標日（任意）</span><input id="projectTargetInput" type="date" /></label>
           </div>
-          <label id="projectNextActionField"><span>最初のNext Action</span><textarea id="projectNextActionInput" rows="3" maxlength="500" placeholder="動詞から始まる、今すぐできる行動" required></textarea></label>
+          <label id="projectNextActionField"><span>最初のNext Action — まず何を試す？</span><textarea id="projectNextActionInput" rows="3" maxlength="500" placeholder="例：次の会議の冒頭説明を3文書く" required></textarea></label>
+          <p class="form-hint"><a href="/compass/">まだ考え中の目標はIdeaに残す</a></p>
           <p class="form-hint" id="projectFormHint">Active Projectには、作成時からNext Actionを1件設定します。</p>
           <p class="form-error" id="projectFormError" role="alert" hidden></p>
           <div class="editor-actions"><button id="projectCancel" type="button">キャンセル</button><button class="save-button" id="projectSave" type="submit">作成</button></div>
