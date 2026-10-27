@@ -5,7 +5,7 @@ import { readFile, writeFile, lstat, realpath, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const MANIFEST_SHA256 = "5fd7e27810b1c7edc3c205b8e17d4920614a18954ee894dc942db196c62acf74";
+export const MANIFEST_SHA256 = "049c2a9d0ba3f8f3c2da2a7eaa5ff6d487a1f3debc7a06669525ec9de4112e29";
 export const BUNDLE = ".release/projects-goals-20261027";
 export const REPO = "tsuonosuke-bot/personal-dashboard";
 export const PROJECT_REF = "plwlxwidpqbunugfxjhp";
