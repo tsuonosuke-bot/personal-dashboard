@@ -169,6 +169,10 @@ function number(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function queueCount(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
 function integer(value: unknown): number | null {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) ? parsed : null;
@@ -460,12 +464,14 @@ export function normalizeHub(
       previousMonthSpend: availability.expenses ? previousSpend : null,
       pendingInbox: availability.inbox ? pendingInbox.length : null,
       dueKnowledge: availability.knowledge ? knowledge.dueCount : null,
+      knowledgeAnsweredToday: null as number | null,
+      knowledgeAnsweredOn: null as string | null,
       // 問題キューの件数。すぐ解ける問題（期限が来た出題待ち）を主に、採点待ちと未確認の採点結果を添える。
-      reviewReadyDue: availability.knowledge ? integer(reviewStatus?.ready_due) ?? 0 : null,
-      reviewWaitingGrading: availability.knowledge ? integer(reviewStatus?.waiting_grading) ?? 0 : null,
-      reviewGradingErrors: availability.knowledge ? integer(reviewStatus?.grading_errors) ?? 0 : null,
-      reviewUnconfirmed: availability.knowledge ? integer(reviewStatus?.unconfirmed_results) ?? 0 : null,
-      reviewGenerationHeld: availability.knowledge ? integer(reviewStatus?.generation_held) ?? 0 : null,
+      reviewReadyDue: availability.knowledge ? queueCount(reviewStatus?.ready_due) : null,
+      reviewWaitingGrading: availability.knowledge ? queueCount(reviewStatus?.waiting_grading) : null,
+      reviewGradingErrors: availability.knowledge ? queueCount(reviewStatus?.grading_errors) : null,
+      reviewUnconfirmed: availability.knowledge ? queueCount(reviewStatus?.unconfirmed_results) : null,
+      reviewGenerationHeld: availability.knowledge ? queueCount(reviewStatus?.generation_held) : null,
       // 生成・採点バッチの警告（全体の失敗が続く・成功が途絶える・cronが止まる）。取得できなければnull。
       reviewBatchAlerts: reviewBatches ? reviewBatches.alerts : null,
       // SupabaseのDB容量が逼迫しているときの警告。取得できない・余裕があるときはnull。

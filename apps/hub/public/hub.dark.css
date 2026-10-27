@@ -1,7 +1,7 @@
 /* Generated from hub.css by scripts/build-dark-theme.mjs. Do not edit. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --paper--light: var(--bg--light, var(--bg));
+  --paper--light: var(--bg-subtle--light, var(--bg-subtle));
   --surface--light: var(--bg--light, var(--bg));
   --ink--light: var(--text--light, var(--text));
   --muted--light: var(--text-secondary--light, var(--text-secondary));
@@ -727,8 +727,11 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .record-row small {
   color: var(--muted);
 }
-:root[data-theme="dark"] .record-row > b {
+:root[data-theme="dark"] .transaction-money > b {
   color: var(--blue);
+}
+:root[data-theme="dark"] .transaction-money > small {
+  color: var(--muted);
 }
 :root[data-theme="dark"] .knowledge-item {
   border-radius: var(--radius-sm);
@@ -1566,8 +1569,11 @@ html[data-theme="light"][data-palette="cream"] {
 :root[data-theme="light"][data-palette="cream"] .record-row small {
   color: var(--muted);
 }
-:root[data-theme="light"][data-palette="cream"] .record-row > b {
+:root[data-theme="light"][data-palette="cream"] .transaction-money > b {
   color: var(--blue);
+}
+:root[data-theme="light"][data-palette="cream"] .transaction-money > small {
+  color: var(--muted);
 }
 :root[data-theme="light"][data-palette="cream"] .knowledge-item {
   border-radius: var(--radius-sm);
@@ -2433,8 +2439,11 @@ html[data-theme="dark"][data-palette="navy"] {
 :root[data-theme="dark"][data-palette="navy"] .record-row small {
   color: var(--muted);
 }
-:root[data-theme="dark"][data-palette="navy"] .record-row > b {
+:root[data-theme="dark"][data-palette="navy"] .transaction-money > b {
   color: var(--blue);
+}
+:root[data-theme="dark"][data-palette="navy"] .transaction-money > small {
+  color: var(--muted);
 }
 :root[data-theme="dark"][data-palette="navy"] .knowledge-item {
   border-radius: var(--radius-sm);
@@ -3300,8 +3309,11 @@ html[data-theme="dark"][data-palette="forest"] {
 :root[data-theme="dark"][data-palette="forest"] .record-row small {
   color: var(--muted);
 }
-:root[data-theme="dark"][data-palette="forest"] .record-row > b {
+:root[data-theme="dark"][data-palette="forest"] .transaction-money > b {
   color: var(--blue);
+}
+:root[data-theme="dark"][data-palette="forest"] .transaction-money > small {
+  color: var(--muted);
 }
 :root[data-theme="dark"][data-palette="forest"] .knowledge-item {
   border-radius: var(--radius-sm);
@@ -4167,8 +4179,11 @@ html[data-theme="dark"][data-palette="nord"] {
 :root[data-theme="dark"][data-palette="nord"] .record-row small {
   color: var(--muted);
 }
-:root[data-theme="dark"][data-palette="nord"] .record-row > b {
+:root[data-theme="dark"][data-palette="nord"] .transaction-money > b {
   color: var(--blue);
+}
+:root[data-theme="dark"][data-palette="nord"] .transaction-money > small {
+  color: var(--muted);
 }
 :root[data-theme="dark"][data-palette="nord"] .knowledge-item {
   border-radius: var(--radius-sm);
@@ -5034,8 +5049,11 @@ html[data-theme="dark"][data-palette="gruvbox"] {
 :root[data-theme="dark"][data-palette="gruvbox"] .record-row small {
   color: var(--muted);
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .record-row > b {
+:root[data-theme="dark"][data-palette="gruvbox"] .transaction-money > b {
   color: var(--blue);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .transaction-money > small {
+  color: var(--muted);
 }
 :root[data-theme="dark"][data-palette="gruvbox"] .knowledge-item {
   border-radius: var(--radius-sm);
@@ -5873,8 +5891,11 @@ html[data-theme="light"][data-palette="solarized"] {
 :root[data-theme="light"][data-palette="solarized"] .record-row small {
   color: var(--muted);
 }
-:root[data-theme="light"][data-palette="solarized"] .record-row > b {
+:root[data-theme="light"][data-palette="solarized"] .transaction-money > b {
   color: var(--blue);
+}
+:root[data-theme="light"][data-palette="solarized"] .transaction-money > small {
+  color: var(--muted);
 }
 :root[data-theme="light"][data-palette="solarized"] .knowledge-item {
   border-radius: var(--radius-sm);

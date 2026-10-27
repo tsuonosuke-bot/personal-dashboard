@@ -267,6 +267,25 @@ test("hub reads the review queue status from Knowledge, not the old daily queue"
   }
 });
 
+test("dated Knowledge answers survive a partial queue and mixed app rollout never fabricates zero", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    for (const fixture of [
+      { date: '2026-09-14', todayAnswered: 7, reviewStatus: {} },
+      { date: '2026-09-14', todayAnswered: 0, reviewStatus: { ready_due: null } },
+      { date: '2026-09-13', todayAnswered: 7, reviewStatus: { ready_due: 4 } },
+      { reviewStatus: { ready_due: 2 } },
+    ]) {
+      globalThis.fetch = async (input, init) => hubReadFixture(input, init, { knowledge: fixture });
+      const result = await loadHub({ SUPABASE_URL: 'https://compass.supabase.co', SUPABASE_SECRET_KEY: 'test', HUB_SERVICE_TOKEN: 'long-enough-test-service-token-12345' }, now);
+      assert.equal(result.availability.knowledge, true);
+      assert.equal(result.summary.reviewReadyDue, typeof fixture.reviewStatus.ready_due === 'number' ? fixture.reviewStatus.ready_due : null);
+      assert.equal(result.summary.knowledgeAnsweredToday, fixture.date === '2026-09-14' ? fixture.todayAnswered : null);
+      assert.equal(result.summary.knowledgeAnsweredOn, fixture.date === '2026-09-14' ? '2026-09-14' : null);
+    }
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test("Journal queries each target with a past-only descending lookup", async () => {
   const originalFetch = globalThis.fetch;
   const journalRequests: URL[] = [];

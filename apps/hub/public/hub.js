@@ -3,6 +3,8 @@ import { readApiJson } from "./api-client.js";
 import { renderJournalTrendHtml } from "./journal-trend.js";
 import { createTodayPanel } from "./today-panel.js";
 import { renderLearningStages } from "./learning-stages.js";
+import { transactionDisplay } from "./transaction-display.js";
+import { knowledgeActivity, jstToday } from "./knowledge-activity.js";
 
 const ids = [
   "sourceBadge", "refreshButton", "quickAddMenu", "dateLabel", "updatedLabel",
@@ -70,15 +72,12 @@ function renderNavigation(navigation) {
 /** 問題キューの件数。解ける問題があればKnowledgeから直接復習を始め、なければ通常の入口へ案内する。 */
 function renderReview(summary, navigation) {
   const readyDue = summary.reviewReadyDue;
-  if (!Number.isFinite(readyDue)) {
-    els.knowledgeMeta.textContent = "—";
-    els.knowledgeLink.removeAttribute("title");
-    return;
-  }
-  els.knowledgeLink.href = readyDue > 0 ? navigation.knowledgeReview : navigation.knowledge;
-  els.knowledgeMeta.textContent = readyDue > 0 ? `復習 ${readyDue}問` : "復習なし";
+  const activity = knowledgeActivity(summary);
+  els.knowledgeLink.href = activity.startReview ? navigation.knowledgeReview : navigation.knowledge;
+  els.knowledgeMeta.textContent = activity.label;
   els.knowledgeLink.title = [
-    `すぐ解ける ${readyDue}問`,
+    Number.isFinite(readyDue) ? `すぐ解ける ${readyDue}問` : '復習数を取得できません',
+    activity.detail,
     `採点待ち ${formatCount(summary.reviewWaitingGrading)}`,
     `未確認 ${formatCount(summary.reviewUnconfirmed)}`,
     summary.reviewGradingErrors > 0 ? `採点エラー ${summary.reviewGradingErrors}件` : null,
@@ -130,13 +129,15 @@ function renderExpenses(items, available = true) {
     els.expenseList.innerHTML = empty("家計簿レコードはまだありません");
     return;
   }
-  els.expenseList.innerHTML = items.map((item) => `
+  els.expenseList.innerHTML = items.map((item) => {
+    const display = transactionDisplay(item);
+    return `
     <div class="record-row">
       <span class="record-date">${escapeHtml(formatDate(item.transactionDate))}</span>
       <div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.category)}${item.payer ? ` · ${escapeHtml(item.payer)}` : ""}</small></div>
-      <b>${escapeHtml(formatYen(item.amount))}</b>
+      <span class="transaction-money" data-kind="${display.kind}"><small>${display.label}</small><b>${escapeHtml(formatYen(display.amount))}</b></span>
     </div>
-  `).join("");
+  `; }).join("");
 }
 
 function knowledgeReason(item) {
@@ -405,6 +406,8 @@ function setSource(source, hasError = false) {
 let hubLoadGeneration = 0;
 let hubHasData = false;
 let hubLoadController = null;
+let lastReviewSummary = null;
+let lastReviewNavigation = null;
 async function loadHub() {
   const generation = ++hubLoadGeneration;
   hubLoadController?.abort();
@@ -422,6 +425,8 @@ async function loadHub() {
     renderNavigation(payload.navigation);
     today.setNavigation(payload.navigation);
     renderSummary(payload.summary, payload.navigation);
+    lastReviewSummary = payload.summary;
+    lastReviewNavigation = payload.navigation;
     els.learningStages.innerHTML = renderLearningStages(payload.summary, availability);
     renderFocus(payload.focus || [], availability.focus);
     renderInbox(payload.inbox || [], availability.inbox);
@@ -445,6 +450,21 @@ async function loadHub() {
     if (generation === hubLoadGeneration) els.refreshButton.disabled = false;
   }
 }
+
+// A sleeping tab must never label yesterday's answers as today's achievements.
+let displayedDay = jstToday();
+function refreshJstDay() {
+  if (displayedDay === jstToday()) return;
+  displayedDay = jstToday();
+  if (lastReviewSummary) renderReview(lastReviewSummary, lastReviewNavigation);
+  void loadHub();
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshJstDay(); });
+function scheduleJstMidnight() {
+  const next = Date.parse(`${jstToday()}T00:00:00+09:00`) + 86400000;
+  window.setTimeout(() => { refreshJstDay(); scheduleJstMidnight(); }, Math.max(1000, next - Date.now()));
+}
+scheduleJstMidnight();
 
 els.refreshButton.addEventListener("click", () => {
   void today.load();

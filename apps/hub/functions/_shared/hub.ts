@@ -11,7 +11,7 @@ import {
 import { readReviewBatches } from "./reviewBatches.ts";
 import { type FocusRow } from "./focus.ts";
 
-interface KnowledgeHubSummary { dueCount: number; weakCount: number; items: KnowledgeRow[]; reviewStatus: KnowledgeReviewStatus }
+interface KnowledgeHubSummary { dueCount: number; weakCount: number; items: KnowledgeRow[]; reviewStatus: KnowledgeReviewStatus; date?: unknown; todayAnswered?: unknown }
 interface FinanceHubSummary { currentMonthSpend: number; previousMonthSpend: number; recentExpenses: ExpenseRow[] }
 
 function validRemoteSummary<T>(value: unknown, counts: string[], array: string): T {
@@ -86,7 +86,15 @@ export async function loadHub(env: HubEnv, now = new Date(), options: { sourceTi
   if (projects.status === "fulfilled") result.summary.activeProjects = projects.value.activeProjects!;
   if (writing.status === "fulfilled") result.summary.writingIdeas = writing.value.writingIdeas!;
   if (expenses.status === "fulfilled") { result.summary.currentMonthSpend = expenses.value.currentMonthSpend; result.summary.previousMonthSpend = expenses.value.previousMonthSpend; }
-  if (knowledge.status === "fulfilled") { result.summary.dueKnowledge = knowledge.value.dueCount; result.summary.weakKnowledge = knowledge.value.weakCount; }
+  if (knowledge.status === "fulfilled") {
+    result.summary.dueKnowledge = knowledge.value.dueCount;
+    result.summary.weakKnowledge = knowledge.value.weakCount;
+    const value = knowledge.value;
+    if (value.date === today && typeof value.todayAnswered === 'number' && Number.isSafeInteger(value.todayAnswered) && value.todayAnswered >= 0) {
+      result.summary.knowledgeAnsweredToday = value.todayAnswered;
+      result.summary.knowledgeAnsweredOn = today;
+    }
+  }
   return result;
 }
 

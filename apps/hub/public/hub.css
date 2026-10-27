@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  --paper: var(--bg);
+  --paper: var(--bg-subtle);
   --surface: var(--bg);
   --ink: var(--text);
   --muted: var(--text-secondary);
@@ -314,7 +314,9 @@ a.today-row-title:hover { text-decoration: underline; }
 .record-row strong, .record-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .record-row strong { font-size: 12px; }
 .record-row small { margin-top: 3px; color: var(--muted); font-size: 12px; }
-.record-row > b { color: var(--blue); font: 700 12px/1 Inter, "Segoe UI", sans-serif; white-space: nowrap; }
+.transaction-money { display: grid; justify-items: end; gap: 3px; padding: 7px 0; }
+.transaction-money > b { color: var(--blue); font: 700 12px/1 Inter, "Segoe UI", sans-serif; white-space: nowrap; }
+.transaction-money > small { margin: 0; color: var(--muted); font-size: 12px; }
 
 .knowledge-list { display: grid; gap: 5px; }
 .knowledge-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 7px; min-height: 44px; padding: 7px 8px; border-radius: var(--radius-sm); background: var(--bg-hover); text-decoration: none; }

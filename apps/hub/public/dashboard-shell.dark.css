@@ -167,11 +167,11 @@
   --tab-accent: #aedacb;
   --tab-soft: #2f3b35;
 }
-:root[data-theme="dark"] .tabbar-item.projects {
+:root[data-theme="dark"] .tabbar-sheet-link.projects {
   --tab-accent: #ecd09c;
   --tab-soft: #443c26;
 }
-:root[data-theme="dark"] .tabbar-item.habits {
+:root[data-theme="dark"] .tabbar-sheet-link.habits {
   --tab-accent: #e2a58e;
   --tab-soft: #463227;
 }
@@ -187,11 +187,11 @@
   --tab-accent: #e87e93;
   --tab-soft: #42262b;
 }
-:root[data-theme="dark"] .tabbar-sheet-link.finance {
+:root[data-theme="dark"] .tabbar-item.finance {
   --tab-accent: #a4c7da;
   --tab-soft: #2c383e;
 }
-:root[data-theme="dark"] .tabbar-sheet-link.knowledge {
+:root[data-theme="dark"] .tabbar-item.knowledge {
   --tab-accent: #a89cc3;
   --tab-soft: #312c3b;
 }
@@ -644,11 +644,11 @@
   --tab-accent: #aedacb;
   --tab-soft: #2b313f;
 }
-:root[data-theme="dark"][data-palette="navy"] .tabbar-item.projects {
+:root[data-theme="dark"][data-palette="navy"] .tabbar-sheet-link.projects {
   --tab-accent: #ecd09c;
   --tab-soft: #443c26;
 }
-:root[data-theme="dark"][data-palette="navy"] .tabbar-item.habits {
+:root[data-theme="dark"][data-palette="navy"] .tabbar-sheet-link.habits {
   --tab-accent: #e2a58e;
   --tab-soft: #463227;
 }
@@ -664,11 +664,11 @@
   --tab-accent: #e87e93;
   --tab-soft: #42262b;
 }
-:root[data-theme="dark"][data-palette="navy"] .tabbar-sheet-link.finance {
+:root[data-theme="dark"][data-palette="navy"] .tabbar-item.finance {
   --tab-accent: #a4c7da;
   --tab-soft: #2b313f;
 }
-:root[data-theme="dark"][data-palette="navy"] .tabbar-sheet-link.knowledge {
+:root[data-theme="dark"][data-palette="navy"] .tabbar-item.knowledge {
   --tab-accent: #a89cc3;
   --tab-soft: #2a303d;
 }
@@ -897,11 +897,11 @@
   --tab-accent: #aedacb;
   --tab-soft: #2d3d36;
 }
-:root[data-theme="dark"][data-palette="forest"] .tabbar-item.projects {
+:root[data-theme="dark"][data-palette="forest"] .tabbar-sheet-link.projects {
   --tab-accent: #ecd09c;
   --tab-soft: #443c26;
 }
-:root[data-theme="dark"][data-palette="forest"] .tabbar-item.habits {
+:root[data-theme="dark"][data-palette="forest"] .tabbar-sheet-link.habits {
   --tab-accent: #e2a58e;
   --tab-soft: #463227;
 }
@@ -917,11 +917,11 @@
   --tab-accent: #e87e93;
   --tab-soft: #42262b;
 }
-:root[data-theme="dark"][data-palette="forest"] .tabbar-sheet-link.finance {
+:root[data-theme="dark"][data-palette="forest"] .tabbar-item.finance {
   --tab-accent: #a4c7da;
   --tab-soft: #2d3d36;
 }
-:root[data-theme="dark"][data-palette="forest"] .tabbar-sheet-link.knowledge {
+:root[data-theme="dark"][data-palette="forest"] .tabbar-item.knowledge {
   --tab-accent: #a89cc3;
   --tab-soft: #2c3b34;
 }
@@ -1150,11 +1150,11 @@
   --tab-accent: #aedacb;
   --tab-soft: #2f333b;
 }
-:root[data-theme="dark"][data-palette="nord"] .tabbar-item.projects {
+:root[data-theme="dark"][data-palette="nord"] .tabbar-sheet-link.projects {
   --tab-accent: #ecd09c;
   --tab-soft: #443c26;
 }
-:root[data-theme="dark"][data-palette="nord"] .tabbar-item.habits {
+:root[data-theme="dark"][data-palette="nord"] .tabbar-sheet-link.habits {
   --tab-accent: #e2a58e;
   --tab-soft: #463227;
 }
@@ -1170,11 +1170,11 @@
   --tab-accent: #e87e93;
   --tab-soft: #42262b;
 }
-:root[data-theme="dark"][data-palette="nord"] .tabbar-sheet-link.finance {
+:root[data-theme="dark"][data-palette="nord"] .tabbar-item.finance {
   --tab-accent: #a4c7da;
   --tab-soft: #2f333b;
 }
-:root[data-theme="dark"][data-palette="nord"] .tabbar-sheet-link.knowledge {
+:root[data-theme="dark"][data-palette="nord"] .tabbar-item.knowledge {
   --tab-accent: #a89cc3;
   --tab-soft: #2d323a;
 }
@@ -1403,11 +1403,11 @@
   --tab-accent: #aedacb;
   --tab-soft: #3b352f;
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-item.projects {
+:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-sheet-link.projects {
   --tab-accent: #ecd09c;
   --tab-soft: #443c26;
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-item.habits {
+:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-sheet-link.habits {
   --tab-accent: #e2a58e;
   --tab-soft: #463227;
 }
@@ -1423,11 +1423,11 @@
   --tab-accent: #e87e93;
   --tab-soft: #42262b;
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-sheet-link.finance {
+:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-item.finance {
   --tab-accent: #a4c7da;
   --tab-soft: #3b352f;
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-sheet-link.knowledge {
+:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-item.knowledge {
   --tab-accent: #a89cc3;
   --tab-soft: #39342e;
 }

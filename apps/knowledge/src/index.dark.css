@@ -1439,11 +1439,11 @@
   --tab-accent: #aedacb;
   --tab-soft: #2f3b35;
 }
-:root[data-theme="dark"] .tabbar-item.projects {
+:root[data-theme="dark"] .tabbar-sheet-link.projects {
   --tab-accent: #ecd09c;
   --tab-soft: #443c26;
 }
-:root[data-theme="dark"] .tabbar-item.habits {
+:root[data-theme="dark"] .tabbar-sheet-link.habits {
   --tab-accent: #e2a58e;
   --tab-soft: #463227;
 }
@@ -1459,11 +1459,11 @@
   --tab-accent: #e87e93;
   --tab-soft: #42262b;
 }
-:root[data-theme="dark"] .tabbar-sheet-link.finance {
+:root[data-theme="dark"] .tabbar-item.finance {
   --tab-accent: #a4c7da;
   --tab-soft: #2c383e;
 }
-:root[data-theme="dark"] .tabbar-sheet-link.knowledge {
+:root[data-theme="dark"] .tabbar-item.knowledge {
   --tab-accent: #a89cc3;
   --tab-soft: #312c3b;
 }
@@ -1810,6 +1810,13 @@
   border-bottom: 1px solid var(--border);
 }
 :root[data-theme="dark"] .knowledge-mastery-list time {
+  color: var(--text-secondary);
+}
+:root[data-theme="dark"] .knowledge-list-anchor:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+:root[data-theme="dark"] .today-learning-exit-hint {
   color: var(--text-secondary);
 }
 /* palette: cream */
@@ -3559,6 +3566,13 @@
 :root[data-theme="light"][data-palette="cream"] .knowledge-mastery-list time {
   color: var(--text-secondary);
 }
+:root[data-theme="light"][data-palette="cream"] .knowledge-list-anchor:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+:root[data-theme="light"][data-palette="cream"] .today-learning-exit-hint {
+  color: var(--text-secondary);
+}
 /* palette: navy */
 :root[data-theme="dark"][data-palette="navy"] {
   --text: #ced0d5;
@@ -5020,11 +5034,11 @@
   --tab-accent: #aedacb;
   --tab-soft: #2b313f;
 }
-:root[data-theme="dark"][data-palette="navy"] .tabbar-item.projects {
+:root[data-theme="dark"][data-palette="navy"] .tabbar-sheet-link.projects {
   --tab-accent: #ecd09c;
   --tab-soft: #443c26;
 }
-:root[data-theme="dark"][data-palette="navy"] .tabbar-item.habits {
+:root[data-theme="dark"][data-palette="navy"] .tabbar-sheet-link.habits {
   --tab-accent: #e2a58e;
   --tab-soft: #463227;
 }
@@ -5040,11 +5054,11 @@
   --tab-accent: #e87e93;
   --tab-soft: #42262b;
 }
-:root[data-theme="dark"][data-palette="navy"] .tabbar-sheet-link.finance {
+:root[data-theme="dark"][data-palette="navy"] .tabbar-item.finance {
   --tab-accent: #a4c7da;
   --tab-soft: #2b313f;
 }
-:root[data-theme="dark"][data-palette="navy"] .tabbar-sheet-link.knowledge {
+:root[data-theme="dark"][data-palette="navy"] .tabbar-item.knowledge {
   --tab-accent: #a89cc3;
   --tab-soft: #2a303d;
 }
@@ -5391,6 +5405,13 @@
   border-bottom: 1px solid var(--border);
 }
 :root[data-theme="dark"][data-palette="navy"] .knowledge-mastery-list time {
+  color: var(--text-secondary);
+}
+:root[data-theme="dark"][data-palette="navy"] .knowledge-list-anchor:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+:root[data-theme="dark"][data-palette="navy"] .today-learning-exit-hint {
   color: var(--text-secondary);
 }
 /* palette: forest */
@@ -6854,11 +6875,11 @@
   --tab-accent: #aedacb;
   --tab-soft: #2d3d36;
 }
-:root[data-theme="dark"][data-palette="forest"] .tabbar-item.projects {
+:root[data-theme="dark"][data-palette="forest"] .tabbar-sheet-link.projects {
   --tab-accent: #ecd09c;
   --tab-soft: #443c26;
 }
-:root[data-theme="dark"][data-palette="forest"] .tabbar-item.habits {
+:root[data-theme="dark"][data-palette="forest"] .tabbar-sheet-link.habits {
   --tab-accent: #e2a58e;
   --tab-soft: #463227;
 }
@@ -6874,11 +6895,11 @@
   --tab-accent: #e87e93;
   --tab-soft: #42262b;
 }
-:root[data-theme="dark"][data-palette="forest"] .tabbar-sheet-link.finance {
+:root[data-theme="dark"][data-palette="forest"] .tabbar-item.finance {
   --tab-accent: #a4c7da;
   --tab-soft: #2d3d36;
 }
-:root[data-theme="dark"][data-palette="forest"] .tabbar-sheet-link.knowledge {
+:root[data-theme="dark"][data-palette="forest"] .tabbar-item.knowledge {
   --tab-accent: #a89cc3;
   --tab-soft: #2c3b34;
 }
@@ -7225,6 +7246,13 @@
   border-bottom: 1px solid var(--border);
 }
 :root[data-theme="dark"][data-palette="forest"] .knowledge-mastery-list time {
+  color: var(--text-secondary);
+}
+:root[data-theme="dark"][data-palette="forest"] .knowledge-list-anchor:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+:root[data-theme="dark"][data-palette="forest"] .today-learning-exit-hint {
   color: var(--text-secondary);
 }
 /* palette: nord */
@@ -8688,11 +8716,11 @@
   --tab-accent: #aedacb;
   --tab-soft: #2f333b;
 }
-:root[data-theme="dark"][data-palette="nord"] .tabbar-item.projects {
+:root[data-theme="dark"][data-palette="nord"] .tabbar-sheet-link.projects {
   --tab-accent: #ecd09c;
   --tab-soft: #443c26;
 }
-:root[data-theme="dark"][data-palette="nord"] .tabbar-item.habits {
+:root[data-theme="dark"][data-palette="nord"] .tabbar-sheet-link.habits {
   --tab-accent: #e2a58e;
   --tab-soft: #463227;
 }
@@ -8708,11 +8736,11 @@
   --tab-accent: #e87e93;
   --tab-soft: #42262b;
 }
-:root[data-theme="dark"][data-palette="nord"] .tabbar-sheet-link.finance {
+:root[data-theme="dark"][data-palette="nord"] .tabbar-item.finance {
   --tab-accent: #a4c7da;
   --tab-soft: #2f333b;
 }
-:root[data-theme="dark"][data-palette="nord"] .tabbar-sheet-link.knowledge {
+:root[data-theme="dark"][data-palette="nord"] .tabbar-item.knowledge {
   --tab-accent: #a89cc3;
   --tab-soft: #2d323a;
 }
@@ -9059,6 +9087,13 @@
   border-bottom: 1px solid var(--border);
 }
 :root[data-theme="dark"][data-palette="nord"] .knowledge-mastery-list time {
+  color: var(--text-secondary);
+}
+:root[data-theme="dark"][data-palette="nord"] .knowledge-list-anchor:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+:root[data-theme="dark"][data-palette="nord"] .today-learning-exit-hint {
   color: var(--text-secondary);
 }
 /* palette: gruvbox */
@@ -10522,11 +10557,11 @@
   --tab-accent: #aedacb;
   --tab-soft: #3b352f;
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-item.projects {
+:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-sheet-link.projects {
   --tab-accent: #ecd09c;
   --tab-soft: #443c26;
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-item.habits {
+:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-sheet-link.habits {
   --tab-accent: #e2a58e;
   --tab-soft: #463227;
 }
@@ -10542,11 +10577,11 @@
   --tab-accent: #e87e93;
   --tab-soft: #42262b;
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-sheet-link.finance {
+:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-item.finance {
   --tab-accent: #a4c7da;
   --tab-soft: #3b352f;
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-sheet-link.knowledge {
+:root[data-theme="dark"][data-palette="gruvbox"] .tabbar-item.knowledge {
   --tab-accent: #a89cc3;
   --tab-soft: #39342e;
 }
@@ -10893,6 +10928,13 @@
   border-bottom: 1px solid var(--border);
 }
 :root[data-theme="dark"][data-palette="gruvbox"] .knowledge-mastery-list time {
+  color: var(--text-secondary);
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .knowledge-list-anchor:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+:root[data-theme="dark"][data-palette="gruvbox"] .today-learning-exit-hint {
   color: var(--text-secondary);
 }
 /* palette: solarized */
@@ -12639,5 +12681,12 @@
   border-bottom: 1px solid var(--border);
 }
 :root[data-theme="light"][data-palette="solarized"] .knowledge-mastery-list time {
+  color: var(--text-secondary);
+}
+:root[data-theme="light"][data-palette="solarized"] .knowledge-list-anchor:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+:root[data-theme="light"][data-palette="solarized"] .today-learning-exit-hint {
   color: var(--text-secondary);
 }

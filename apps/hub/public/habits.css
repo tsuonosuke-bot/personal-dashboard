@@ -62,20 +62,19 @@ main { width: min(1080px, calc(100% - 24px)); margin: 0 auto; padding: 10px 0 24
 .section-heading h2 { margin: 0; font-size: 18px; letter-spacing: -.02em; }
 .section-heading > small { color: var(--muted); font-size: 12px; }
 .habit-list { display: grid; gap: 7px; }
-.habit-card { min-height: 62px; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 8px 10px; border: 1px solid #e8ddd6; border-radius: var(--radius); background: var(--bg); }
+.habit-card { min-height: 62px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 9px; padding: 8px 10px; border: 1px solid #e8ddd6; border-radius: var(--radius); background: var(--bg); }
 .habit-card.completed { background: #fcf6f2; }
-.check-button { width: 32px; height: 32px; border: 2px solid #c4b5ab; border-radius: 50%; background: transparent; color: var(--text-secondary); font-size: 15px; font-weight: 600; }
+.check-button { width: 24px; height: 24px; flex: none; display: inline-grid; place-items: center; border: 2px solid #c4b5ab; border-radius: 50%; background: transparent; color: var(--text-secondary); font-size: 15px; font-weight: 600; }
 .completed .check-button { border-color: var(--accent); background: var(--accent); color: #fff; }
-.check-button:disabled { opacity: .65; cursor: default; }
 .habit-copy { min-width: 0; }
 .habit-copy > div { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .habit-copy h3 { margin: 0; overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
 .habit-copy p { margin: 5px 0 0; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .cadence-tag, .source-tag { padding: 3px 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; }
 .source-tag { background: var(--bg-hover); color: var(--muted); }
-.card-actions { display: flex; align-items: center; gap: 5px; }
-.record-button, .edit-button { min-height: 32px; padding: 0 10px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; }
-.record-button { border: 0; background: var(--accent-soft); color: var(--accent); }
+.card-actions { display: flex; align-items: center; gap: 8px; }
+.record-button, .edit-button { min-height: 44px; padding: 0 10px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; }
+.record-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 0; background: var(--accent-soft); color: var(--accent); }
 .completed .record-button { background: var(--bg-hover); color: var(--muted); }
 .record-button:disabled { opacity: .7; cursor: default; }
 .edit-button { border: 1px solid var(--line); background: var(--bg); color: var(--muted); }
@@ -176,12 +175,11 @@ td.skip { color: var(--muted); }
   .summary-card strong { margin: 2px 0 0; font-size: 18px; }
   .summary-card small { display: none; }
   .panel { margin-top: 5px; padding: 9px; border-radius: var(--radius); }
-  .habit-card { min-height: 58px; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 6px; padding: 7px; }
-  .check-button { width: 29px; height: 29px; }
+  .habit-card { min-height: 0; grid-template-columns: minmax(0, 1fr); gap: 7px; padding: 9px; }
+  .habit-copy h3 { overflow: visible; overflow-wrap: anywhere; white-space: normal; }
   .habit-copy p, .source-tag { display: none; }
-  .card-actions { display: grid; grid-template-columns: auto auto; gap: 3px; }
-  .card-actions .record-button { grid-column: 1 / -1; }
-  .record-button, .edit-button { min-height: 27px; padding: 0 7px; }
+  .card-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; }
+  .record-button, .edit-button { min-height: 44px; padding: 0 9px; }
   .section-heading > small { max-width: 45%; text-align: right; }
   .modal { padding: 16px; }
 }

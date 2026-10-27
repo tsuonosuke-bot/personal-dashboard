@@ -1,4 +1,5 @@
-import { lazy, Suspense, useMemo, type Dispatch, type SetStateAction } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
+import { focusKnowledgeList } from "../lib/knowledgeListJump";
 import { ArchivedKnowledgeModal } from "./ArchivedKnowledgeModal";
 import { FilterBar } from "./FilterBar";
 import { KnowledgeTable } from "./KnowledgeTable";
@@ -53,6 +54,14 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
     [registrationKnowledge],
   );
   const archiveCount = summary?.archivedCount ?? archivedKnowledge.length;
+  const listHeading = useRef<HTMLHeadingElement>(null);
+  const chartsRegion = useRef<HTMLDivElement>(null);
+  const stopListJump = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopListJump.current?.(), []);
+  const jumpToList = () => {
+    stopListJump.current?.();
+    if (listHeading.current) stopListJump.current = focusKnowledgeList(listHeading.current, chartsRegion.current);
+  };
 
 
   return (
@@ -75,6 +84,7 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
         </button>
         <button className="page-tool" onClick={() => setLogOpen(true)}>学習ログ</button>
         <button className="page-tool" onClick={() => setSearchOpen(true)}>意味で検索</button>
+        <button className="page-tool" onClick={jumpToList} disabled={loading || !!error}>ナレッジ一覧へ</button>
         <button
           className="page-tool"
           onClick={() => { setActionError(null); setArchiveOpen(true); }}
@@ -127,6 +137,8 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
             status={dailyReview.status}
             loading={dailyReview.loading || summaryLoading}
             error={dailyReview.error ?? summaryError}
+            queueLoading={reviewQueue.loading}
+            queueError={reviewQueue.error}
             queueStatus={reviewQueue.status}
             summaryToday={summary?.today}
             missCount={summary?.misses.total ?? 0}
@@ -142,6 +154,7 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
             onStart={() => setSpeakingOpen(true)}
           />
 
+          <div ref={chartsRegion}>
           {summary && <Suspense fallback={<div className="card chart-loading" role="status">グラフを読み込み中...</div>}>
             <DashboardCharts
               knowledge={knowledge}
@@ -149,8 +162,9 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
               summary={summary}
             />
           </Suspense>}
+          </div>
 
-          <h2 className="section-title">ナレッジ</h2>
+          <h2 ref={listHeading} id="knowledge-list" className="section-title knowledge-list-anchor" tabIndex={-1}>ナレッジ</h2>
           <FilterBar
             filters={filters}
             categories={categories}

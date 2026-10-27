@@ -28,6 +28,9 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   // 「今日やること」はアプリ一覧のすぐ下、既存の一覧より前に置く
   assert.ok(html.indexOf('class="app-row"') < html.indexOf('id="todayPanel"'));
   assert.ok(html.indexOf('id="todayPanel"') < html.indexOf('id="hubContent"'));
+  // #317: Todayの操作位置を保ち、Focusは学習4段階より先に読む。CSSによる順序変更は使わない。
+  assert.ok(html.indexOf('id="todayPanel"') < html.indexOf('id="focusTitle"'));
+  assert.ok(html.indexOf('id="focusTitle"') < html.indexOf('id="learningTitle"'));
   for (const id of ["todayDoneCounter", "todayAllDone", "todayTodos", "todayHabits", "todayProjects", "todaySheet", "todayToast"]) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
@@ -51,8 +54,8 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(script, /escapeHtml\(item\.url \|\| "\/compass\/\?view=inbox"\)/);
   assert.match(script, /renderFocus\(payload\.focus \|\| \[\], availability\.focus\)/);
   // Knowledgeは問題キューのすぐ解ける問題数を出し、あればそのまま復習を始める。
-  assert.match(script, /els\.knowledgeLink\.href = readyDue > 0 \? navigation\.knowledgeReview : navigation\.knowledge/);
-  assert.match(script, /readyDue > 0 \? `復習 \$\{readyDue\}問` : "復習なし"/);
+  assert.match(script, /els\.knowledgeLink\.href = activity\.startReview \? navigation\.knowledgeReview : navigation\.knowledge/);
+  assert.match(script, /els\.knowledgeMeta\.textContent = activity\.label/);
   assert.match(script, /`採点待ち \$\{formatCount\(summary\.reviewWaitingGrading\)\}`/);
   assert.match(script, /`未確認 \$\{formatCount\(summary\.reviewUnconfirmed\)\}`/);
   assert.match(script, /`すぐ解ける \$\{readyDue\}問`/);

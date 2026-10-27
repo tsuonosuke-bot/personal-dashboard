@@ -163,9 +163,9 @@ export function projectMeta(row, today) {
   const milestoneLabel = milestone ? ` · ${escapeHtml(milestone.title)}` : "";
   const title = `<span>${escapeHtml(project.title)}${milestoneLabel}${targetPassed}</span>`;
   if (row.kind === "review") return `<span class="today-pill attention">見直し日です</span>${title}`;
-  // 14日以上動きのないProjectには、行に「N日動きなし」を添える（#162）
+  // 14日以上更新のないProjectに記録上の日数を添える。実作業の未実施は推測しない（#318）。
   const stale = project.stale && project.lastActivityAt
-    ? `<span class="today-pill attention">${daysBetween(todayInTokyo(new Date(project.lastActivityAt)), today)}日動きなし</span>` : "";
+    ? `<span class="today-pill attention">最終更新から${daysBetween(todayInTokyo(new Date(project.lastActivityAt)), today)}日</span>` : "";
   if (row.kind === "missing") return `<span class="today-pill attention">次の一手が未設定</span>${stale}${title}`;
   const pinned = row.action.status === "next" && row.reason !== "pinned" ? `<span class="today-pill project">今やる</span>` : "";
   return `${taskPill(row, today)}${pinned}${stale}${title}`;
