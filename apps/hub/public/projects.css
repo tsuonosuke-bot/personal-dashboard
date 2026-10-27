@@ -294,6 +294,17 @@ form textarea { min-height: 70px; padding: 9px 10px; resize: vertical; line-heig
 .badge.stale { background: var(--waiting-soft); color: var(--waiting); }
 .date-chip.stale { border-color: rgba(108, 86, 131, .4); background: var(--waiting-soft); color: var(--waiting); }
 .review-board { display: grid; gap: 10px; }
+.project-progress { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; color: var(--muted); font-size: 12px; }
+.project-progress span { overflow-wrap: anywhere; }
+.detail-capture { margin: 10px 0; }
+.detail-review { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 7px; padding: 9px 0; font-size: 12px; color: var(--muted); }
+.project-resume { margin: 8px 0; font-size: 12px; }
+.project-resume summary { cursor: pointer; }
+.goal-review-row { display: grid; gap: 6px; padding: 9px 0; border-top: 1px solid var(--line); }
+.goal-review-row:first-child { border-top: 0; }
+.goal-review-open { display: grid; gap: 3px; text-align: left; border: 0; padding: 0; background: transparent; color: var(--ink); cursor: pointer; font: inherit; font-size: 12px; }
+.goal-review-open small { color: var(--muted); font-size: 12px; }
+.goal-review-row > div { display: flex; flex-wrap: wrap; gap: 6px; }
 .review-section { padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .review-section > header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
 .review-section h3 { margin: 0; font-size: 13px; }

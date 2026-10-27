@@ -20,7 +20,7 @@
   border-color: var(--page-accent);
 }
 :root[data-theme="dark"] .project-todo-form select,
-:root[data-theme="dark"] .project-todo-form input:not([type=radio]),
+:root[data-theme="dark"] .project-todo-form input:not([type=radio]):not([type=checkbox]),
 :root[data-theme="dark"] .project-todo-form textarea {
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -58,7 +58,7 @@
   border-color: var(--page-accent);
 }
 :root[data-theme="light"][data-palette="cream"] .project-todo-form select,
-:root[data-theme="light"][data-palette="cream"] .project-todo-form input:not([type=radio]),
+:root[data-theme="light"][data-palette="cream"] .project-todo-form input:not([type=radio]):not([type=checkbox]),
 :root[data-theme="light"][data-palette="cream"] .project-todo-form textarea {
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -96,7 +96,7 @@
   border-color: var(--page-accent);
 }
 :root[data-theme="dark"][data-palette="navy"] .project-todo-form select,
-:root[data-theme="dark"][data-palette="navy"] .project-todo-form input:not([type=radio]),
+:root[data-theme="dark"][data-palette="navy"] .project-todo-form input:not([type=radio]):not([type=checkbox]),
 :root[data-theme="dark"][data-palette="navy"] .project-todo-form textarea {
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -134,7 +134,7 @@
   border-color: var(--page-accent);
 }
 :root[data-theme="dark"][data-palette="forest"] .project-todo-form select,
-:root[data-theme="dark"][data-palette="forest"] .project-todo-form input:not([type=radio]),
+:root[data-theme="dark"][data-palette="forest"] .project-todo-form input:not([type=radio]):not([type=checkbox]),
 :root[data-theme="dark"][data-palette="forest"] .project-todo-form textarea {
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -172,7 +172,7 @@
   border-color: var(--page-accent);
 }
 :root[data-theme="dark"][data-palette="nord"] .project-todo-form select,
-:root[data-theme="dark"][data-palette="nord"] .project-todo-form input:not([type=radio]),
+:root[data-theme="dark"][data-palette="nord"] .project-todo-form input:not([type=radio]):not([type=checkbox]),
 :root[data-theme="dark"][data-palette="nord"] .project-todo-form textarea {
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -210,7 +210,7 @@
   border-color: var(--page-accent);
 }
 :root[data-theme="dark"][data-palette="gruvbox"] .project-todo-form select,
-:root[data-theme="dark"][data-palette="gruvbox"] .project-todo-form input:not([type=radio]),
+:root[data-theme="dark"][data-palette="gruvbox"] .project-todo-form input:not([type=radio]):not([type=checkbox]),
 :root[data-theme="dark"][data-palette="gruvbox"] .project-todo-form textarea {
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -248,7 +248,7 @@
   border-color: var(--page-accent);
 }
 :root[data-theme="light"][data-palette="solarized"] .project-todo-form select,
-:root[data-theme="light"][data-palette="solarized"] .project-todo-form input:not([type=radio]),
+:root[data-theme="light"][data-palette="solarized"] .project-todo-form input:not([type=radio]):not([type=checkbox]),
 :root[data-theme="light"][data-palette="solarized"] .project-todo-form textarea {
   border: 1px solid var(--border);
   border-radius: 4px;

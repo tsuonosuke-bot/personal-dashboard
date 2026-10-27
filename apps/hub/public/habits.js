@@ -1,6 +1,16 @@
 import { escapeHtml } from "./shared/html.js";
 import { readApiJson } from "./api-client.js";
 
+const sourceProject = new URLSearchParams(window.location.search).get("projectId");
+const sourceHabit = new URLSearchParams(window.location.search).get("habitId");
+if (/^[1-9]\d*$/.test(sourceProject || "") && Number.isSafeInteger(Number(sourceProject))) {
+  const returnLink = document.createElement("a");
+  returnLink.href = `/projects/?id=${encodeURIComponent(sourceProject)}`;
+  returnLink.textContent = "← 元のProjectへ戻る";
+  document.querySelector(".dashboard-actions")?.prepend(returnLink);
+}
+let sourceHabitShown = false;
+
 const state = {
   data: null,
   editing: null,
@@ -12,13 +22,56 @@ const state = {
 };
 
 const ids = [
-  "sourceBadge", "refreshButton", "addHabitButton", "completedToday", "remainingToday", "activeHabits",
-  "loadingState", "errorState", "errorMessage", "retryButton", "habitContent", "todayList", "weekLabel", "weeklyList",
-  "historyTable", "historyWeekly", "historyPrev", "historyNext", "historyLabel", "historyStatus", "manageList", "habitModal", "modalTitle", "modalClose", "habitForm", "habitName", "habitPurpose",
-  "habitCadence", "targetField", "habitTarget", "statusField", "habitStatus", "formError", "cancelButton", "saveButton", "toast",
-  "logSheet", "logSheetDate", "logSheetTitle", "logSheetClose", "logSheetForm", "logSheetStatus", "logSheetKindField",
-"logSheetNoteField", "logSheetNote", "logSheetNoteView", "logSheetHint", "logSheetError",
-  "logSheetCancel", "logSheetSave",
+  "sourceBadge",
+  "refreshButton",
+  "addHabitButton",
+  "completedToday",
+  "remainingToday",
+  "activeHabits",
+  "loadingState",
+  "errorState",
+  "errorMessage",
+  "retryButton",
+  "habitContent",
+  "todayList",
+  "weekLabel",
+  "weeklyList",
+  "historyTable",
+  "historyWeekly",
+  "historyPrev",
+  "historyNext",
+  "historyLabel",
+  "historyStatus",
+  "manageList",
+  "habitModal",
+  "modalTitle",
+  "modalClose",
+  "habitForm",
+  "habitName",
+  "habitPurpose",
+  "habitCadence",
+  "targetField",
+  "habitTarget",
+  "statusField",
+  "habitStatus",
+  "formError",
+  "cancelButton",
+  "saveButton",
+  "toast",
+  "logSheet",
+  "logSheetDate",
+  "logSheetTitle",
+  "logSheetClose",
+  "logSheetForm",
+  "logSheetStatus",
+  "logSheetKindField",
+  "logSheetNoteField",
+  "logSheetNote",
+  "logSheetNoteView",
+  "logSheetHint",
+  "logSheetError",
+  "logSheetCancel",
+  "logSheetSave",
 ];
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
 
@@ -30,12 +83,14 @@ let habitMutationVersion = 0;
 let historyLoadGeneration = 0;
 const pendingHabitIds = new Set();
 
-
 function formatDay(value, includeYear = false) {
   const date = new Date(`${value}T00:00:00+09:00`);
-  return new Intl.DateTimeFormat("ja-JP", includeYear
-    ? { year: "numeric", month: "long", day: "numeric", weekday: "short" }
-    : { month: "numeric", day: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(
+    "ja-JP",
+    includeYear
+      ? { year: "numeric", month: "long", day: "numeric", weekday: "short" }
+      : { month: "numeric", day: "numeric" },
+  ).format(date);
 }
 
 function errorMessage(payload, fallback) {
@@ -46,7 +101,11 @@ function errorMessage(payload, fallback) {
 
 function setSource(source, failed = false) {
   els.sourceBadge.className = `source-badge ${failed ? "error" : "live"}`;
-  els.sourceBadge.lastElementChild.textContent = failed ? "接続エラー" : source?.state === "live" ? "Supabase同期" : "状態不明";
+  els.sourceBadge.lastElementChild.textContent = failed
+    ? "接続エラー"
+    : source?.state === "live"
+      ? "Supabase同期"
+      : "状態不明";
 }
 
 let toastTimer;
@@ -54,7 +113,9 @@ function showToast(message) {
   clearTimeout(toastTimer);
   els.toast.textContent = message;
   els.toast.hidden = false;
-  toastTimer = setTimeout(() => { els.toast.hidden = true; }, 3000);
+  toastTimer = setTimeout(() => {
+    els.toast.hidden = true;
+  }, 3000);
 }
 
 function empty(message) {
@@ -74,8 +135,14 @@ function habitCard(habit, scope) {
   // 今日休んだ（#164）。「できた」を押すと実施に切り替わる
   const rest = !completed && habit.skippedToday ? '<span class="skip-tag">今日は休み</span>' : "";
   const note = (habit.history || []).find((day) => day.date === state.data.today)?.note || null;
-  const purpose = note ? `<p class="habit-note">メモ: ${escapeHtml(note)}</p>` : habit.purpose ? `<p>${escapeHtml(habit.purpose)}</p>` : "";
-  const source = habit.sourceWantId ? `<span class="source-tag">Want #${habit.sourceWantId}</span>` : "";
+  const purpose = note
+    ? `<p class="habit-note">メモ: ${escapeHtml(note)}</p>`
+    : habit.purpose
+      ? `<p>${escapeHtml(habit.purpose)}</p>`
+      : "";
+  const source = habit.sourceWantId
+    ? `<span class="source-tag">Want #${habit.sourceWantId}</span>`
+    : "";
   const cadence = scope === "weekly" ? `週${habit.targetPerWeek}回` : cadenceLabels[habit.cadence];
   return `<article class="habit-card ${completed ? "completed" : rest ? "skipped" : ""}">
     <button class="check-button" type="button" data-log-id="${habit.id}" data-completed="${completed}" aria-label="${escapeHtml(habit.name)}を${completed ? "未実施に戻す" : "実施済みにする"}">${completed ? "✓" : "○"}</button>
@@ -85,8 +152,12 @@ function habitCard(habit, scope) {
 }
 
 function renderToday(habits) {
-  const items = habits.filter((habit) => habit.status === "active" && habit.cadence !== "weekly" && habit.eligibleToday);
-  els.todayList.innerHTML = items.length ? items.map((habit) => habitCard(habit, "today")).join("") : empty("今日は対象のHabitがありません");
+  const items = habits.filter(
+    (habit) => habit.status === "active" && habit.cadence !== "weekly" && habit.eligibleToday,
+  );
+  els.todayList.innerHTML = items.length
+    ? items.map((habit) => habitCard(habit, "today")).join("")
+    : empty("今日は対象のHabitがありません");
 }
 
 /** 先週（月〜日）の結果（#163）。毎日・平日は日数、毎週は回数、自由は回数だけ。 */
@@ -94,17 +165,26 @@ function lastWeekCard(lastWeek) {
   if (!lastWeek?.habits?.length) return "";
   const achieved = lastWeek.habits.filter((habit) => habit.achieved === true).length;
   const counted = lastWeek.habits.filter((habit) => habit.achieved !== null).length;
-  const rows = lastWeek.habits.map((habit) => {
-    const value = `${habit.target === null ? `${habit.done}${habit.unit}` : `${habit.done}/${habit.target}${habit.unit}`}${habit.skipped ? ` · 休${habit.skipped}` : ""}`;
-    return `<li class="${habit.achieved === true ? "done" : habit.achieved === false ? "missed" : ""}"><span>${escapeHtml(habit.name)}</span><b>${value}</b></li>`;
-  }).join("");
+  const rows = lastWeek.habits
+    .map((habit) => {
+      const value = `${habit.target === null ? `${habit.done}${habit.unit}` : `${habit.done}/${habit.target}${habit.unit}`}${habit.skipped ? ` · 休${habit.skipped}` : ""}`;
+      return `<li class="${habit.achieved === true ? "done" : habit.achieved === false ? "missed" : ""}"><span>${escapeHtml(habit.name)}</span><b>${value}</b></li>`;
+    })
+    .join("");
   return `<div class="last-week"><div class="last-week-head"><strong>先週の結果</strong><small>${formatDay(lastWeek.from)}〜${formatDay(lastWeek.to)} · 目標達成 ${achieved}/${counted}</small></div><ul>${rows}</ul></div>`;
 }
 
 function renderWeekly(habits) {
-  const items = habits.filter((habit) => habit.status === "active" && habit.cadence === "weekly" && state.data.today >= habit.startedOn);
-  els.weeklyList.innerHTML = (items.length ? items.map((habit) => habitCard(habit, "weekly")).join("") : empty("毎週のHabitはまだありません"))
-    + lastWeekCard(state.data.lastWeek);
+  const items = habits.filter(
+    (habit) =>
+      habit.status === "active" &&
+      habit.cadence === "weekly" &&
+      state.data.today >= habit.startedOn,
+  );
+  els.weeklyList.innerHTML =
+    (items.length
+      ? items.map((habit) => habitCard(habit, "weekly")).join("")
+      : empty("毎週のHabitはまだありません")) + lastWeekCard(state.data.lastWeek);
   const end = new Date(`${state.data.weekStart}T00:00:00Z`);
   end.setUTCDate(end.getUTCDate() + 6);
   els.weekLabel.textContent = `${formatDay(state.data.weekStart)}〜${formatDay(end.toISOString().slice(0, 10))}`;
@@ -121,10 +201,14 @@ function historyLabel(data) {
 function habitHeader(habit, table = "days") {
   // 毎週のHabitは、日ごとの表では期間内の回数、週ごとの表では目標を達成した週の数を出す（#163）
   const weeklyInDays = habit.cadence === "weekly" && table === "days";
-  const total = weeklyInDays ? `${habit.dayCount}回`
-    : habit.target === null ? `${habit.done}${habit.unit}` : `${habit.done}/${habit.target}${habit.unit}`;
+  const total = weeklyInDays
+    ? `${habit.dayCount}回`
+    : habit.target === null
+      ? `${habit.done}${habit.unit}`
+      : `${habit.done}/${habit.target}${habit.unit}`;
   const status = habit.status === "active" ? "" : ` · ${statusLabels[habit.status]}`;
-  const cadence = habit.cadence === "weekly" ? `週${habit.targetPerWeek}回` : cadenceLabels[habit.cadence];
+  const cadence =
+    habit.cadence === "weekly" ? `週${habit.targetPerWeek}回` : cadenceLabels[habit.cadence];
   return `<th scope="row"><button type="button" data-edit-id="${habit.id}">${escapeHtml(habit.name)}</button><small>${escapeHtml(cadence)}${status} · <b>${total}</b></small></th>`;
 }
 
@@ -135,7 +219,11 @@ function renderHistory() {
   els.historyLabel.textContent = historyLabel(data);
   els.historyPrev.disabled = state.history.loading;
   els.historyNext.disabled = state.history.loading || !data.nextAnchor;
-  document.querySelectorAll("[data-history-period]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.historyPeriod === data.period)));
+  document
+    .querySelectorAll("[data-history-period]")
+    .forEach((button) =>
+      button.setAttribute("aria-pressed", String(button.dataset.historyPeriod === data.period)),
+    );
   const daily = data.habits.filter((habit) => habit.days);
   const weekly = data.habits.filter((habit) => habit.weeks);
   if (!daily.length && !weekly.length) {
@@ -143,46 +231,95 @@ function renderHistory() {
     els.historyWeekly.innerHTML = "";
     return;
   }
-  const dayHeadings = data.dates.map((date) => {
-    const value = new Date(`${date}T00:00:00Z`);
-    return `<th scope="col" class="${date === data.today ? "today" : ""}"><span>${dayLabels[value.getUTCDay()]}</span><b>${value.getUTCDate()}</b></th>`;
-  }).join("");
-  const dayRows = daily.map((habit) => `<tr>${habitHeader(habit)}${habit.days.map((day) => {
-    // 毎週のHabitはどの日もやらなくてよいので、記録のない日に「·」（記録なし）を出さない
-    const free = habit.cadence === "weekly";
-    const mark = day.completed ? "✓" : day.skipped ? "／" : day.future ? "" : day.eligible ? (free ? "" : "·") : "—";
-    const className = `${day.completed ? "done" : day.skipped ? "skip" : day.future ? "future" : day.eligible ? (free ? "open free" : "open") : "off"}${day.late ? " late" : ""}${day.note ? " has-note" : ""}`;
-    const label = `${day.completed ? "実施済み" : day.skipped ? "休んだ" : day.future ? "これから" : day.eligible ? "記録なし" : "対象外"}${day.late ? "（後から記録）" : ""}${day.note ? "・メモあり" : ""}`;
-    // 直近7日の対象日と、実施済みの日は、シートで記録・メモを開ける（#155, #156）
-    const editable = editableDate(habit.editableFrom, day.date) && day.eligible;
-    if (editable || day.completed || day.skipped) {
-      return `<td class="${className}${editable ? " editable" : " viewable"}"><button type="button" data-sheet-habit="${habit.id}" data-sheet-date="${day.date}" aria-label="${escapeHtml(habit.name)} ${day.date} ${label}。タップで${editable ? "記録・メモ" : "メモを見る"}">${mark}</button></td>`;
-    }
-    return `<td class="${className}" aria-label="${day.date} ${label}">${mark}</td>`;
-  }).join("")}</tr>`).join("");
+  const dayHeadings = data.dates
+    .map((date) => {
+      const value = new Date(`${date}T00:00:00Z`);
+      return `<th scope="col" class="${date === data.today ? "today" : ""}"><span>${dayLabels[value.getUTCDay()]}</span><b>${value.getUTCDate()}</b></th>`;
+    })
+    .join("");
+  const dayRows = daily
+    .map(
+      (habit) =>
+        `<tr>${habitHeader(habit)}${habit.days
+          .map((day) => {
+            // 毎週のHabitはどの日もやらなくてよいので、記録のない日に「·」（記録なし）を出さない
+            const free = habit.cadence === "weekly";
+            const mark = day.completed
+              ? "✓"
+              : day.skipped
+                ? "／"
+                : day.future
+                  ? ""
+                  : day.eligible
+                    ? free
+                      ? ""
+                      : "·"
+                    : "—";
+            const className = `${day.completed ? "done" : day.skipped ? "skip" : day.future ? "future" : day.eligible ? (free ? "open free" : "open") : "off"}${day.late ? " late" : ""}${day.note ? " has-note" : ""}`;
+            const label = `${day.completed ? "実施済み" : day.skipped ? "休んだ" : day.future ? "これから" : day.eligible ? "記録なし" : "対象外"}${day.late ? "（後から記録）" : ""}${day.note ? "・メモあり" : ""}`;
+            // 直近7日の対象日と、実施済みの日は、シートで記録・メモを開ける（#155, #156）
+            const editable = editableDate(habit.editableFrom, day.date) && day.eligible;
+            if (editable || day.completed || day.skipped) {
+              return `<td class="${className}${editable ? " editable" : " viewable"}"><button type="button" data-sheet-habit="${habit.id}" data-sheet-date="${day.date}" aria-label="${escapeHtml(habit.name)} ${day.date} ${label}。タップで${editable ? "記録・メモ" : "メモを見る"}">${mark}</button></td>`;
+            }
+            return `<td class="${className}" aria-label="${day.date} ${label}">${mark}</td>`;
+          })
+          .join("")}</tr>`,
+    )
+    .join("");
   els.historyTable.innerHTML = daily.length
     ? `<table class="history-days ${data.period}"><thead><tr><th>Habit</th>${dayHeadings}</tr></thead><tbody>${dayRows}</tbody></table>`
     : "";
-  const weekHeadings = data.weeks.map((monday) => `<th scope="col"><span>週</span><b>${formatDay(monday)}〜</b></th>`).join("");
-  const weekRows = weekly.map((habit) => `<tr>${habitHeader(habit, "weeks")}${habit.weeks.map((week) => {
-    const mark = week.skipped ? `／<small>${week.count}/${habit.targetPerWeek}回</small>`
-      : week.eligible || week.count ? `${week.completed ? "✓" : ""}<small>${week.count}/${habit.targetPerWeek}回</small>` : "—";
-    const className = `${week.completed ? "done" : week.skipped ? "skip" : week.eligible ? "open" : "off"}${week.late ? " late" : ""}${week.note ? " has-note" : ""}`;
-    const label = `${week.weekStart}の週 ${week.skipped ? `休みの週（${week.count}/${habit.targetPerWeek}回）`
-      : week.eligible ? `${week.count}/${habit.targetPerWeek}回${week.completed ? "で達成" : ""}${week.late ? "（後から記録を含む）" : ""}` : "対象外"}`;
-    return `<td class="${className}" aria-label="${label}">${mark}</td>`;
-  }).join("")}</tr>`).join("");
+  const weekHeadings = data.weeks
+    .map((monday) => `<th scope="col"><span>週</span><b>${formatDay(monday)}〜</b></th>`)
+    .join("");
+  const weekRows = weekly
+    .map(
+      (habit) =>
+        `<tr>${habitHeader(habit, "weeks")}${habit.weeks
+          .map((week) => {
+            const mark = week.skipped
+              ? `／<small>${week.count}/${habit.targetPerWeek}回</small>`
+              : week.eligible || week.count
+                ? `${week.completed ? "✓" : ""}<small>${week.count}/${habit.targetPerWeek}回</small>`
+                : "—";
+            const className = `${week.completed ? "done" : week.skipped ? "skip" : week.eligible ? "open" : "off"}${week.late ? " late" : ""}${week.note ? " has-note" : ""}`;
+            const label = `${week.weekStart}の週 ${
+              week.skipped
+                ? `休みの週（${week.count}/${habit.targetPerWeek}回）`
+                : week.eligible
+                  ? `${week.count}/${habit.targetPerWeek}回${week.completed ? "で達成" : ""}${week.late ? "（後から記録を含む）" : ""}`
+                  : "対象外"
+            }`;
+            return `<td class="${className}" aria-label="${label}">${mark}</td>`;
+          })
+          .join("")}</tr>`,
+    )
+    .join("");
   els.historyWeekly.innerHTML = weekly.length
     ? `<table class="history-weeks"><thead><tr><th>毎週のHabit</th>${weekHeadings}</tr></thead><tbody>${weekRows}</tbody></table>`
     : "";
   bindContentActions(els.historyTable);
   bindContentActions(els.historyWeekly);
-  [els.historyTable, els.historyWeekly].forEach((root) => root.querySelectorAll("[data-sheet-habit]").forEach((button) => button.addEventListener("click", () => {
-    const habit = state.history.data?.habits.find((item) => item.id === Number(button.dataset.sheetHabit));
-    if (!habit) return;
-    const day = habit.days.find((item) => item.date === button.dataset.sheetDate);
-    if (day) openLogSheet({ habit, date: day.date, completed: day.completed, skipped: day.skipped, note: day.note });
-  })));
+  [els.historyTable, els.historyWeekly].forEach((root) =>
+    root.querySelectorAll("[data-sheet-habit]").forEach((button) =>
+      button.addEventListener("click", () => {
+        const habit = state.history.data?.habits.find(
+          (item) => item.id === Number(button.dataset.sheetHabit),
+        );
+        if (!habit) return;
+        const day = habit.days.find((item) => item.date === button.dataset.sheetDate);
+        if (day)
+          openLogSheet({
+            habit,
+            date: day.date,
+            completed: day.completed,
+            skipped: day.skipped,
+            note: day.note,
+          });
+      }),
+    ),
+  );
 }
 
 function addDays(date, amount) {
@@ -204,9 +341,12 @@ function updateLogSheetFields() {
   const sheet = state.sheet;
   const kind = selectedKind();
   els.logSheetNote.disabled = kind === "none";
-  els.logSheetNote.placeholder = kind === "skip" ? "例：発熱のため休み" : "例：朝のうちに終えられた";
+  els.logSheetNote.placeholder =
+    kind === "skip" ? "例：発熱のため休み" : "例：朝のうちに終えられた";
   els.logSheetHint.hidden = !(sheet.kind !== "none" && kind === "none");
-  els.logSheetHint.textContent = sheet.note ? "保存すると、この日の記録とメモが消えます。" : "保存すると、この日の記録が消えます。";
+  els.logSheetHint.textContent = sheet.note
+    ? "保存すると、この日の記録とメモが消えます。"
+    : "保存すると、この日の記録が消えます。";
 }
 
 /** 記録シート（#156）。直近7日なら実施・休んだ（#164）・取消とメモを保存でき、それより前は見るだけ。 */
@@ -248,11 +388,18 @@ async function saveLogSheet(event) {
   const kind = selectedKind();
   const practicedOn = sheet.date;
   const note = els.logSheetNote.value.trim() || null;
-  if (kind === "none" && sheet.kind === "none") { closeLogSheet(); return; }
-  if (kind === sheet.kind && note === sheet.note) { closeLogSheet(); return; }
-  const body = kind === "none"
-    ? { habitId: sheet.habitId, practicedOn, completed: false }
-    : { habitId: sheet.habitId, practicedOn, completed: true, kind, note };
+  if (kind === "none" && sheet.kind === "none") {
+    closeLogSheet();
+    return;
+  }
+  if (kind === sheet.kind && note === sheet.note) {
+    closeLogSheet();
+    return;
+  }
+  const body =
+    kind === "none"
+      ? { habitId: sheet.habitId, practicedOn, completed: false }
+      : { habitId: sheet.habitId, practicedOn, completed: true, kind, note };
   state.saving = true;
   pendingHabitIds.add(sheet.habitId);
   els.logSheetSave.disabled = true;
@@ -268,17 +415,27 @@ async function saveLogSheet(event) {
     state.saving = false;
     closeLogSheet();
     const day = practicedOn === state.data.today ? "今日" : formatDay(practicedOn);
-    showToast(kind === "none" ? `${day}の記録を取り消しました。`
-      : kind === sheet.kind ? "メモを保存しました。"
-        : kind === "skip" ? `${day}は休んだ日にしました。` : `${day}の分を記録しました。`);
+    showToast(
+      kind === "none"
+        ? `${day}の記録を取り消しました。`
+        : kind === sheet.kind
+          ? "メモを保存しました。"
+          : kind === "skip"
+            ? `${day}は休んだ日にしました。`
+            : `${day}の分を記録しました。`,
+    );
     applyHabitUpdate(payload);
   } catch (error) {
-    els.logSheetError.textContent = error instanceof Error ? error.message : "実施記録を保存できませんでした。";
+    els.logSheetError.textContent =
+      error instanceof Error ? error.message : "実施記録を保存できませんでした。";
     els.logSheetError.hidden = false;
   } finally {
     state.saving = false;
     pendingHabitIds.delete(sheet.habitId);
-    if (state.data) { render(); renderHistory(); }
+    if (state.data) {
+      render();
+      renderHistory();
+    }
     els.logSheetSave.disabled = false;
   }
 }
@@ -293,21 +450,30 @@ async function loadHistory() {
   const params = new URLSearchParams({ period: state.history.period });
   if (state.history.anchor) params.set("anchor", state.history.anchor);
   try {
-    const response = await fetch(`/api/habit-history?${params}`, { headers: { Accept: "application/json" }, cache: "no-store" });
+    const response = await fetch(`/api/habit-history?${params}`, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
     const payload = await readApiJson(response);
     if (generation !== historyLoadGeneration) return;
-    if (mutationVersion !== habitMutationVersion) { void loadHistory(); return; }
+    if (mutationVersion !== habitMutationVersion) {
+      void loadHistory();
+      return;
+    }
     if (!response.ok) throw new Error(errorMessage(payload, "履歴を読み込めませんでした。"));
     state.history.data = payload;
   } catch (error) {
     if (generation !== historyLoadGeneration) return;
-    els.historyStatus.textContent = error instanceof Error ? error.message : "履歴を読み込めませんでした。";
+    els.historyStatus.textContent =
+      error instanceof Error ? error.message : "履歴を読み込めませんでした。";
     els.historyStatus.hidden = false;
   } finally {
     if (generation === historyLoadGeneration) {
       state.history.loading = false;
       renderHistory();
-      if (!state.history.data) { els.historyPrev.disabled = false; }
+      if (!state.history.data) {
+        els.historyPrev.disabled = false;
+      }
     }
   }
 }
@@ -325,30 +491,46 @@ function applyHabitUpdate(payload) {
     return;
   }
   const update = payload.update;
-  const requestedAnchor = state.history.anchor || (state.history.period === "week" ? state.data.weekStart : state.data.today.slice(0, 7));
-  const matchesRequestedHistory = update.history.period === state.history.period && update.history.anchor === requestedAnchor;
-  const matchesVisibleHistory = state.history.data && update.history.anchor === state.history.data.anchor
-    && update.history.period === state.history.data.period;
+  const requestedAnchor =
+    state.history.anchor ||
+    (state.history.period === "week" ? state.data.weekStart : state.data.today.slice(0, 7));
+  const matchesRequestedHistory =
+    update.history.period === state.history.period && update.history.anchor === requestedAnchor;
+  const matchesVisibleHistory =
+    state.history.data &&
+    update.history.anchor === state.history.data.anchor &&
+    update.history.period === state.history.data.period;
   // A week save must not cancel a newer navigation to the month. If a pending
   // history read predates this save, loadHistory retries that requested period.
   if (matchesRequestedHistory && matchesVisibleHistory) {
     historyLoadGeneration++;
     state.history.loading = false;
   }
-  state.data.habits = state.data.habits.map((habit) => habit.id === update.habit.id ? update.habit : habit);
+  state.data.habits = state.data.habits.map((habit) =>
+    habit.id === update.habit.id ? update.habit : habit,
+  );
   const active = state.data.habits.filter((habit) => habit.status === "active");
   state.data.summary.completedToday = active.filter((habit) => habit.completedToday).length;
-  state.data.summary.remainingToday = active.filter((habit) => habit.cadence === "weekly"
-    ? !habit.completedThisWeek && !habit.skippedThisWeek && update.today >= habit.startedOn
-    : habit.cadence !== "flexible" && habit.eligibleToday && !habit.completedToday && !habit.skippedToday).length;
-  state.data.lastWeek.habits = state.data.lastWeek.habits.filter((habit) => habit.id !== update.habit.id);
+  state.data.summary.remainingToday = active.filter((habit) =>
+    habit.cadence === "weekly"
+      ? !habit.completedThisWeek && !habit.skippedThisWeek && update.today >= habit.startedOn
+      : habit.cadence !== "flexible" &&
+        habit.eligibleToday &&
+        !habit.completedToday &&
+        !habit.skippedToday,
+  ).length;
+  state.data.lastWeek.habits = state.data.lastWeek.habits.filter(
+    (habit) => habit.id !== update.habit.id,
+  );
   if (update.lastWeek) state.data.lastWeek.habits.push(update.lastWeek);
   // Keep the same definition order as the main list.
   const order = new Map(state.data.habits.map((habit, index) => [habit.id, index]));
   state.data.lastWeek.habits.sort((left, right) => order.get(left.id) - order.get(right.id));
   if (matchesRequestedHistory && matchesVisibleHistory) {
     const historyHabit = update.history.habits[0];
-    state.history.data.habits = state.history.data.habits.filter((habit) => habit.id !== update.habit.id);
+    state.history.data.habits = state.history.data.habits.filter(
+      (habit) => habit.id !== update.habit.id,
+    );
     if (historyHabit) state.history.data.habits.push(historyHabit);
     state.history.data.habits.sort((left, right) => order.get(left.id) - order.get(right.id));
     renderHistory();
@@ -358,7 +540,14 @@ function applyHabitUpdate(payload) {
 
 function renderManage(habits) {
   const items = habits.filter((habit) => habit.status !== "active");
-  els.manageList.innerHTML = items.length ? items.map((habit) => `<button type="button" data-edit-id="${habit.id}"><span><b>${escapeHtml(habit.name)}</b><small>${escapeHtml(cadenceLabels[habit.cadence])}</small></span><em class="status-${habit.status}">${escapeHtml(statusLabels[habit.status])}</em><i>編集</i></button>`).join("") : empty("休止中・アーカイブ済みのHabitはありません");
+  els.manageList.innerHTML = items.length
+    ? items
+        .map(
+          (habit) =>
+            `<button type="button" data-edit-id="${habit.id}"><span><b>${escapeHtml(habit.name)}</b><small>${escapeHtml(cadenceLabels[habit.cadence])}</small></span><em class="status-${habit.status}">${escapeHtml(statusLabels[habit.status])}</em><i>編集</i></button>`,
+        )
+        .join("")
+    : empty("休止中・アーカイブ済みのHabitはありません");
 }
 
 function bindContentActions(root = els.habitContent) {
@@ -366,20 +555,39 @@ function bindContentActions(root = els.habitContent) {
     const id = Number(button.dataset.logId || button.dataset.noteId || button.dataset.editId);
     if (pendingHabitIds.has(id)) button.disabled = true;
   });
-  root.querySelectorAll("[data-log-id]").forEach((button) => button.addEventListener("click", () => toggleLog(
-    Number(button.dataset.logId), button.dataset.completed !== "true", button, button.dataset.logDate || state.data.today,
-  )));
-  root.querySelectorAll("[data-note-id]").forEach((button) => button.addEventListener("click", () => {
-    const habit = state.data.habits.find((item) => item.id === Number(button.dataset.noteId));
-    if (!habit) return;
-    const date = state.data.today;
-    const note = (habit.history || []).find((day) => day.date === date)?.note || null;
-    openLogSheet({ habit, date, completed: habit.completedToday, skipped: Boolean(habit.skippedToday), note });
-  }));
-  root.querySelectorAll("[data-edit-id]").forEach((button) => button.addEventListener("click", () => {
-    const habit = state.data.habits.find((item) => item.id === Number(button.dataset.editId));
-    if (habit) openModal(habit);
-  }));
+  root
+    .querySelectorAll("[data-log-id]")
+    .forEach((button) =>
+      button.addEventListener("click", () =>
+        toggleLog(
+          Number(button.dataset.logId),
+          button.dataset.completed !== "true",
+          button,
+          button.dataset.logDate || state.data.today,
+        ),
+      ),
+    );
+  root.querySelectorAll("[data-note-id]").forEach((button) =>
+    button.addEventListener("click", () => {
+      const habit = state.data.habits.find((item) => item.id === Number(button.dataset.noteId));
+      if (!habit) return;
+      const date = state.data.today;
+      const note = (habit.history || []).find((day) => day.date === date)?.note || null;
+      openLogSheet({
+        habit,
+        date,
+        completed: habit.completedToday,
+        skipped: Boolean(habit.skippedToday),
+        note,
+      });
+    }),
+  );
+  root.querySelectorAll("[data-edit-id]").forEach((button) =>
+    button.addEventListener("click", () => {
+      const habit = state.data.habits.find((item) => item.id === Number(button.dataset.editId));
+      if (habit) openModal(habit);
+    }),
+  );
 }
 
 function render() {
@@ -403,7 +611,10 @@ async function load() {
   els.habitContent.hidden = true;
   els.refreshButton.disabled = true;
   try {
-    const response = await fetch("/api/habits", { headers: { Accept: "application/json" }, cache: "no-store" });
+    const response = await fetch("/api/habits", {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+    });
     const payload = await readApiJson(response);
     if (generation !== habitLoadGeneration || mutationVersion !== habitMutationVersion) return;
     if (!response.ok) throw new Error(errorMessage(payload, "Habitを読み込めませんでした。"));
@@ -411,11 +622,24 @@ async function load() {
     setSource(payload.source);
     render();
     els.habitContent.hidden = false;
+    if (
+      !sourceHabitShown &&
+      /^[1-9]\d*$/.test(sourceHabit || "") &&
+      Number.isSafeInteger(Number(sourceHabit))
+    ) {
+      const target = document.querySelector(
+        `[data-log-id="${Number(sourceHabit)}"], [data-edit-id="${Number(sourceHabit)}"]`,
+      );
+      target?.scrollIntoView({ block: "center" });
+      target?.focus({ preventScroll: true });
+      sourceHabitShown = true;
+    }
     void loadHistory();
   } catch (error) {
     if (generation !== habitLoadGeneration || mutationVersion !== habitMutationVersion) return;
     setSource(null, true);
-    els.errorMessage.textContent = error instanceof Error ? error.message : "Habitを読み込めませんでした。";
+    els.errorMessage.textContent =
+      error instanceof Error ? error.message : "Habitを読み込めませんでした。";
     els.errorState.hidden = false;
   } finally {
     if (generation === habitLoadGeneration) {
@@ -439,14 +663,19 @@ async function toggleLog(id, completed, button, practicedOn = state.data.today) 
     const payload = await readApiJson(response);
     if (!response.ok) throw new Error(errorMessage(payload, "実施記録を更新できませんでした。"));
     const day = practicedOn === state.data.today ? "今日" : formatDay(practicedOn);
-    showToast(completed ? `${day}の分を実施済みとして記録しました。` : `${day}の記録を取り消しました。`);
+    showToast(
+      completed ? `${day}の分を実施済みとして記録しました。` : `${day}の記録を取り消しました。`,
+    );
     applyHabitUpdate(payload);
   } catch (error) {
     showToast(error instanceof Error ? error.message : "実施記録を更新できませんでした。");
     button.disabled = false;
   } finally {
     pendingHabitIds.delete(id);
-    if (state.data) { render(); renderHistory(); }
+    if (state.data) {
+      render();
+      renderHistory();
+    }
   }
 }
 
@@ -486,12 +715,17 @@ els.habitForm.addEventListener("submit", async (event) => {
     purpose: els.habitPurpose.value.trim() || null,
     cadence: els.habitCadence.value,
     targetPerWeek: els.habitCadence.value === "weekly" ? Number(els.habitTarget.value) : 1,
-    ...(editing ? { status: els.habitStatus.value, original: { updatedAt: editing.updatedAt } } : {}),
+    ...(editing
+      ? { status: els.habitStatus.value, original: { updatedAt: editing.updatedAt } }
+      : {}),
   };
   try {
     const response = await fetch("/api/habits", {
       method: editing ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json", "X-Dashboard-Action": editing ? "habit-update" : "habit-create" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Dashboard-Action": editing ? "habit-update" : "habit-create",
+      },
       body: JSON.stringify(body),
     });
     const payload = await readApiJson(response);
@@ -502,7 +736,8 @@ els.habitForm.addEventListener("submit", async (event) => {
     showToast(editing ? "Habitを更新しました。" : "Habitを追加しました。");
     await load();
   } catch (error) {
-    els.formError.textContent = error instanceof Error ? error.message : "Habitを保存できませんでした。";
+    els.formError.textContent =
+      error instanceof Error ? error.message : "Habitを保存できませんでした。";
     els.formError.hidden = false;
     state.saving = false;
     els.saveButton.disabled = false;
@@ -510,12 +745,16 @@ els.habitForm.addEventListener("submit", async (event) => {
 });
 
 els.addHabitButton.addEventListener("click", () => openModal());
-els.habitCadence.addEventListener("change", () => { els.targetField.hidden = els.habitCadence.value !== "weekly"; });
-document.querySelectorAll("[data-history-period]").forEach((button) => button.addEventListener("click", () => {
-  if (state.history.period === button.dataset.historyPeriod) return;
-  state.history = { ...state.history, period: button.dataset.historyPeriod, anchor: null };
-  void loadHistory();
-}));
+els.habitCadence.addEventListener("change", () => {
+  els.targetField.hidden = els.habitCadence.value !== "weekly";
+});
+document.querySelectorAll("[data-history-period]").forEach((button) =>
+  button.addEventListener("click", () => {
+    if (state.history.period === button.dataset.historyPeriod) return;
+    state.history = { ...state.history, period: button.dataset.historyPeriod, anchor: null };
+    void loadHistory();
+  }),
+);
 els.historyPrev.addEventListener("click", () => {
   if (!state.history.data) return;
   state.history.anchor = state.history.data.previousAnchor;
@@ -527,13 +766,19 @@ els.historyNext.addEventListener("click", () => {
   void loadHistory();
 });
 els.logSheetForm.addEventListener("submit", saveLogSheet);
-els.logSheetForm.querySelectorAll('input[name="logKind"]').forEach((input) => input.addEventListener("change", updateLogSheetFields));
+els.logSheetForm
+  .querySelectorAll('input[name="logKind"]')
+  .forEach((input) => input.addEventListener("change", updateLogSheetFields));
 els.logSheetClose.addEventListener("click", closeLogSheet);
 els.logSheetCancel.addEventListener("click", closeLogSheet);
-els.logSheet.addEventListener("click", (event) => { if (event.target === els.logSheet) closeLogSheet(); });
+els.logSheet.addEventListener("click", (event) => {
+  if (event.target === els.logSheet) closeLogSheet();
+});
 els.modalClose.addEventListener("click", closeModal);
 els.cancelButton.addEventListener("click", closeModal);
-els.habitModal.addEventListener("click", (event) => { if (event.target === els.habitModal) closeModal(); });
+els.habitModal.addEventListener("click", (event) => {
+  if (event.target === els.habitModal) closeModal();
+});
 els.refreshButton.addEventListener("click", load);
 els.retryButton.addEventListener("click", load);
 document.addEventListener("keydown", (event) => {

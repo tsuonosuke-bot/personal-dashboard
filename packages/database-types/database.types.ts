@@ -985,6 +985,80 @@ export type Database = {
           },
         ]
       }
+      project_goal_requests: {
+        Row: {
+          created_at: string
+          operation: string
+          payload: Json
+          project_id: number
+          request_id: string
+          result: Json
+        }
+        Insert: {
+          created_at?: string
+          operation: string
+          payload: Json
+          project_id: number
+          request_id: string
+          result: Json
+        }
+        Update: {
+          created_at?: string
+          operation?: string
+          payload?: Json
+          project_id?: number
+          request_id?: string
+          result?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_goal_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_habits: {
+        Row: {
+          created_at: string
+          habit_id: number
+          linked: boolean
+          project_id: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          habit_id: number
+          linked?: boolean
+          project_id: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          habit_id?: number
+          linked?: boolean
+          project_id?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_habits_habit_id_fkey"
+            columns: ["habit_id"]
+            isOneToOne: false
+            referencedRelation: "habits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_habits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_items: {
         Row: {
           created_at: string
@@ -1066,6 +1140,108 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_reviews: {
+        Row: {
+          fingerprint: string
+          project_id: number
+          reviewed_at: string
+        }
+        Insert: {
+          fingerprint: string
+          project_id: number
+          reviewed_at: string
+        }
+        Update: {
+          fingerprint?: string
+          project_id?: number
+          reviewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_reviews_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_schedule_operations: {
+        Row: {
+          action_id: number
+          action_updated_at: string
+          calendar: Json
+          calendar_etag: string | null
+          calendar_url: string | null
+          content: string
+          created_at: string
+          error_code: string | null
+          event_id: string
+          project_id: number
+          project_updated_at: string
+          request_id: string
+          stage: string
+          todo_id: number | null
+          updated_at: string
+        }
+        Insert: {
+          action_id: number
+          action_updated_at: string
+          calendar: Json
+          calendar_etag?: string | null
+          calendar_url?: string | null
+          content: string
+          created_at?: string
+          error_code?: string | null
+          event_id: string
+          project_id: number
+          project_updated_at: string
+          request_id: string
+          stage?: string
+          todo_id?: number | null
+          updated_at?: string
+        }
+        Update: {
+          action_id?: number
+          action_updated_at?: string
+          calendar?: Json
+          calendar_etag?: string | null
+          calendar_url?: string | null
+          content?: string
+          created_at?: string
+          error_code?: string | null
+          event_id?: string
+          project_id?: number
+          project_updated_at?: string
+          request_id?: string
+          stage?: string
+          todo_id?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_schedule_operations_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: true
+            referencedRelation: "project_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_schedule_operations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_schedule_operations_todo_id_fkey"
+            columns: ["todo_id"]
+            isOneToOne: true
+            referencedRelation: "scheduled_actions"
             referencedColumns: ["id"]
           },
         ]
@@ -2912,6 +3088,7 @@ export type Database = {
         Args: { p_run_id: number }
         Returns: undefined
       }
+      begin_project_schedule: { Args: { p_request: Json }; Returns: Json }
       begin_review_batch: {
         Args: { p_kind: string; p_trigger: string }
         Returns: number
@@ -2920,6 +3097,7 @@ export type Database = {
         Args: { p_category: string; p_items: Json }
         Returns: Json
       }
+      capture_project_action: { Args: { p_request: Json }; Returns: Json }
       claim_relearning_generation: { Args: never; Returns: number }
       claim_review_answers: {
         Args: { p_limit?: number }
@@ -3081,6 +3259,10 @@ export type Database = {
         Args: { p_error_code: string; p_idempotency_key: string }
         Returns: Json
       }
+      fail_project_schedule: {
+        Args: { p_error_code: string; p_request_id: string }
+        Returns: undefined
+      }
       finish_project_next_action: {
         Args: {
           p_action_id: number
@@ -3090,6 +3272,7 @@ export type Database = {
         }
         Returns: number
       }
+      finish_project_schedule: { Args: { p_request_id: string }; Returns: Json }
       finish_review_ai_batch: {
         Args: { p_id: number; p_note: string; p_status: string }
         Returns: boolean
@@ -3195,6 +3378,10 @@ export type Database = {
         Returns: Json
       }
       get_learning_summary: { Args: { p_today?: string }; Returns: Json }
+      get_project_goal_status: {
+        Args: { p_project_ids: number[]; p_today: string }
+        Returns: Json
+      }
       get_project_read_model: {
         Args: {
           p_attention?: boolean
@@ -3333,6 +3520,7 @@ export type Database = {
         }
       }
       link_project_action_todo: { Args: { p_request: Json }; Returns: number }
+      link_project_habit: { Args: { p_request: Json }; Returns: number }
       link_project_source: {
         Args: {
           p_project_id: number
@@ -3538,6 +3726,14 @@ export type Database = {
         }
         Returns: number
       }
+      project_habit_review_fingerprint: {
+        Args: { p_project_id: number }
+        Returns: Json
+      }
+      project_review_fingerprint: {
+        Args: { p_project_id: number }
+        Returns: string
+      }
       prune_dashboard_handoff_nonce: { Args: never; Returns: number }
       question_material_state: {
         Args: { p_group_id: number; p_model: string }
@@ -3652,6 +3848,16 @@ export type Database = {
           schedule_updated: boolean
           stability_hours: number
         }[]
+      }
+      record_project_review: { Args: { p_request: Json }; Returns: Json }
+      record_project_schedule_calendar: {
+        Args: {
+          p_calendar_etag: string
+          p_calendar_url: string
+          p_event_id: string
+          p_request_id: string
+        }
+        Returns: Json
       }
       record_project_todo_read_cache: {
         Args: { p_items: Json }
@@ -3858,6 +4064,10 @@ export type Database = {
         Args: { p_idempotency_key: string; p_inbox_id: number; p_params: Json }
         Returns: Json
       }
+      save_project_schedule_todo: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
       save_question_embedding: {
         Args: {
           p_embedding: string
@@ -4058,6 +4268,7 @@ export type Database = {
       trigger_embedding_batch: { Args: never; Returns: number }
       trigger_review_batch: { Args: { p_kind: string }; Returns: number }
       unlink_project_action_todo: { Args: { p_request: Json }; Returns: number }
+      unlink_project_habit: { Args: { p_request: Json }; Returns: number }
       update_linked_todo: { Args: { p_request: Json }; Returns: Json }
       update_project_action: {
         Args: {

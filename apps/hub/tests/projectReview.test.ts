@@ -71,11 +71,11 @@ test("Projects画面に週次レビューのタブを置き、期限超過・要
   assert.match(html, /data-view="review">週次レビュー <b id="reviewTabCount">/);
   assert.match(html, /id="filtersBar"/);
   for (const title of ["期限超過のタスク", "要確認", "再確認・見直し日", "停滞", "今週完了したタスク"]) {
-    assert.match(script, new RegExp(`reviewSection\\("${title}"`));
+    assert.match(script, new RegExp(`reviewSection\\(\\s*"${title}"`));
   }
   // 画面の説明に使う日数は、サーバーの判定と同じ
   assert.match(script, new RegExp(`const STALE_DAYS = ${STALE_DAYS};`));
-  assert.match(script, /pending: overdue\.length \+ attention\.length \+ reviewDue\.length \+ stale\.length/);
+  assert.match(script, /pending:\s*overdue\.length\s*\+ attention\.length\s*\+ reviewDue\.length\s*\+ stale\.length/);
   assert.match(script, /if \(project\.stale\) return `<span class="badge stale">停滞/);
   assert.match(script, /data-detail="\$\{project\.id\}"/);
   assert.match(css, /\.review-section \{/);

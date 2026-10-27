@@ -1,10 +1,12 @@
 # Database types
 
 `database.types.ts` is Supabase's generated schema metadata, regenerated from the
-production database on 2026-10-26 (JST) with the official Supabase CLI 2.117.0,
-after applying the eight reviewed migrations for Issues #275–#300. The trusted
-[release run](https://github.com/tsuonosuke-bot/personal-dashboard/actions/runs/40283256215)
-verified the migration history, permissions and preservation of existing data.
+production database on 2026-10-27 (JST) with the official Supabase CLI 2.117.0,
+after applying the four reviewed migrations for Issues #304–#308. The trusted
+[apply run](https://github.com/tsuonosuke-bot/personal-dashboard/actions/runs/40444913621)
+verified migration history, permissions and preservation of existing data; the
+[export run](https://github.com/tsuonosuke-bot/personal-dashboard/actions/runs/40445334076)
+generated this snapshot from that applied schema.
 The export includes `public,graphql_public`; it contains no data rows or credentials.
 It is imported with `import type`; the generated runtime `Constants` is unused.
 

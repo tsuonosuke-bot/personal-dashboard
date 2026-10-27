@@ -244,7 +244,7 @@ test("Project詳細はマイルストンごとにタスクをまとめ、追加�
     readFile(new URL("../functions/_shared/exportSnapshot.ts", import.meta.url), "utf8"),
   ]);
   assert.match(script, /"X-Dashboard-Action": "project-milestone-update"/);
-  assert.match(script, /projectRequest\("\/api\/project-milestones"/);
+  assert.match(script, /projectRequest\(\s*"\/api\/project-milestones"/);
   for (const operation of ["move_up", "move_down", "delete"]) assert.match(script, new RegExp(`data-milestone-op="${operation}"`));
   assert.match(script, /data-milestone-op="\$\{done \? "reopen" : "complete"\}"/);
   assert.match(script, /operation: "addBulk"/);
