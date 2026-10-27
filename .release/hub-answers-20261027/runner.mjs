@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { guard, GuardFailure, lf, parseDatabaseUrl, childEnvironment, capture, checkProcess, parseClientTls } from './process-safety.mjs';
 
-export const MANIFEST_SHA256 = '711b9300c9926a8c595bdac49482c05a2d8adace4abb21d911daec25a3f7908f';
+export const MANIFEST_SHA256 = '1c68a58511f96f3fec697e8ed976aa4e623afef68077b79a94738adf32753495';
 export const REPO = 'tsuonosuke-bot/personal-dashboard';
 export const BUNDLE = '.release/hub-answers-20261027';
 export const WORKFLOW = '.github/workflows/supabase-backup.yml';
@@ -133,6 +133,11 @@ export function compareSnapshots(before,after) {
   guard(equals(omitBody(before.function),omitBody(after.function)),'preserve_function_security');
   guard(before.activity.oldContractSha256===after.activity.oldContractSha256,'preserve_hub_contract');
 }
+/** Preflight diagnostics contain only fixed boolean checks, never server names or rows. */
+export function profileDiagnostic(profile) {
+  return {database:profile?.database==='postgres',role:profile?.role==='postgres',session:profile?.session==='postgres',
+    readOnly:profile?.readOnly===true,ssl:profile?.ssl===true,admin:profile?.admin===true};
+}
 const readonly = body => `begin transaction isolation level repeatable read read only; set local statement_timeout='120s'; ${body}; commit;`;
 export function applySql(m,source,tables,baseline) {
   guard(hash(lf(source))===m.migrationSha256,'sql_source_hash');
@@ -189,9 +194,10 @@ export async function run({root=process.cwd(),env=process.env,execute=capture}={
     const psql=async (input,args=[])=>checkProcess(await execute('psql',['-X','--no-password','--quiet','--no-align','--tuples-only','--set=ON_ERROR_STOP=1','--set=VERBOSITY=sqlstate','--set=SHOW_CONTEXT=never',...args],{cwd:root,env:childEnvironment(env,connection),input,timeout:300000}),'psql');
     parseClientTls(await psql(undefined,['--field-separator','\t','--pset=footer=off','--command','\\conninfo']),connection);
     const profile=json(await psql(readonly(`select jsonb_build_object('database',current_database(),'role',current_user,'session',session_user,'readOnly',current_setting('transaction_read_only')='on','ssl',exists(select from pg_stat_ssl where pid=pg_backend_pid() and ssl),'admin',exists(select from pg_roles where rolname=current_user and (rolsuper or rolbypassrls)),'tables',(select jsonb_agg(c.relname order by c.relname) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p')))`)));
+    await mkdir(output,{recursive:false,mode:0o700}); outputReady=true;
+    if(m.phase==='preflight') result.profile=profileDiagnostic(profile);
     guard(profile.database==='postgres'&&profile.role==='postgres'&&profile.session==='postgres'&&profile.readOnly===true&&profile.ssl===true&&profile.admin===true,'db_identity_tls_visibility');
     guard(Array.isArray(profile.tables)&&profile.tables.every(t=>NAME.test(t))&&profile.tables.length<=300,'profile_tables');
-    await mkdir(output,{recursive:false,mode:0o700}); outputReady=true;
     if(m.phase==='preflight') {
       const before=validateSnapshot(json(await psql(readonly(snapshotBody(profile.tables)))),m,'before');
       await writeFile(path.join(output,'before-snapshot.json'),JSON.stringify(before)+'\n',{mode:0o600});
