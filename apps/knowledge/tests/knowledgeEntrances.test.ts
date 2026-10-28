@@ -30,7 +30,7 @@ test("一覧へジャンプして非入力見出しへフォーカスし、遅�
   } finally { globalThis.ResizeObserver = original; }
 });
 
-test("一覧ジャンプは既存状態を変更するハンドラを呼ばず、短い終了案内は開始可能な時だけ出す", async () => {
+test("一覧ジャンプは既存状態を変更せず、開始画面に終了案内を出さない", async () => {
   const [dashboard, panel, review, help] = await Promise.all([
     readFile(new URL("../src/components/KnowledgeDashboard.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/components/TodayLearningPanel.tsx", import.meta.url), "utf8"),
@@ -42,9 +42,7 @@ test("一覧ジャンプは既存状態を変更するハンドラを呼ばず�
   assert.doesNotMatch(jump, /setPage|setSort|updateFilters|clearFilters|history|setSearchOpen/);
   assert.match(dashboard, /onClick=\{jumpToList\}[^>]*>ナレッジ一覧へ/);
   assert.match(dashboard, /ref=\{listHeading\}[^>]*tabIndex=\{-1\}/);
-  assert.match(panel, /const showExitHint = !loading && !error && !queueLoading && !queueError && readyDue > 0/);
-  assert.match(panel, /showExitHint && <span[^>]*>途中で終了できます<\/span>/);
-  assert.match(panel, /aria-describedby=\{showExitHint \? "today-learning-exit-hint" : undefined\}/);
+  assert.doesNotMatch(panel, /途中で終了できます|today-learning-exit-hint|showExitHint/);
   assert.doesNotMatch(panel, /いつでも終了|未送信.*保存|5問モード/);
   assert.match(review, /onClick=\{session.stop\} disabled=\{session.busy\}>終了する/);
   assert.match(help, /未送信の入力は記録されず、送信済みの回答は残ります/);

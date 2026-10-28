@@ -1154,5 +1154,3 @@ body.quiz-open { padding-bottom: 0; }
 
 .knowledge-list-anchor { scroll-margin-top: 96px; }
 .knowledge-list-anchor:focus { outline: 2px solid var(--accent); outline-offset: 4px; }
-.today-learning-start-group { display: grid; gap: 4px; min-width: 0; }
-.today-learning-exit-hint { color: var(--text-secondary); font-size: var(--text-xs); line-height: 1.5; }
