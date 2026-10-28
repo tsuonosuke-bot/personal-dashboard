@@ -1,0 +1,10 @@
+{
+  "name": "@personal-dashboards/shell",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Knowledge・Financeが共有するヘッダーの骨格CSS（sticky固定とiOSのsafe-area）。色は各アプリが持つ。",
+  "exports": {
+    "./header.css": "./header.css"
+  }
+}

@@ -15,6 +15,7 @@
     "theme:check": "node scripts/build-dark-theme.mjs --check src/index.css"
   },
   "dependencies": {
+    "@personal-dashboards/shell": "^0.0.0",
     "jose": "^6.2.12",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
