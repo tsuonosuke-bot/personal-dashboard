@@ -137,8 +137,6 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
             status={dailyReview.status}
             loading={dailyReview.loading || summaryLoading}
             error={dailyReview.error ?? summaryError}
-            queueLoading={reviewQueue.loading}
-            queueError={reviewQueue.error}
             queueStatus={reviewQueue.status}
             summaryToday={summary?.today}
             missCount={summary?.misses.total ?? 0}

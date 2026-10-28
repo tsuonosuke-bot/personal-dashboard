@@ -128,10 +128,7 @@ test("今日の学習は3つの数字に絞り、出題間隔の説明はヘル�
   assert.match(source, /今日の回答/);
   assert.match(source, /見直す講評/);
   assert.match(source, /期限超過/);
-  assert.doesNotMatch(source, /today-learning-how|途中で終えても大丈夫です/);
-  // #320 permits only a brief, ready-only exit cue; the full explanation stays in Help.
-  assert.match(source, /const showExitHint = !loading && !error && !queueLoading && !queueError && readyDue > 0/);
-  assert.match(source, /showExitHint && <span[^>]*>途中で終了できます<\/span>/);
+  assert.doesNotMatch(source, /today-learning-how|途中で終えても大丈夫です|途中で終了できます|today-learning-exit-hint/);
   assert.match(help, /途中で終えても大丈夫です/);
   assert.match(help, /q0=10分、q1=30分、q2=6時間、q3=12時間、q4=2日以上、q5=4日以上/);
   assert.match(help, /最高0\.5・高1・中1\.5・低2・最低3倍/);

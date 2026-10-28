@@ -5,8 +5,6 @@ interface Props {
   status: DailyReviewStatus | null;
   loading: boolean;
   error: string | null;
-  queueLoading?: boolean;
-  queueError?: string | null;
   /** 問題キューの件数。出題ボタンは期限が来た出題待ちの問題数で決める。 */
   queueStatus: ReviewQueueStatus | null;
   summaryToday?: TodayAnswers;
@@ -30,14 +28,12 @@ function clockTime(value: string | null | undefined): string | null {
 /**
  * 今日の学習: 今すぐ解ける問題・今日の回答・見直す講評の3つに絞って示す。
  * 出題間隔などの仕組みの説明はヘルプページ（HelpView）に置く。
- * 開始できる時だけ、開始ボタンに途中終了の短い手掛かりを添える（#320）。
  */
 export function TodayLearningPanel({
-  status, loading, error, queueLoading = false, queueError = null, queueStatus, summaryToday, missCount, missWrong, missPartial, onStart, onCategoryReview, onOpenMisses, onOpenLog,
+  status, loading, error, queueStatus, summaryToday, missCount, missWrong, missPartial, onStart, onCategoryReview, onOpenMisses, onOpenLog,
 }: Props) {
   const readyDue = queueStatus?.ready_due ?? 0;
   const today = summaryToday;
-  const showExitHint = !loading && !error && !queueLoading && !queueError && readyDue > 0;
   const buttonLabel = readyDue > 0
     ? `復習を始める（${readyDue}問）`
     : status && status.remaining > 0
@@ -76,13 +72,9 @@ export function TodayLearningPanel({
       <div className="today-learning-head">
         <h2 id="today-learning-heading">今日の学習</h2>
         <div className="today-learning-actions">
-          <div className="today-learning-start-group">
-            <button className="primary-button today-learning-start" disabled={loading || readyDue === 0} onClick={onStart}
-              aria-describedby={showExitHint ? "today-learning-exit-hint" : undefined}>
-              {buttonLabel}
-            </button>
-            {showExitHint && <span id="today-learning-exit-hint" className="today-learning-exit-hint">途中で終了できます</span>}
-          </div>
+          <button className="primary-button today-learning-start" disabled={loading || readyDue === 0} onClick={onStart}>
+            {buttonLabel}
+          </button>
           <button className="text-button today-learning-category" onClick={onCategoryReview}>カテゴリを選んで復習</button>
         </div>
       </div>
