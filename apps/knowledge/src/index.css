@@ -314,7 +314,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 .quiz-page { min-height: 100vh; background: var(--bg); }
 .quiz-header {
-  display: flex; flex-direction: column; gap: 6px; padding: 16px 16px 12px;
+  display: flex; flex-direction: column; gap: 6px; padding: calc(16px + env(safe-area-inset-top)) 16px 12px;
   border-bottom: 1px solid var(--border); background: rgba(255, 255, 255, .92);
 }
 .quiz-header h1 { min-width: 0; overflow-wrap: anywhere; font-size: 19px; margin: 0; }
