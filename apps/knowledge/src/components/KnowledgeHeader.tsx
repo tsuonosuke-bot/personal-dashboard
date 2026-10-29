@@ -10,7 +10,7 @@ export function KnowledgeHeader({ error, loading, mutating, handleReload, setHel
             <h1>Knowledge</h1>
           </div>
           <div className="head-actions">
-            <a className="hub-link" href="https://personal-dashboard-7md.pages.dev/">← Hub</a>
+            <a className="hub-link" href="/">← Hub</a>
             <details className="dashboard-switcher">
               <summary aria-label="ページを切り替える">
                 <svg className="dashboard-switcher-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -21,14 +21,14 @@ export function KnowledgeHeader({ error, loading, mutating, handleReload, setHel
               </summary>
               <div className="dashboard-switcher-menu">
                 <nav aria-label="ダッシュボードを切り替え">
-                  <a href="https://personal-dashboard-7md.pages.dev/compass/">Idea</a>
-                  <a href="https://personal-dashboard-7md.pages.dev/projects/">Projects</a>
-                  <a href="https://personal-dashboard-7md.pages.dev/writing/">Writing</a>
-                  <a href="https://personal-dashboard-7md.pages.dev/habits/">Habits</a>
-                  <a href="https://personal-dashboard-7md.pages.dev/sf6/">SF6</a>
-                  <a href="https://personal-dashboard-7md.pages.dev/go/financial">Finance</a>
+                  <a href="/compass/">Idea</a>
+                  <a href="/projects/">Projects</a>
+                  <a href="/writing/">Writing</a>
+                  <a href="/habits/">Habits</a>
+                  <a href="/sf6/">SF6</a>
+                  <a href="/go/financial">Finance</a>
                   <span aria-current="page">Knowledge</span>
-                  <a href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
+                  <a href="/status/">接続状態</a>
                 </nav>
                 <ThemeSelect />
               </div>

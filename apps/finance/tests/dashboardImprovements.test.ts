@@ -81,7 +81,7 @@ test('Finance画面は直接記録・CSV・共通状態・グラフ要約・再�
   ])
   assert.match(app, /URLSearchParams\(window\.location\.search\)\.get\('new'\) === 'expense'/)
   assert.match(app, /href="api\/export"/)
-  assert.match(app, /personal-dashboard-7md\.pages\.dev\/status\//)
+  assert.match(app, /href="\/status\/"/)
   assert.match(category, /category-chart-summary/)
   assert.match(category, /role="img"/)
   assert.match(trend, /monthly-trend-summary/)

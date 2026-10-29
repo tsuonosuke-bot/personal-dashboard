@@ -98,7 +98,7 @@ export function KnowledgeDashboard({ data, navigation, actions, dailyReview, rev
           <summary className="page-tool">その他</summary>
           <div className="page-tool-menu">
             <a href="api/export">JSON書き出し</a>
-            <a href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
+            <a href="/status/">接続状態</a>
           </div>
         </details>
       </nav>

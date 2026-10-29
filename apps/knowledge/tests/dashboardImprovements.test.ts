@@ -63,7 +63,7 @@ test("Knowledge画面はJSON・共通状態・グラフ要約を提供する", a
     readFile(new URL("../supabase/migrations/20260922140000_connection_status.sql", import.meta.url), "utf8"),
   ]);
   assert.match(app, /href="api\/export"/);
-  assert.match(app, /personal-dashboard-7md\.pages\.dev\/status\//);
+  assert.match(app, /href="\/status\/"/);
   assert.match(card, /role="img"/);
   assert.match(card, /aria-describedby/);
   assert.match(dashboard, /categorySummary/);

@@ -7,7 +7,7 @@ export function ActionSourceView() {
   return (
     <div className="quiz-page">
       <header className="quiz-header">
-        <a href="https://personal-dashboard-7md.pages.dev/compass/">← Inbox</a>
+        <a href="/compass/">← Inbox</a>
         <h1>行動の出典</h1>
         <a href={import.meta.env.BASE_URL}>Knowledge</a>
       </header>
