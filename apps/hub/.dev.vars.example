@@ -24,3 +24,7 @@ SESSION_TTL_DAYS=30
 NAV_KNOWLEDGE_URL=https://your-knowledge-dashboard.pages.dev/
 NAV_FINANCIAL_URL=https://your-financial-dashboard.pages.dev/
 NAV_TASK_BOARD_URL=
+
+# Knowledge（/knowledge/ 配下）。pg_cronの生成・採点・embeddingバッチの合言葉と、意味検索のAPIキー。
+REVIEW_BATCH_TOKEN=replace-with-yet-another-random-32-byte-secret
+VOYAGE_API_KEY=pa-replace-me

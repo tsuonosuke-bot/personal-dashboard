@@ -2,8 +2,8 @@ import { readAppSource } from "./appSource.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { onRequest as exportRoute } from "../functions/api/export.ts";
-import { onRequest as statusRoute } from "../functions/api/status.ts";
+import { onRequest as exportRoute } from "../../hub/functions/knowledge/api/export.ts";
+import { onRequest as statusRoute } from "../../hub/functions/knowledge/api/status.ts";
 
 const env = {
   SUPABASE_URL: "https://knowledge-db.example",

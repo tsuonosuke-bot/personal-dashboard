@@ -5,9 +5,9 @@ import { demoFinanceOverview, parseFinanceOverview, summaryFromAggregates, trend
 import { emptyTransactionFilters, matchingExpenses } from '../src/lib/expensePaging.ts'
 import { readAllPages } from '../src/lib/allPages.ts'
 import { runCategoryBatches } from '../src/lib/bulkCategories.ts'
-import { onRequest as overviewRoute } from '../functions/api/finance-overview.ts'
-import { onRequest as pageRoute } from '../functions/api/expense-page.ts'
-import { onRequest as bulkRoute } from '../functions/api/expense-categories.ts'
+import { onRequest as overviewRoute } from '../../hub/functions/finance/api/finance-overview.ts'
+import { onRequest as pageRoute } from '../../hub/functions/finance/api/expense-page.ts'
+import { onRequest as bulkRoute } from '../../hub/functions/finance/api/expense-categories.ts'
 import type { Expense } from '../src/lib/types'
 
 const expense = (id: number, overrides: Partial<Expense> = {}): Expense => ({ id, transaction_date: '2026-10-20', amount: 100,

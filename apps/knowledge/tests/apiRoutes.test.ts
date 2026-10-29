@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { onRequest as knowledgeRoute } from "../functions/api/knowledge.ts";
-import { onRequest as knowledgeItemRoute } from "../functions/api/knowledge/[id].ts";
-import { onRequest as quizLogRoute } from "../functions/api/quiz-log.ts";
+import { onRequest as knowledgeRoute } from "../../hub/functions/knowledge/api/knowledge.ts";
+import { onRequest as knowledgeItemRoute } from "../../hub/functions/knowledge/api/knowledge/[id].ts";
+import { onRequest as quizLogRoute } from "../../hub/functions/knowledge/api/quiz-log.ts";
 
 const env = {
   SUPABASE_URL: "https://project.supabase.co",

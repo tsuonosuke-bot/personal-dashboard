@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
-import { onRequest as insightsRoute } from "../functions/api/insights.ts";
-import { onRequest as insightItemRoute } from "../functions/api/insights/[id].ts";
-import { onRequest as analyzeRoute, readThemes } from "../functions/api/insights/analyze.ts";
+import { onRequest as insightsRoute } from "../../hub/functions/knowledge/api/insights.ts";
+import { onRequest as insightItemRoute } from "../../hub/functions/knowledge/api/insights/[id].ts";
+import { onRequest as analyzeRoute, readThemes } from "../../hub/functions/knowledge/api/insights/analyze.ts";
 
 const env = {
   SUPABASE_URL: "https://project.supabase.co",
@@ -163,10 +163,10 @@ test("AIのまとめは示唆とナレッジ名だけを送り、結果を返す
 
 test("示唆は出題・採点のAPIやDB関数から参照しない", async () => {
   const quizFiles = [
-    "../functions/_shared/questionGeneration.ts",
-    "../functions/_shared/answerGrading.ts",
-    "../functions/_shared/reviewBatch.ts",
-    "../functions/api/review-queue/answer.ts",
+    "../../hub/functions/knowledge/_shared/questionGeneration.ts",
+    "../../hub/functions/knowledge/_shared/answerGrading.ts",
+    "../../hub/functions/knowledge/_shared/reviewBatch.ts",
+    "../../hub/functions/knowledge/api/review-queue/answer.ts",
   ];
   for (const file of quizFiles) {
     const source = await readFile(new URL(file, import.meta.url), "utf8");

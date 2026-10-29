@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { onRequest as statusRoute } from "../functions/api/status.ts";
-import { parseBatchHealth } from "../functions/_shared/reviewBatchHealth.ts";
+import { onRequest as statusRoute } from "../../hub/functions/knowledge/api/status.ts";
+import { parseBatchHealth } from "../../hub/functions/knowledge/_shared/reviewBatchHealth.ts";
 
 const now = new Date("2026-10-05T12:00:00Z");
 const hoursAgo = (hours: number) => new Date(now.getTime() - hours * 3_600_000).toISOString();

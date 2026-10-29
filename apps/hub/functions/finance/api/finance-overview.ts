@@ -1,6 +1,6 @@
 import { jsonResponse, methodNotAllowed, type SupabaseEnv } from '../_shared/supabaseRest.ts'
 import { financeRpc, readFinanceScope } from '../_shared/financeReads.ts'
-import { parseFinanceOverview } from '../../src/lib/financeOverview.ts'
+import { parseFinanceOverview } from '../../../../finance/src/lib/financeOverview.ts'
 
 export async function onRequest({ request, env }: { request: Request; env: SupabaseEnv }): Promise<Response> {
   if (request.method !== 'GET') return methodNotAllowed('GET')

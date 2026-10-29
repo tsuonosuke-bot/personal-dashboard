@@ -83,7 +83,8 @@ export function applyPublicCache(response: Response): Response {
 export interface AuthMiddlewareOptions<Env extends AuthEnv> {
   /** `Basic realm="..."` の中身。 */
   realm: string;
-  headers: HeaderPolicy;
+  /** ページごとにCSPが違うとき（Hub配下にKnowledge・Financeを置く場合）は、リクエストから選ぶ関数を渡す。 */
+  headers: HeaderPolicy | ((request: Request) => HeaderPolicy);
   /** `/auth/handoff` の処理。nonceの消費と遷移先はアプリごとに決める（session.tsの acceptHandoff を束ねる）。 */
   acceptHandoff: (request: Request, env: Env) => Promise<Response | null>;
   messages: {
@@ -110,16 +111,19 @@ const TEXT = { "Content-Type": "text/plain; charset=utf-8" };
  * パスワードはASCIIで設定すること（Basic認証のデコードに atob を使う）。
  */
 export function createAuthMiddleware<Env extends AuthEnv>(options: AuthMiddlewareOptions<Env>) {
-  const privacy = (response: Response) => applyPrivacyHeaders(response, options.headers);
-  const unauthorized = () => privacy(new Response(options.messages.unauthorized, {
-    status: 401,
-    headers: { "WWW-Authenticate": `Basic realm="${options.realm}", charset="UTF-8"`, ...TEXT },
-  }));
+  const policyFor = (request: Request): HeaderPolicy =>
+    typeof options.headers === "function" ? options.headers(request) : options.headers;
 
   return async (context: MiddlewareContext<Env>): Promise<Response> => {
     const { request, env, next } = context;
+    const privacy = (response: Response) => applyPrivacyHeaders(response, policyFor(request));
+    const unauthorized = () => privacy(new Response(options.messages.unauthorized, {
+      status: 401,
+      headers: { "WWW-Authenticate": `Basic realm="${options.realm}", charset="UTF-8"`, ...TEXT },
+    }));
+
     if (options.publicRoute) {
-      const response = await options.publicRoute(context, { security: (value) => applySecurityHeaders(value, options.headers) });
+      const response = await options.publicRoute(context, { security: (value) => applySecurityHeaders(value, policyFor(request)) });
       if (response) return response;
     }
 

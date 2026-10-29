@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { onRequest as logRoute } from "../functions/api/learning-log.ts";
-import { onRequest as stateRoute } from "../functions/api/learning-log/confirmation-state.ts";
-import { onRequest as masteryRoute } from "../functions/api/mastery-history.ts";
-import { onRequest as memberRoute } from "../functions/api/insight-group-members/batch.ts";
-import { onRequest as hubRoute } from "../functions/api/hub-summary.ts";
-import { onRequest as gradeRoute } from "../functions/api/review-batch/grade.ts";
+import { onRequest as logRoute } from "../../hub/functions/knowledge/api/learning-log.ts";
+import { onRequest as stateRoute } from "../../hub/functions/knowledge/api/learning-log/confirmation-state.ts";
+import { onRequest as masteryRoute } from "../../hub/functions/knowledge/api/mastery-history.ts";
+import { onRequest as memberRoute } from "../../hub/functions/knowledge/api/insight-group-members/batch.ts";
+import { onRequest as hubRoute } from "../../hub/functions/knowledge/api/hub-summary.ts";
+import { onRequest as gradeRoute } from "../../hub/functions/knowledge/api/review-batch/grade.ts";
 import { getLearningLogPage, getReviewConfirmationState, learningQuery, parseLearningSummary, snapshotReviewResultIds } from "../src/lib/learningReadApi.ts";
 import { createReviewConfirmationCoordinator } from "../src/lib/reviewConfirmation.ts";
 import { knowledgeMasteryChanges } from "../src/lib/knowledgeReviewHistory.ts";
@@ -187,7 +187,7 @@ test("30回答の保存は1HTTP往復で、遅い後続生成より先に採点�
     if (name === "finish_review_generation_jobs") { generationFinished = true; return Response.json(null); }
     throw new Error(`unexpected ${name}`);
   };
-  const gradeRequest = () => new Request("https://knowledge.example/api/review-batch/grade", { method: "POST",
+  const gradeRequest = () => new Request("https://knowledge.example/knowledge/api/review-batch/grade", { method: "POST",
     headers: { Origin: "https://knowledge.example", "Content-Type": "application/json", "X-Dashboard-Action": "review-queue" }, body: "{}" });
   try {
     const response = await Promise.race([gradeRoute({ env, request: gradeRequest(), waitUntil: (promise) => work.push(promise) }),

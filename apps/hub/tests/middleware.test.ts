@@ -75,3 +75,55 @@ test("Cloudflare Access mode fails closed without configuration or a valid JWT",
   assert.equal(invalid.status, 403);
   assert.doesNotMatch(await invalid.text(), /not-a-jwt/);
 });
+
+const BASIC_ENV = { DASHBOARD_USER: "owner", DASHBOARD_PASSWORD: "long-password" };
+const AUTHORIZATION = `Basic ${btoa("owner:long-password")}`;
+const next = async () => new Response("private");
+
+test("Knowledge・Finance配下だけがstyle属性を許すCSPになり、マイクを止めない", async () => {
+  const hub = await onRequest({ request: request(AUTHORIZATION), env: BASIC_ENV, next });
+  assert.doesNotMatch(hub.headers.get("Content-Security-Policy") || "", /style-src-attr/);
+  assert.match(hub.headers.get("Permissions-Policy") || "", /microphone=\(\)/);
+
+  for (const path of ["/knowledge/", "/knowledge/api/knowledge", "/finance/", "/finance/api/expenses"]) {
+    const app = await onRequest({
+      request: new Request(`https://compass.example${path}`, { headers: { Authorization: AUTHORIZATION } }),
+      env: BASIC_ENV,
+      next,
+    });
+    assert.match(app.headers.get("Content-Security-Policy") || "", /style-src-attr 'unsafe-inline'/, path);
+    assert.equal(app.headers.get("Permissions-Policy"), null, path);
+    assert.equal(app.headers.get("X-Frame-Options"), "DENY", path);
+  }
+
+  // 前方一致の取り違えを避ける。
+  const lookalike = await onRequest({
+    request: new Request("https://compass.example/knowledgebase", { headers: { Authorization: AUTHORIZATION } }),
+    env: BASIC_ENV,
+    next,
+  });
+  assert.doesNotMatch(lookalike.headers.get("Content-Security-Policy") || "", /style-src-attr/);
+});
+
+test("定期実行の合言葉はKnowledgeのバッチへのPOSTだけを通す", async () => {
+  const env = { ...BASIC_ENV, REVIEW_BATCH_TOKEN: "t".repeat(32) };
+  const batch = (path: string, method = "POST", token = "t".repeat(32)) =>
+    onRequest({ request: new Request(`https://compass.example${path}`, { method, headers: { "X-Review-Batch-Token": token } }), env, next });
+  assert.equal((await batch("/knowledge/api/review-batch/generate")).status, 200);
+  assert.equal((await batch("/knowledge/api/embedding-batch")).status, 200);
+  assert.equal((await batch("/knowledge/api/knowledge")).status, 401);
+  assert.equal((await batch("/knowledge/api/review-batch/generate", "GET")).status, 401);
+  assert.equal((await batch("/knowledge/api/review-batch/generate", "POST", "x".repeat(32))).status, 401);
+});
+
+test("Hubサービストークンは読み取り用GETだけを、Knowledge・Finance配下のパスで通す", async () => {
+  const token = "h".repeat(32);
+  const env = { ...BASIC_ENV, HUB_SERVICE_TOKEN: token };
+  const read = (path: string, method = "GET") =>
+    onRequest({ request: new Request(`https://compass.example${path}`, { method, headers: { "X-Hub-Service": token } }), env, next });
+  assert.equal((await read("/knowledge/api/hub-summary")).status, 200);
+  assert.equal((await read("/finance/api/expenses")).status, 200);
+  assert.equal((await read("/finance/api/expenses", "POST")).status, 401);
+  assert.equal((await read("/finance/api/budget-categories")).status, 401);
+  assert.equal((await read("/api/expenses")).status, 401);
+});

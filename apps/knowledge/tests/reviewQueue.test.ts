@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { onRequest as generateRoute } from "../functions/api/review-batch/generate.ts";
-import { onRequest as gradeRoute } from "../functions/api/review-batch/grade.ts";
-import { onRequest as answerRoute } from "../functions/api/review-queue/answer.ts";
-import { onRequest as discardRoute } from "../functions/api/review-queue/discard.ts";
-import { onRequest as holdsRoute } from "../functions/api/review-queue/generation-holds.ts";
-import { generationIssue, questionFocus } from "../functions/_shared/questionGeneration.ts";
-import { onRequest as pendingRoute } from "../functions/api/review-queue/pending.ts";
-import { onRequest as serveRoute } from "../functions/api/review-queue/serve.ts";
-import { onRequest as statusRoute } from "../functions/api/review-queue/status.ts";
-import { instantGrade } from "../functions/_shared/answerGrading.ts";
-import { hasReviewBatchToken } from "../functions/_shared/reviewQueue.ts";
+import { onRequest as generateRoute } from "../../hub/functions/knowledge/api/review-batch/generate.ts";
+import { onRequest as gradeRoute } from "../../hub/functions/knowledge/api/review-batch/grade.ts";
+import { onRequest as answerRoute } from "../../hub/functions/knowledge/api/review-queue/answer.ts";
+import { onRequest as discardRoute } from "../../hub/functions/knowledge/api/review-queue/discard.ts";
+import { onRequest as holdsRoute } from "../../hub/functions/knowledge/api/review-queue/generation-holds.ts";
+import { generationIssue, questionFocus } from "../../hub/functions/knowledge/_shared/questionGeneration.ts";
+import { onRequest as pendingRoute } from "../../hub/functions/knowledge/api/review-queue/pending.ts";
+import { onRequest as serveRoute } from "../../hub/functions/knowledge/api/review-queue/serve.ts";
+import { onRequest as statusRoute } from "../../hub/functions/knowledge/api/review-queue/status.ts";
+import { instantGrade } from "../../hub/functions/knowledge/_shared/answerGrading.ts";
+import { hasReviewBatchToken } from "../../hub/functions/knowledge/_shared/reviewQueue.ts";
 
 const TOKEN = "t".repeat(40);
 const env = {
@@ -158,14 +158,14 @@ function candidate(id: string, title: string, overrides: Record<string, unknown>
 }
 
 test("定期実行の合言葉は、生成・採点バッチへのPOSTで32文字以上が一致したときだけ通す", () => {
-  assert.equal(hasReviewBatchToken(cronRequest("/api/review-batch/generate"), env), true);
-  assert.equal(hasReviewBatchToken(cronRequest("/api/review-batch/grade"), env), true);
+  assert.equal(hasReviewBatchToken(cronRequest("/knowledge/api/review-batch/generate"), env), true);
+  assert.equal(hasReviewBatchToken(cronRequest("/knowledge/api/review-batch/grade"), env), true);
   assert.equal(hasReviewBatchToken(cronRequest("/api/knowledge"), env), false);
-  assert.equal(hasReviewBatchToken(cronRequest("/api/review-batch/generate"), { REVIEW_BATCH_TOKEN: "short" }), false);
-  assert.equal(hasReviewBatchToken(new Request("https://dashboard.example/api/review-batch/grade", {
+  assert.equal(hasReviewBatchToken(cronRequest("/knowledge/api/review-batch/generate"), { REVIEW_BATCH_TOKEN: "short" }), false);
+  assert.equal(hasReviewBatchToken(new Request("https://dashboard.example/knowledge/api/review-batch/grade", {
     method: "GET", headers: { "X-Review-Batch-Token": TOKEN },
   }), env), false);
-  assert.equal(hasReviewBatchToken(new Request("https://dashboard.example/api/review-batch/grade", {
+  assert.equal(hasReviewBatchToken(new Request("https://dashboard.example/knowledge/api/review-batch/grade", {
     method: "POST", headers: { "X-Review-Batch-Token": "x".repeat(40) },
   }), env), false);
 });
@@ -173,7 +173,7 @@ test("定期実行の合言葉は、生成・採点バッチへのPOSTで32文�
 test("合言葉のない画面以外からのバッチ実行は受け付けない", async () => {
   await withServices({ rpc: () => { throw new Error("must not reach DB"); } }, async () => {
     const response = await generateRoute({
-      request: new Request("https://dashboard.example/api/review-batch/generate", { method: "POST", body: "{}" }),
+      request: new Request("https://dashboard.example/knowledge/api/review-batch/generate", { method: "POST", body: "{}" }),
       env,
     });
     assert.equal(response.status, 403);
@@ -189,7 +189,7 @@ test("キューが上限なら、どんな条件でもAIを呼ばずに生成を
       throw new Error(`unexpected rpc ${name}`);
     },
   }, async (calls) => {
-    const response = await generateRoute({ request: cronRequest("/api/review-batch/generate"), env });
+    const response = await generateRoute({ request: cronRequest("/knowledge/api/review-batch/generate"), env });
     const body = await response.json() as { status: string; note: string };
     assert.equal(body.status, "skipped");
     assert.match(body.note, /上限（200件）/);
@@ -210,12 +210,12 @@ test("生成対象がなければAIを呼ばない。実行中のバッチがあ
       throw new Error(`unexpected rpc ${name}`);
     },
   }, async (calls) => {
-    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as { status: string };
+    const body = await (await generateRoute({ request: cronRequest("/knowledge/api/review-batch/generate"), env })).json() as { status: string };
     assert.equal(body.status, "skipped");
     assert.equal(calls.ai.length, 0);
   });
   await withServices({ rpc: (name) => (name === "begin_review_batch" ? null : []) }, async (calls) => {
-    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as { status: string };
+    const body = await (await generateRoute({ request: cronRequest("/knowledge/api/review-batch/generate"), env })).json() as { status: string };
     assert.equal(body.status, "busy");
     assert.deepEqual(calls.rpc.map((call) => call.name), ["begin_review_batch"]);
   });
@@ -293,7 +293,7 @@ test("条件を満たさない問題はその場で1回だけ作り直し、そ�
     rpc: generationRpc(twoCandidates(), record),
     ai: (body) => aiJson({ questions: aiItems(body).length === 2 ? [CHOICE_QUESTION, LEAKING_QUESTION] : [LEAKING_QUESTION] }),
   }, async (calls) => {
-    const body = await (await generateRoute({ request: manualRequest("/api/review-batch/generate"), env })).json() as {
+    const body = await (await generateRoute({ request: manualRequest("/knowledge/api/review-batch/generate"), env })).json() as {
       status: string; succeeded: number; failed: number; note: string;
     };
     assert.equal(calls.ai.length, 2);
@@ -332,7 +332,7 @@ test("作り直しで条件を満たした問題はキューに入れ、保留�
     rpc: generationRpc(twoCandidates(), record),
     ai: (body) => aiJson({ questions: aiItems(body).length === 2 ? [CHOICE_QUESTION, LEAKING_QUESTION] : [FIXED_QUESTION] }),
   }, async (calls) => {
-    const body = await (await generateRoute({ request: manualRequest("/api/review-batch/generate"), env })).json() as {
+    const body = await (await generateRoute({ request: manualRequest("/knowledge/api/review-batch/generate"), env })).json() as {
       status: string; succeeded: number; failed: number; note: string;
     };
     assert.equal(calls.ai.length, 2);
@@ -354,7 +354,7 @@ test("すべて条件を満たした生成では作り直さない", async () =>
     rpc: generationRpc([candidate(K1, "選択と集中", { mastery: "未学習", times_asked: 0, pool: "B" })], record),
     ai: () => aiJson({ questions: [CHOICE_QUESTION] }),
   }, async (calls) => {
-    const body = await (await generateRoute({ request: manualRequest("/api/review-batch/generate"), env })).json() as {
+    const body = await (await generateRoute({ request: manualRequest("/knowledge/api/review-batch/generate"), env })).json() as {
       status: string; note: string | null;
     };
     assert.equal(calls.ai.length, 1);
@@ -372,7 +372,7 @@ test("作り直しのAI呼び出しに失敗しても、作れた問題は入れ
       ? aiJson({ questions: [CHOICE_QUESTION, LEAKING_QUESTION] })
       : { stop_reason: "refusal", stop_details: { category: "other" }, content: [] },
   }, async () => {
-    const body = await (await generateRoute({ request: manualRequest("/api/review-batch/generate"), env })).json() as {
+    const body = await (await generateRoute({ request: manualRequest("/knowledge/api/review-batch/generate"), env })).json() as {
       status: string; succeeded: number; failed: number; note: string;
     };
     assert.equal(body.status, "succeeded");
@@ -390,7 +390,7 @@ test("保留の記録に失敗しても、作れた問題は入れてバッチ�
     rpc: generationRpc(twoCandidates(), record, { holdFails: true }),
     ai: (body) => aiJson({ questions: aiItems(body).length === 2 ? [CHOICE_QUESTION, LEAKING_QUESTION] : [LEAKING_QUESTION] }),
   }, async () => {
-    const body = await (await generateRoute({ request: manualRequest("/api/review-batch/generate"), env })).json() as {
+    const body = await (await generateRoute({ request: manualRequest("/knowledge/api/review-batch/generate"), env })).json() as {
       status: string; succeeded: number; note: string;
     };
     assert.equal(body.status, "succeeded");
@@ -406,7 +406,7 @@ test("最初の生成でAIを呼べなければ、作り直さずにバッチを
     rpc: generationRpc([candidate(K2, "サイロ化")], record),
     ai: () => ({ stop_reason: "refusal", stop_details: { category: "other" }, content: [] }),
   }, async (calls) => {
-    const body = await (await generateRoute({ request: manualRequest("/api/review-batch/generate"), env })).json() as {
+    const body = await (await generateRoute({ request: manualRequest("/knowledge/api/review-batch/generate"), env })).json() as {
       status: string; failed: number;
     };
     assert.equal(calls.ai.length, 1);
@@ -421,7 +421,7 @@ test("保留中のカードしか残っていなければ、その件数をメ�
   await withServices({
     rpc: generationRpc([], generationRecord(), { queueStatus: { generation_held: 2 } }),
   }, async (calls) => {
-    const body = await (await generateRoute({ request: manualRequest("/api/review-batch/generate"), env })).json() as {
+    const body = await (await generateRoute({ request: manualRequest("/knowledge/api/review-batch/generate"), env })).json() as {
       status: string; note: string;
     };
     assert.equal(calls.ai.length, 0);
@@ -477,7 +477,7 @@ test("四択はAIを呼ばずに採点し、自由記述はAIで採点して回�
       });
     },
   }, async (calls) => {
-    const body = await (await gradeRoute({ request: manualRequest("/api/review-batch/grade"), env })).json() as {
+    const body = await (await gradeRoute({ request: manualRequest("/knowledge/api/review-batch/grade"), env })).json() as {
       status: string; succeeded: number; followUp?: { status: string };
     };
     assert.equal(calls.ai.length, 1);
@@ -519,7 +519,7 @@ test("採点できなかった回答は次のバッチへ戻す", async () => {
     rest: () => [{ id: K2, title: "サイロ化", explanation: null, category: "ビジネス", tags: [], archived: false }],
     ai: () => aiJson({ grades: [] }),
   }, async () => {
-    const body = await (await gradeRoute({ request: manualRequest("/api/review-batch/grade"), env })).json() as {
+    const body = await (await gradeRoute({ request: manualRequest("/knowledge/api/review-batch/grade"), env })).json() as {
       status: string; failed: number;
     };
     assert.equal(body.status, "failed");
@@ -738,7 +738,7 @@ test("定期実行は生成を30分ごと、採点を1時間ごとに登録す�
 });
 
 test("学習ログ用に採点記録の問題・回答・講評・確認状態を返す", async () => {
-  const source = await readFile(new URL("../functions/api/quiz-log.ts", import.meta.url), "utf8");
+  const source = await readFile(new URL("../../hub/functions/knowledge/api/quiz-log.ts", import.meta.url), "utf8");
   assert.match(source, /question,user_answer,correct_answer,explanation,answered_at,confirmed_at,review_queue_id/);
 });
 
@@ -780,7 +780,7 @@ test("回答の応答に想定解を含め、出題の応答には含めない",
     assert.equal(body.status, "answered");
     assert.equal(body.expected_answer, "サイロ化");
   });
-  const serve = await readFile(new URL("../functions/api/review-queue/serve.ts", import.meta.url), "utf8");
+  const serve = await readFile(new URL("../../hub/functions/knowledge/api/review-queue/serve.ts", import.meta.url), "utf8");
   assert.doesNotMatch(serve, /expected_answer|correct_choice:/);
 });
 
@@ -812,7 +812,7 @@ test("AIへは強制ツール呼び出しではなく構造化出力でスキー
       return aiJson({ questions: [] });
     },
   }, async () => {
-    await generateRoute({ request: manualRequest("/api/review-batch/generate"), env });
+    await generateRoute({ request: manualRequest("/knowledge/api/review-batch/generate"), env });
   });
   assert.equal(request.model, "claude-sonnet-5-5");
   assert.equal("tool_choice" in request, false);
@@ -828,7 +828,7 @@ test("AIへは強制ツール呼び出しではなく構造化出力でスキー
 });
 
 test("AIの拒否と、JSONでない応答は理由つきで失敗にする", async () => {
-  const { callAnthropicTool } = await import("../functions/_shared/anthropicClient.ts");
+  const { callAnthropicTool } = await import("../../hub/functions/knowledge/_shared/anthropicClient.ts");
   const tool = { name: "t", description: "d", input_schema: { type: "object", properties: {} } };
   const originalFetch = globalThis.fetch;
   try {
@@ -873,7 +873,7 @@ test("生成AIへは直近2回のメモをそのまま渡し、項目ごとに�
     },
     ai: () => aiJson({ questions: [CHOICE_QUESTION, FIXED_QUESTION] }),
   }, async (calls) => {
-    await generateRoute({ request: manualRequest("/api/review-batch/generate"), env });
+    await generateRoute({ request: manualRequest("/knowledge/api/review-batch/generate"), env });
     const items = aiItems(calls.ai[0]);
     const byId = new Map(items.map((item) => [item.id, item]));
     assert.equal(byId.get(K1)?.focus, "core");
@@ -936,7 +936,7 @@ test("定期の生成はBatches APIで依頼し、回収に要る候補を記録
     },
     batch: batchApi({ ended: false, onCreate: (body) => { created = body; } }),
   }, async (calls) => {
-    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as {
+    const body = await (await generateRoute({ request: cronRequest("/knowledge/api/review-batch/generate"), env })).json() as {
       status: string; note: string; succeeded: number;
     };
     assert.equal(calls.ai.length, 0);
@@ -981,7 +981,7 @@ test("終わった生成バッチは次の定期実行で回収してキュー�
       : [],
     batch: batchApi({ ended: true, results: () => batchResultLines([{ customId: "generate", value: { questions: [CHOICE_QUESTION] } }]) }),
   }, async (calls) => {
-    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as {
+    const body = await (await generateRoute({ request: cronRequest("/knowledge/api/review-batch/generate"), env })).json() as {
       status: string; succeeded: number; processed: number;
     };
     assert.equal(calls.ai.length, 0);
@@ -1006,7 +1006,7 @@ test("結果待ちの生成バッチの件数だけ依頼を減らし、定期�
     pending: () => [pendingBatch],
     batch: batchApi({ ended: false }),
   }, async () => {
-    await generateRoute({ request: cronRequest("/api/review-batch/generate"), env });
+    await generateRoute({ request: cronRequest("/knowledge/api/review-batch/generate"), env });
   });
   assert.equal(scheduledPicks[0].p_lookahead_minutes, 90);
 
@@ -1018,7 +1018,7 @@ test("結果待ちの生成バッチの件数だけ依頼を減らし、定期�
     batch: batchApi({ ended: false }),
     ai: () => aiJson({ questions: [FIXED_QUESTION] }),
   }, async (calls) => {
-    await generateRoute({ request: manualRequest("/api/review-batch/generate"), env });
+    await generateRoute({ request: manualRequest("/knowledge/api/review-batch/generate"), env });
     // 手動実行も終わったバッチを取り込むため、状態だけは確かめる。依頼はその場で行う。
     assert.deepEqual(calls.batch.map((call) => call.method), ["GET"]);
     assert.equal(calls.ai.length, 1);
@@ -1054,7 +1054,7 @@ test("定期実行でも再学習中のカードはバッチに回さず、そ�
       return aiJson({ questions: [FIXED_QUESTION] });
     },
   }, async (calls) => {
-    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as { status: string };
+    const body = await (await generateRoute({ request: cronRequest("/knowledge/api/review-batch/generate"), env })).json() as { status: string };
     assert.equal(body.status, "succeeded");
     assert.equal(calls.ai.length, 1);
   });
@@ -1084,7 +1084,7 @@ test("失敗した生成バッチは閉じて失敗を記録し、同じ実行�
     }],
     batch: batchApi({ ended: true, results: () => batchResultLines([{ customId: "generate", type: "expired" }]) }),
   }, async (calls) => {
-    const body = await (await generateRoute({ request: cronRequest("/api/review-batch/generate"), env })).json() as {
+    const body = await (await generateRoute({ request: cronRequest("/knowledge/api/review-batch/generate"), env })).json() as {
       status: string; failed: number; note: string;
     };
     assert.equal(calls.ai.length, 0);
@@ -1135,7 +1135,7 @@ test("定期の採点はAIが要る回答だけをBatches APIで依頼し、採�
     rest: () => [{ id: K1, title: "b", explanation: null, category: "ビジネス", tags: [], archived: false }, K2_FACT],
     batch: batchApi({ ended: false, onCreate: (body) => { created = body; } }),
   }, async (calls) => {
-    const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as {
+    const body = await (await gradeRoute({ request: cronRequest("/knowledge/api/review-batch/grade"), env })).json() as {
       status: string; succeeded: number; failed: number; note: string; followUp?: { status: string };
     };
     assert.equal(calls.ai.length, 0);
@@ -1202,7 +1202,7 @@ test("終わった採点バッチを次の定期実行で回収して記録す�
     pending: (kind) => (kind === "grade" ? [pendingGradeBatch()] : []),
     batch: batchApi({ ended: true, results: () => batchResultLines([{ customId: "grade", value: { grades: [GOOD_GRADE] } }]) }),
   }, async (calls) => {
-    const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as {
+    const body = await (await gradeRoute({ request: cronRequest("/knowledge/api/review-batch/grade"), env })).json() as {
       status: string; succeeded: number; processed: number;
     };
     assert.equal(calls.ai.length, 0);
@@ -1223,7 +1223,7 @@ test("処理中の採点バッチは待ち、失敗していたらその場の�
     pending: (kind) => (kind === "grade" ? [pendingGradeBatch()] : []),
     batch: batchApi({ ended: false }),
   }, async (calls) => {
-    const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as { status: string };
+    const body = await (await gradeRoute({ request: cronRequest("/knowledge/api/review-batch/grade"), env })).json() as { status: string };
     assert.equal(body.status, "skipped");
     assert.equal(calls.ai.length, 0);
   });
@@ -1238,7 +1238,7 @@ test("処理中の採点バッチは待ち、失敗していたらその場の�
     batch: batchApi({ ended: true, results: () => batchResultLines([{ customId: "grade", type: "errored" }]) }),
     ai: () => aiJson({ grades: [GOOD_GRADE] }),
   }, async (calls) => {
-    await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env });
+    await gradeRoute({ request: cronRequest("/knowledge/api/review-batch/grade"), env });
     assert.equal(calls.ai.length, 1);
   });
   assert.deepEqual(recorded.map((call) => call.p_item_id), [102]);
@@ -1263,7 +1263,7 @@ test("送信したバッチを記録できなければ取り消し、回答を�
     rest: () => [K2_FACT],
     batch: batchApi({ ended: false }),
   }, async (calls) => {
-    const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as {
+    const body = await (await gradeRoute({ request: cronRequest("/knowledge/api/review-batch/grade"), env })).json() as {
       status: string; failed: number;
     };
     assert.equal(body.status, "failed");
@@ -1310,7 +1310,7 @@ test("手動実行でも終わった採点バッチを取り込み、欠けた�
       });
     },
   }, async (calls) => {
-    const body = await (await gradeRoute({ request: manualRequest("/api/review-batch/grade"), env })).json() as {
+    const body = await (await gradeRoute({ request: manualRequest("/knowledge/api/review-batch/grade"), env })).json() as {
       status: string; succeeded: number;
     };
     assert.equal(calls.ai.length, 1);
@@ -1329,7 +1329,7 @@ test("採点バッチの回収では、もう採点中でない回答にAIを使
     pending: (kind) => (kind === "grade" ? [pendingGradeBatch()] : []),
     batch: batchApi({ ended: true, results: () => batchResultLines([{ customId: "grade", type: "errored" }]) }),
   }, async (calls) => {
-    const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as { status: string };
+    const body = await (await gradeRoute({ request: cronRequest("/knowledge/api/review-batch/grade"), env })).json() as { status: string };
     assert.equal(calls.ai.length, 0);
     assert.equal(body.status, "skipped");
   });
@@ -1349,7 +1349,7 @@ test("25時間を過ぎても終わらない採点バッチは諦め、その場
     batch: batchApi({ ended: false }),
     ai: () => aiJson({ grades: [GOOD_GRADE] }),
   }, async (calls) => {
-    await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env });
+    await gradeRoute({ request: cronRequest("/knowledge/api/review-batch/grade"), env });
     assert.equal(calls.ai.length, 1);
   });
   assert.deepEqual(recorded.map((call) => call.p_item_id), [102]);
@@ -1364,7 +1364,7 @@ test("バッチの状態を確かめられなければ、期限までは結果�
     pending: (kind) => (kind === "grade" ? [pendingGradeBatch()] : []),
     batch: () => Response.json({ error: { type: "api_error" } }, { status: 500 }),
   }, async (calls) => {
-    const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as {
+    const body = await (await gradeRoute({ request: cronRequest("/knowledge/api/review-batch/grade"), env })).json() as {
       status: string; note: string;
     };
     assert.equal(body.status, "skipped");
@@ -1391,7 +1391,7 @@ test("採点の途中で失敗しても、それまでに記録した再学習�
       results: () => batchResultLines([{ customId: "grade", value: { grades: [{ ...GOOD_GRADE, quality: 1 }] } }]),
     }),
   }, async () => {
-    const body = await (await gradeRoute({ request: cronRequest("/api/review-batch/grade"), env })).json() as {
+    const body = await (await gradeRoute({ request: cronRequest("/knowledge/api/review-batch/grade"), env })).json() as {
       status: string; succeeded: number; followUp?: { status: string };
     };
     assert.equal(body.status, "failed");

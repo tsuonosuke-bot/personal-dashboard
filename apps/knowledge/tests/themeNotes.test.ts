@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { readAppSource } from "./appSource.ts";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { onRequest as notesRoute } from "../functions/api/notes.ts";
-import { onRequest as themeRoute } from "../functions/api/notes/theme.ts";
-import { onRequest as serveRoute } from "../functions/api/review-queue/serve.ts";
-import { readThemeMaterialChange, THEME_MIN_SIMILARITY } from "../functions/_shared/notes.ts";
+import { onRequest as notesRoute } from "../../hub/functions/knowledge/api/notes.ts";
+import { onRequest as themeRoute } from "../../hub/functions/knowledge/api/notes/theme.ts";
+import { onRequest as serveRoute } from "../../hub/functions/knowledge/api/review-queue/serve.ts";
+import { readThemeMaterialChange, THEME_MIN_SIMILARITY } from "../../hub/functions/knowledge/_shared/notes.ts";
 import { dashboardRoutePath, parseDashboardRoute } from "../src/lib/dashboardRoute.ts";
 import { parseNoteTopics, parseThemeNote } from "../src/lib/apiValidation.ts";
 

@@ -6,7 +6,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const apps = ["hub", "knowledge", "finance"];
+// Knowledge・FinanceのFunctionsはHubの functions/knowledge・functions/finance に統合した。
+const apps = ["hub"];
 const requested = process.argv.slice(2);
 for (const app of requested) {
   if (!apps.includes(app)) {

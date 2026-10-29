@@ -2,8 +2,8 @@ import { readAppSource } from "./appSource.ts";
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { onRequest as expensesRoute } from '../functions/api/expenses.ts'
-import { financeCsv, onRequest as exportRoute } from '../functions/api/export.ts'
+import { onRequest as expensesRoute } from '../../hub/functions/finance/api/expenses.ts'
+import { financeCsv, onRequest as exportRoute } from '../../hub/functions/finance/api/export.ts'
 
 const env = { SUPABASE_URL: 'https://project.supabase.co', SUPABASE_SECRET_KEY: 'secret-test-key' }
 const row = { id: 7, transaction_date: '2026-10-01', amount: 1200, title: '二重登録', category: '10_食費', payer: null, memo: null, notion_url: null, notion_created_at: null, created_at: '2026-10-01T00:00:00Z' }

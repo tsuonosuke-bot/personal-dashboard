@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:pages": "vite build && npm run build -w knowledge-dashboard -- --outDir ../hub/dist/knowledge --emptyOutDir && npm run build -w financial-dashboard -- --outDir ../hub/dist/finance --emptyOutDir",
     "dev:pages": "npm run build && wrangler pages dev dist --port 4183",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.client.json",
     "test": "node --test --test-isolation=none tests/*.test.ts",

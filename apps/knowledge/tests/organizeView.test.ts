@@ -79,7 +79,7 @@ test("AIがまとめたテーマを、問い文の下書きと根拠の示唆ご
     read("components/InsightListPanel.tsx"),
     read("components/InsightQuestions.tsx"),
     read("hooks/useInsightGroups.ts"),
-    readFile(new URL("../functions/api/insights/analyze.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../hub/functions/knowledge/api/insights/analyze.ts", import.meta.url), "utf8"),
   ]);
   assert.match(analyze, /required: \["title", "guiding_question", "summary", "importance", "insight_ids"\]/);
   assert.match(list, /<ThemeToQuestion[\s\S]*?guidingQuestion=\{theme\.guiding_question\}[\s\S]*?insightIds=\{related\.map\(\(item\) => item\.id\)\}/);

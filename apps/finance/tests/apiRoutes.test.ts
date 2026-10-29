@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { onRequest as budgetRoute } from '../functions/api/budget-categories.ts'
-import { onRequest as expensesRoute } from '../functions/api/expenses.ts'
+import { onRequest as budgetRoute } from '../../hub/functions/finance/api/budget-categories.ts'
+import { onRequest as expensesRoute } from '../../hub/functions/finance/api/expenses.ts'
 
 const env = {
   SUPABASE_URL: 'https://project.supabase.co',

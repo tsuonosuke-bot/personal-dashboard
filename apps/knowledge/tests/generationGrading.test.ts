@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { gradeAnswers, MAX_RETRY_WAIT_MS, type GradingAnswer } from "../functions/_shared/answerGrading.ts";
+import { gradeAnswers, MAX_RETRY_WAIT_MS, type GradingAnswer } from "../../hub/functions/knowledge/_shared/answerGrading.ts";
 import {
   allowedFormats,
   generateQuestions,
   generationIssue,
   type PickedItem,
-} from "../functions/_shared/questionGeneration.ts";
+} from "../../hub/functions/knowledge/_shared/questionGeneration.ts";
 
 const env = { ANTHROPIC_API_KEY: "test-key" };
 

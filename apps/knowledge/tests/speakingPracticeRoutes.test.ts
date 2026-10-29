@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { onRequest } from "../functions/api/speaking-practice.ts";
-import { onRequest as startPractice } from "../functions/api/speaking-practice/start.ts";
+import { onRequest } from "../../hub/functions/knowledge/api/speaking-practice.ts";
+import { onRequest as startPractice } from "../../hub/functions/knowledge/api/speaking-practice/start.ts";
 
 const env = {
   SUPABASE_URL: "https://project.supabase.co",

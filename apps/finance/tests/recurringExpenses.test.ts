@@ -2,7 +2,7 @@ import { readAppSource } from "./appSource.ts";
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { onRequest as recurringRoute } from '../functions/api/recurring-expenses.ts'
+import { onRequest as recurringRoute } from '../../hub/functions/finance/api/recurring-expenses.ts'
 
 const env = { SUPABASE_URL: 'https://project.supabase.co', SUPABASE_SECRET_KEY: 'secret-test-key' }
 

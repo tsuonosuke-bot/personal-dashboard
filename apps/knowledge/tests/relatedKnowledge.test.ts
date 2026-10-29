@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { onRequest as relatedRoute } from "../functions/api/knowledge/[id]/related.ts";
+import { onRequest as relatedRoute } from "../../hub/functions/knowledge/api/knowledge/[id]/related.ts";
 import { parseRelatedItems } from "../src/lib/apiValidation.ts";
 
 const env = { SUPABASE_URL: "https://project.supabase.co", SUPABASE_SECRET_KEY: "secret-test-key" };

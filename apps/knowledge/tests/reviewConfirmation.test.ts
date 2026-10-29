@@ -6,7 +6,7 @@ import { buildLearningLog } from "../src/lib/learningLog.ts";
 import {
   createReviewConfirmationCoordinator, unconfirmedResultIds, type ConfirmationProgress,
 } from "../src/lib/reviewConfirmation.ts";
-import { onRequest as confirmRoute } from "../functions/api/review-queue/confirm.ts";
+import { onRequest as confirmRoute } from "../../hub/functions/knowledge/api/review-queue/confirm.ts";
 import type { Knowledge, QuizLog } from "../src/types.ts";
 
 const STAMP = "2026-10-23T03:00:00Z";
