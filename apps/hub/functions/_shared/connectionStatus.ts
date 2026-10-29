@@ -1,6 +1,7 @@
 import { fetchSupabase } from "@personal-dashboards/auth";
 import type { HubEnv } from "./hub.ts";
 import { loadDatabaseUsage, type DatabaseUsage, type DatabaseUsageEnv } from "./databaseUsage.ts";
+import { externalDashboardBase, fetchDashboard } from "./dashboardInternal.ts";
 import { readReviewBatches, type ReviewBatchesStatus } from "./reviewBatches.ts";
 
 export interface ConnectionStatusEnv extends HubEnv, DatabaseUsageEnv {
@@ -20,8 +21,6 @@ export interface ServiceConnectionStatus {
   databaseUsage?: DatabaseUsage | null;
 }
 
-const DEFAULT_FINANCIAL_URL = "https://finance-9qq.pages.dev/";
-const DEFAULT_KNOWLEDGE_URL = "https://knowledge-50b.pages.dev/";
 
 function authMethod(value: string | undefined): string {
   return value?.trim().toLowerCase() === "access"
@@ -86,13 +85,12 @@ async function remoteStatus(
   env: ConnectionStatusEnv,
   id: "knowledge" | "finance",
   name: string,
-  baseUrl: string,
+  external: string | null,
 ): Promise<ServiceConnectionStatus> {
   const token = env.HUB_SERVICE_TOKEN?.trim();
-  if (!token || token.length < 32) throw new Error(`${name} service token is not configured.`);
-  const endpoint = new URL("/api/status", baseUrl);
-  const response = await fetch(endpoint, {
-    headers: { Accept: "application/json", "X-Hub-Service": token },
+  if (external && (!token || token.length < 32)) throw new Error(`${name} service token is not configured.`);
+  const response = await fetchDashboard(env, id, external, "/api/status", {
+    headers: token && external ? { Accept: "application/json", "X-Hub-Service": token } : { Accept: "application/json" },
   });
   if (!response.ok || !response.headers.get("Content-Type")?.toLowerCase().includes("json")) {
     throw new Error(`${name} status request failed.`);
@@ -112,8 +110,8 @@ async function remoteStatus(
 }
 
 export async function loadConnectionStatus(env: ConnectionStatusEnv) {
-  const financialUrl = env.NAV_FINANCIAL_URL?.trim() || DEFAULT_FINANCIAL_URL;
-  const knowledgeUrl = env.NAV_KNOWLEDGE_URL?.trim() || DEFAULT_KNOWLEDGE_URL;
+  const financialUrl = externalDashboardBase(env.NAV_FINANCIAL_URL);
+  const knowledgeUrl = externalDashboardBase(env.NAV_KNOWLEDGE_URL);
   const results = await Promise.allSettled([
     localStatus(env),
     remoteStatus(env, "knowledge", "Knowledge", knowledgeUrl),
@@ -125,8 +123,8 @@ export async function loadConnectionStatus(env: ConnectionStatusEnv) {
   return {
     services: [
       results[0].status === "fulfilled" ? results[0].value : fallbackStatus("personal", "Personal", safeHost(env.SUPABASE_URL, "https://invalid.example")),
-      results[1].status === "fulfilled" ? results[1].value : fallbackStatus("knowledge", "Knowledge", safeHost(knowledgeUrl, DEFAULT_KNOWLEDGE_URL)),
-      results[2].status === "fulfilled" ? results[2].value : fallbackStatus("finance", "Finance", safeHost(financialUrl, DEFAULT_FINANCIAL_URL)),
+      results[1].status === "fulfilled" ? results[1].value : fallbackStatus("knowledge", "Knowledge", safeHost(knowledgeUrl ?? undefined, "https://invalid.example")),
+      results[2].status === "fulfilled" ? results[2].value : fallbackStatus("finance", "Finance", safeHost(financialUrl ?? undefined, "https://invalid.example")),
     ],
   };
 }

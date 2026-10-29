@@ -255,7 +255,7 @@ test("hub reads the review queue status from Knowledge, not the old daily queue"
     const hub = await loadHub({
       SUPABASE_URL: "https://compass.supabase.co",
       SUPABASE_SECRET_KEY: "server-secret",
-      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
+      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters", NAV_KNOWLEDGE_URL: "https://knowledge-50b.pages.dev/", NAV_FINANCIAL_URL: "https://finance-9qq.pages.dev/",
     }, now);
     assert.ok(knowledgePaths.includes("/api/hub-summary"));
     assert.equal(knowledgePaths.includes("/api/review/queue"), false);
@@ -277,7 +277,7 @@ test("dated Knowledge answers survive a partial queue and mixed app rollout neve
       { reviewStatus: { ready_due: 2 } },
     ]) {
       globalThis.fetch = async (input, init) => hubReadFixture(input, init, { knowledge: fixture });
-      const result = await loadHub({ SUPABASE_URL: 'https://compass.supabase.co', SUPABASE_SECRET_KEY: 'test', HUB_SERVICE_TOKEN: 'long-enough-test-service-token-12345' }, now);
+      const result = await loadHub({ SUPABASE_URL: 'https://compass.supabase.co', SUPABASE_SECRET_KEY: 'test', HUB_SERVICE_TOKEN: 'long-enough-test-service-token-12345', NAV_KNOWLEDGE_URL: "https://knowledge-50b.pages.dev/", NAV_FINANCIAL_URL: "https://finance-9qq.pages.dev/" }, now);
       assert.equal(result.availability.knowledge, true);
       assert.equal(result.summary.reviewReadyDue, typeof fixture.reviewStatus.ready_due === 'number' ? fixture.reviewStatus.ready_due : null);
       assert.equal(result.summary.knowledgeAnsweredToday, fixture.date === '2026-09-14' ? fixture.todayAnswered : null);
@@ -303,7 +303,7 @@ test("Journal queries each target with a past-only descending lookup", async () 
     const hub = await loadHub({
       SUPABASE_URL: "https://compass.supabase.co",
       SUPABASE_SECRET_KEY: "server-secret",
-      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
+      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters", NAV_KNOWLEDGE_URL: "https://knowledge-50b.pages.dev/", NAV_FINANCIAL_URL: "https://finance-9qq.pages.dev/",
     }, now);
     const moments = journalRequests.filter((url) => url.searchParams.get("select")?.includes("summary"));
     const trend = journalRequests.find((url) => url.searchParams.get("select") === "entry_date,mood");
@@ -331,7 +331,7 @@ test("hub route keeps the Supabase secret in server-side headers", async () => {
       env: {
         SUPABASE_URL: "https://compass.supabase.co",
         SUPABASE_SECRET_KEY: "server-secret",
-        HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
+        HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters", NAV_KNOWLEDGE_URL: "https://knowledge-50b.pages.dev/", NAV_FINANCIAL_URL: "https://finance-9qq.pages.dev/",
       },
     });
     const body = await response.text();
@@ -363,7 +363,7 @@ test("hub route keeps successful sections when one upstream is unavailable", asy
       env: {
         SUPABASE_URL: "https://compass.supabase.co",
         SUPABASE_SECRET_KEY: "server-secret",
-        HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
+        HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters", NAV_KNOWLEDGE_URL: "https://knowledge-50b.pages.dev/", NAV_FINANCIAL_URL: "https://finance-9qq.pages.dev/",
       },
     });
     const body = await response.json() as {
@@ -393,7 +393,7 @@ test("Journal failure stays isolated from the other Hub sections", async () => {
     const hub = await loadHub({
       SUPABASE_URL: "https://compass.supabase.co",
       SUPABASE_SECRET_KEY: "server-secret",
-      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
+      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters", NAV_KNOWLEDGE_URL: "https://knowledge-50b.pages.dev/", NAV_FINANCIAL_URL: "https://finance-9qq.pages.dev/",
     }, now);
     assert.equal(hub.source.state, "partial");
     assert.equal(hub.availability.journal, false);
@@ -421,7 +421,7 @@ test("Journal trend failure keeps the existing retrospective cards available", a
     const hub = await loadHub({
       SUPABASE_URL: "https://compass.supabase.co",
       SUPABASE_SECRET_KEY: "server-secret",
-      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
+      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters", NAV_KNOWLEDGE_URL: "https://knowledge-50b.pages.dev/", NAV_FINANCIAL_URL: "https://finance-9qq.pages.dev/",
     }, now);
     assert.equal(hub.availability.journal, true);
     assert.equal(hub.availability.journalTrend, false);
@@ -439,7 +439,7 @@ test("invalid Focus data stays isolated from the other Hub sections", async () =
     const hub = await loadHub({
       SUPABASE_URL: "https://compass.supabase.co",
       SUPABASE_SECRET_KEY: "server-secret",
-      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
+      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters", NAV_KNOWLEDGE_URL: "https://knowledge-50b.pages.dev/", NAV_FINANCIAL_URL: "https://finance-9qq.pages.dev/",
     }, now);
     assert.equal(hub.source.state, "partial");
     assert.equal(hub.availability.focus, false);
@@ -462,7 +462,7 @@ test("Hub does not depend on want_routes after successful routing auto-completes
     const hub = await loadHub({
       SUPABASE_URL: "https://compass.supabase.co",
       SUPABASE_SECRET_KEY: "server-secret",
-      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters",
+      HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters", NAV_KNOWLEDGE_URL: "https://knowledge-50b.pages.dev/", NAV_FINANCIAL_URL: "https://finance-9qq.pages.dev/",
     }, now);
     assert.equal(hub.source.state, "live");
     assert.equal(hub.availability.wants, true);
