@@ -12,7 +12,7 @@ npm workspacesのモノレポ。アプリごとの規約は各アプリのドキ
   3アプリで揃える必要があるため、直すときはここ1か所を直す。アプリごとに違うもの（CSP、Hubが読めるパス、nonceを消費するRPC、
   引き継ぎ後の遷移先）は、各アプリの `functions/_middleware.ts` と `functions/_shared/sessionAuth.ts` から渡す
 
-- `packages/dashboard-shell`（`@personal-dashboards/shell`）: KnowledgeとFinanceのヘッダー骨格CSS（sticky固定とiOSのsafe-area）。各アプリの `index.css` から `@import` する。色は各アプリのテーマに置く。Hubは静的CSS（`apps/hub/public/dashboard-shell.css`）なのでここは使わない
+- `packages/dashboard-shell`（`@personal-dashboards/shell`）: ダークテーマ生成スクリプト（`build-dark-theme.mjs`、3アプリ共通）と、KnowledgeとFinanceのヘッダー骨格CSS（sticky固定とiOSのsafe-area。各アプリの `index.css` から `@import` する）。色は各アプリのテーマに置く。Hubは静的CSS（`apps/hub/public/dashboard-shell.css`）なのでここは使わない
 
 - 依存の追加は `npm install <pkg> -w apps/<app>`。アプリ配下に `package-lock.json` を作らない
 - 変更したアプリで最低限 `npm run typecheck -w apps/<app>` を通す

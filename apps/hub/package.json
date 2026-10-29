@@ -13,8 +13,8 @@
     "check:client": "node scripts/check-client.mjs",
     "check": "npm run check:client && npm run typecheck",
     "predeploy:check": "npm test && npm run check && npm run build",
-    "theme": "node scripts/build-dark-theme.mjs public/hub.css public/styles.css public/dashboard-shell.css public/habits.css public/projects.css public/sf6.css public/status.css public/writing.css public/project-todo-link.css",
-    "theme:check": "node scripts/build-dark-theme.mjs --check public/hub.css public/styles.css public/dashboard-shell.css public/habits.css public/projects.css public/sf6.css public/status.css public/writing.css public/project-todo-link.css",
+    "theme": "node ../../packages/dashboard-shell/build-dark-theme.mjs public/hub.css public/styles.css public/dashboard-shell.css public/habits.css public/projects.css public/sf6.css public/status.css public/writing.css public/project-todo-link.css",
+    "theme:check": "node ../../packages/dashboard-shell/build-dark-theme.mjs --check public/hub.css public/styles.css public/dashboard-shell.css public/habits.css public/projects.css public/sf6.css public/status.css public/writing.css public/project-todo-link.css",
     "lint": "oxlint"
   },
   "devDependencies": {
@@ -24,6 +24,7 @@
     "wrangler": "^4.37.1"
   },
   "dependencies": {
+    "@personal-dashboards/shell": "^0.0.0",
     "jose": "^6.2.12"
   }
 }

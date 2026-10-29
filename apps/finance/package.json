@@ -11,8 +11,8 @@
     "test": "node --test --test-isolation=none tests/*.test.ts",
     "typecheck": "tsc -b",
     "preview": "vite preview",
-    "theme": "node scripts/build-dark-theme.mjs src/index.css",
-    "theme:check": "node scripts/build-dark-theme.mjs --check src/index.css"
+    "theme": "node ../../packages/dashboard-shell/build-dark-theme.mjs src/index.css",
+    "theme:check": "node ../../packages/dashboard-shell/build-dark-theme.mjs --check src/index.css"
   },
   "dependencies": {
     "@personal-dashboards/shell": "^0.0.0",

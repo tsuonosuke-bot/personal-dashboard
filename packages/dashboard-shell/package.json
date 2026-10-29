@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Knowledge・Financeが共有するヘッダーの骨格CSS（sticky固定とiOSのsafe-area）。色は各アプリが持つ。",
   "exports": {
-    "./header.css": "./header.css"
+    "./header.css": "./header.css",
+    "./build-dark-theme.mjs": "./build-dark-theme.mjs"
   }
 }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { buildDarkTheme } from "../scripts/build-dark-theme.mjs";
+import { buildDarkTheme } from "@personal-dashboards/shell/build-dark-theme.mjs";
 
 const PAGES = ["index.html", "compass/index.html", "habits/index.html", "writing/index.html", "projects/index.html", "status/index.html"];
 
