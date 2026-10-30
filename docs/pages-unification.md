@@ -31,7 +31,8 @@ Cloudflareの設定は、コードからは変えられない。ダッシュボ�
    - `VOYAGE_API_KEY`: 旧Knowledgeプロジェクトと同じ値。
    - `ANTHROPIC_API_KEY`・`SUPABASE_*`・`DASHBOARD_*`・`AUTH_MODE`・`HUB_SERVICE_TOKEN`・`SSO_SHARED_SECRET`: Hubに設定済みのはず。確認する。
    - `NAV_KNOWLEDGE_URL`・`NAV_FINANCIAL_URL`: **削除**する（残すと旧プロジェクトを読みに行く）。
-2. **Hubのビルドコマンド**を `npm ci && npm run build:pages -w apps/hub` に変える（出力は `apps/hub/dist`）。
+2. **Hubのビルドコマンド**を `cd ../.. && npm ci && npm run build:pages -w apps/hub` に変える。Root directoryは `apps/hub` のままなので、
+   先頭の `cd ../..` が要る（無いと `npm ci` が `apps/hub` の中で動き、`No workspaces found` で失敗する）。出力は `apps/hub/dist`。
 3. このブランチをmainにマージする。Hubが自動でデプロイされる。
 4. 動作確認（Hubのドメインで）: `/knowledge/`・`/finance/` が開く、Knowledgeで問題が出る、Financeで家計簿が出る、
    Hubのホームに家計簿・ナレッジの件数が出る、`/status/` の接続状態が3つ正常、英会話練習でマイクが使える。
