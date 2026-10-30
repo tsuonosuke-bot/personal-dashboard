@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 test('generated dark stylesheet is up to date with index.css', () => {
-  assert.doesNotThrow(() => execFileSync('node', ['scripts/build-dark-theme.mjs', '--check', 'src/index.css'], { stdio: 'pipe' }))
+  assert.doesNotThrow(() => execFileSync('node', ['../../packages/dashboard-shell/build-dark-theme.mjs', '--check', 'src/index.css'], { stdio: 'pipe' }))
 })
 
 test('theme resolves before styles load and the switcher sits in the dashboard menu', async () => {

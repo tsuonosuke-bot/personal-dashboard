@@ -1,5 +1,6 @@
 /** Hub orchestration: independent sources may fail without discarding successful sections. */
-import { type HubEnv, safeUrl, DEFAULT_FINANCIAL_URL, DEFAULT_KNOWLEDGE_URL, type InboxRow, type ExpenseRow, type KnowledgeRow, type KnowledgeReviewStatus, type HubAvailability, HubError, normalizeHub, emptyJournalMoments, normalizeJournalTrend } from "./hubModel.ts";
+import { type HubEnv, type InboxRow, type ExpenseRow, type KnowledgeRow, type KnowledgeReviewStatus, type HubAvailability, HubError, normalizeHub, emptyJournalMoments, normalizeJournalTrend } from "./hubModel.ts";
+import { externalDashboardBase } from "./dashboardInternal.ts";
 import { loadDatabaseUsage } from "./databaseUsage.ts";
 import {
   fetchLocalHubSummary,
@@ -23,8 +24,8 @@ function validRemoteSummary<T>(value: unknown, counts: string[], array: string):
 }
 
 export async function loadHub(env: HubEnv, now = new Date(), options: { sourceTimeoutMs?: number } = {}) {
-  const financialUrl = safeUrl(env.NAV_FINANCIAL_URL, DEFAULT_FINANCIAL_URL);
-  const knowledgeUrl = safeUrl(env.NAV_KNOWLEDGE_URL, DEFAULT_KNOWLEDGE_URL);
+  const financialUrl = externalDashboardBase(env.NAV_FINANCIAL_URL);
+  const knowledgeUrl = externalDashboardBase(env.NAV_KNOWLEDGE_URL);
   // DB容量は失敗してもnullで返るので、「すべての取得元が失敗したら503」の判定（results）には入れない。
   const today = new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const timeout = Math.max(1, Math.min(6_000, options.sourceTimeoutMs ?? 6_000));
@@ -35,9 +36,9 @@ export async function loadHub(env: HubEnv, now = new Date(), options: { sourceTi
     fetchLocalHubSummary(env, "focus", today),
     fetchLocalHubSummary(env, "projects", today),
     fetchLocalHubSummary(env, "writing", today),
-    fetchDashboardJson(env, financialUrl, `/api/hub-summary?today=${today}`).then((value) => validRemoteSummary<FinanceHubSummary>(value, ["currentMonthSpend", "previousMonthSpend"], "recentExpenses")),
-    fetchDashboardJson(env, knowledgeUrl, `/api/hub-summary?today=${today}`).then((value) => validRemoteSummary<KnowledgeHubSummary>(value, ["dueCount", "weakCount"], "items")),
-    fetchDashboardJson(env, knowledgeUrl, "/api/status"),
+    fetchDashboardJson(env, "finance", financialUrl, `/api/hub-summary?today=${today}`).then((value) => validRemoteSummary<FinanceHubSummary>(value, ["currentMonthSpend", "previousMonthSpend"], "recentExpenses")),
+    fetchDashboardJson(env, "knowledge", knowledgeUrl, `/api/hub-summary?today=${today}`).then((value) => validRemoteSummary<KnowledgeHubSummary>(value, ["dueCount", "weakCount"], "items")),
+    fetchDashboardJson(env, "knowledge", knowledgeUrl, "/api/status"),
     loadJournalMoments(env, now),
     loadJournalTrend(env, now),
     fetchLocalHubSummary(env, "habits", today),

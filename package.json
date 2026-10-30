@@ -3,6 +3,7 @@
   "private": true,
   "workspaces": [
     "packages/dashboard-auth",
+    "packages/dashboard-shell",
     "apps/hub",
     "apps/knowledge",
     "apps/finance"

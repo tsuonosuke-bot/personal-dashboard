@@ -11,7 +11,7 @@ export function InsightAction({ sourceType, sourceId }: ActionReference) {
   const fieldId = useId();
   const saving = status === "saving";
   if (status === "saved") return (
-    <p className="insight-action-saved" role="status">Inboxに登録しました。<a href={`https://personal-dashboard-7md.pages.dev/compass/?view=inbox&id=${inboxId}`}>登録した行動を開く</a></p>
+    <p className="insight-action-saved" role="status">Inboxに登録しました。<a href={`/compass/?view=inbox&id=${inboxId}`}>登録した行動を開く</a></p>
   );
   return (
     <div className="insight-action">

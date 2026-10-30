@@ -2,8 +2,8 @@ import { readAppSource } from "./appSource.ts";
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { financeCsv, onRequest as exportRoute } from '../functions/api/export.ts'
-import { onRequest as statusRoute } from '../functions/api/status.ts'
+import { financeCsv, onRequest as exportRoute } from '../../hub/functions/finance/api/export.ts'
+import { onRequest as statusRoute } from '../../hub/functions/finance/api/status.ts'
 
 const env = {
   SUPABASE_URL: 'https://finance-db.example',
@@ -81,7 +81,7 @@ test('Finance画面は直接記録・CSV・共通状態・グラフ要約・再�
   ])
   assert.match(app, /URLSearchParams\(window\.location\.search\)\.get\('new'\) === 'expense'/)
   assert.match(app, /href="api\/export"/)
-  assert.match(app, /personal-dashboard-7md\.pages\.dev\/status\//)
+  assert.match(app, /href="\/status\/"/)
   assert.match(category, /category-chart-summary/)
   assert.match(category, /role="img"/)
   assert.match(trend, /monthly-trend-summary/)

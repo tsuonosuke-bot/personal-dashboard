@@ -1,9 +1,8 @@
 import { fetchSupabase } from "@personal-dashboards/auth";
 import type { HubEnv } from "./hub.ts";
+import { externalDashboardBase, fetchDashboard, type DashboardApp } from "./dashboardInternal.ts";
 
 const PAGE_SIZE = 1_000;
-const DEFAULT_FINANCIAL_URL = "https://finance-9qq.pages.dev/";
-const DEFAULT_KNOWLEDGE_URL = "https://knowledge-50b.pages.dev/";
 const PERSONAL_TABLES = [
   "idea_inbox",
   "wants",
@@ -53,26 +52,27 @@ async function fetchAllTableRows(env: HubEnv, table: string): Promise<unknown[]>
   }
 }
 
-async function fetchRemoteExport(env: HubEnv, baseUrl: string): Promise<unknown> {
+async function fetchRemoteExport(env: HubEnv, app: DashboardApp, external: string | null): Promise<unknown> {
   const token = env.HUB_SERVICE_TOKEN?.trim();
-  if (!token || token.length < 32) throw new ExportError("Hub export connection is not configured.");
-  const endpoint = new URL("/api/export?format=json", baseUrl);
-  const response = await fetch(endpoint, { headers: { Accept: "application/json", "X-Hub-Service": token } });
+  if (external && (!token || token.length < 32)) throw new ExportError("Hub export connection is not configured.");
+  const response = await fetchDashboard(env, app, external, "/api/export?format=json", {
+    headers: token && external ? { Accept: "application/json", "X-Hub-Service": token } : { Accept: "application/json" },
+  });
   if (!response.ok || !response.headers.get("Content-Type")?.toLowerCase().includes("json")) {
-    throw new ExportError(`Remote export failed for ${endpoint.host}.`);
+    throw new ExportError(`Remote export failed for ${app}.`);
   }
   try {
     return await response.json();
   } catch {
-    throw new ExportError(`Remote export returned invalid data for ${endpoint.host}.`);
+    throw new ExportError(`Remote export returned invalid data for ${app}.`);
   }
 }
 
 export async function createFullSnapshot(env: HubEnv, now = new Date()) {
   const personalEntries = await Promise.all(PERSONAL_TABLES.map(async (table) => [table, await fetchAllTableRows(env, table)] as const));
   const [knowledge, finance] = await Promise.all([
-    fetchRemoteExport(env, env.NAV_KNOWLEDGE_URL?.trim() || DEFAULT_KNOWLEDGE_URL),
-    fetchRemoteExport(env, env.NAV_FINANCIAL_URL?.trim() || DEFAULT_FINANCIAL_URL),
+    fetchRemoteExport(env, "knowledge", externalDashboardBase(env.NAV_KNOWLEDGE_URL)),
+    fetchRemoteExport(env, "finance", externalDashboardBase(env.NAV_FINANCIAL_URL)),
   ]);
   return {
     schemaVersion: "personal-hub-snapshot.v1",

@@ -27,7 +27,7 @@ import { hubReadFixture, ideaReadFixture, projectReadFixture } from "./readModel
 const env = {
   SUPABASE_URL: "https://perf.supabase.co",
   SUPABASE_SECRET_KEY: "test-server-key",
-  HUB_SERVICE_TOKEN: "test-hub-service-token-at-least-32-characters",
+  HUB_SERVICE_TOKEN: "test-hub-service-token-at-least-32-characters", NAV_KNOWLEDGE_URL: "https://knowledge-50b.pages.dev/", NAV_FINANCIAL_URL: "https://finance-9qq.pages.dev/",
   GOOGLE_OAUTH_CLIENT_ID: "client",
   GOOGLE_OAUTH_CLIENT_SECRET: "client-secret",
   GOOGLE_TOKEN_ENCRYPTION_KEY: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",

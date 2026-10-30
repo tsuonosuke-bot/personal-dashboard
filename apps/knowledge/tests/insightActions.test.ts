@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { onRequest } from "../functions/api/insight-actions.ts";
-import { actionInboxContent, readActionReference } from "../functions/_shared/insightAction.ts";
+import { onRequest } from "../../hub/functions/knowledge/api/insight-actions.ts";
+import { actionInboxContent, readActionReference } from "../../hub/functions/knowledge/_shared/insightAction.ts";
 
 const env = { SUPABASE_URL: "https://project.supabase.co", SUPABASE_SECRET_KEY: "secret-test-key" };
 const knowledgeId = "123e4567-e89b-42d3-a456-426614174000";

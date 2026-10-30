@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { onRequest } from "../functions/api/grading-report.ts";
+import { onRequest } from "../../hub/functions/knowledge/api/grading-report.ts";
 
 const env = {
   SUPABASE_URL: "https://project.supabase.co",

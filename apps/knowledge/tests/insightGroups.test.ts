@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { onRequest as groupsRoute } from "../functions/api/insight-groups.ts";
-import { onRequest as groupRoute } from "../functions/api/insight-groups/[id].ts";
-import { onRequest as materialsRoute } from "../functions/api/insight-groups/[id]/materials.ts";
-import { deriveQuestionTitle } from "../functions/_shared/insightGroupValidation.ts";
+import { onRequest as groupsRoute } from "../../hub/functions/knowledge/api/insight-groups.ts";
+import { onRequest as groupRoute } from "../../hub/functions/knowledge/api/insight-groups/[id].ts";
+import { onRequest as materialsRoute } from "../../hub/functions/knowledge/api/insight-groups/[id]/materials.ts";
+import { deriveQuestionTitle } from "../../hub/functions/knowledge/_shared/insightGroupValidation.ts";
 import { parseQuestionMaterials } from "../src/lib/apiValidation.ts";
-import { onRequest as membersRoute } from "../functions/api/insight-group-members.ts";
+import { onRequest as membersRoute } from "../../hub/functions/knowledge/api/insight-group-members.ts";
 import { parseInsightGroup, parseInsightGroupMember } from "../src/lib/apiValidation.ts";
 
 const env = { SUPABASE_URL: "https://project.supabase.co", SUPABASE_SECRET_KEY: "secret-test-key" };

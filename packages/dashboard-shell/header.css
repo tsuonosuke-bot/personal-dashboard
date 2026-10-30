@@ -1,0 +1,9 @@
+/* viewport-fit=cover のiOSでは、safe-areaの余白を取らないとヘッダーがステータスバーの下に潜る。
+   色は各アプリのテーマが持つので、ここには書かない */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding-top: env(safe-area-inset-top);
+  backdrop-filter: blur(10px);
+}

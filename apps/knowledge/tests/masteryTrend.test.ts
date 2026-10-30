@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { onRequest as masteryHistoryRoute } from "../functions/api/mastery-history.ts";
+import { onRequest as masteryHistoryRoute } from "../../hub/functions/knowledge/api/mastery-history.ts";
 import { parseMasteryHistoryEvent } from "../src/lib/apiValidation.ts";
 import { buildMasteryTrend } from "../src/lib/masteryTrend.ts";
 import type { MasteryHistoryEvent } from "../src/types.ts";

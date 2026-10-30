@@ -42,7 +42,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [hub, knowledge, finance]
+        # Knowledge・FinanceのFunctionsはHubの functions/ 配下にあるので、Hubだけ確かめる。
+        app: [hub]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -52,3 +53,5 @@ jobs:
       - run: npm ci
       - name: Build Pages Functions
         run: node scripts/build-functions.mjs ${{ matrix.app }}
+      - name: Build the combined Pages output (Hub + /knowledge + /finance)
+        run: npm run build:pages -w apps/hub

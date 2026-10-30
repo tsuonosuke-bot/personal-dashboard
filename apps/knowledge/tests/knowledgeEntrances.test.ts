@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { focusKnowledgeList } from "../src/lib/knowledgeListJump.ts";
-import { datedHubAnswers } from "../functions/_shared/hubSummary.ts";
-import { onRequest } from "../functions/api/hub-summary.ts";
+import { datedHubAnswers } from "../../hub/functions/knowledge/_shared/hubSummary.ts";
+import { onRequest } from "../../hub/functions/knowledge/api/hub-summary.ts";
 
 test("一覧へジャンプして非入力見出しへフォーカスし、遅延描画後も利用者の次の操作までは位置を保つ", () => {
   const doc = new EventTarget() as EventTarget & { activeElement: unknown };

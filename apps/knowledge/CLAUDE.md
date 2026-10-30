@@ -398,7 +398,7 @@ Secret keyはservice_roleのためRLSを迂回する。ブラウザのanon key�
 
 - 見た目はNotionを手本にする。白い面、薄い境界線、枠や塗りのないボタン、主役の操作だけをKnowledgeのテーマカラーの紫（`--accent`）で塗る。紫はほかのダッシュボードと見分けるための色なので、青などに変えない
 - 色・文字サイズ・角丸・影は `src/index.css` 先頭の `:root` のトークンを使い、個別のルールに色の値を直接書かない。
-  足りないときはトークンを追加する。ダーク版は `scripts/build-dark-theme.mjs` がトークンから作る
+  足りないときはトークンを追加する。ダーク版は `packages/dashboard-shell/build-dark-theme.mjs` がトークンから作る
 - 文字は12px未満にしない。スマホ幅（560px以下）ではボタンの高さを40px以上にする
 - 画面には数字と操作だけを出す。仕組み・定義・使い方の説明は `HelpView`（`?view=help`、ヘッダーの「?」）に書き、
   画面の文言を変えたらヘルプも合わせて直す
@@ -487,7 +487,7 @@ public/
   `src/index.dark.css` を再生成する（手で編集しない。古いとテストが落ちる）。rechartsの色は
   `index.css` 末尾の `:root[data-theme="dark"]` ルールで上書きする。
 - クリーム/ネイビー/ディープグリーンの配色は `theme.js` の `PALETTES` で選び、`data-theme` は light/dark のまま
-  `<html data-palette>` を足す。ルールは `build-dark-theme.mjs` の `PALETTES` が `index.dark.css` 末尾に
+  `<html data-palette>` を足す。ルールは `packages/dashboard-shell/build-dark-theme.mjs` の `PALETTES` が `index.dark.css` 末尾に
   生成する（ほぼ無彩色の色だけ色味を変え、アクセント色は各ダッシュボードのテーマカラーのまま）。
 - `KnowledgeDetailModal` は `onEdit` / `onArchive` を省くと読み取り専用になる。
   学習ログの採点結果から出典を開くときは読み取り専用で開く。

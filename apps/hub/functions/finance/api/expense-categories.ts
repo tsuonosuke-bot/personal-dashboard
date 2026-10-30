@@ -1,7 +1,7 @@
 import { financeRpc } from '../_shared/financeReads.ts'
 import { validOriginalSnapshot, validateExpenseMutationRequest } from '../_shared/expenseValidation.ts'
 import { jsonResponse, methodNotAllowed, type SupabaseEnv } from '../_shared/supabaseRest.ts'
-import { parseExpense } from '../../src/lib/apiValidation.ts'
+import { parseExpense } from '../../../../finance/src/lib/apiValidation.ts'
 
 const MAX_CHARS = 96_000
 const object = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)

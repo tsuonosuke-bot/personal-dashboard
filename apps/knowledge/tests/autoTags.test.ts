@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { onRequest as autoTagsRoute } from "../functions/api/auto-tags.ts";
+import { onRequest as autoTagsRoute } from "../../hub/functions/knowledge/api/auto-tags.ts";
 import { allTagNames, displayTags } from "../src/lib/knowledge.ts";
 import { filterTagKnowledge, tagGroupsForKnowledge } from "../src/lib/tagGroups.ts";
 

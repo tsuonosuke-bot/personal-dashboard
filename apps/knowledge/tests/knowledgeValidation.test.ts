@@ -7,8 +7,8 @@ import {
   validateKnowledgeInput,
   validateKnowledgeUpdateEnvelope,
   validateMutationRequest,
-} from "../functions/_shared/knowledgeValidation.ts";
-import { requestSupabaseRows } from "../functions/_shared/supabaseRest.ts";
+} from "../../hub/functions/knowledge/_shared/knowledgeValidation.ts";
+import { requestSupabaseRows } from "../../hub/functions/knowledge/_shared/supabaseRest.ts";
 
 function mutationRequest(body: string, headers: Record<string, string> = {}) {
   return new Request("https://dashboard.example/api/knowledge", {

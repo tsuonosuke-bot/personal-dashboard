@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { onRequest } from "../functions/api/insights/analyze.ts";
+import { onRequest } from "../../hub/functions/knowledge/api/insights/analyze.ts";
 import { createInsightAnalysisRequests } from "../src/lib/insightAnalysisRequests.ts";
 import type { InsightAnalysis } from "../src/types.ts";
 

@@ -1,6 +1,7 @@
 /** Hub data acquisition, pagination and per-source failures. Mapping remains in hubModel. */
 import { type HubEnv, HubError, type QueryDefinition, type DailyJournalRow, type JournalMoment, journalTargets, normalizeJournalMoment, type JournalTrend, journalTrendRange, normalizeJournalTrend } from "./hubModel.ts";
 import { fetchSupabase } from "@personal-dashboards/auth";
+import { fetchDashboard, type DashboardApp } from "./dashboardInternal.ts";
 import { type FocusRow, normalizeFocusRows } from "./focus.ts";
 
 const PAGE_SIZE = 1_000;
@@ -109,32 +110,37 @@ export async function fetchFocusRows(env: HubEnv): Promise<FocusRow[]> {
   return rows;
 }
 
-export async function fetchDashboardRows(env: HubEnv, baseUrl: string, path: string): Promise<unknown[]> {
+/** 外部URLが無いときはHubの同じプロジェクト内のハンドラを直接呼ぶので、サービストークンは要らない。 */
+function serviceHeaders(env: HubEnv, external: string | null): Record<string, string> {
+  if (!external) return { Accept: "application/json" };
   const token = env.HUB_SERVICE_TOKEN?.trim();
   if (!token || token.length < 32) throw new HubError("HUB_SERVICE_NOT_CONFIGURED", "Hub service token is not configured.", 503);
+  return { Accept: "application/json", "X-Hub-Service": token };
+}
+
+export async function fetchDashboardRows(env: HubEnv, app: DashboardApp, external: string | null, path: string): Promise<unknown[]> {
+  const headers = serviceHeaders(env, external);
   const rows: unknown[] = [];
   for (let offset = 0; ; offset += PAGE_SIZE) {
-    const endpoint = new URL(path, baseUrl);
-    endpoint.searchParams.set("limit", String(PAGE_SIZE));
-    endpoint.searchParams.set("offset", String(offset));
+    const query = new URL(path, "https://hub.internal");
+    query.searchParams.set("limit", String(PAGE_SIZE));
+    query.searchParams.set("offset", String(offset));
+    const target = `${query.pathname}${query.search}`;
     let response: Response;
     try {
-      response = await fetch(endpoint, {
-        signal: AbortSignal.timeout(HUB_SOURCE_TIMEOUT_MS),
-        headers: { Accept: "application/json", "X-Hub-Service": token },
-      });
+      response = await fetchDashboard(env, app, external, target, { signal: AbortSignal.timeout(HUB_SOURCE_TIMEOUT_MS), headers });
     } catch {
-      throw new HubError("HUB_SERVICE_UNAVAILABLE", `Could not reach ${endpoint.host}.`);
+      throw new HubError("HUB_SERVICE_UNAVAILABLE", `Could not reach ${app}.`);
     }
     if (!response.ok) {
       const code = response.status === 401 || response.status === 403
         ? "HUB_SERVICE_ACCESS_DENIED"
         : "HUB_SERVICE_REQUEST_FAILED";
-      throw new HubError(code, `${endpoint.host} returned ${response.status}.`);
+      throw new HubError(code, `${app} returned ${response.status}.`);
     }
     const payload: unknown = await response.json();
     if (typeof payload !== "object" || payload === null || !Array.isArray((payload as { items?: unknown }).items)) {
-      throw new HubError("HUB_SERVICE_RESPONSE_INVALID", `${endpoint.host} returned invalid data.`);
+      throw new HubError("HUB_SERVICE_RESPONSE_INVALID", `${app} returned invalid data.`);
     }
     const page = (payload as { items: unknown[] }).items;
     rows.push(...page);
@@ -143,21 +149,19 @@ export async function fetchDashboardRows(env: HubEnv, baseUrl: string, path: str
   return rows;
 }
 
-export async function fetchDashboardJson(env: HubEnv, baseUrl: string, path: string): Promise<unknown> {
-  const token = env.HUB_SERVICE_TOKEN?.trim();
-  if (!token || token.length < 32) throw new HubError("HUB_SERVICE_NOT_CONFIGURED", "Hub service token is not configured.", 503);
-  const endpoint = new URL(path, baseUrl);
+export async function fetchDashboardJson(env: HubEnv, app: DashboardApp, external: string | null, path: string): Promise<unknown> {
+  const headers = serviceHeaders(env, external);
   let response: Response;
   try {
-    response = await fetch(endpoint, { signal: AbortSignal.timeout(HUB_SOURCE_TIMEOUT_MS), headers: { Accept: "application/json", "X-Hub-Service": token } });
+    response = await fetchDashboard(env, app, external, path, { signal: AbortSignal.timeout(HUB_SOURCE_TIMEOUT_MS), headers });
   } catch {
-    throw new HubError("HUB_SERVICE_UNAVAILABLE", `Could not reach ${endpoint.host}.`);
+    throw new HubError("HUB_SERVICE_UNAVAILABLE", `Could not reach ${app}.`);
   }
   if (!response.ok) {
     const code = response.status === 401 || response.status === 403
       ? "HUB_SERVICE_ACCESS_DENIED"
       : "HUB_SERVICE_REQUEST_FAILED";
-    throw new HubError(code, `${endpoint.host} returned ${response.status}.`);
+    throw new HubError(code, `${app} returned ${response.status}.`);
   }
   return response.json();
 }

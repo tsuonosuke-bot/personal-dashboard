@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { onRequest as batchRoute } from "../functions/api/embedding-batch.ts";
-import { onRequest as searchRoute } from "../functions/api/semantic-search.ts";
-import { onRequest as statusRoute } from "../functions/api/semantic-search/status.ts";
-import { hasReviewBatchToken } from "../functions/_shared/reviewQueue.ts";
-import { readSearchRequest, runEmbeddingBatch } from "../functions/_shared/semanticSearch.ts";
-import { EMBEDDING_DIMENSIONS, EMBEDDING_MODEL, embedTexts, readEmbeddings } from "../functions/_shared/voyageClient.ts";
+import { onRequest as batchRoute } from "../../hub/functions/knowledge/api/embedding-batch.ts";
+import { onRequest as searchRoute } from "../../hub/functions/knowledge/api/semantic-search.ts";
+import { onRequest as statusRoute } from "../../hub/functions/knowledge/api/semantic-search/status.ts";
+import { hasReviewBatchToken } from "../../hub/functions/knowledge/_shared/reviewQueue.ts";
+import { readSearchRequest, runEmbeddingBatch } from "../../hub/functions/knowledge/_shared/semanticSearch.ts";
+import { EMBEDDING_DIMENSIONS, EMBEDDING_MODEL, embedTexts, readEmbeddings } from "../../hub/functions/knowledge/_shared/voyageClient.ts";
 import { dashboardRoutePath, parseDashboardRoute } from "../src/lib/dashboardRoute.ts";
 import { parseSemanticIndexStatus, parseSemanticSearchResults } from "../src/lib/apiValidation.ts";
 
@@ -174,7 +174,7 @@ test("バッチはVoyageが失敗したらそこで止め、保存できた件�
 });
 
 test("バッチAPIは合言葉か、画面からの同一オリジン・専用ヘッダーの要求だけを受け付ける", async () => {
-  const cron = new Request("https://dashboard.example/api/embedding-batch", {
+  const cron = new Request("https://dashboard.example/knowledge/api/embedding-batch", {
     method: "POST", headers: { "X-Review-Batch-Token": TOKEN }, body: "{}",
   });
   assert.equal(hasReviewBatchToken(cron, env), true);
@@ -184,13 +184,13 @@ test("バッチAPIは合言葉か、画面からの同一オリジン・専用�
     assert.equal(((await scheduled.json()) as { status: string }).status, "skipped");
 
     const foreign = await batchRoute({
-      request: new Request("https://dashboard.example/api/embedding-batch", { method: "POST", body: "{}" }),
+      request: new Request("https://dashboard.example/knowledge/api/embedding-batch", { method: "POST", body: "{}" }),
       env,
     });
     assert.equal(foreign.status, 403);
-    const wrongAction = await batchRoute({ request: pageRequest("/api/embedding-batch", {}, { "X-Dashboard-Action": "review-queue" }), env });
+    const wrongAction = await batchRoute({ request: pageRequest("/knowledge/api/embedding-batch", {}, { "X-Dashboard-Action": "review-queue" }), env });
     assert.equal(wrongAction.status, 403);
-    const manual = await batchRoute({ request: pageRequest("/api/embedding-batch", {}), env });
+    const manual = await batchRoute({ request: pageRequest("/knowledge/api/embedding-batch", {}), env });
     assert.equal(manual.status, 200);
     // 合言葉と画面の2回とも、対象選び→自動タグの順に呼ぶ
     assert.deepEqual(calls.rpc.map((call) => call.name), [

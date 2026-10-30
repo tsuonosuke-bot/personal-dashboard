@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { fetchSupabasePage, insertSupabaseRow, readPagination } from '../functions/_shared/supabaseRest.ts'
+import { fetchSupabasePage, insertSupabaseRow, readPagination } from '../../hub/functions/finance/_shared/supabaseRest.ts'
 
 const env = {
   SUPABASE_URL: 'https://project.supabase.co',

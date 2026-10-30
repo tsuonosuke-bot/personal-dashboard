@@ -39,7 +39,7 @@ function App() {
         <div className="page-tools" aria-label="データ管理">
           <a href="api/export">CSV書き出し</a>
           <a href="api/export?scope=all" title="取消済みの明細も、取消日時つきで含めます">監査用CSV（取消含む）</a>
-          <a href="https://personal-dashboard-7md.pages.dev/status/">接続状態</a>
+          <a href="/status/">接続状態</a>
         </div>
         {!loading && !error && (
           <div className="page-meta" aria-label="Financeデータの概要">

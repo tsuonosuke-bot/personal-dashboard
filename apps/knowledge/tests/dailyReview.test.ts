@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { onRequest as queueRoute } from "../functions/api/review/queue.ts";
+import { onRequest as queueRoute } from "../../hub/functions/knowledge/api/review/queue.ts";
 
 const env = {
   SUPABASE_URL: "https://project.supabase.co",

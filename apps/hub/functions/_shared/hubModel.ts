@@ -124,10 +124,6 @@ export interface QueryDefinition {
   filters?: Record<string, string>;
 }
 
-export const DEFAULT_FINANCIAL_URL = "https://finance-9qq.pages.dev/";
-
-export const DEFAULT_KNOWLEDGE_URL = "https://knowledge-50b.pages.dev/";
-
 const FULL_AVAILABILITY: HubAvailability = {
   inbox: true,
   wants: true,

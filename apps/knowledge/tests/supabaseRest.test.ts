@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { requestSupabaseFunction, requestSupabaseRows } from "../functions/_shared/supabaseRest.ts";
+import { requestSupabaseFunction, requestSupabaseRows } from "../../hub/functions/knowledge/_shared/supabaseRest.ts";
 
 const env = { SUPABASE_URL: "https://project.supabase.co", SUPABASE_SECRET_KEY: "server-secret" };
 

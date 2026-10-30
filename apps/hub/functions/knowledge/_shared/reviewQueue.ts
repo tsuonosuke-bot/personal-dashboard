@@ -4,7 +4,7 @@ import { jsonResponse, requestSupabaseFunction, type SupabaseEnv } from "./supab
 export const REVIEW_QUEUE_ACTION_HEADER = "review-queue";
 /** pg_cron から生成・採点・embeddingのバッチを呼ぶときの合言葉ヘッダー。 */
 export const REVIEW_BATCH_TOKEN_HEADER = "X-Review-Batch-Token";
-export const REVIEW_BATCH_PATHS = new Set(["/api/review-batch/generate", "/api/review-batch/grade", "/api/embedding-batch"]);
+export const REVIEW_BATCH_PATHS = new Set(["/knowledge/api/review-batch/generate", "/knowledge/api/review-batch/grade", "/knowledge/api/embedding-batch"]);
 const MAX_REVIEW_REQUEST_CHARS = 20_000;
 
 export interface ReviewBatchEnv {
