@@ -21,7 +21,7 @@ jobs:
 
       # テストは --test-isolation と .ts の直接実行を使うためNode 23以上が必要。
       # Pagesのビルド用 .node-version (22) とは別に、CIは24で回す。
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -46,7 +46,7 @@ jobs:
         app: [hub]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
