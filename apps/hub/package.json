@@ -19,7 +19,7 @@
     "lint": "oxlint"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
+    "@types/node": "^26.6.5",
     "typescript": "~6.0.2",
     "vite": "^8.3.0",
     "wrangler": "^4.37.1"
