@@ -1816,9 +1816,6 @@
   outline: 2px solid var(--accent);
   outline-offset: 4px;
 }
-:root[data-theme="dark"] .today-learning-exit-hint {
-  color: var(--text-secondary);
-}
 /* palette: cream */
 :root[data-theme="light"][data-palette="cream"] {
   --text: #363430;
@@ -3569,9 +3566,6 @@
 :root[data-theme="light"][data-palette="cream"] .knowledge-list-anchor:focus {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
-}
-:root[data-theme="light"][data-palette="cream"] .today-learning-exit-hint {
-  color: var(--text-secondary);
 }
 /* palette: navy */
 :root[data-theme="dark"][data-palette="navy"] {
@@ -5411,9 +5405,6 @@
   outline: 2px solid var(--accent);
   outline-offset: 4px;
 }
-:root[data-theme="dark"][data-palette="navy"] .today-learning-exit-hint {
-  color: var(--text-secondary);
-}
 /* palette: forest */
 :root[data-theme="dark"][data-palette="forest"] {
   --text: #cfd4d2;
@@ -7251,9 +7242,6 @@
 :root[data-theme="dark"][data-palette="forest"] .knowledge-list-anchor:focus {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
-}
-:root[data-theme="dark"][data-palette="forest"] .today-learning-exit-hint {
-  color: var(--text-secondary);
 }
 /* palette: nord */
 :root[data-theme="dark"][data-palette="nord"] {
@@ -9093,9 +9081,6 @@
   outline: 2px solid var(--accent);
   outline-offset: 4px;
 }
-:root[data-theme="dark"][data-palette="nord"] .today-learning-exit-hint {
-  color: var(--text-secondary);
-}
 /* palette: gruvbox */
 :root[data-theme="dark"][data-palette="gruvbox"] {
   --text: #d5d2ce;
@@ -10934,9 +10919,6 @@
   outline: 2px solid var(--accent);
   outline-offset: 4px;
 }
-:root[data-theme="dark"][data-palette="gruvbox"] .today-learning-exit-hint {
-  color: var(--text-secondary);
-}
 /* palette: solarized */
 :root[data-theme="light"][data-palette="solarized"] {
   --text-secondary: #7a7872;
@@ -12686,7 +12668,4 @@
 :root[data-theme="light"][data-palette="solarized"] .knowledge-list-anchor:focus {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
-}
-:root[data-theme="light"][data-palette="solarized"] .today-learning-exit-hint {
-  color: var(--text-secondary);
 }
