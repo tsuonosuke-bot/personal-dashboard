@@ -923,6 +923,9 @@ html[data-theme="dark"] {
     border-radius: var(--radius-lg);
   }
 }
+:root[data-theme="dark"] .home-settings-row input {
+  accent-color: var(--page-accent, var(--green));
+}
 /* palette: cream */
 html[data-theme="light"][data-palette="cream"] {
   background: var(--paper);
@@ -1764,6 +1767,9 @@ html[data-theme="light"][data-palette="cream"] {
   :root[data-theme="light"][data-palette="cream"] .quick-add-menu nav {
     border-radius: var(--radius-lg);
   }
+}
+:root[data-theme="light"][data-palette="cream"] .home-settings-row input {
+  accent-color: var(--page-accent, var(--green));
 }
 /* palette: navy */
 :root[data-theme="dark"][data-palette="navy"] {
@@ -2635,6 +2641,9 @@ html[data-theme="dark"][data-palette="navy"] {
     border-radius: var(--radius-lg);
   }
 }
+:root[data-theme="dark"][data-palette="navy"] .home-settings-row input {
+  accent-color: var(--page-accent, var(--green));
+}
 /* palette: forest */
 :root[data-theme="dark"][data-palette="forest"] {
   color-scheme: dark;
@@ -3504,6 +3513,9 @@ html[data-theme="dark"][data-palette="forest"] {
   :root[data-theme="dark"][data-palette="forest"] .quick-add-menu nav {
     border-radius: var(--radius-lg);
   }
+}
+:root[data-theme="dark"][data-palette="forest"] .home-settings-row input {
+  accent-color: var(--page-accent, var(--green));
 }
 /* palette: nord */
 :root[data-theme="dark"][data-palette="nord"] {
@@ -4375,6 +4387,9 @@ html[data-theme="dark"][data-palette="nord"] {
     border-radius: var(--radius-lg);
   }
 }
+:root[data-theme="dark"][data-palette="nord"] .home-settings-row input {
+  accent-color: var(--page-accent, var(--green));
+}
 /* palette: gruvbox */
 :root[data-theme="dark"][data-palette="gruvbox"] {
   color-scheme: dark;
@@ -5245,6 +5260,9 @@ html[data-theme="dark"][data-palette="gruvbox"] {
     border-radius: var(--radius-lg);
   }
 }
+:root[data-theme="dark"][data-palette="gruvbox"] .home-settings-row input {
+  accent-color: var(--page-accent, var(--green));
+}
 /* palette: solarized */
 html[data-theme="light"][data-palette="solarized"] {
   background: var(--paper);
@@ -6086,4 +6104,7 @@ html[data-theme="light"][data-palette="solarized"] {
   :root[data-theme="light"][data-palette="solarized"] .quick-add-menu nav {
     border-radius: var(--radius-lg);
   }
+}
+:root[data-theme="light"][data-palette="solarized"] .home-settings-row input {
+  accent-color: var(--page-accent, var(--green));
 }
