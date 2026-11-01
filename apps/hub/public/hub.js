@@ -12,6 +12,7 @@ const ids = [
   "batchAlert", "batchAlertList", "loadingState", "errorState", "errorMessage", "todayPanel",
   "retryButton", "hubContent", "learningStages", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
   "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "journalTrend", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
+  "homeSettingsButton", "homeSettingsModal", "homeSettingsBackdrop", "homeSettingsClose", "homeSettingsMessage", "homeSettingsList",
 ];
 
 const els = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
@@ -451,6 +452,84 @@ async function loadHub() {
   }
 }
 
+// ホームの表示設定。非表示のセクション名をSupabaseに保存し、全端末で共通にする。
+const HOME_SECTIONS = [
+  ["apps", "アプリ一覧"], ["today", "今日やること"], ["focus", "Focus"], ["learning", "学習の流れ"],
+  ["inbox", "未整理のInbox"], ["expenses", "直近の家計簿"], ["knowledge", "今見るナレッジ"],
+  ["journal", "過去のJournal"], ["data", "データ管理"],
+];
+let hiddenSections = [];
+
+function applyHomeSections() {
+  document.querySelectorAll("[data-home-section]").forEach((node) => {
+    node.classList.toggle("home-hidden", hiddenSections.includes(node.dataset.homeSection));
+  });
+}
+
+function renderHomeSettings() {
+  els.homeSettingsList.innerHTML = HOME_SECTIONS.map(([key, label]) =>
+    `<label class="home-settings-row"><input type="checkbox" data-home-key="${key}"${hiddenSections.includes(key) ? "" : " checked"} /><span>${label}</span></label>`).join("");
+}
+
+function setHomeSettingsMessage(text = "", isError = false) {
+  els.homeSettingsMessage.hidden = !text;
+  els.homeSettingsMessage.textContent = text;
+  els.homeSettingsMessage.classList.toggle("error", isError);
+}
+
+async function loadHomeSettings() {
+  try {
+    const response = await fetch("/api/home-settings", { headers: { Accept: "application/json" }, cache: "no-store" });
+    const payload = await readApiJson(response);
+    if (response.ok && Array.isArray(payload.hidden)) {
+      hiddenSections = payload.hidden;
+      applyHomeSections();
+    }
+  } catch {
+    // 設定を読めなくても全部表示にしておく。
+  }
+}
+
+async function saveHomeSettings(next) {
+  const previous = hiddenSections;
+  hiddenSections = next;
+  applyHomeSections();
+  setHomeSettingsMessage();
+  try {
+    const response = await fetch("/api/home-settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-Dashboard-Action": "home-settings-update" },
+      body: JSON.stringify({ hidden: next }),
+    });
+    const payload = await readApiJson(response);
+    if (!response.ok) throw new Error(payload.error || "保存できませんでした。");
+  } catch (error) {
+    hiddenSections = previous;
+    applyHomeSections();
+    renderHomeSettings();
+    setHomeSettingsMessage(error instanceof Error ? error.message : "保存できませんでした。", true);
+  }
+}
+
+function toggleHomeSettings(open) {
+  els.homeSettingsModal.hidden = !open;
+  if (open) {
+    setHomeSettingsMessage();
+    renderHomeSettings();
+    els.homeSettingsList.querySelector("input")?.focus();
+  } else {
+    els.homeSettingsButton.focus();
+  }
+}
+els.homeSettingsButton.addEventListener("click", () => toggleHomeSettings(true));
+els.homeSettingsClose.addEventListener("click", () => toggleHomeSettings(false));
+els.homeSettingsBackdrop.addEventListener("click", () => toggleHomeSettings(false));
+els.homeSettingsList.addEventListener("change", () => {
+  const hidden = [...els.homeSettingsList.querySelectorAll("input[data-home-key]")]
+    .filter((input) => !input.checked).map((input) => input.dataset.homeKey);
+  void saveHomeSettings(hidden);
+});
+
 // A sleeping tab must never label yesterday's answers as today's achievements.
 let displayedDay = jstToday();
 function refreshJstDay() {
@@ -523,12 +602,14 @@ document.addEventListener("keydown", (event) => {
   if (els.quickAddMenu.open) {
     els.quickAddMenu.removeAttribute("open");
     els.quickAddMenu.querySelector("summary").focus();
-  } else if (!els.focusModal.hidden) closeFocusModal();
+  } else if (!els.homeSettingsModal.hidden) toggleHomeSettings(false);
+  else if (!els.focusModal.hidden) closeFocusModal();
 });
 document.addEventListener("click", (event) => {
   if (!els.quickAddMenu.contains(event.target)) els.quickAddMenu.removeAttribute("open");
 });
 setClock();
+void loadHomeSettings();
 void today.load();
 loadHub();
 
