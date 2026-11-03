@@ -88,6 +88,7 @@ export function createSf6Records({ state, els, situationsById, resultLabel, situ
       <div class="card-head">
         <h3>${escapeHtml(part.title)}</h3>
         <button type="button" class="ghost-button" data-edit="sequences" data-id="${part.id}">編集</button>
+        <button type="button" class="ghost-button" data-copy="sequences" data-id="${part.id}">コピー</button>
       </div>
       <div class="situations">${starts.length
         ? starts.map((situation) => `<button type="button" data-route-situation="${situation.id}" data-character="${escapeHtml(part.character)}">${escapeHtml(situationText(situation))}</button>`).join("")
