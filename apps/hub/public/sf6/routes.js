@@ -117,7 +117,8 @@ export function createSf6Routes({ state, els, resultLabel, charactersIn, situati
     }).join("");
     return `<article class="card flow-detail">
       <div class="card-head"><h3>${escapeHtml(sequence.title)}</h3>
-        <button type="button" class="ghost-button" data-edit="sequences" data-id="${sequence.id}">編集</button></div>
+        <button type="button" class="ghost-button" data-edit="sequences" data-id="${sequence.id}">編集</button>
+        <button type="button" class="ghost-button" data-copy="sequences" data-id="${sequence.id}">コピー</button></div>
       ${notationHtml(sequence.notation)}
       <p class="flow-step"><small class="meta">前</small> ${before.length ? before.map((edge) => gotoChip(edge.from, titles.get(edge.from) || "")).join("") : '<small class="meta">始点</small>'}</p>
       <ul class="flow-exits">${exits}</ul>

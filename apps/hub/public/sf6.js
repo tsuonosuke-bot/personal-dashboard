@@ -412,6 +412,16 @@ async function onAction(event) {
   const { dataset } = target;
   if (target.closest("details.menu")) target.closest("details.menu").removeAttribute("open");
   if (dataset.edit) openModal(dataset.edit, find(dataset.edit, dataset.id));
+  else if (dataset.copy) {
+    const source = find(dataset.copy, dataset.id);
+    if (!source) return;
+    // 始動の状況・結果・レシピをそのまま引き継いで、新規追加として開く（保存するまで何も作られない）
+    const { id, updatedAt, createdAt, ...rest } = source;
+    openModal(dataset.copy, null, {
+      ...rest, title: [...`${source.title}（コピー）`].slice(0, 120).join(""), mastery: 0, archived: false,
+      starts: [...source.starts], results: source.results.map((result) => ({ ...result })),
+    });
+  }
   else if (dataset.mastery !== undefined) {
     const item = find("sequences", dataset.id);
     const level = Number(dataset.mastery);
