@@ -1,3 +1,4 @@
+import { aiDraftFieldHtml } from "./aiDraft.js";
 import { escapeHtml } from "../shared/html.js";
 import { activateModal, deactivateModal } from "../shared/modal-focus.js";
 import { stored, chips, options, paletteHtml, notationHtml, store } from "./format.js";
@@ -24,6 +25,7 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
       title: () => "コンボパーツ",
       fields: [
         { key: "character", label: "キャラ", type: "character", required: true },
+        { key: "aiDraft", label: "AIで入力", type: "aiDraft", addOnly: true },
         { key: "title", label: "名前", type: "text", max: 120, placeholder: "空欄ならレシピから付けます" },
         { key: "starts", label: "始動の状況", type: "startStates", required: true },
         { key: "notation", label: "レシピ", type: "notation", max: 1000, required: true, moves: true },
@@ -465,6 +467,8 @@ export function createSf6Editor({ state, situationText, els, findSituation, byAd
         return `<input type="hidden" id="${id}" value="${escapeHtml(text)}" />`;
       case "checkbox":
         return `<label class="check-field" data-field="${field.key}"${showIf}><input type="checkbox" id="${id}"${value ? " checked" : ""} /><span>${escapeHtml(field.label)}</span></label>`;
+      case "aiDraft":
+        return aiDraftFieldHtml();
       case "notation":
         return `<div class="notation-field" data-field="${field.key}">
           <span class="field-label">${escapeHtml(field.label)} <b>必須</b></span>

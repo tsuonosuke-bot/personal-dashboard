@@ -7,6 +7,7 @@ import { createSf6Records } from "./sf6/records.js";
 import { createSf6Frames } from "./sf6/frames.js";
 import { createSf6Routes } from "./sf6/routes.js";
 import { createSf6Editor } from "./sf6/editor.js";
+import { createSf6AiDraft } from "./sf6/aiDraft.js";
 import { createSf6InboxFlow } from "./sf6/inbox.js";
 import { createSf6IndexCache } from "./sf6/indexes.js";
 import { renderSf6VisibleTab } from "./sf6/render.js";
@@ -651,11 +652,14 @@ els.formFields.addEventListener("keydown", (event) => {
     addStartFromPicker();
   }
 });
+const aiDraft = createSf6AiDraft({ state, els, refreshNotationAssist: () => refreshNotationAssist() });
 els.formFields.addEventListener("click", async (event) => {
   const button = event.target.closest("button");
   if (!button || !state.editing) return;
   const { dataset } = button;
-  if (dataset.token) editNotation((text) => appendToken(text, dataset.token));
+  if (dataset.aiDraft === "run") await aiDraft.run();
+  else if (dataset.aiDraft === "apply") aiDraft.apply(Number(dataset.index));
+  else if (dataset.token) editNotation((text) => appendToken(text, dataset.token));
   else if (dataset.palette === "keyboard") document.getElementById("notationPreview").focus();
   else if (dataset.fragment) editNotation((text) => appendFragment(text, dataset.fragment));
   else if (dataset.palette === "backspace") editNotation(removeLastToken);

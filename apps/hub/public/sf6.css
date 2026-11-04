@@ -342,6 +342,15 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 .pal-key.edit { min-height: 34px; color: var(--muted); font-size: 12px; }
 .notation-raw summary { color: var(--muted); font-size: 12px; cursor: pointer; }
 .notation-raw textarea { margin-top: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.ai-draft { display: grid; gap: 8px; padding: 8px 10px; border: 1px dashed var(--line); border-radius: var(--radius); }
+.ai-draft summary { color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; }
+.ai-draft[open] summary { margin-bottom: 4px; }
+.ai-draft-file { display: grid; gap: 4px; font-size: 13px; }
+.ai-draft-result { display: grid; gap: 8px; font-size: 13px; color: var(--muted); }
+.ai-draft-card { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--text); }
+.ai-draft-card code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; word-break: break-all; }
+.ai-draft-warn { color: var(--danger, #b3261e); }
+.ai-draft-unclear { margin: 0; padding-left: 18px; }
 .check-field { display: flex; align-items: center; gap: 8px; min-height: 32px; }
 .check-field input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 .check-field span { margin: 0; font-weight: 500; }
