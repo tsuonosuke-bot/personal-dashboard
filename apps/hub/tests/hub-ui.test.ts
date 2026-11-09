@@ -48,7 +48,8 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(script, /labeledCount\("進行中", summary\.activeProjects\)/);
   assert.match(script, /labeledCount\("アイデア", summary\.writingIdeas\)/);
   assert.match(script, /Inboxを取得できませんでした/);
-  assert.match(script, /els\.inboxMeta\.textContent = "未整理のInboxなし"/);
+  // 見出しの件数は home-inbox.js の inboxMetaLabel が組み立てる（#330）。
+  assert.match(script, /els\.inboxMeta\.textContent = inboxMetaLabel\(summary\.pendingInbox, summary\.untriagedWants\)/);
   assert.match(script, /els\.inboxList\.innerHTML = "";/);
   assert.match(script, /class="inbox-state">未整理/);
   assert.match(script, /escapeHtml\(item\.url \|\| "\/compass\/\?view=inbox"\)/);

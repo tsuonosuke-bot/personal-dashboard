@@ -12,6 +12,7 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <script src="/theme.js"></script>
+    <script src="/home-boot.js"></script>
     <link rel="stylesheet" href="/dashboard-shell.css" />
     <link rel="stylesheet" href="/dashboard-shell.dark.css" />
     <link rel="stylesheet" href="/hub.css" />
@@ -70,7 +71,7 @@
           <a id="batchAlertLink" href="/status/">接続状態を確認 →</a>
         </div>
 
-        <nav class="app-row" aria-label="アプリ" data-home-section="apps">
+        <nav class="app-row" aria-label="アプリ" data-home-section="apps" data-home-label="アプリ一覧">
           <a class="app-pill compass-pill" id="compassLink" href="/compass/">
             <span class="app-icon" aria-hidden="true">
               <svg class="idea-mark-icon" viewBox="0 0 24 24">
@@ -87,7 +88,7 @@
           <a class="app-pill knowledge-pill" id="knowledgeLink" href="/knowledge/"><span class="app-icon" aria-hidden="true">K</span><b>Knowledge</b><small id="knowledgeMeta">—</small></a>
         </nav>
 
-        <section class="today-panel" id="todayPanel" data-home-section="today" aria-labelledby="todayTitle">
+        <section class="today-panel" id="todayPanel" data-home-section="today" data-home-label="今日やること" aria-labelledby="todayTitle">
           <div class="today-head">
             <h2 id="todayTitle">今日やること</h2>
             <span class="today-counter" id="todayDoneCounter" hidden></span>
@@ -124,14 +125,14 @@
         </div>
 
         <div id="hubContent" class="content-grid" hidden>
-          <section class="panel focus-panel" data-home-section="focus" aria-labelledby="focusTitle">
+          <section class="panel focus-panel" data-home-section="focus" data-home-label="Focus" aria-labelledby="focusTitle">
             <div class="section-heading">
               <div class="focus-heading-copy"><h2 id="focusTitle">Focus</h2><span class="section-note">今、意識する5つまで</span></div>
               <button class="section-action" id="manageFocusButton" type="button">管理</button>
             </div>
             <div id="focusList" class="focus-list"></div>
           </section>
-          <section class="panel learning-panel" data-home-section="learning" aria-labelledby="learningTitle">
+          <section class="panel learning-panel" data-home-section="learning" data-home-label="学習の流れ" aria-labelledby="learningTitle">
             <div class="section-heading">
               <h2 id="learningTitle">学習の流れ</h2>
               <a href="/help/#learning">使い方</a>
@@ -139,15 +140,20 @@
             <ol id="learningStages" class="learning-stages"></ol>
           </section>
 
-          <section class="panel inbox-panel" data-home-section="inbox" aria-labelledby="inboxTitle">
+          <section class="panel inbox-panel" data-home-section="inbox" data-home-label="未整理のInbox" aria-labelledby="inboxTitle">
             <div class="section-heading">
               <div class="inbox-heading-copy"><h2 id="inboxTitle">未整理のInbox</h2><span class="section-note" id="inboxMeta">Inboxを確認中</span></div>
               <a id="allInboxLink" href="/compass/?view=inbox">一覧 →</a>
             </div>
+            <form class="inbox-quick" id="inboxQuickForm">
+              <input id="inboxQuickInput" name="content" maxlength="2000" required autocomplete="off" enterkeyhint="send" placeholder="思いつきをInboxへ" aria-label="Inboxに追加する内容" />
+              <button type="submit" id="inboxQuickSubmit">追加</button>
+            </form>
+            <p class="inbox-quick-error" id="inboxQuickError" role="alert" hidden></p>
             <div id="inboxList" class="inbox-list"></div>
           </section>
 
-          <section class="panel expenses-panel" data-home-section="expenses" aria-labelledby="expensesTitle">
+          <section class="panel expenses-panel" data-home-section="expenses" data-home-label="直近の家計簿" aria-labelledby="expensesTitle">
             <div class="section-heading">
               <h2 id="expensesTitle">直近の家計簿</h2>
               <a id="allExpensesLink" href="/finance/">一覧 →</a>
@@ -155,15 +161,15 @@
             <div id="expenseList" class="record-list"></div>
           </section>
 
-          <section class="panel knowledge-panel" data-home-section="knowledge" aria-labelledby="knowledgeTitle">
+          <section class="panel knowledge-panel" data-home-section="knowledge" data-home-label="今見るナレッジ" aria-labelledby="knowledgeTitle">
             <div class="section-heading">
-              <h2 id="knowledgeTitle">今見るナレッジ</h2>
+              <div class="knowledge-heading-copy"><h2 id="knowledgeTitle">今見るナレッジ</h2><span class="section-note" id="knowledgeQueueMeta" hidden></span></div>
               <a id="allKnowledgeLink" href="/knowledge/">一覧 →</a>
             </div>
             <div id="knowledgeList" class="knowledge-list"></div>
           </section>
 
-          <section class="panel journal-panel" data-home-section="journal" aria-labelledby="journalTitle">
+          <section class="panel journal-panel" data-home-section="journal" data-home-label="過去のJournal" aria-labelledby="journalTitle">
             <div class="section-heading">
               <h2 id="journalTitle">過去のJournal</h2>
               <span class="section-note">読み取り専用</span>
@@ -173,7 +179,7 @@
           </section>
         </div>
 
-        <section class="data-tools" aria-label="データ管理" data-home-section="data">
+        <section class="data-tools" aria-label="データ管理" data-home-section="data" data-home-label="データ管理">
           <div><strong>データ管理</strong></div>
           <nav>
             <a href="/knowledge/api/export">Knowledge JSON</a>

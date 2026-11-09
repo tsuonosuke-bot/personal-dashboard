@@ -5,6 +5,8 @@ import { createTodayPanel } from "./today-panel.js";
 import { renderLearningStages } from "./learning-stages.js";
 import { transactionDisplay } from "./transaction-display.js";
 import { knowledgeActivity, jstToday } from "./knowledge-activity.js";
+import { HOME_HIDDEN_KEY, parseHidden, hubUrl, revealedSections } from "./home-sections.js";
+import { skipRequest, restoreRequest, withAdded, withRemoved, inboxMetaLabel } from "./home-inbox.js";
 
 const ids = [
   "sourceBadge", "refreshButton", "quickAddMenu", "dateLabel", "updatedLabel",
@@ -12,6 +14,7 @@ const ids = [
   "batchAlert", "batchAlertList", "loadingState", "errorState", "errorMessage", "todayPanel",
   "retryButton", "hubContent", "learningStages", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
   "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "journalTrend", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
+  "inboxQuickForm", "inboxQuickInput", "inboxQuickSubmit", "inboxQuickError", "knowledgeQueueMeta",
   "homeSettingsButton", "homeSettingsModal", "homeSettingsBackdrop", "homeSettingsClose", "homeSettingsMessage", "homeSettingsList",
 ];
 
@@ -49,9 +52,10 @@ function formatDate(value, includeTime = false) {
   ).format(parsed);
 }
 
+// 「今日」は端末の時刻帯ではなく、ほかの欄と同じ日本時間で決める。
 function setClock() {
   const now = new Date();
-  els.dateLabel.textContent = new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" }).format(now);
+  els.dateLabel.textContent = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "long", day: "numeric", weekday: "short" }).format(now);
 }
 
 function empty(message) {
@@ -84,12 +88,23 @@ function renderReview(summary, navigation) {
     summary.reviewGradingErrors > 0 ? `採点エラー ${summary.reviewGradingErrors}件` : null,
     summary.reviewGenerationHeld > 0 ? `問題を作れず保留 ${summary.reviewGenerationHeld}件` : null,
   ].filter(Boolean).join(" · ");
+  // 採点待ち・未確認は、マウスを重ねられない端末でも読めるように見出しにも出す。
+  const queue = [
+    summary.reviewWaitingGrading > 0 ? `採点待ち ${summary.reviewWaitingGrading}件` : null,
+    summary.reviewUnconfirmed > 0 ? `未確認 ${summary.reviewUnconfirmed}件` : null,
+  ].filter(Boolean);
+  els.knowledgeQueueMeta.hidden = queue.length === 0;
+  els.knowledgeQueueMeta.textContent = queue.join(" · ");
 }
 
-/** 確認が必要な項目（復習バッチの異常・DB容量の逼迫）。無ければ非表示。取得できない（null）ときも出さない。 */
+/** 確認が必要な項目（復習バッチの異常・採点エラー・問題の生成保留・DB容量の逼迫）。無ければ非表示。取得できない（null）ときも出さない。 */
 function renderAlerts(summary) {
   const batch = Array.isArray(summary.reviewBatchAlerts) ? summary.reviewBatchAlerts : [];
-  const messages = [...batch, summary.databaseAlert].filter((message) => typeof message === "string" && message);
+  const queue = [
+    summary.reviewGradingErrors > 0 ? `採点エラーが${summary.reviewGradingErrors}件あります` : null,
+    summary.reviewGenerationHeld > 0 ? `問題を作れず保留になったナレッジが${summary.reviewGenerationHeld}件あります` : null,
+  ];
+  const messages = [...batch, ...queue, summary.databaseAlert].filter((message) => typeof message === "string" && message);
   els.batchAlert.hidden = messages.length === 0;
   els.batchAlertList.replaceChildren(...messages.map((message) => {
     const item = document.createElement("li");
@@ -101,13 +116,7 @@ function renderAlerts(summary) {
 function renderSummary(summary, navigation) {
   renderReview(summary, navigation);
   renderAlerts(summary);
-  if (!Number.isFinite(summary.pendingInbox)) {
-    els.inboxMeta.textContent = "Inboxを取得できません";
-  } else if (summary.pendingInbox > 0) {
-    els.inboxMeta.textContent = `未整理 ${summary.pendingInbox}件`;
-  } else {
-    els.inboxMeta.textContent = "未整理のInboxなし";
-  }
+  els.inboxMeta.textContent = inboxMetaLabel(summary.pendingInbox, summary.untriagedWants);
   // 1行に収まるよう合計だけを出し、内訳はマウスを重ねたときに見せる。
   const compassDetail = Number.isFinite(summary.untriagedWants)
     ? `Inbox ${formatCount(summary.pendingInbox)} · 未整理のWants ${formatCount(summary.untriagedWants)}`
@@ -178,13 +187,89 @@ function renderInbox(items, available = true) {
   }
   els.inboxList.innerHTML = items.map((item, index) => {
     const age = Number.isFinite(item.ageDays) ? ` · ${item.ageDays}日経過` : "";
+    const skip = Number.isSafeInteger(item.id)
+      ? `<button class="inbox-skip" type="button" data-inbox-skip="${item.id}" aria-label="「${escapeHtml(item.content)}」を見送る">見送る</button>` : "";
     return `
-    <a class="inbox-card" href="${escapeHtml(item.url || "/compass/?view=inbox")}">
+    <div class="inbox-card">
       <span>${String(index + 1).padStart(2, "0")}</span>
-      <div><span class="inbox-state">未整理</span><strong>${escapeHtml(item.content)}</strong><small>${escapeHtml(formatDate(item.createdAt))} 登録${age}</small></div>
-      <b aria-hidden="true">→</b>
-    </a>
+      <a class="inbox-card-link" href="${escapeHtml(item.url || "/compass/?view=inbox")}"><span class="inbox-state">未整理</span><strong>${escapeHtml(item.content)}</strong><small>${escapeHtml(formatDate(item.createdAt))} 登録${age}</small></a>
+      ${skip}
+    </div>
   `; }).join("");
+}
+
+// ホームからの追加・見送り。件数と一覧は手元で先に直し、見送りのあとは裏で取り直して次の1件を補う。
+let inboxState = { pending: NaN, items: [] };
+let lastSummary = null;
+let lastNavigation = null;
+let lastAvailability = {};
+
+function renderInboxState() {
+  if (!lastSummary) return;
+  lastSummary.pendingInbox = inboxState.pending;
+  renderSummary(lastSummary, lastNavigation);
+  els.learningStages.innerHTML = renderLearningStages(lastSummary, lastAvailability);
+  renderInbox(inboxState.items, true);
+}
+
+async function inboxApi(method, action, body) {
+  const response = await fetch("/api/inbox", {
+    method,
+    credentials: "same-origin",
+    headers: { Accept: "application/json", "Content-Type": "application/json", "X-Dashboard-Action": action },
+    body: JSON.stringify(body),
+  });
+  const payload = await readApiJson(response);
+  if (!response.ok) throw new Error(payload.error || "Inboxを保存できませんでした。");
+  return payload;
+}
+
+function shortTitle(content) {
+  const line = String(content).split("\n")[0];
+  return line.length > 24 ? `${line.slice(0, 24)}…` : line;
+}
+
+async function addInbox() {
+  const content = els.inboxQuickInput.value.trim();
+  if (!content) return;
+  els.inboxQuickSubmit.disabled = true;
+  els.inboxQuickError.hidden = true;
+  try {
+    const row = await inboxApi("POST", "inbox-create", { content });
+    els.inboxQuickInput.value = "";
+    if (Number.isFinite(inboxState.pending) && Number.isSafeInteger(row.id)) {
+      inboxState = withAdded(inboxState, row);
+      renderInboxState();
+    }
+    today.notify("Inboxに追加しました");
+  } catch (error) {
+    // 入力は消さずに残す。
+    els.inboxQuickError.textContent = error instanceof Error ? error.message : "Inboxを保存できませんでした。";
+    els.inboxQuickError.hidden = false;
+  } finally {
+    els.inboxQuickSubmit.disabled = false;
+    els.inboxQuickInput.focus();
+  }
+}
+
+async function skipInbox(id, button) {
+  const item = inboxState.items.find((candidate) => candidate.id === id);
+  if (!item) return;
+  button.disabled = true;
+  try {
+    await inboxApi("PATCH", "inbox-update", skipRequest(item));
+    inboxState = withRemoved(inboxState, id);
+    renderInboxState();
+    void loadHub({ silent: true });
+    today.notify(`「${shortTitle(item.content)}」を見送りにしました`, async () => {
+      await inboxApi("PATCH", "inbox-update", restoreRequest(item));
+      await loadHub({ silent: true });
+      return "Inboxへ戻しました";
+    });
+  } catch (error) {
+    button.disabled = false;
+    today.notify(error instanceof Error ? error.message : "Inboxを更新できませんでした。");
+  }
 }
 
 function renderFocus(items, available = true) {
@@ -407,18 +492,17 @@ function setSource(source, hasError = false) {
 let hubLoadGeneration = 0;
 let hubHasData = false;
 let hubLoadController = null;
-let lastReviewSummary = null;
-let lastReviewNavigation = null;
-async function loadHub() {
+/** silent: 表示中の内容を残したまま裏で取り直す（読み込み中の表示を出さない）。 */
+async function loadHub({ silent = false } = {}) {
   const generation = ++hubLoadGeneration;
   hubLoadController?.abort();
   hubLoadController = new AbortController();
   els.refreshButton.disabled = true;
-  els.loadingState.hidden = false;
+  els.loadingState.hidden = silent && hubHasData;
   els.errorState.hidden = true;
   els.hubContent.hidden = !hubHasData;
   try {
-    const response = await fetch("/api/hub", { signal: hubLoadController.signal, headers: { Accept: "application/json" }, cache: "no-store" });
+    const response = await fetch(hubUrl(hiddenSections), { signal: hubLoadController.signal, headers: { Accept: "application/json" }, cache: "no-store" });
     const payload = await readApiJson(response);
     if (generation !== hubLoadGeneration) return;
     if (!response.ok) throw new Error(payload.error?.message || "データを読み込めませんでした。");
@@ -426,8 +510,10 @@ async function loadHub() {
     renderNavigation(payload.navigation);
     today.setNavigation(payload.navigation);
     renderSummary(payload.summary, payload.navigation);
-    lastReviewSummary = payload.summary;
-    lastReviewNavigation = payload.navigation;
+    lastSummary = payload.summary;
+    lastNavigation = payload.navigation;
+    lastAvailability = availability;
+    inboxState = { pending: payload.summary.pendingInbox ?? NaN, items: payload.inbox || [] };
     els.learningStages.innerHTML = renderLearningStages(payload.summary, availability);
     renderFocus(payload.focus || [], availability.focus);
     renderInbox(payload.inbox || [], availability.inbox);
@@ -452,23 +538,40 @@ async function loadHub() {
   }
 }
 
-// ホームの表示設定。非表示のセクション名をSupabaseに保存し、全端末で共通にする。
-const HOME_SECTIONS = [
-  ["apps", "アプリ一覧"], ["today", "今日やること"], ["focus", "Focus"], ["learning", "学習の流れ"],
-  ["inbox", "未整理のInbox"], ["expenses", "直近の家計簿"], ["knowledge", "今見るナレッジ"],
-  ["journal", "過去のJournal"], ["data", "データ管理"],
-];
-let hiddenSections = [];
+// ホームの表示設定。非表示の欄の名前をSupabaseに保存し、全端末で共通にする。
+// 欄の一覧と名前は index.html の data-home-section / data-home-label から読む。
+// 前回の設定は home-boot.js が描画前に当てているので、ここではその続きから始める。
+let hiddenSections = parseHidden(document.documentElement.dataset.homeHidden);
+
+function homeSections() {
+  const seen = new Map();
+  document.querySelectorAll("[data-home-section]").forEach((node) => {
+    if (!seen.has(node.dataset.homeSection)) seen.set(node.dataset.homeSection, node.dataset.homeLabel || node.dataset.homeSection);
+  });
+  return [...seen];
+}
 
 function applyHomeSections() {
-  document.querySelectorAll("[data-home-section]").forEach((node) => {
-    node.classList.toggle("home-hidden", hiddenSections.includes(node.dataset.homeSection));
-  });
+  const root = document.documentElement;
+  root.dataset.homeHidden = hiddenSections.join(" ");
+  root.dataset.homeReady = "";
+  try {
+    window.localStorage.setItem(HOME_HIDDEN_KEY, JSON.stringify(hiddenSections));
+  } catch {
+    // 保存できない端末では、次に開いたときも設定の取得を待つ。
+  }
+}
+
+/** 表示している欄のデータを読む。revealed を渡すと、新しく表示した欄の分だけ裏で取り直す。 */
+function loadHome(revealed = null) {
+  if (!hiddenSections.includes("today") && (!revealed || revealed.includes("today"))) void today.load();
+  if (!revealed) void loadHub();
+  else if (revealed.some((key) => key !== "today")) void loadHub({ silent: true });
 }
 
 function renderHomeSettings() {
-  els.homeSettingsList.innerHTML = HOME_SECTIONS.map(([key, label]) =>
-    `<label class="home-settings-row"><input type="checkbox" data-home-key="${key}"${hiddenSections.includes(key) ? "" : " checked"} /><span>${label}</span></label>`).join("");
+  els.homeSettingsList.innerHTML = homeSections().map(([key, label]) =>
+    `<label class="home-settings-row"><input type="checkbox" data-home-key="${escapeHtml(key)}"${hiddenSections.includes(key) ? "" : " checked"} /><span>${escapeHtml(label)}</span></label>`).join("");
 }
 
 function setHomeSettingsMessage(text = "", isError = false) {
@@ -477,23 +580,29 @@ function setHomeSettingsMessage(text = "", isError = false) {
   els.homeSettingsMessage.classList.toggle("error", isError);
 }
 
+/** 保存済みの設定を読んで当てる。非表示から表示に変わった欄を返す。 */
 async function loadHomeSettings() {
   try {
     const response = await fetch("/api/home-settings", { headers: { Accept: "application/json" }, cache: "no-store" });
     const payload = await readApiJson(response);
     if (response.ok && Array.isArray(payload.hidden)) {
+      const previous = hiddenSections;
       hiddenSections = payload.hidden;
       applyHomeSections();
+      return revealedSections(previous, hiddenSections);
     }
   } catch {
-    // 設定を読めなくても全部表示にしておく。
+    // 設定を読めなくても、手元の設定（なければ全部表示）のまま続ける。
   }
+  document.documentElement.dataset.homeReady = "";
+  return [];
 }
 
 async function saveHomeSettings(next) {
   const previous = hiddenSections;
   hiddenSections = next;
   applyHomeSections();
+  loadHome(revealedSections(previous, next));
   setHomeSettingsMessage();
   try {
     const response = await fetch("/api/home-settings", {
@@ -535,8 +644,9 @@ let displayedDay = jstToday();
 function refreshJstDay() {
   if (displayedDay === jstToday()) return;
   displayedDay = jstToday();
-  if (lastReviewSummary) renderReview(lastReviewSummary, lastReviewNavigation);
-  void loadHub();
+  setClock();
+  if (lastSummary) renderReview(lastSummary, lastNavigation);
+  loadHome();
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshJstDay(); });
 function scheduleJstMidnight() {
@@ -545,11 +655,16 @@ function scheduleJstMidnight() {
 }
 scheduleJstMidnight();
 
-els.refreshButton.addEventListener("click", () => {
-  void today.load();
-  void loadHub();
+els.refreshButton.addEventListener("click", () => loadHome());
+els.retryButton.addEventListener("click", () => loadHub());
+els.inboxQuickForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  void addInbox();
 });
-els.retryButton.addEventListener("click", loadHub);
+els.inboxList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-inbox-skip]");
+  if (button && !button.disabled) void skipInbox(Number(button.dataset.inboxSkip), button);
+});
 els.manageFocusButton.addEventListener("click", () => openFocusModal());
 els.focusList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-focus-open]");
@@ -609,9 +724,13 @@ document.addEventListener("click", (event) => {
   if (!els.quickAddMenu.contains(event.target)) els.quickAddMenu.removeAttribute("open");
 });
 setClock();
-void loadHomeSettings();
-void today.load();
-loadHub();
+// この端末に前回の設定があれば、それを使ってすぐ読み始める。なければ設定を先に読み、非表示の欄は読まない。
+if ("homeReady" in document.documentElement.dataset) {
+  loadHome();
+  void loadHomeSettings().then((revealed) => { if (revealed.length) loadHome(revealed); });
+} else {
+  void loadHomeSettings().then(() => loadHome());
+}
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
