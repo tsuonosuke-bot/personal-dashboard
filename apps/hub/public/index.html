@@ -12,6 +12,7 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <script src="/theme.js"></script>
+    <script src="/home-boot.js"></script>
     <link rel="stylesheet" href="/dashboard-shell.css" />
     <link rel="stylesheet" href="/dashboard-shell.dark.css" />
     <link rel="stylesheet" href="/hub.css" />
@@ -70,7 +71,7 @@
           <a id="batchAlertLink" href="/status/">接続状態を確認 →</a>
         </div>
 
-        <section class="today-panel" id="todayPanel" data-home-section="today" aria-labelledby="todayTitle">
+        <section class="today-panel" id="todayPanel" data-home-section="today" data-home-label="今日やること" aria-labelledby="todayTitle">
           <div class="today-head">
             <h2 id="todayTitle">今日やること</h2>
             <span class="today-counter" id="todayDoneCounter" hidden></span>
@@ -95,7 +96,7 @@
           </div>
         </section>
 
-        <nav class="app-row" aria-label="アプリ" data-home-section="apps">
+        <nav class="app-row" aria-label="アプリ" data-home-section="apps" data-home-label="アプリ一覧">
           <a class="app-pill compass-pill" id="compassLink" href="/compass/"><b>Idea</b><small id="compassMeta">—</small></a>
           <a class="app-pill projects-pill" id="projectsLink" href="/projects/"><b>Projects</b><small id="projectsMeta">—</small></a>
           <a class="app-pill writing-pill" id="writingLink" href="/writing/"><b>Writing</b><small id="writingMeta">—</small></a>
@@ -110,7 +111,7 @@
         </div>
 
         <div id="hubContent" class="content-grid" hidden>
-          <section class="daily focus-panel" data-home-section="focus" aria-labelledby="focusTitle">
+          <section class="daily focus-panel" data-home-section="focus" data-home-label="Focus" aria-labelledby="focusTitle">
             <div class="section-heading">
               <div class="focus-heading-copy"><h2 id="focusTitle">Focus</h2></div>
               <button class="section-action" id="manageFocusButton" type="button">管理</button>
@@ -118,15 +119,20 @@
             <div id="focusList" class="focus-list"></div>
           </section>
 
-          <section class="daily inbox-panel" data-home-section="inbox" aria-labelledby="inboxTitle">
+          <section class="daily inbox-panel" data-home-section="inbox" data-home-label="未整理のInbox" aria-labelledby="inboxTitle">
             <div class="section-heading">
               <div class="inbox-heading-copy"><h2 id="inboxTitle">未整理のInbox</h2><span class="section-note" id="inboxMeta">Inboxを確認中</span></div>
               <a id="allInboxLink" href="/compass/?view=inbox">一覧 →</a>
             </div>
+            <form class="inbox-quick" id="inboxQuickForm">
+              <input id="inboxQuickInput" name="content" maxlength="2000" required autocomplete="off" enterkeyhint="send" placeholder="思いつきをInboxへ" aria-label="Inboxに追加する内容" />
+              <button type="submit" id="inboxQuickSubmit">追加</button>
+            </form>
+            <p class="inbox-quick-error" id="inboxQuickError" role="alert" hidden></p>
             <div id="inboxList" class="inbox-list"></div>
           </section>
 
-          <details class="fold expenses-panel" data-home-section="expenses" data-fold="expenses">
+          <details class="fold expenses-panel" data-home-section="expenses" data-fold="expenses" data-home-label="直近の家計簿">
             <summary class="fold-summary"><h2 id="expensesTitle">直近の家計簿</h2><span class="fold-meta" id="expensesFoldMeta"></span></summary>
             <div class="fold-body">
               <div id="expenseList" class="record-list"></div>
@@ -134,15 +140,15 @@
             </div>
           </details>
 
-          <details class="fold knowledge-panel" data-home-section="knowledge" data-fold="knowledge">
-            <summary class="fold-summary"><h2 id="knowledgeTitle">今見るナレッジ</h2><span class="fold-meta" id="knowledgeFoldMeta"></span></summary>
+          <details class="fold knowledge-panel" data-home-section="knowledge" data-fold="knowledge" data-home-label="今見るナレッジ">
+            <summary class="fold-summary"><h2 id="knowledgeTitle">今見るナレッジ</h2><span class="fold-meta" id="knowledgeFoldMeta"></span><span class="fold-meta" id="knowledgeQueueMeta" hidden></span></summary>
             <div class="fold-body">
               <div id="knowledgeList" class="knowledge-list"></div>
               <a class="fold-link" id="allKnowledgeLink" href="/knowledge/">一覧 →</a>
             </div>
           </details>
 
-          <details class="fold journal-panel" data-home-section="journal" data-fold="journal">
+          <details class="fold journal-panel" data-home-section="journal" data-fold="journal" data-home-label="過去のJournal">
             <summary class="fold-summary"><h2 id="journalTitle">過去のJournal</h2></summary>
             <div class="fold-body">
               <div id="journalTrend"></div>
@@ -150,7 +156,7 @@
             </div>
           </details>
 
-          <details class="fold learning-panel" data-home-section="learning" data-fold="learning">
+          <details class="fold learning-panel" data-home-section="learning" data-fold="learning" data-home-label="学習の流れ">
             <summary class="fold-summary"><h2 id="learningTitle">学習の流れ</h2></summary>
             <div class="fold-body">
               <ol id="learningStages" class="learning-stages"></ol>
@@ -159,7 +165,7 @@
           </details>
         </div>
 
-        <section class="data-tools" aria-label="データ管理" data-home-section="data">
+        <section class="data-tools" aria-label="データ管理" data-home-section="data" data-home-label="データ管理">
           <div><strong>データ管理</strong></div>
           <nav>
             <a href="/knowledge/api/export">Knowledge JSON</a>
