@@ -4,17 +4,8 @@
 (() => {
   const KEY = "dashboard-theme";
   const DARK_THEME_COLOR = "#1a1a18";
-  // Extra palettes sit on top of a light or dark base: data-theme stays "light"/"dark" so every
-  // existing rule keeps working, and data-palette selects the tinted variant (see build-dark-theme.mjs).
-  const PALETTES = {
-    cream: { scheme: "light", color: "#f3ead3" },
-    navy: { scheme: "dark", color: "#131a29" },
-    forest: { scheme: "dark", color: "#141f19" },
-    nord: { scheme: "dark", color: "#272c36" },
-    gruvbox: { scheme: "dark", color: "#211e1b" },
-    solarized: { scheme: "light", color: "#f2e8cc" },
-  };
-  const isPreference = (value) => value === "light" || value === "dark" || Object.prototype.hasOwnProperty.call(PALETTES, value);
+  // Only 自動/ライト/ダーク remain; any other saved value (such as a removed palette) falls back to 自動.
+  const isPreference = (value) => value === "light" || value === "dark";
   const root = document.documentElement;
   const media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
   let memoryPreference = "system";
@@ -22,7 +13,9 @@
   const readPreference = () => {
     try {
       const value = window.localStorage.getItem(KEY);
-      return isPreference(value) ? value : "system";
+      if (isPreference(value)) return value;
+      if (value !== null) window.localStorage.removeItem(KEY);
+      return "system";
     } catch {
       return memoryPreference;
     }
@@ -30,12 +23,9 @@
 
   const apply = () => {
     const preference = readPreference();
-    const palette = PALETTES[preference];
-    const theme = palette ? palette.scheme : preference === "system" ? (media && media.matches ? "dark" : "light") : preference;
+    const theme = preference === "system" ? (media && media.matches ? "dark" : "light") : preference;
     root.dataset.theme = theme;
     root.dataset.themePreference = preference;
-    if (palette) root.dataset.palette = preference;
-    else delete root.dataset.palette;
     // Declaring "light dark" lets the browser draw form controls for the OS theme; pin it to the
     // resolved theme so a manual choice never pairs white UA text with white authored backgrounds.
     root.style.colorScheme = theme;
@@ -44,7 +34,7 @@
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
       if (!meta.dataset.lightColor) meta.dataset.lightColor = meta.content;
-      meta.content = palette ? palette.color : theme === "dark" ? DARK_THEME_COLOR : meta.dataset.lightColor;
+      meta.content = theme === "dark" ? DARK_THEME_COLOR : meta.dataset.lightColor;
     }
     // iOSのホーム画面アプリでは"default"だと上端が常に白くなる。ダークのときだけ透過にして背景色を見せる。
     const bar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');

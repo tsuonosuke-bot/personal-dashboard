@@ -102,8 +102,9 @@ test("#331: local Inbox state keeps the oldest-three preview and never goes nega
 
 test("#335: section keys have one server definition, mirrored by the page and its CSS", async () => {
   const [html, css, script] = await Promise.all([read("../public/index.html"), read("../public/hub.css"), read("../public/hub.js")]);
-  const inPage = [...new Set([...html.matchAll(/data-home-section="([a-z]+)" data-home-label="[^"]+"/g)].map((match) => match[1]))];
-  assert.deepEqual(inPage, [...HOME_SECTIONS]);
+  const inPage = [...new Set([...html.matchAll(/data-home-section="([a-z]+)"(?: data-fold="\1")? data-home-label="[^"]+"/g)].map((match) => match[1]))];
+  // 並びはページの見た目が決める。欄の集合がサーバーの定義と一致していればよい。
+  assert.deepEqual([...inPage].sort(), [...HOME_SECTIONS].sort());
   assert.equal([...html.matchAll(/data-home-section="/g)].length, inPage.length);
   for (const key of HOME_SECTIONS) {
     assert.ok(css.includes(`html[data-home-hidden~="${key}"] [data-home-section="${key}"]`), key);

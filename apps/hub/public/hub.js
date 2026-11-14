@@ -15,6 +15,7 @@ const ids = [
   "retryButton", "hubContent", "learningStages", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
   "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "journalTrend", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
   "inboxQuickForm", "inboxQuickInput", "inboxQuickSubmit", "inboxQuickError", "knowledgeQueueMeta",
+  "expensesFoldMeta", "knowledgeFoldMeta",
   "homeSettingsButton", "homeSettingsModal", "homeSettingsBackdrop", "homeSettingsClose", "homeSettingsMessage", "homeSettingsList",
 ];
 
@@ -80,6 +81,7 @@ function renderReview(summary, navigation) {
   const activity = knowledgeActivity(summary);
   els.knowledgeLink.href = activity.startReview ? navigation.knowledgeReview : navigation.knowledge;
   els.knowledgeMeta.textContent = activity.label;
+  els.knowledgeFoldMeta.textContent = activity.label;
   els.knowledgeLink.title = [
     Number.isFinite(readyDue) ? `すぐ解ける ${readyDue}問` : '復習数を取得できません',
     activity.detail,
@@ -127,6 +129,7 @@ function renderSummary(summary, navigation) {
   els.projectsMeta.textContent = labeledCount("進行中", summary.activeProjects);
   els.writingMeta.textContent = labeledCount("アイデア", summary.writingIdeas);
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
+  els.expensesFoldMeta.textContent = summary.currentMonthSpend === null || summary.currentMonthSpend === undefined ? "" : `今月 ${formatYen(summary.currentMonthSpend)}`;
   els.habitsMeta.textContent = labeledCount("残り", summary.remainingHabitsToday);
 }
 
@@ -482,6 +485,41 @@ function renderJournalTrend(trend, available = true) {
   els.journalTrend.innerHTML = renderJournalTrendHtml(trend, available);
 }
 
+function scrollJournalTrendToLatest() {
+  const journalViewport = els.journalTrend.querySelector(".journal-trend-viewport");
+  if (journalViewport) journalViewport.scrollLeft = journalViewport.scrollWidth - journalViewport.clientWidth;
+}
+
+// たまに見る欄は畳んでおき、開いた欄だけをこの端末に覚える（中身は保存しない）。
+const FOLD_STORAGE_KEY = "hub-home-open";
+
+function readOpenFolds() {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(FOLD_STORAGE_KEY) || "[]");
+    return Array.isArray(value) ? value.filter((key) => typeof key === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function setupFolds() {
+  const open = readOpenFolds();
+  const folds = [...document.querySelectorAll("details[data-fold]")];
+  for (const fold of folds) {
+    fold.open = open.includes(fold.dataset.fold);
+    fold.addEventListener("toggle", () => {
+      const keys = folds.filter((node) => node.open).map((node) => node.dataset.fold);
+      try {
+        window.localStorage.setItem(FOLD_STORAGE_KEY, JSON.stringify(keys));
+      } catch {
+        // 保存できない環境では、開閉はこのページを開いている間だけ保たれる。
+      }
+      // 畳んでいる間は幅が0なので、開いたときに気分の推移を最新側へ寄せる。
+      if (fold.open && fold.dataset.fold === "journal") scrollJournalTrendToLatest();
+    });
+  }
+}
+
 function setSource(source, hasError = false) {
   const partial = !hasError && source?.state === "partial";
   els.sourceBadge.className = `source-badge ${hasError ? "error" : partial ? "partial" : "live"}`;
@@ -525,8 +563,7 @@ async function loadHub({ silent = false } = {}) {
     els.loadingState.hidden = true;
     els.hubContent.hidden = false;
     hubHasData = true;
-    const journalViewport = els.journalTrend.querySelector(".journal-trend-viewport");
-    if (journalViewport) journalViewport.scrollLeft = journalViewport.scrollWidth - journalViewport.clientWidth;
+    scrollJournalTrendToLatest();
   } catch (error) {
     if (generation !== hubLoadGeneration) return;
     setSource(null, true);
@@ -724,6 +761,7 @@ document.addEventListener("click", (event) => {
   if (!els.quickAddMenu.contains(event.target)) els.quickAddMenu.removeAttribute("open");
 });
 setClock();
+setupFolds();
 // この端末に前回の設定があれば、それを使ってすぐ読み始める。なければ設定を先に読み、非表示の欄は読まない。
 if ("homeReady" in document.documentElement.dataset) {
   loadHome();
