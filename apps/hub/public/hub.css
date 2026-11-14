@@ -69,15 +69,8 @@ a { color: inherit; }
   background: var(--bg);
   box-shadow: 0 18px 46px rgba(27, 39, 32, .2);
 }
-.quick-add-menu nav a { min-height: 48px; display: grid; grid-template-columns: 32px 1fr; align-items: center; gap: 9px; padding: 7px; border-radius: var(--radius-sm); text-decoration: none; }
+.quick-add-menu nav a { min-height: 44px; display: flex; align-items: center; padding: 0 10px; border-radius: var(--radius-sm); color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; }
 .quick-add-menu nav a:hover, .quick-add-menu nav a:focus-visible { background: var(--bg-hover); outline: none; }
-.quick-add-menu nav strong, .quick-add-menu nav small { display: block; }
-.quick-add-menu nav strong { font-size: 13px; }
-.quick-add-menu nav small { margin-top: 2px; color: var(--muted); font-size: 12px; }
-.quick-add-icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--radius-sm); color: var(--green); background: var(--green-soft); font: 750 12px/1 Inter, "Segoe UI", sans-serif; }
-.quick-add-icon.finance { color: var(--blue); background: var(--blue-soft); }
-.quick-add-icon.projects { color: var(--gold); background: var(--gold-soft); }
-.quick-add-icon.knowledge { color: var(--violet); background: var(--violet-soft); }
 .source-badge.partial i { background: var(--orange); box-shadow: 0 0 0 3px rgba(201,104,55,.12); }
 
 main { width: min(1240px, calc(100% - 32px)); margin: 0 auto; }
@@ -89,24 +82,25 @@ main { width: min(1240px, calc(100% - 32px)); margin: 0 auto; }
 .context-strip strong { color: var(--green); font-size: 13px; }
 .context-strip small { font-size: 12px; }
 
-.app-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-bottom: 10px; }
-.app-pill { --accent: var(--green); --soft: var(--green-soft); min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid rgba(49,70,58,.12); border-radius: var(--radius); background: var(--surface); text-decoration: none; transition: border-color .18s ease; }
-.app-pill:hover, .app-pill:focus-visible { border-color: var(--accent); outline: none; }
+/* アプリ一覧は「今日やること」の下に置く件数の行。枠や背景は付けず、区切り線だけで並べる */
+.app-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0 14px; margin-bottom: 18px; border-top: 1px solid var(--divider); border-bottom: 1px solid var(--divider); }
+.app-pill { --accent: var(--green); --soft: var(--green-soft); min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 6px 0; color: var(--ink); text-decoration: none; transition: border-color .18s ease; }
+.app-pill:hover b { color: var(--accent); }
+.app-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* 名前は縮めず、件数側だけを省略する */
 .app-pill b { flex: none; font-size: 13px; white-space: nowrap; }
 .app-pill small { min-width: 0; margin-left: auto; overflow: hidden; color: var(--accent); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.app-icon { width: 28px; height: 28px; flex: 0 0 auto; display: grid; place-items: center; border-radius: var(--radius-sm); background: var(--soft); color: var(--accent); font: 600 13px/1 Georgia, serif; }
 .projects-pill { --accent: var(--project); --soft: var(--project-soft); }
 .writing-pill { --accent: var(--plum); --soft: var(--plum-soft); }
 .habits-pill { --accent: var(--habit); --soft: var(--habit-soft); }
 .finance-pill { --accent: var(--blue); --soft: var(--blue-soft); }
 .knowledge-pill { --accent: var(--violet); --soft: var(--violet-soft); }
-.idea-mark-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-/* 今日やること：外枠は1枚。中は区切り線で分け、完了の丸はHabitsページと同じ見た目にする */
-.today-panel { margin-bottom: 10px; padding: 16px 18px 10px; border: 1px solid rgba(49,70,58,.14); border-radius: var(--radius-lg); background: var(--surface); }
+/* 今日やること：ホームの主役。枠や背景は付けずページの本文として置き、見出しをページで一番大きくする。
+   中は区切り線で分け、完了の丸はHabitsページと同じ見た目にする */
+.today-panel { margin-bottom: 14px; padding: 4px 0 6px; }
 .today-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--divider); }
-.today-head h2 { margin: 0; font: 750 17px/1.2 Inter, "Segoe UI", sans-serif; }
+.today-head h2 { margin: 0; font: 750 22px/1.2 Inter, "Segoe UI", sans-serif; letter-spacing: -.01em; }
 .today-counter { padding: 5px 11px; border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .today-all-done { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 12px 14px; border-radius: var(--radius); background: var(--green-soft); color: var(--green); font-size: 13px; font-weight: 600; }
 .today-all-done > span { font-size: 20px; }
@@ -120,11 +114,6 @@ main { width: min(1240px, calc(100% - 32px)); margin: 0 auto; }
 .today-sec-head h3 { margin: 0; font-size: 14px; }
 .today-sec-head a { margin-left: auto; color: var(--green); font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .today-sec-head a:hover { text-decoration: underline; }
-.today-sec-icon { width: 24px; height: 24px; flex: 0 0 auto; display: grid; place-items: center; border-radius: var(--radius-sm); font: 600 12px/1 Georgia, serif; }
-.today-sec-icon .idea-mark-icon { width: 15px; height: 15px; }
-.today-sec-icon.todo { background: var(--green-soft); color: var(--green); }
-.today-sec-icon.habit { background: var(--habit-soft); color: var(--habit); }
-.today-sec-icon.project { background: var(--project-soft); color: var(--project); }
 .today-group { margin: 10px 0 2px; color: var(--muted); font-size: 12px; font-weight: 600; }
 .today-quiet { margin: 4px 0 6px; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .today-ok { display: flex; align-items: center; min-height: 44px; margin: 0; color: var(--green); font-size: 12px; font-weight: 600; }
@@ -219,7 +208,7 @@ a.today-row-title:hover { text-decoration: underline; }
 .today-toast { position: fixed; right: 18px; bottom: calc(18px + var(--tabbar-space, 0px)); z-index: 95; max-width: min(380px, calc(100vw - 36px)); display: flex; align-items: center; gap: 14px; padding: 11px 14px; border-radius: var(--radius); background: #202822; color: #fff; box-shadow: 0 10px 30px rgba(27,39,32,.22); font-size: 13px; }
 .today-toast button { min-height: 36px; flex: 0 0 auto; padding: 0 4px; border: 0; background: none; color: var(--text-tertiary); cursor: pointer; font-size: 13px; font-weight: 600; }
 
-.data-tools { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 3px 0 18px; padding: 8px 11px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,255,255,.7); }
+.data-tools { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 3px 0 18px; padding: 8px 0; border-top: 1px solid var(--divider); }
 .data-tools > div { min-width: 0; }
 .data-tools strong, .data-tools small { display: block; }
 .data-tools strong { font-size: 12px; }
@@ -235,7 +224,22 @@ a.today-row-title:hover { text-decoration: underline; }
 .error-state h2 { margin: 0; color: var(--ink); font: 700 18px/1.2 Inter, "Segoe UI", sans-serif; }
 .error-state button { margin-top: 11px; padding: 7px 13px; border: 0; border-radius: var(--radius-sm); background: var(--green); color: #fff; cursor: pointer; }
 
-.content-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; padding: 0 0 14px; }
+/* 毎日使う欄（Focus・Inbox）は枠なしで「今日やること」の下に置き、たまに見る欄は1行に畳む（#349） */
+.content-grid { display: grid; grid-template-columns: minmax(0, 1fr); padding: 0 0 14px; }
+.daily { min-width: 0; padding: 4px 0 16px; }
+.fold { min-width: 0; border-top: 1px solid var(--divider); }
+.fold:last-child { border-bottom: 1px solid var(--divider); }
+.fold-summary { min-height: 44px; display: flex; align-items: center; gap: 10px; cursor: pointer; list-style: none; }
+.fold-summary::-webkit-details-marker { display: none; }
+.fold-summary::after { content: "＋"; margin-left: auto; color: var(--muted); font-size: 14px; }
+.fold[open] > .fold-summary::after { content: "−"; }
+.fold-summary:hover h2 { color: var(--green); }
+.fold-summary:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.fold-summary h2 { margin: 0; font: 600 14px/1.3 Inter, "Segoe UI", sans-serif; }
+.fold-meta { min-width: 0; overflow: hidden; color: var(--muted); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.fold-body { padding: 2px 0 14px; }
+.fold-link { min-height: 40px; display: inline-flex; align-items: center; color: var(--green); font-size: 12px; font-weight: 600; text-decoration: none; }
+.fold-link:hover { text-decoration: underline; }
 .panel { min-width: 0; padding: 14px; border: 1px solid rgba(49,70,58,.12); border-radius: var(--radius); background: var(--surface); }
 .section-heading { min-height: 25px; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .section-heading h2 { margin: 0; font: 700 17px/1.15 Inter, "Segoe UI", sans-serif; letter-spacing: -.01em; }
@@ -260,7 +264,7 @@ a.today-row-title:hover { text-decoration: underline; }
 .learning-stage-links a:hover { text-decoration: underline; }
 .learning-stage-links a:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 @media (max-width: 680px) { .learning-stages { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
-.focus-panel { grid-column: 1 / -1; background: linear-gradient(125deg, #fff, #fbf7ed); }
+.focus-panel { grid-column: 1 / -1; }
 .focus-heading-copy { display: flex; align-items: baseline; gap: 9px; }
 .focus-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
 .focus-card { min-width: 0; min-height: 100px; display: grid; align-content: start; gap: 7px; padding: 11px; border: 1px solid #dedbcf; border-radius: var(--radius); background: rgba(255,255,255,.82); cursor: pointer; text-align: left; transition: border-color .18s ease, transform .18s ease; }
@@ -330,7 +334,7 @@ a.today-row-title:hover { text-decoration: underline; }
 .reason.due { background: var(--orange-soft); color: #a85229; }
 .reason.new { background: var(--green-soft); color: var(--green); }
 
-.inbox-list { display: grid; gap: 5px; }
+.inbox-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
 .inbox-card { min-height: 61px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 9px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); text-decoration: none; transition: border-color .18s ease; }
 .inbox-card:hover { border-color: rgba(36,89,73,.5); }
 .inbox-card > span { color: var(--orange); font: 700 12px/1 Inter, "Segoe UI", sans-serif; }
@@ -397,17 +401,12 @@ a.today-row-title:hover { text-decoration: underline; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-@media (max-width: 1180px) {
-  .app-pill small { display: none; }
-}
-
 @media (max-width: 900px) {
   main { width: calc(100% - 20px); }
   .app-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .today-grid { grid-template-columns: 1fr; }
   .today-sec, .today-sec:first-child, .today-sec:last-child { padding: 14px 0 6px; }
   .today-sec + .today-sec { border-left: 0; border-top: 1px solid var(--divider); }
-  .content-grid { grid-template-columns: 1fr 1fr; }
   .focus-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .inbox-panel { grid-column: 1 / -1; }
   .inbox-list { grid-template-columns: repeat(3, 1fr); }
@@ -417,18 +416,16 @@ a.today-row-title:hover { text-decoration: underline; }
   main { width: calc(100% - 20px); }
   .context-strip { min-height: 34px; }
   .context-strip strong, .context-strip small { font-size: 12px; }
-  .app-pill { gap: 5px; padding: 6px; }
-  .app-icon { width: 24px; height: 24px; font-size: 12px; }
-  .app-pill .idea-mark-icon { width: 15px; height: 15px; }
+  .app-pill { gap: 5px; }
   .app-pill b { font-size: 12px; }
-  .today-panel { padding: 14px 12px 8px; border-radius: var(--radius); }
-  .today-head h2 { font-size: 16px; }
+  .today-panel { padding: 2px 0 4px; }
+  .today-head h2 { font-size: 20px; }
   .today-counter { font-size: 12px; }
   .today-chips { grid-template-columns: 1fr 1fr; }
   .today-sheet { place-items: end stretch; padding: 0; }
   .today-sheet-dialog { width: 100%; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
   .today-toast { right: 12px; left: 12px; bottom: calc(12px + var(--tabbar-space, 0px)); max-width: none; justify-content: space-between; }
-  .content-grid { grid-template-columns: 1fr; gap: 6px; padding-bottom: 7px; }
+  .content-grid { padding-bottom: 7px; }
   .focus-list { grid-template-columns: 1fr; gap: 5px; }
   .focus-card { min-height: 0; grid-template-columns: 28px minmax(0, 1fr); align-items: start; gap: 5px 7px; padding: 9px; }
   .focus-card strong { -webkit-line-clamp: 2; }

@@ -26,11 +26,11 @@ test('theme script pins the browser color scheme to the resolved theme', async (
   assert.match(script, /if \(scheme\) scheme\.content = theme;/)
 })
 
-test('palette stylesheets and options exist', async () => {
+test('only 自動/ライト/ダーク remain and no palette rules are generated', async () => {
   const css = await readFile(new URL('../src/index.dark.css', import.meta.url), 'utf8')
-  assert.match(css, /:root\[data-theme="light"\]\[data-palette="cream"\]/)
-  assert.match(css, /:root\[data-theme="dark"\]\[data-palette="navy"\]/)
-  assert.match(css, /:root\[data-theme="dark"\]\[data-palette="forest"\]/)
+  assert.doesNotMatch(css, /data-palette/)
   const script = await readFile(new URL('../public/theme.js', import.meta.url), 'utf8')
-  assert.match(script, /root\.dataset\.palette = preference/)
+  assert.doesNotMatch(script, /PALETTES|dataset\.palette/)
+  const select = await readFile(new URL('../src/components/ThemeSelect.tsx', import.meta.url), 'utf8')
+  assert.deepEqual([...select.matchAll(/<option value="(\w+)">/g)].map((match) => match[1]), ['system', 'light', 'dark'])
 })

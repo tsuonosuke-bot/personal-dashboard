@@ -25,9 +25,9 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(html, /id="writingMeta">—/);
   assert.doesNotMatch(html, /目標をNext Actionへ|Pomeraで書くテーマ/);
   assert.ok(html.indexOf('id="hubContent"') < html.indexOf('class="data-tools"'));
-  // 「今日やること」はアプリ一覧のすぐ下、既存の一覧より前に置く
-  assert.ok(html.indexOf('class="app-row"') < html.indexOf('id="todayPanel"'));
-  assert.ok(html.indexOf('id="todayPanel"') < html.indexOf('id="hubContent"'));
+  // #349: 「今日やること」をホームの先頭に置き、アプリ一覧（件数の行）はその下に置く
+  assert.ok(html.indexOf('id="todayPanel"') < html.indexOf('class="app-row"'));
+  assert.ok(html.indexOf('class="app-row"') < html.indexOf('id="hubContent"'));
   // #317: Todayの操作位置を保ち、Focusは学習4段階より先に読む。CSSによる順序変更は使わない。
   assert.ok(html.indexOf('id="todayPanel"') < html.indexOf('id="focusTitle"'));
   assert.ok(html.indexOf('id="focusTitle"') < html.indexOf('id="learningTitle"'));
@@ -43,7 +43,6 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(html, /id="journalList"/);
   assert.match(html, /id="journalTrend"/);
   assert.match(html, /過去のJournal/);
-  assert.match(html, /読み取り専用/);
   assert.match(script, /renderInbox\(payload\.inbox \|\| \[\], availability\.inbox\)/);
   assert.match(script, /labeledCount\("進行中", summary\.activeProjects\)/);
   assert.match(script, /labeledCount\("アイデア", summary\.writingIdeas\)/);
@@ -372,9 +371,9 @@ test("Hub and personal dashboards use the requested page names and shared shell"
   assert.match(hub, /<b>Finance<\/b>/);
   assert.match(hub, /<b>Knowledge<\/b>/);
   assert.match(idea, /<h1>Idea<\/h1>/);
-  assert.match(hub, /class="idea-mark-icon"/);
   assert.match(idea, /class="idea-mark-icon"/);
-  assert.doesNotMatch(hub, /class="app-icon"[^>]*>↗<\/span>/);
+  // #350: 名前が隣にある頭文字アイコンは置かない
+  assert.doesNotMatch(hub, /class="app-icon"|class="quick-add-icon"|class="today-sec-icon"/);
   assert.doesNotMatch(idea, /class="dashboard-brand-mark idea"[^>]*>↗<\/span>/);
   assert.match(writing, /<h1>Writing<\/h1>/);
   assert.match(habits, /<h1>Habits<\/h1>/);
@@ -525,4 +524,53 @@ test("Knowledge and Finance ship the same tab bar script and styles as the Hub",
 test("SF6の編集ウインドウは、外側をクリックしても閉じず入力を失わない", async () => {
   const script = await readFile(new URL("../public/sf6.js", import.meta.url), "utf8");
   assert.doesNotMatch(script, /event\.target === els\.editModal/);
+});
+
+test("#349: Today is the main body and only rarely used panels fold into single lines", async () => {
+  const [html, css, script] = await Promise.all([
+    readFile(new URL("../public/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/hub.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/hub.js", import.meta.url), "utf8"),
+  ]);
+  const main = html.slice(html.indexOf("<main>"), html.indexOf('id="hubContent"'));
+  // 「今日やること」より上に枠付きの箱を置かない
+  assert.ok(main.indexOf('id="todayPanel"') < main.indexOf('class="app-row"'));
+  assert.doesNotMatch(html, /today-sec-icon/);
+  const todayRule = css.match(/\n\.today-panel \{[^}]*\}/)?.[0] ?? "";
+  assert.doesNotMatch(todayRule, /border:|background:/);
+  assert.match(css, /\.today-head h2 \{ margin: 0; font: 750 22px/);
+  // 毎日使う欄は枠なし、たまに見る欄は<details>で畳み、開いた欄だけを端末に覚える
+  for (const key of ["focus", "inbox"]) assert.match(html, new RegExp(`<section class="daily ${key}-panel" data-home-section="${key}"`));
+  for (const key of ["expenses", "knowledge", "journal", "learning"]) {
+    assert.match(html, new RegExp(`<details class="fold ${key}-panel" data-home-section="${key}" data-fold="${key}">`));
+  }
+  assert.doesNotMatch(html, /class="panel /);
+  assert.match(script, /const FOLD_STORAGE_KEY = "hub-home-open";/);
+  assert.match(script, /fold\.open = open\.includes\(fold\.dataset\.fold\)/);
+  assert.match(script, /^setupFolds\(\);$/m);
+  // 畳んだ行にも要点の数字を出す
+  assert.match(html, /id="expensesFoldMeta"/);
+  assert.match(html, /id="knowledgeFoldMeta"/);
+  assert.match(script, /els\.knowledgeFoldMeta\.textContent = activity\.label/);
+});
+
+test("#350: Hub home shows numbers and actions, not explanatory subtitles", async () => {
+  const [html, help] = await Promise.all([
+    readFile(new URL("../public/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/help/index.html", import.meta.url), "utf8"),
+  ]);
+  for (const text of ["今日やることと全体像", "思いつきを記録", "収支を追加", "目標と次の一手", "問題キューから解く", "今、意識する5つまで", "チェックした項目を表示します"]) {
+    assert.doesNotMatch(html, new RegExp(text), text);
+  }
+  // 「＋追加」は名前だけで、行き先と支援技術向けの名前は保つ
+  assert.match(html, /<a href="\/compass\/\?new=inbox">Inbox追加<\/a>/);
+  assert.match(html, /<nav aria-label="すぐに追加または開始">/);
+  // 件数のように状態を示す注記は残す
+  assert.match(html, /<span class="section-note" id="inboxMeta">/);
+  // 削った定義はヘルプで読める
+  assert.match(help, /表示は5件までです/);
+  for (const page of ["index", "compass/index", "projects/index", "writing/index", "habits/index", "sf6/index", "status/index"]) {
+    const source = await readFile(new URL(`../public/${page}.html`, import.meta.url), "utf8");
+    assert.doesNotMatch(source, /<\/h1><small>/, page);
+  }
 });

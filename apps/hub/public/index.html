@@ -25,7 +25,7 @@
         <div class="dashboard-header-inner">
           <a class="dashboard-brand" href="/" aria-label="Personal Hub ホーム">
             <span class="dashboard-brand-mark hub" aria-hidden="true">H</span>
-            <span><h1>Personal Hub</h1><small>今日やることと全体像</small></span>
+            <span><h1>Personal Hub</h1></span>
           </a>
           <div class="dashboard-actions">
             <details class="dashboard-switcher">
@@ -40,7 +40,7 @@
                 <nav aria-label="ダッシュボードを切り替え">
                   <a href="/compass/">Idea</a><a href="/projects/">Projects</a><a href="/writing/">Writing</a><a href="/habits/">Habits</a><a href="/sf6/">SF6</a><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a><a href="/status/">接続状態</a>
                 </nav>
-                <label class="theme-select"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option><option value="cream">クリーム</option><option value="navy">ネイビー</option><option value="forest">ディープグリーン</option><option value="nord">ノルド</option><option value="gruvbox">グルーブボックス</option><option value="solarized">ソラライズド</option></select></label>
+                <label class="theme-select"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label>
               </div>
             </details>
             <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
@@ -48,10 +48,10 @@
             <details class="quick-add-menu" id="quickAddMenu">
               <summary class="dashboard-primary"><span aria-hidden="true">＋</span><span>追加</span></summary>
               <nav aria-label="すぐに追加または開始">
-                <a href="/compass/?new=inbox"><span class="quick-add-icon idea" aria-hidden="true">I</span><span><strong>Inbox追加</strong><small>思いつきを記録</small></span></a>
-                <a href="/finance/?new=expense"><span class="quick-add-icon finance" aria-hidden="true">¥</span><span><strong>家計簿記録</strong><small>収支を追加</small></span></a>
-                <a href="/projects/?new=project"><span class="quick-add-icon projects" aria-hidden="true">P</span><span><strong>Project作成</strong><small>目標と次の一手</small></span></a>
-                <a href="/knowledge/?view=quiz&amp;mode=daily"><span class="quick-add-icon knowledge" aria-hidden="true">K</span><span><strong>復習開始</strong><small>問題キューから解く</small></span></a>
+                <a href="/compass/?new=inbox">Inbox追加</a>
+                <a href="/finance/?new=expense">家計簿記録</a>
+                <a href="/projects/?new=project">Project作成</a>
+                <a href="/knowledge/?view=quiz&amp;mode=daily">復習開始</a>
               </nav>
             </details>
           </div>
@@ -70,23 +70,6 @@
           <a id="batchAlertLink" href="/status/">接続状態を確認 →</a>
         </div>
 
-        <nav class="app-row" aria-label="アプリ" data-home-section="apps">
-          <a class="app-pill compass-pill" id="compassLink" href="/compass/">
-            <span class="app-icon" aria-hidden="true">
-              <svg class="idea-mark-icon" viewBox="0 0 24 24">
-                <path d="M9 18h6M10 21h4" />
-                <path d="M8.5 14.5a6 6 0 1 1 7 0c-.9.7-1.5 1.6-1.5 2.5h-4c0-.9-.6-1.8-1.5-2.5Z" />
-              </svg>
-            </span>
-            <b>Idea</b><small id="compassMeta">—</small>
-          </a>
-          <a class="app-pill projects-pill" id="projectsLink" href="/projects/"><span class="app-icon" aria-hidden="true">P</span><b>Projects</b><small id="projectsMeta">—</small></a>
-          <a class="app-pill writing-pill" id="writingLink" href="/writing/"><span class="app-icon" aria-hidden="true">W</span><b>Writing</b><small id="writingMeta">—</small></a>
-          <a class="app-pill habits-pill" id="habitsLink" href="/habits/"><span class="app-icon" aria-hidden="true">✓</span><b>Habits</b><small id="habitsMeta">—</small></a>
-          <a class="app-pill finance-pill" id="financialLink" href="/finance/"><span class="app-icon" aria-hidden="true">¥</span><b>Finance</b><small id="financialMeta">—</small></a>
-          <a class="app-pill knowledge-pill" id="knowledgeLink" href="/knowledge/"><span class="app-icon" aria-hidden="true">K</span><b>Knowledge</b><small id="knowledgeMeta">—</small></a>
-        </nav>
-
         <section class="today-panel" id="todayPanel" data-home-section="today" aria-labelledby="todayTitle">
           <div class="today-head">
             <h2 id="todayTitle">今日やること</h2>
@@ -96,27 +79,30 @@
           <div class="today-grid">
             <section class="today-sec" aria-labelledby="todayTodoTitle">
               <div class="today-sec-head">
-                <span class="today-sec-icon todo" aria-hidden="true">
-                  <svg class="idea-mark-icon" viewBox="0 0 24 24">
-                    <path d="M9 18h6M10 21h4" />
-                    <path d="M8.5 14.5a6 6 0 1 1 7 0c-.9.7-1.5 1.6-1.5 2.5h-4c0-.9-.6-1.8-1.5-2.5Z" />
-                  </svg>
-                </span>
                 <h3 id="todayTodoTitle">ToDo</h3>
                 <a id="todayTodoLink" href="/compass/?view=todos">一覧 →</a>
               </div>
               <div id="todayTodos"></div>
             </section>
             <section class="today-sec" aria-labelledby="todayHabitTitle">
-              <div class="today-sec-head"><span class="today-sec-icon habit" aria-hidden="true">✓</span><h3 id="todayHabitTitle">Habit</h3><a href="/habits/">一覧 →</a></div>
+              <div class="today-sec-head"><h3 id="todayHabitTitle">Habit</h3><a href="/habits/">一覧 →</a></div>
               <div id="todayHabits"></div>
             </section>
             <section class="today-sec" aria-labelledby="todayProjectTitle">
-              <div class="today-sec-head"><span class="today-sec-icon project" aria-hidden="true">P</span><h3 id="todayProjectTitle">Project · 着手が必要</h3><a href="/projects/">一覧 →</a></div>
+              <div class="today-sec-head"><h3 id="todayProjectTitle">Project · 着手が必要</h3><a href="/projects/">一覧 →</a></div>
               <div id="todayProjects"></div>
             </section>
           </div>
         </section>
+
+        <nav class="app-row" aria-label="アプリ" data-home-section="apps">
+          <a class="app-pill compass-pill" id="compassLink" href="/compass/"><b>Idea</b><small id="compassMeta">—</small></a>
+          <a class="app-pill projects-pill" id="projectsLink" href="/projects/"><b>Projects</b><small id="projectsMeta">—</small></a>
+          <a class="app-pill writing-pill" id="writingLink" href="/writing/"><b>Writing</b><small id="writingMeta">—</small></a>
+          <a class="app-pill habits-pill" id="habitsLink" href="/habits/"><b>Habits</b><small id="habitsMeta">—</small></a>
+          <a class="app-pill finance-pill" id="financialLink" href="/finance/"><b>Finance</b><small id="financialMeta">—</small></a>
+          <a class="app-pill knowledge-pill" id="knowledgeLink" href="/knowledge/"><b>Knowledge</b><small id="knowledgeMeta">—</small></a>
+        </nav>
 
         <div id="loadingState" class="state-card" role="status"><span class="spinner"></span><p>Supabaseから全体像を読み込んでいます</p></div>
         <div id="errorState" class="state-card error-state" role="alert" hidden>
@@ -124,22 +110,15 @@
         </div>
 
         <div id="hubContent" class="content-grid" hidden>
-          <section class="panel focus-panel" data-home-section="focus" aria-labelledby="focusTitle">
+          <section class="daily focus-panel" data-home-section="focus" aria-labelledby="focusTitle">
             <div class="section-heading">
-              <div class="focus-heading-copy"><h2 id="focusTitle">Focus</h2><span class="section-note">今、意識する5つまで</span></div>
+              <div class="focus-heading-copy"><h2 id="focusTitle">Focus</h2></div>
               <button class="section-action" id="manageFocusButton" type="button">管理</button>
             </div>
             <div id="focusList" class="focus-list"></div>
           </section>
-          <section class="panel learning-panel" data-home-section="learning" aria-labelledby="learningTitle">
-            <div class="section-heading">
-              <h2 id="learningTitle">学習の流れ</h2>
-              <a href="/help/#learning">使い方</a>
-            </div>
-            <ol id="learningStages" class="learning-stages"></ol>
-          </section>
 
-          <section class="panel inbox-panel" data-home-section="inbox" aria-labelledby="inboxTitle">
+          <section class="daily inbox-panel" data-home-section="inbox" aria-labelledby="inboxTitle">
             <div class="section-heading">
               <div class="inbox-heading-copy"><h2 id="inboxTitle">未整理のInbox</h2><span class="section-note" id="inboxMeta">Inboxを確認中</span></div>
               <a id="allInboxLink" href="/compass/?view=inbox">一覧 →</a>
@@ -147,30 +126,37 @@
             <div id="inboxList" class="inbox-list"></div>
           </section>
 
-          <section class="panel expenses-panel" data-home-section="expenses" aria-labelledby="expensesTitle">
-            <div class="section-heading">
-              <h2 id="expensesTitle">直近の家計簿</h2>
-              <a id="allExpensesLink" href="/finance/">一覧 →</a>
+          <details class="fold expenses-panel" data-home-section="expenses" data-fold="expenses">
+            <summary class="fold-summary"><h2 id="expensesTitle">直近の家計簿</h2><span class="fold-meta" id="expensesFoldMeta"></span></summary>
+            <div class="fold-body">
+              <div id="expenseList" class="record-list"></div>
+              <a class="fold-link" id="allExpensesLink" href="/finance/">一覧 →</a>
             </div>
-            <div id="expenseList" class="record-list"></div>
-          </section>
+          </details>
 
-          <section class="panel knowledge-panel" data-home-section="knowledge" aria-labelledby="knowledgeTitle">
-            <div class="section-heading">
-              <h2 id="knowledgeTitle">今見るナレッジ</h2>
-              <a id="allKnowledgeLink" href="/knowledge/">一覧 →</a>
+          <details class="fold knowledge-panel" data-home-section="knowledge" data-fold="knowledge">
+            <summary class="fold-summary"><h2 id="knowledgeTitle">今見るナレッジ</h2><span class="fold-meta" id="knowledgeFoldMeta"></span></summary>
+            <div class="fold-body">
+              <div id="knowledgeList" class="knowledge-list"></div>
+              <a class="fold-link" id="allKnowledgeLink" href="/knowledge/">一覧 →</a>
             </div>
-            <div id="knowledgeList" class="knowledge-list"></div>
-          </section>
+          </details>
 
-          <section class="panel journal-panel" data-home-section="journal" aria-labelledby="journalTitle">
-            <div class="section-heading">
-              <h2 id="journalTitle">過去のJournal</h2>
-              <span class="section-note">読み取り専用</span>
+          <details class="fold journal-panel" data-home-section="journal" data-fold="journal">
+            <summary class="fold-summary"><h2 id="journalTitle">過去のJournal</h2></summary>
+            <div class="fold-body">
+              <div id="journalTrend"></div>
+              <div id="journalList" class="journal-list"></div>
             </div>
-            <div id="journalTrend"></div>
-            <div id="journalList" class="journal-list"></div>
-          </section>
+          </details>
+
+          <details class="fold learning-panel" data-home-section="learning" data-fold="learning">
+            <summary class="fold-summary"><h2 id="learningTitle">学習の流れ</h2></summary>
+            <div class="fold-body">
+              <ol id="learningStages" class="learning-stages"></ol>
+              <a class="fold-link" href="/help/#learning">使い方</a>
+            </div>
+          </details>
         </div>
 
         <section class="data-tools" aria-label="データ管理" data-home-section="data">
@@ -189,7 +175,7 @@
       <button class="focus-modal-backdrop" id="focusModalBackdrop" type="button" aria-label="Focus管理を閉じる"></button>
       <section class="focus-dialog" role="dialog" aria-modal="true" aria-labelledby="focusDialogTitle">
         <header class="focus-dialog-header">
-          <div><h2 id="focusDialogTitle">Focusを管理</h2><p>表示は5件まで</p></div>
+          <div><h2 id="focusDialogTitle">Focusを管理</h2></div>
           <button class="focus-close" id="closeFocusButton" type="button" aria-label="閉じる">×</button>
         </header>
         <p class="focus-message" id="focusMessage" role="status" hidden></p>
@@ -201,7 +187,7 @@
       <button class="focus-modal-backdrop" id="homeSettingsBackdrop" type="button" aria-label="表示設定を閉じる"></button>
       <section class="focus-dialog" role="dialog" aria-modal="true" aria-labelledby="homeSettingsTitle">
         <header class="focus-dialog-header">
-          <div><h2 id="homeSettingsTitle">ホームの表示設定</h2><p>チェックした項目を表示します</p></div>
+          <div><h2 id="homeSettingsTitle">ホームの表示設定</h2></div>
           <button class="focus-close" id="homeSettingsClose" type="button" aria-label="閉じる">×</button>
         </header>
         <p class="focus-message" id="homeSettingsMessage" role="status" hidden></p>

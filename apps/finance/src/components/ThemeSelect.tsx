@@ -13,12 +13,6 @@ export function ThemeSelect() {
         <option value="system">自動</option>
         <option value="light">ライト</option>
         <option value="dark">ダーク</option>
-        <option value="cream">クリーム</option>
-        <option value="navy">ネイビー</option>
-        <option value="forest">ディープグリーン</option>
-        <option value="nord">ノルド</option>
-        <option value="gruvbox">グルーブボックス</option>
-        <option value="solarized">ソラライズド</option>
       </select>
     </label>
   )
