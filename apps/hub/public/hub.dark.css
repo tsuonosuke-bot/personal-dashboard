@@ -81,32 +81,13 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] .quick-add-menu nav a {
   border-radius: var(--radius-sm);
+  color: var(--ink);
   text-decoration: none;
 }
 :root[data-theme="dark"] .quick-add-menu nav a:hover,
 :root[data-theme="dark"] .quick-add-menu nav a:focus-visible {
   background: var(--bg-hover);
   outline: none;
-}
-:root[data-theme="dark"] .quick-add-menu nav small {
-  color: var(--muted);
-}
-:root[data-theme="dark"] .quick-add-icon {
-  border-radius: var(--radius-sm);
-  color: var(--green);
-  background: var(--green-soft);
-}
-:root[data-theme="dark"] .quick-add-icon.finance {
-  color: var(--blue);
-  background: var(--blue-soft);
-}
-:root[data-theme="dark"] .quick-add-icon.projects {
-  color: var(--gold);
-  background: var(--gold-soft);
-}
-:root[data-theme="dark"] .quick-add-icon.knowledge {
-  color: var(--violet);
-  background: var(--violet-soft);
 }
 :root[data-theme="dark"] .source-badge.partial i {
   background: var(--orange--light, var(--orange));
@@ -148,11 +129,6 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .app-pill small {
   color: var(--accent);
 }
-:root[data-theme="dark"] .app-icon {
-  border-radius: var(--radius-sm);
-  background: var(--soft);
-  color: var(--accent);
-}
 :root[data-theme="dark"] .projects-pill {
   --accent--light: var(--violet--light, var(--violet));
   --soft--light: var(--violet-soft--light, var(--violet-soft));
@@ -172,10 +148,6 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .knowledge-pill {
   --accent--light: var(--violet--light, var(--violet));
   --soft--light: var(--violet-soft--light, var(--violet-soft));
-}
-:root[data-theme="dark"] .idea-mark-icon {
-  fill: none;
-  stroke: currentColor;
 }
 :root[data-theme="dark"] .today-head {
   border-bottom: 1px solid var(--divider);
@@ -604,9 +576,6 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .learning-stage-links a:focus-visible {
   outline: 2px solid var(--green);
   outline-offset: 2px;
-}
-:root[data-theme="dark"] .focus-panel {
-  background: linear-gradient(125deg, #292929, #221f19);
 }
 :root[data-theme="dark"] .focus-card {
   border: 1px solid #555248;

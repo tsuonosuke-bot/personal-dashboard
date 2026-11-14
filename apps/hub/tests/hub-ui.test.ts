@@ -371,9 +371,9 @@ test("Hub and personal dashboards use the requested page names and shared shell"
   assert.match(hub, /<b>Finance<\/b>/);
   assert.match(hub, /<b>Knowledge<\/b>/);
   assert.match(idea, /<h1>Idea<\/h1>/);
-  assert.match(hub, /class="idea-mark-icon"/);
   assert.match(idea, /class="idea-mark-icon"/);
-  assert.doesNotMatch(hub, /class="app-icon"[^>]*>↗<\/span>/);
+  // #350: 名前が隣にある頭文字アイコンは置かない
+  assert.doesNotMatch(hub, /class="app-icon"|class="quick-add-icon"|class="today-sec-icon"/);
   assert.doesNotMatch(idea, /class="dashboard-brand-mark idea"[^>]*>↗<\/span>/);
   assert.match(writing, /<h1>Writing<\/h1>/);
   assert.match(habits, /<h1>Habits<\/h1>/);
@@ -552,4 +552,25 @@ test("#349: Today is the main body and only rarely used panels fold into single 
   assert.match(html, /id="expensesFoldMeta"/);
   assert.match(html, /id="knowledgeFoldMeta"/);
   assert.match(script, /els\.knowledgeFoldMeta\.textContent = activity\.label/);
+});
+
+test("#350: Hub home shows numbers and actions, not explanatory subtitles", async () => {
+  const [html, help] = await Promise.all([
+    readFile(new URL("../public/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/help/index.html", import.meta.url), "utf8"),
+  ]);
+  for (const text of ["今日やることと全体像", "思いつきを記録", "収支を追加", "目標と次の一手", "問題キューから解く", "今、意識する5つまで", "チェックした項目を表示します"]) {
+    assert.doesNotMatch(html, new RegExp(text), text);
+  }
+  // 「＋追加」は名前だけで、行き先と支援技術向けの名前は保つ
+  assert.match(html, /<a href="\/compass\/\?new=inbox">Inbox追加<\/a>/);
+  assert.match(html, /<nav aria-label="すぐに追加または開始">/);
+  // 件数のように状態を示す注記は残す
+  assert.match(html, /<span class="section-note" id="inboxMeta">/);
+  // 削った定義はヘルプで読める
+  assert.match(help, /表示は5件までです/);
+  for (const page of ["index", "compass/index", "projects/index", "writing/index", "habits/index", "sf6/index", "status/index"]) {
+    const source = await readFile(new URL(`../public/${page}.html`, import.meta.url), "utf8");
+    assert.doesNotMatch(source, /<\/h1><small>/, page);
+  }
 });

@@ -219,7 +219,7 @@ test("SF6ページは5タブ（コンボと起き攻めはコンボパーツに�
   // コンボと起き攻めは1種類のコンボパーツに統合し、種類の絞り込みは持たない
   assert.doesNotMatch(html, /id="sequenceKind"/);
   assert.doesNotMatch(html, /data-tab="notes"|注意点/);
-  assert.match(html, /<small>コンボパーツ・練習<\/small>/);
+  assert.doesNotMatch(html, /<h1>SF6<\/h1><small>/);
   assert.match(html, /id="conditionBurnout"/);
   assert.match(html, /id="conditionPunish"/);
   assert.match(html, /id="sheet"/);

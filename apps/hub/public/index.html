@@ -25,7 +25,7 @@
         <div class="dashboard-header-inner">
           <a class="dashboard-brand" href="/" aria-label="Personal Hub ホーム">
             <span class="dashboard-brand-mark hub" aria-hidden="true">H</span>
-            <span><h1>Personal Hub</h1><small>今日やることと全体像</small></span>
+            <span><h1>Personal Hub</h1></span>
           </a>
           <div class="dashboard-actions">
             <details class="dashboard-switcher">
@@ -48,10 +48,10 @@
             <details class="quick-add-menu" id="quickAddMenu">
               <summary class="dashboard-primary"><span aria-hidden="true">＋</span><span>追加</span></summary>
               <nav aria-label="すぐに追加または開始">
-                <a href="/compass/?new=inbox"><span class="quick-add-icon idea" aria-hidden="true">I</span><span><strong>Inbox追加</strong><small>思いつきを記録</small></span></a>
-                <a href="/finance/?new=expense"><span class="quick-add-icon finance" aria-hidden="true">¥</span><span><strong>家計簿記録</strong><small>収支を追加</small></span></a>
-                <a href="/projects/?new=project"><span class="quick-add-icon projects" aria-hidden="true">P</span><span><strong>Project作成</strong><small>目標と次の一手</small></span></a>
-                <a href="/knowledge/?view=quiz&amp;mode=daily"><span class="quick-add-icon knowledge" aria-hidden="true">K</span><span><strong>復習開始</strong><small>問題キューから解く</small></span></a>
+                <a href="/compass/?new=inbox">Inbox追加</a>
+                <a href="/finance/?new=expense">家計簿記録</a>
+                <a href="/projects/?new=project">Project作成</a>
+                <a href="/knowledge/?view=quiz&amp;mode=daily">復習開始</a>
               </nav>
             </details>
           </div>
@@ -96,20 +96,12 @@
         </section>
 
         <nav class="app-row" aria-label="アプリ" data-home-section="apps">
-          <a class="app-pill compass-pill" id="compassLink" href="/compass/">
-            <span class="app-icon" aria-hidden="true">
-              <svg class="idea-mark-icon" viewBox="0 0 24 24">
-                <path d="M9 18h6M10 21h4" />
-                <path d="M8.5 14.5a6 6 0 1 1 7 0c-.9.7-1.5 1.6-1.5 2.5h-4c0-.9-.6-1.8-1.5-2.5Z" />
-              </svg>
-            </span>
-            <b>Idea</b><small id="compassMeta">—</small>
-          </a>
-          <a class="app-pill projects-pill" id="projectsLink" href="/projects/"><span class="app-icon" aria-hidden="true">P</span><b>Projects</b><small id="projectsMeta">—</small></a>
-          <a class="app-pill writing-pill" id="writingLink" href="/writing/"><span class="app-icon" aria-hidden="true">W</span><b>Writing</b><small id="writingMeta">—</small></a>
-          <a class="app-pill habits-pill" id="habitsLink" href="/habits/"><span class="app-icon" aria-hidden="true">✓</span><b>Habits</b><small id="habitsMeta">—</small></a>
-          <a class="app-pill finance-pill" id="financialLink" href="/finance/"><span class="app-icon" aria-hidden="true">¥</span><b>Finance</b><small id="financialMeta">—</small></a>
-          <a class="app-pill knowledge-pill" id="knowledgeLink" href="/knowledge/"><span class="app-icon" aria-hidden="true">K</span><b>Knowledge</b><small id="knowledgeMeta">—</small></a>
+          <a class="app-pill compass-pill" id="compassLink" href="/compass/"><b>Idea</b><small id="compassMeta">—</small></a>
+          <a class="app-pill projects-pill" id="projectsLink" href="/projects/"><b>Projects</b><small id="projectsMeta">—</small></a>
+          <a class="app-pill writing-pill" id="writingLink" href="/writing/"><b>Writing</b><small id="writingMeta">—</small></a>
+          <a class="app-pill habits-pill" id="habitsLink" href="/habits/"><b>Habits</b><small id="habitsMeta">—</small></a>
+          <a class="app-pill finance-pill" id="financialLink" href="/finance/"><b>Finance</b><small id="financialMeta">—</small></a>
+          <a class="app-pill knowledge-pill" id="knowledgeLink" href="/knowledge/"><b>Knowledge</b><small id="knowledgeMeta">—</small></a>
         </nav>
 
         <div id="loadingState" class="state-card" role="status"><span class="spinner"></span><p>Supabaseから全体像を読み込んでいます</p></div>
@@ -120,7 +112,7 @@
         <div id="hubContent" class="content-grid" hidden>
           <section class="daily focus-panel" data-home-section="focus" aria-labelledby="focusTitle">
             <div class="section-heading">
-              <div class="focus-heading-copy"><h2 id="focusTitle">Focus</h2><span class="section-note">今、意識する5つまで</span></div>
+              <div class="focus-heading-copy"><h2 id="focusTitle">Focus</h2></div>
               <button class="section-action" id="manageFocusButton" type="button">管理</button>
             </div>
             <div id="focusList" class="focus-list"></div>
@@ -183,7 +175,7 @@
       <button class="focus-modal-backdrop" id="focusModalBackdrop" type="button" aria-label="Focus管理を閉じる"></button>
       <section class="focus-dialog" role="dialog" aria-modal="true" aria-labelledby="focusDialogTitle">
         <header class="focus-dialog-header">
-          <div><h2 id="focusDialogTitle">Focusを管理</h2><p>表示は5件まで</p></div>
+          <div><h2 id="focusDialogTitle">Focusを管理</h2></div>
           <button class="focus-close" id="closeFocusButton" type="button" aria-label="閉じる">×</button>
         </header>
         <p class="focus-message" id="focusMessage" role="status" hidden></p>
@@ -195,7 +187,7 @@
       <button class="focus-modal-backdrop" id="homeSettingsBackdrop" type="button" aria-label="表示設定を閉じる"></button>
       <section class="focus-dialog" role="dialog" aria-modal="true" aria-labelledby="homeSettingsTitle">
         <header class="focus-dialog-header">
-          <div><h2 id="homeSettingsTitle">ホームの表示設定</h2><p>チェックした項目を表示します</p></div>
+          <div><h2 id="homeSettingsTitle">ホームの表示設定</h2></div>
           <button class="focus-close" id="homeSettingsClose" type="button" aria-label="閉じる">×</button>
         </header>
         <p class="focus-message" id="homeSettingsMessage" role="status" hidden></p>
