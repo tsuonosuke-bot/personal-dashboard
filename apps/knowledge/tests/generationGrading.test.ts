@@ -8,6 +8,7 @@ import {
   buildGenerationRequest,
   QUESTION_CHAR_LIMITS,
   readabilityIssue,
+  asksMultipleAnswers,
   type PickedItem,
 } from "../../hub/functions/knowledge/_shared/questionGeneration.ts";
 
@@ -284,7 +285,7 @@ test("長すぎる問題文と、出題側の事情に触れた問題文は採�
 
   for (const question of [
     "もう一つ必要な要素は？ただし、直近では「継承」を問うたので、ここでは別の観点から答えてください。",
-    "偏りを避けるために、explanationで挙げられている対策を2つ答えてください。",
+    "偏りを避けるために、explanationで挙げられている対策を答えてください。",
     "past_notes にある誤りを踏まえて答えてください。",
     "前回の出題とは別の側面を答えてください。",
   ]) {
@@ -306,5 +307,37 @@ test("出題プロンプトは長さの目安と、サーバーの上限を示�
   assert.match(system, /## 読みやすさ/);
   assert.match(system, /一問一答140字、四択120字、記述説明160字、産出160字/);
   assert.match(system, /次の5点/);
+  assert.match(system, /一問一答で、2つ以上の語句を答えさせない/);
   assert.match(system, /用語（名前）と、その説明・理由・使い方を同時に求めない/);
+});
+
+test("一問一答で2つ以上の語句を答えさせる問題文は採用しない", () => {
+  const card = item("a", "カリスマ的支配");
+  const base = { choices: null, correctChoice: null, explanation: null, expectedAnswer: null };
+  const multiple = [
+    "合法的支配と対比される、他の2つの支配類型を答えてください。",
+    "都合の良い情報ばかり集める傾向は何と呼ばれますか。また、より広い概念は何ですか。両方答えてください。",
+    "偏った判断を避けるための具体的な対策を2つ答えてください。",
+    "五つの問いのうち、「ミッションは何か」に続く残り二つの問いは何か？",
+    "グローバルで活躍するために備えておくべき2つの要素は何ですか？",
+    "著者は情報をどの3つにブレイクダウンしてストックしていますか？",
+    "連動度を表す指標は何ですか。どちらを組み合わせるべきかも含めて答えてください。",
+    "顧客から奪われているものを二つ挙げてください。",
+  ];
+  for (const question of multiple) {
+    assert.equal(asksMultipleAnswers(question, "一問一答"), true, question);
+    assert.match(generationIssue(card, { ...base, question, format: "一問一答" }, undefined) ?? "", /2つ以上の語句/);
+    // 記述説明など、ほかの形式では対象にしない。
+    assert.equal(asksMultipleAnswers(question, "記述説明"), false, question);
+  }
+  const single = [
+    "質の高い休息に必要とされる4つの要素のうち、時間の過ごし方を自分で決めることを指す要素は何ですか？",
+    "相関係数が-1のとき、二つの資産の値動きはどのような関係になりますか？",
+    "他者の思考を読める、信頼を得られる、動かせるという三つの能力をまとめて何と呼びますか？",
+    "二つの時間概念のうち、時計の時間を指すものは何ですか？",
+    "「リラックス」「コントロール」「マスタリー」の3つと並ぶ残りの1つは何ですか。",
+    "「いつの間にか」を3語の英語で答えてください。",
+    "支配の3類型のうち、伝統的支配・合法的支配と並ぶもう1つは？",
+  ];
+  for (const question of single) assert.equal(asksMultipleAnswers(question, "一問一答"), false, question);
 });
