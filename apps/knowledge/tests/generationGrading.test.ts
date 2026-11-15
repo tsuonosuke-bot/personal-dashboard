@@ -305,5 +305,6 @@ test("出題プロンプトは長さの目安と、サーバーの上限を示�
   const system = request.system.join("\n");
   assert.match(system, /## 読みやすさ/);
   assert.match(system, /一問一答140字、四択120字、記述説明160字、産出160字/);
-  assert.match(system, /次の4点/);
+  assert.match(system, /次の5点/);
+  assert.match(system, /用語（名前）と、その説明・理由・使い方を同時に求めない/);
 });
