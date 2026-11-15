@@ -5,6 +5,9 @@ import {
   allowedFormats,
   generateQuestions,
   generationIssue,
+  buildGenerationRequest,
+  QUESTION_CHAR_LIMITS,
+  readabilityIssue,
   type PickedItem,
 } from "../../hub/functions/knowledge/_shared/questionGeneration.ts";
 
@@ -264,4 +267,43 @@ test("個別の再採点が失敗したら、残りの項目へ呼び出しを�
     assert.equal(bodies.length, 3);
     assert.equal(result.errors.size, 3);
   });
+});
+
+test("長すぎる問題文と、出題側の事情に触れた問題文は採用しない", () => {
+  const card = item("a", "プロジェクトバッファ");
+  const base = { choices: null, correctChoice: null, explanation: null, expectedAnswer: null };
+  for (const format of ["一問一答", "四択", "記述説明", "産出"] as const) {
+    const limit = QUESTION_CHAR_LIMITS[format];
+    assert.equal(readabilityIssue("あ".repeat(limit), format), null);
+    assert.match(readabilityIssue("あ".repeat(limit + 1), format) ?? "", new RegExp(`${limit + 1}字.*上限${limit}字`));
+  }
+  const tooLong = generationIssue(card, { ...base, question: "あ".repeat(141), format: "一問一答" }, undefined);
+  assert.match(tooLong ?? "", /上限140字/);
+  // 同じ長さでも、記述説明なら上限内。
+  assert.equal(generationIssue(card, { ...base, question: "あ".repeat(141), format: "記述説明" }, undefined), null);
+
+  for (const question of [
+    "もう一つ必要な要素は？ただし、直近では「継承」を問うたので、ここでは別の観点から答えてください。",
+    "偏りを避けるために、explanationで挙げられている対策を2つ答えてください。",
+    "past_notes にある誤りを踏まえて答えてください。",
+    "前回の出題とは別の側面を答えてください。",
+  ]) {
+    assert.match(generationIssue(card, { ...base, question, format: "一問一答" }, undefined) ?? "", /入力データの名前や前回の出題内容/);
+  }
+  // 英語の例文に出る語や、学習内容としての「前回」は対象にしない。
+  for (const question of [
+    "次の空所に入る形容詞は？\nHer explanation was ＿＿＿ and easy to follow.",
+    "次の空所に入る動詞は？\nPlease ＿＿＿ on the title of the report.",
+    "前回の大統領選挙が行われた年に成立した法律は？",
+  ]) {
+    assert.equal(readabilityIssue(question, "一問一答"), null);
+  }
+});
+
+test("出題プロンプトは長さの目安と、サーバーの上限を示す", () => {
+  const request = buildGenerationRequest([item("a", "選択と集中")], new Map([["a", ["一問一答" as const]]]), new Map(), new Map());
+  const system = request.system.join("\n");
+  assert.match(system, /## 読みやすさ/);
+  assert.match(system, /一問一答140字、四択120字、記述説明160字、産出160字/);
+  assert.match(system, /次の4点/);
 });

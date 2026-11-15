@@ -60,6 +60,36 @@ export function questionFocus(notes: RecentNote[]): QuestionFocus {
   return previous && previous.verdict !== "正解" ? "core" : "weak_point";
 }
 
+/**
+ * 形式ごとの問題文の上限（文字数）。超えた問題は不採用にして、1回だけ作り直させる。
+ * 直近30日の実績で、作り直しに回るのが全体の5%前後になる値にしている。
+ * プロンプトにはこれより短い目安を別に示す。
+ */
+export const QUESTION_CHAR_LIMITS: Record<QuizFormat, number> = {
+  "一問一答": 140,
+  "四択": 120,
+  "記述説明": 160,
+  "産出": 160,
+};
+
+/** AIへ渡した入力の名前。英語の例文に普通に出る title・focus・explanation 単体は含めない。 */
+const INPUT_FIELD_NAME = /past_notes|weak_point|required_format|allowed_formats|expected_answer|times_asked|previous_attempt|explanation\s*(?:で|が|に|の|を|は|から)/u;
+
+/** 「直近では〜を問うたので」のように、出題側の事情を学習者へ説明している書き方。 */
+const GENERATOR_REMARK = /(?:直近|前回|前々回|これまで)(?:では|で|に|の|は|まで)[^。？?]{0,20}(?:問うた|問われた|出題|外した|間違え)/u;
+
+/** 長すぎる問題文と、出題側の事情が漏れた問題文を見つける。問題がなければnull。 */
+export function readabilityIssue(question: string, format: QuizFormat): string | null {
+  const limit = QUESTION_CHAR_LIMITS[format];
+  if (question.length > limit) {
+    return `問題文が${question.length}字あり、${format}の上限${limit}字を超えています。前置きと後付けの条件を削って短くしてください。`;
+  }
+  if (INPUT_FIELD_NAME.test(question) || GENERATOR_REMARK.test(question)) {
+    return "問題文が入力データの名前や前回の出題内容に触れています。学習者はそれらを見られないので書かないでください。";
+  }
+  return null;
+}
+
 /** 四択の選択肢数。DBにもUIにも持たせず、ここだけを基準にする。 */
 export const CHOICE_COUNT = 4;
 
@@ -274,6 +304,8 @@ export function generationIssue(
       ? `問題文では${requested}語と指定していますが、正解は${actual}語です。`
       : "問題文の語数指定が正解と一致しません。";
   }
+  const readability = readabilityIssue(generated.question, generated.format);
+  if (readability) return readability;
   if (generated.format === "四択" && !generated.choices) {
     return parserIssue ?? "四択の選択肢を確認できませんでした。";
   }

@@ -1,5 +1,5 @@
 /** Shared generation prompts and tool schema for immediate and batch requests. */
-import { NOTES_PER_ITEM, CHOICE_COUNT, type PickedItem, type RecentNote, type PreviousAttempt, questionFocus } from "./questionGenerationModel.ts";
+import { NOTES_PER_ITEM, CHOICE_COUNT, QUESTION_CHAR_LIMITS, type PickedItem, type RecentNote, type PreviousAttempt, questionFocus } from "./questionGenerationModel.ts";
 import { type QuizFormat } from "./quizValidation.ts";
 import { type AnthropicToolCallOptions, QUIZ_MODEL, QUIZ_MAX_TOKENS, QUIZ_EFFORT } from "./anthropicClient.ts";
 
@@ -58,6 +58,26 @@ required_format が null の項目だけ、allowed_formats から知識の構造
 
 choices・correct_choice・explanation は選んだformatが四択の項目にだけ付ける。他の形式では省略する。
 
+## 読みやすさ
+
+問題文は、スマホの画面で一読して何を答えればよいか分かる長さと形にする。
+
+- 長さの目安は、一問一答・四択が80字以内、記述説明・産出が120字以内。
+  サーバーは一問一答${QUESTION_CHAR_LIMITS["一問一答"]}字、四択${QUESTION_CHAR_LIMITS["四択"]}字、記述説明${QUESTION_CHAR_LIMITS["記述説明"]}字、産出${QUESTION_CHAR_LIMITS["産出"]}字を超えた問題文を採用しない。
+- 問うことは1つに絞り、問いの文を読めば何を答えるかが分かるようにする。
+  背景の説明は問いに必要な1文までにし、explanation の内容を前置きとして並べない。
+- 手がかりは答えが一つに決まる最小限にとどめる。「ただし」「なお」や括弧書きで条件を後から足さない。
+  条件が増えていくなら、手がかりを足すのではなく問い方そのものを変える。
+- 書きながら条件を訂正しない。送るのは、矛盾のない完成した問題文だけにする。
+- 学習者は入力データを見られない。past_notes・focus・explanation といった入力の名前や、
+  「直近では〜を問うたので」のような出題側の事情を問題文に書かない。
+- 空所補充の英文や、(1)(2)と並べる場面は、問いの文と改行で分けて別の行に置く。
+- 悪い例（前置きが長く、条件を後から足している）:
+  「プロジェクト管理で、各作業の見積りから安全余裕を抜き取って一か所にまとめる手法があります。
+  個別に余裕を持たせると、着手が遅れたり作業が膨らんだりして余裕が食い潰されがちです。
+  この余裕をどこに置き、何と呼ぶか答えてください。（ただし日本語の名称で答える）」
+  良い例:「各作業の見積りから抜いた安全余裕を、計画の最後に1つにまとめて置いたものを何と呼ぶ？」
+
 ## 禁止事項
 
 - title の語句をそのまま問題文に含めない（答えがバレる）。
@@ -77,10 +97,12 @@ choices・correct_choice・explanation は選んだformatが四択の項目に�
 
 ## 出力前の自己チェック
 
-各問を自分で読み返し、次の3点を確認する。どれかに当てはまったら作り直すこと。
+各問を自分で読み返し、次の4点を確認する。どれかに当てはまったら作り直すこと。
 
 - 答えが書いてある: 答えの語句（英単語・熟語・人名・年号など）が問題文に含まれている。
-- 答えが定まらない: 想定した答え以外を入れても問題文が成り立つ。手がかりを足して一つに絞る。
+- 答えが定まらない: 想定した答え以外を入れても問題文が成り立つ。手がかりを1つ足すか、問い方を変えて一つに絞る。
+- 長い・読みにくい: 長さの目安を超えている、前置きが2文以上ある、条件を後から足している、
+  出題側の事情に触れている。削るか、問い方を変える。
 - 形式指定が誤っている: 語数・文字数・頭文字・品詞・時制などの指定が想定解と一致していない。
   例: 正解が「before you knew it」なら4語であり、「3語の表現」と書いてはいけない。
 
@@ -96,7 +118,9 @@ const RETRY_PROMPT = `
 
 - titleや想定解の語句が問題文に入っていたなら、その語句を一切使わずに、定義・使う場面・具体例・対比などから問う。
 - 出題形式が違っていたなら、required_format または allowed_formats の形式で作り直す。
-- 語数の指定が合わなかったなら、語数・文字数を問題文に書かない。`;
+- 語数の指定が合わなかったなら、語数・文字数を問題文に書かない。
+- 長すぎたなら、前置きと後付けの条件を削り、問いを1つに絞って短く作り直す。前回の文面を縮めるのではなく、問い方から変える。
+- 出題側の事情や入力の名前に触れていたなら、その記述を外し、学習者が読むだけで答えられる文にする。`;
 
 const QUESTION_TOOL = {
   name: "submit_questions",

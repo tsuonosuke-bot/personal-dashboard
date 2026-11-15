@@ -163,6 +163,6 @@ export async function generateQuestions(
   return { ok: true, byId, issueById, questionTextById };
 }
 
-export { type GenerationFailure, type RecentNote, groupRecentNotes, NOTES_PER_ITEM, type QuestionFocus, questionFocus, CHOICE_COUNT, type GeneratedQuestion, requestedWordCount, englishTitleWordCount, hasConsistentWordCount, questionRevealsTitle, type PickedItem, isPickedItem, allowedFormats, shuffle, type PreviousAttempt, generationIssue } from "./questionGenerationModel.ts";
+export { type GenerationFailure, type RecentNote, groupRecentNotes, NOTES_PER_ITEM, type QuestionFocus, questionFocus, CHOICE_COUNT, type GeneratedQuestion, requestedWordCount, englishTitleWordCount, hasConsistentWordCount, questionRevealsTitle, QUESTION_CHAR_LIMITS, readabilityIssue, type PickedItem, isPickedItem, allowedFormats, shuffle, type PreviousAttempt, generationIssue } from "./questionGenerationModel.ts";
 
 export { buildGenerationRequest } from "./questionGenerationPrompt.ts";
