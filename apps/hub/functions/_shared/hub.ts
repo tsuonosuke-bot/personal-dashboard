@@ -11,6 +11,27 @@ import {
 } from "./hubSources.ts";
 import { readReviewBatches } from "./reviewBatches.ts";
 import { type FocusRow } from "./focus.ts";
+import { type HomeSection } from "./homeSettings.ts";
+
+/** 各取得元を使うホームの欄。その欄がすべて非表示なら読まない。警告に使う取得元（knowledgeStatus・DB容量）は常に読む。 */
+export const HUB_SOURCE_SECTIONS = {
+  inbox: ["apps", "learning", "inbox"],
+  wants: ["apps", "inbox"],
+  focus: ["focus"],
+  projects: ["apps", "learning"],
+  writing: ["apps"],
+  expenses: ["apps", "expenses"],
+  knowledge: ["apps", "learning", "knowledge"],
+  journal: ["journal"],
+  journalTrend: ["journal"],
+  habits: ["apps"],
+} as const satisfies Record<string, readonly HomeSection[]>;
+type SkippableSource = keyof typeof HUB_SOURCE_SECTIONS;
+
+export function skippedHubSources(hidden: readonly HomeSection[]): SkippableSource[] {
+  return (Object.keys(HUB_SOURCE_SECTIONS) as SkippableSource[])
+    .filter((source) => HUB_SOURCE_SECTIONS[source].every((section) => hidden.includes(section)));
+}
 
 interface KnowledgeHubSummary { dueCount: number; weakCount: number; items: KnowledgeRow[]; reviewStatus: KnowledgeReviewStatus; date?: unknown; todayAnswered?: unknown }
 interface FinanceHubSummary { currentMonthSpend: number; previousMonthSpend: number; recentExpenses: ExpenseRow[] }
@@ -23,25 +44,28 @@ function validRemoteSummary<T>(value: unknown, counts: string[], array: string):
   return value as T;
 }
 
-export async function loadHub(env: HubEnv, now = new Date(), options: { sourceTimeoutMs?: number } = {}) {
+export async function loadHub(env: HubEnv, now = new Date(), options: { sourceTimeoutMs?: number; hidden?: readonly HomeSection[] } = {}) {
   const financialUrl = externalDashboardBase(env.NAV_FINANCIAL_URL);
   const knowledgeUrl = externalDashboardBase(env.NAV_KNOWLEDGE_URL);
   // DB容量は失敗してもnullで返るので、「すべての取得元が失敗したら503」の判定（results）には入れない。
   const today = new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const timeout = Math.max(1, Math.min(6_000, options.sourceTimeoutMs ?? 6_000));
   const databaseUsage = sourceDeadline(loadDatabaseUsage(env), timeout).catch(() => null);
+  const skipped = skippedHubSources(options.hidden ?? []);
+  const unlessSkipped = <T>(source: SkippableSource, work: () => Promise<T>): Promise<T> =>
+    skipped.includes(source) ? Promise.reject(new HubError("HUB_SOURCE_SKIPPED", `${source} is hidden.`)) : work();
   const [inbox, wants, focus, projects, writing, expenses, knowledge, knowledgeStatus, journal, journalTrend, habits] = await Promise.allSettled([
-    fetchLocalHubSummary(env, "inbox", today),
-    fetchLocalHubSummary(env, "wants", today),
-    fetchLocalHubSummary(env, "focus", today),
-    fetchLocalHubSummary(env, "projects", today),
-    fetchLocalHubSummary(env, "writing", today),
-    fetchDashboardJson(env, "finance", financialUrl, `/api/hub-summary?today=${today}`).then((value) => validRemoteSummary<FinanceHubSummary>(value, ["currentMonthSpend", "previousMonthSpend"], "recentExpenses")),
-    fetchDashboardJson(env, "knowledge", knowledgeUrl, `/api/hub-summary?today=${today}`).then((value) => validRemoteSummary<KnowledgeHubSummary>(value, ["dueCount", "weakCount"], "items")),
+    unlessSkipped("inbox", () => fetchLocalHubSummary(env, "inbox", today)),
+    unlessSkipped("wants", () => fetchLocalHubSummary(env, "wants", today)),
+    unlessSkipped("focus", () => fetchLocalHubSummary(env, "focus", today)),
+    unlessSkipped("projects", () => fetchLocalHubSummary(env, "projects", today)),
+    unlessSkipped("writing", () => fetchLocalHubSummary(env, "writing", today)),
+    unlessSkipped("expenses", () => fetchDashboardJson(env, "finance", financialUrl, `/api/hub-summary?today=${today}`).then((value) => validRemoteSummary<FinanceHubSummary>(value, ["currentMonthSpend", "previousMonthSpend"], "recentExpenses"))),
+    unlessSkipped("knowledge", () => fetchDashboardJson(env, "knowledge", knowledgeUrl, `/api/hub-summary?today=${today}`).then((value) => validRemoteSummary<KnowledgeHubSummary>(value, ["dueCount", "weakCount"], "items"))),
     fetchDashboardJson(env, "knowledge", knowledgeUrl, "/api/status"),
-    loadJournalMoments(env, now),
-    loadJournalTrend(env, now),
-    fetchLocalHubSummary(env, "habits", today),
+    unlessSkipped("journal", () => loadJournalMoments(env, now)),
+    unlessSkipped("journalTrend", () => loadJournalTrend(env, now)),
+    unlessSkipped("habits", () => fetchLocalHubSummary(env, "habits", today)),
   ].map((work) => sourceDeadline(work, timeout)) as [Promise<Awaited<ReturnType<typeof fetchLocalHubSummary>>>, Promise<Awaited<ReturnType<typeof fetchLocalHubSummary>>>, Promise<Awaited<ReturnType<typeof fetchLocalHubSummary>>>, Promise<Awaited<ReturnType<typeof fetchLocalHubSummary>>>, Promise<Awaited<ReturnType<typeof fetchLocalHubSummary>>>, Promise<FinanceHubSummary>, Promise<KnowledgeHubSummary>, Promise<unknown>, Promise<Awaited<ReturnType<typeof loadJournalMoments>>>, Promise<Awaited<ReturnType<typeof loadJournalTrend>>>, Promise<Awaited<ReturnType<typeof fetchLocalHubSummary>>>]);
   const results = { inbox, wants, focus, projects, writing, expenses, knowledge, knowledgeStatus, journal, journalTrend, habits };
   const availability: HubAvailability = {
@@ -56,14 +80,16 @@ export async function loadHub(env: HubEnv, now = new Date(), options: { sourceTi
     journalTrend: journalTrend.status === "fulfilled",
     habits: habits.status === "fulfilled",
   };
-  for (const [name, result] of Object.entries(results)) {
+  // 非表示で読まなかった取得元は失敗に数えない。
+  const loaded = Object.entries(results).filter(([name]) => !skipped.includes(name as SkippableSource));
+  for (const [name, result] of loaded) {
     if (result.status === "rejected") {
       const code = result.reason instanceof HubError ? result.reason.code : "UNKNOWN";
       console.error(`hub ${name} load failed: ${code}`);
     }
   }
-  const rejected = Object.values(results).filter((result) => result.status === "rejected");
-  if (rejected.length === Object.keys(results).length) throw rejected[0].reason;
+  const rejected = loaded.filter(([, result]) => result.status === "rejected") as Array<[string, PromiseRejectedResult]>;
+  if (rejected.length === loaded.length) throw rejected[0][1].reason;
   const result = normalizeHub(
     inbox.status === "fulfilled" ? inbox.value.items as InboxRow[] : [],
     [],
@@ -96,7 +122,9 @@ export async function loadHub(env: HubEnv, now = new Date(), options: { sourceTi
       result.summary.knowledgeAnsweredOn = today;
     }
   }
-  return result;
+  if (!skipped.length) return result;
+  const unavailable = result.source.unavailable.filter((name) => !skipped.includes(name as SkippableSource));
+  return { ...result, source: { ...result.source, state: unavailable.length ? "partial" : "live", unavailable, skipped } };
 }
 
 export function publicHubError(error: unknown) {

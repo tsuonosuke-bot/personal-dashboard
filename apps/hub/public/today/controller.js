@@ -430,6 +430,8 @@ export function createTodayPanel(root) {
 
   return {
     load: loadAll,
+    // ホームのほかの欄も同じトースト（取り消しつき）を使う。
+    notify: showToast,
     setNavigation(navigation) {
       state.compassUrl = navigation?.compass || "/compass/";
       els.todoLink.href = `${state.compassUrl}?view=todos`;
