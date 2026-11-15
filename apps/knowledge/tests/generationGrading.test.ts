@@ -5,6 +5,10 @@ import {
   allowedFormats,
   generateQuestions,
   generationIssue,
+  buildGenerationRequest,
+  QUESTION_CHAR_LIMITS,
+  readabilityIssue,
+  asksMultipleAnswers,
   type PickedItem,
 } from "../../hub/functions/knowledge/_shared/questionGeneration.ts";
 
@@ -264,4 +268,76 @@ test("個別の再採点が失敗したら、残りの項目へ呼び出しを�
     assert.equal(bodies.length, 3);
     assert.equal(result.errors.size, 3);
   });
+});
+
+test("長すぎる問題文と、出題側の事情に触れた問題文は採用しない", () => {
+  const card = item("a", "プロジェクトバッファ");
+  const base = { choices: null, correctChoice: null, explanation: null, expectedAnswer: null };
+  for (const format of ["一問一答", "四択", "記述説明", "産出"] as const) {
+    const limit = QUESTION_CHAR_LIMITS[format];
+    assert.equal(readabilityIssue("あ".repeat(limit), format), null);
+    assert.match(readabilityIssue("あ".repeat(limit + 1), format) ?? "", new RegExp(`${limit + 1}字.*上限${limit}字`));
+  }
+  const tooLong = generationIssue(card, { ...base, question: "あ".repeat(141), format: "一問一答" }, undefined);
+  assert.match(tooLong ?? "", /上限140字/);
+  // 同じ長さでも、記述説明なら上限内。
+  assert.equal(generationIssue(card, { ...base, question: "あ".repeat(141), format: "記述説明" }, undefined), null);
+
+  for (const question of [
+    "もう一つ必要な要素は？ただし、直近では「継承」を問うたので、ここでは別の観点から答えてください。",
+    "偏りを避けるために、explanationで挙げられている対策を答えてください。",
+    "past_notes にある誤りを踏まえて答えてください。",
+    "前回の出題とは別の側面を答えてください。",
+  ]) {
+    assert.match(generationIssue(card, { ...base, question, format: "一問一答" }, undefined) ?? "", /入力データの名前や前回の出題内容/);
+  }
+  // 英語の例文に出る語や、学習内容としての「前回」は対象にしない。
+  for (const question of [
+    "次の空所に入る形容詞は？\nHer explanation was ＿＿＿ and easy to follow.",
+    "次の空所に入る動詞は？\nPlease ＿＿＿ on the title of the report.",
+    "前回の大統領選挙が行われた年に成立した法律は？",
+  ]) {
+    assert.equal(readabilityIssue(question, "一問一答"), null);
+  }
+});
+
+test("出題プロンプトは長さの目安と、サーバーの上限を示す", () => {
+  const request = buildGenerationRequest([item("a", "選択と集中")], new Map([["a", ["一問一答" as const]]]), new Map(), new Map());
+  const system = request.system.join("\n");
+  assert.match(system, /## 読みやすさ/);
+  assert.match(system, /一問一答140字、四択120字、記述説明160字、産出160字/);
+  assert.match(system, /次の5点/);
+  assert.match(system, /一問一答で、2つ以上の語句を答えさせない/);
+  assert.match(system, /用語（名前）と、その説明・理由・使い方を同時に求めない/);
+});
+
+test("一問一答で2つ以上の語句を答えさせる問題文は採用しない", () => {
+  const card = item("a", "カリスマ的支配");
+  const base = { choices: null, correctChoice: null, explanation: null, expectedAnswer: null };
+  const multiple = [
+    "合法的支配と対比される、他の2つの支配類型を答えてください。",
+    "都合の良い情報ばかり集める傾向は何と呼ばれますか。また、より広い概念は何ですか。両方答えてください。",
+    "偏った判断を避けるための具体的な対策を2つ答えてください。",
+    "五つの問いのうち、「ミッションは何か」に続く残り二つの問いは何か？",
+    "グローバルで活躍するために備えておくべき2つの要素は何ですか？",
+    "著者は情報をどの3つにブレイクダウンしてストックしていますか？",
+    "連動度を表す指標は何ですか。どちらを組み合わせるべきかも含めて答えてください。",
+    "顧客から奪われているものを二つ挙げてください。",
+  ];
+  for (const question of multiple) {
+    assert.equal(asksMultipleAnswers(question, "一問一答"), true, question);
+    assert.match(generationIssue(card, { ...base, question, format: "一問一答" }, undefined) ?? "", /2つ以上の語句/);
+    // 記述説明など、ほかの形式では対象にしない。
+    assert.equal(asksMultipleAnswers(question, "記述説明"), false, question);
+  }
+  const single = [
+    "質の高い休息に必要とされる4つの要素のうち、時間の過ごし方を自分で決めることを指す要素は何ですか？",
+    "相関係数が-1のとき、二つの資産の値動きはどのような関係になりますか？",
+    "他者の思考を読める、信頼を得られる、動かせるという三つの能力をまとめて何と呼びますか？",
+    "二つの時間概念のうち、時計の時間を指すものは何ですか？",
+    "「リラックス」「コントロール」「マスタリー」の3つと並ぶ残りの1つは何ですか。",
+    "「いつの間にか」を3語の英語で答えてください。",
+    "支配の3類型のうち、伝統的支配・合法的支配と並ぶもう1つは？",
+  ];
+  for (const question of single) assert.equal(asksMultipleAnswers(question, "一問一答"), false, question);
 });

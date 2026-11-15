@@ -60,6 +60,62 @@ export function questionFocus(notes: RecentNote[]): QuestionFocus {
   return previous && previous.verdict !== "正解" ? "core" : "weak_point";
 }
 
+/**
+ * 形式ごとの問題文の上限（文字数）。超えた問題は不採用にして、1回だけ作り直させる。
+ * 直近30日の実績で、作り直しに回るのが全体の5%前後になる値にしている。
+ * プロンプトにはこれより短い目安を別に示す。
+ */
+export const QUESTION_CHAR_LIMITS: Record<QuizFormat, number> = {
+  "一問一答": 140,
+  "四択": 120,
+  "記述説明": 160,
+  "産出": 160,
+};
+
+/** AIへ渡した入力の名前。英語の例文に普通に出る title・focus・explanation 単体は含めない。 */
+const INPUT_FIELD_NAME = /past_notes|weak_point|required_format|allowed_formats|expected_answer|times_asked|previous_attempt|explanation\s*(?:で|が|に|の|を|は|から)/u;
+
+/** 「直近では〜を問うたので」のように、出題側の事情を学習者へ説明している書き方。 */
+const GENERATOR_REMARK = /(?:直近|前回|前々回|これまで)(?:では|で|に|の|は|まで)[^。？?]{0,20}(?:問うた|問われた|出題|外した|間違え)/u;
+
+/** 2以上の個数。「4つの要素のうち…は何か」のように1つを選ばせる書き方は、下の各パターンの側で外す。 */
+const SEVERAL = "[2-9２-９二三四五六七八九]";
+
+/**
+ * 一問一答で、2つ以上の語句を答えさせる書き方。
+ * 「2つ答えて」「両方答えて」「2つの要素は何か」「残り二つは何か」「どの3つに」と、
+ * 「〜は何か。また、〜は何か」「〜も含めて答えて」のように問いを継ぎ足す書き方を拾う。
+ */
+const MULTIPLE_ANSWER_PATTERNS = [
+  /両方(?:を|とも)?[^。？?]{0,10}答え/u,
+  new RegExp(`${SEVERAL}(?:つ|点|種類)(?:を|とも)?(?:すべて)?(?:答え|挙げ|書[いき])`, "u"),
+  new RegExp(`${SEVERAL}(?:つ|点|種類)の[^。？?、]{1,15}(?:を答え|を挙げ|は何|の名称を答え)`, "u"),
+  new RegExp(`残り(?:の)?${SEVERAL}(?:つ|点)`, "u"),
+  new RegExp(`どの${SEVERAL}(?:つ|点|種類)`, "u"),
+  /[。？?]\s*また、/u,
+  /(?:も|を)含めて答え/u,
+];
+
+/** 一問一答が2つ以上の語句を答えさせていないか。それ以外の形式は対象にしない。 */
+export function asksMultipleAnswers(question: string, format: QuizFormat): boolean {
+  return format === "一問一答" && MULTIPLE_ANSWER_PATTERNS.some((pattern) => pattern.test(question));
+}
+
+/** 長すぎる問題文、2つ以上を答えさせる一問一答、出題側の事情が漏れた問題文を見つける。問題がなければnull。 */
+export function readabilityIssue(question: string, format: QuizFormat): string | null {
+  const limit = QUESTION_CHAR_LIMITS[format];
+  if (question.length > limit) {
+    return `問題文が${question.length}字あり、${format}の上限${limit}字を超えています。前置きと後付けの条件を削って短くしてください。`;
+  }
+  if (asksMultipleAnswers(question, format)) {
+    return "一問一答で2つ以上の語句を答えさせています。答えさせる語句は1つだけにしてください。";
+  }
+  if (INPUT_FIELD_NAME.test(question) || GENERATOR_REMARK.test(question)) {
+    return "問題文が入力データの名前や前回の出題内容に触れています。学習者はそれらを見られないので書かないでください。";
+  }
+  return null;
+}
+
 /** 四択の選択肢数。DBにもUIにも持たせず、ここだけを基準にする。 */
 export const CHOICE_COUNT = 4;
 
@@ -274,6 +330,8 @@ export function generationIssue(
       ? `問題文では${requested}語と指定していますが、正解は${actual}語です。`
       : "問題文の語数指定が正解と一致しません。";
   }
+  const readability = readabilityIssue(generated.question, generated.format);
+  if (readability) return readability;
   if (generated.format === "四択" && !generated.choices) {
     return parserIssue ?? "四択の選択肢を確認できませんでした。";
   }

@@ -354,7 +354,7 @@ button:disabled { opacity: 0.4; cursor: default; }
   padding: 2px 8px; border-radius: 999px;
   background: var(--bg-hover); color: var(--accent); font-size: 12px; font-weight: 600;
 }
-.quiz-question-text { margin: 0; font-size: 18px; line-height: 1.6; }
+.quiz-question-text { margin: 0; font-size: 18px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 .quiz-answer-input { width: 100%; font-size: 15px; line-height: 1.6; }
 .quiz-choices { display: grid; gap: 8px; }
 .quiz-choice {
