@@ -80,7 +80,7 @@ test("Hub keeps every destination in one compact row and readable text on mobile
   const css = await readFile(new URL("../public/hub.css", import.meta.url), "utf8");
 
   assert.match(css, /@media \(max-width: 620px\)/);
-  assert.match(css, /\.app-row \{ display: grid; grid-template-columns: repeat\(8, minmax\(0, 1fr\)\);/);
+  assert.match(css, /\.app-row \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\) auto repeat\(2, minmax\(0, 1fr\)\) auto;/);
   assert.match(css, /\.app-row \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/);
   assert.match(css, /\.projects-pill \{ --accent: var\(--project\); --soft: var\(--project-soft\); \}/);
   assert.match(css, /\.finance-pill \{ --accent: var\(--blue\); --soft: var\(--blue-soft\); \}/);
@@ -390,7 +390,7 @@ test("Hub and personal dashboards use the requested page names and shared shell"
   assert.match(shell, /\.dashboard-switcher summary \{ width: 40px; height: 40px; min-height: 40px;/);
   assert.match(shell, /\.dashboard-hub, \.dashboard-switcher summary, \.dashboard-refresh, \.dashboard-primary \{ height: 40px; min-height: 40px; \}/);
   assert.match(shell, /--dashboard-width: 1240px/);
-  // Notion風の薄いトップバー（スマホ幅は52px）
+  // 薄いトップバー（スマホ幅は52px）
   assert.match(shell, /--dashboard-header-height: 48px/);
   assert.match(shell, /--dashboard-header-height: 52px/);
   // 正常時の接続表示は出さない

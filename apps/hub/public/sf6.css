@@ -26,7 +26,7 @@ button { cursor: pointer; }
 .shell { min-height: 100vh; }
 main { width: min(860px, calc(100% - 24px)); margin: 0 auto; padding: 8px 0 24px; }
 
-/* タブ（Notionのビュー切り替えのように下線で示す） */
+/* タブ（下線で示す） */
 .tabs { display: flex; gap: 2px; margin-bottom: 12px; border-bottom: 1px solid var(--line); overflow-x: auto; }
 .tabs button { min-height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); font-size: 14px; font-weight: 600; white-space: nowrap; }
 .tabs button[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--ink); }

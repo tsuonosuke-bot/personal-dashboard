@@ -1,21 +1,21 @@
 /* Generated from index.css by scripts/build-dark-theme.mjs. Do not edit. */
 :root[data-theme="dark"] {
-  --text: #d5d3ce;
-  --text--light: #37352f;
-  --text-secondary: #aeadab;
-  --text-secondary--light: #787774;
-  --text-tertiary: #9b9a97;
-  --text-tertiary--light: #9b9a97;
+  --text: #d6e0da;
+  --text--light: #1d2621;
+  --text-secondary: #b4bcb8;
+  --text-secondary--light: #5b6660;
+  --text-tertiary: #9ca49f;
+  --text-tertiary--light: #87918b;
   --bg: #292929;
   --bg--light: #ffffff;
-  --bg-subtle: #20201e;
-  --bg-subtle--light: #f7f7f5;
-  --bg-hover: #353532;
-  --bg-hover--light: #efefed;
-  --bg-active: #373734;
-  --bg-active--light: #e6e6e3;
-  --border: #555552;
-  --border-strong: #4e4e4b;
+  --bg-subtle: #1d1f1d;
+  --bg-subtle--light: #f4f6f3;
+  --bg-hover: #333731;
+  --bg-hover--light: #ebeee9;
+  --bg-active: #353a33;
+  --bg-active--light: #e0e5de;
+  --border: #51564d;
+  --border-strong: #494e47;
   --accent: #a89cc3;
   --accent--light: #66558c;
   --accent-hover: #b2a6cd;

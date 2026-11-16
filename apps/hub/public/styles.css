@@ -91,7 +91,7 @@ select { height: 44px; padding: 0 34px 0 13px; border: 1px solid var(--line); bo
 .bulk-item-checkbox { margin: 1px 0 0; }
 .bulk-item-content { min-width: 0; }
 .item-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
-.item-id { color: var(--text-secondary); font: 700 10px/1 Inter, sans-serif; letter-spacing: .12em; }
+.item-id { color: var(--text-secondary); font: 700 10px/1 var(--font-sans); letter-spacing: .12em; }
 .status { padding: 5px 8px; border-radius: 999px; background: var(--bg-hover); color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
 .status-pending, .status-open { background: var(--orange-soft); color: #a24c22; }
 .status-done, .status-completed, .status-closed { background: var(--green-soft); color: var(--green); }
@@ -320,7 +320,7 @@ body { background: var(--paper); }
 .brand { gap: 9px; }
 .brand-mark { width: 34px; height: 34px; border-radius: var(--radius); }
 .brand-mark svg { width: 19px; }
-.brand b { font: 700 16px/1.2 Inter, "Segoe UI", sans-serif; }
+.brand b { font: 700 16px/1.2 var(--font-sans); }
 .brand small { font-size: 12px; }
 .topbar-actions { gap: 7px; }
 .hub-link, .calendar-connect-link, .dashboard-switcher summary { min-height: 34px; padding: 7px 10px; border-radius: var(--radius-sm); font-size: 12px; }
@@ -329,7 +329,7 @@ body { background: var(--paper); }
 main { width: min(1240px, calc(100% - 28px)); }
 .eyebrow, .section-kicker { margin-bottom: 7px; color: var(--text-secondary); font-size: 12px; }
 .workspace { padding: 20px; border-color: var(--line); border-radius: var(--radius); background: var(--card); box-shadow: none; }
-.workspace h2 { font: 700 24px/1.2 Inter, "Segoe UI", sans-serif; }
+.workspace h2 { font: 700 24px/1.2 var(--font-sans); }
 .workspace-tools { flex-wrap: wrap; justify-content: flex-end; }
 .primary-action, .secondary-action, .close-action {
   min-height: 42px;
