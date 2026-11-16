@@ -246,6 +246,10 @@ export async function createInbox(event) {
     state.view = "inbox";
     state.status = defaultStatusByView.inbox;
     state.metricFilter = "";
+    // 検索や分類で絞り込んだままだと、追加したInboxが一覧に出ない。
+    state.search = "";
+    state.wantCategory = "";
+    els.searchInput.value = "";
     syncCompassRoute("inbox");
     showToast("Inboxに保存しました。リストへ反映しています。");
     await loadDashboard();

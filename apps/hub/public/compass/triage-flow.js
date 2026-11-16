@@ -1,5 +1,6 @@
 // 未整理のInboxを続けて振り分ける流れ。振り分け・保留・クローズを保存したら、
 // 一覧の並びで次の未整理を開き、残り件数を知らせる。最後の1件なら一覧へ戻る。
+import { compassRoutePath } from "../compass-routing.js";
 import { closeDrawer, openDrawer } from "./drawer.js";
 import { showToast } from "./format.js";
 import { currentItems } from "./list.js";
@@ -38,6 +39,9 @@ export async function continueInboxTriage(item, message) {
     showToast(`${message} 未整理のInboxはもうありません。`);
     return;
   }
-  openDrawer(nextId, "inbox", "push");
+  // 整理済みにした詳細の履歴を次のInboxで置き換える。積み増すと、閉じたときに整理済みの詳細へ戻ってしまう。
+  // 履歴の状態は引き継ぐので、一覧から開いていれば閉じると一覧へ戻り、Hubなどから直接開いていれば一覧を表示する。
+  openDrawer(nextId, "inbox", "none");
+  window.history.replaceState(window.history.state, "", compassRoutePath(window.location.href, "inbox", nextId));
   showToast(`${message} 次へ進みます（残り${unsortedInboxCount()}件）。`);
 }

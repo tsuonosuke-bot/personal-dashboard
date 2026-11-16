@@ -230,6 +230,7 @@ function renderWantsBacklog(items) {
 }
 
 const TODO_SCHEDULE_LABELS = { overdue: "実施確認待ち", today: "今日", upcoming: "今後" };
+const COMPASS_FILTERS = ["untriaged", "knowledge", "github", "overdue", "today", "upcoming"];
 
 /** ToDoで既定から変えている条件。チップで示し、×でその条件だけ戻す（#130）。 */
 export function todoActiveConditions() {
@@ -354,7 +355,9 @@ export function setView(view, filter = defaultStatusByView[view], sync = true) {
   state.bulkSubmitting = false;
   clearBulkSelection();
   state.view = view;
-  state.metricFilter = filter;
+  // 第2引数はステータス（タブの既定値）か絞り込みのどちらか。既定のステータスを絞り込みとして持つと、
+  // 既定の表示でも「絞り込みを解除」が出てしまうため、絞り込みだけを metricFilter に入れる。
+  state.metricFilter = COMPASS_FILTERS.includes(filter) ? filter : "";
   state.wantCategory = "";
   state.status = filter === "untriaged"
     ? "active"
@@ -365,7 +368,7 @@ export function setView(view, filter = defaultStatusByView[view], sync = true) {
         : filter || "";
   updateStatusOptions();
   renderList();
-  const routeFilter = ["untriaged", "knowledge", "github", "overdue", "today", "upcoming"].includes(filter) ? filter : null;
+  const routeFilter = COMPASS_FILTERS.includes(filter) ? filter : null;
   if (sync) syncCompassRoute(view, null, "push", routeFilter);
   if (view === "todos") void loadTodos(true);
   else void loadDashboard();
