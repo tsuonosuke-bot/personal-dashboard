@@ -23,7 +23,7 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] body {
   color: var(--ink);
-  background: radial-gradient(circle at 15% 0%, rgba(41, 41, 41, 0.92), transparent 34%), var(--paper);
+  background: var(--paper);
 }
 :root[data-theme="dark"] button,
 :root[data-theme="dark"] input,
@@ -76,7 +76,7 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] .section-heading p,
 :root[data-theme="dark"] .modal-head p {
-  color: var(--accent);
+  color: var(--muted);
 }
 :root[data-theme="dark"] .primary-button,
 :root[data-theme="dark"] .secondary-button {
@@ -97,19 +97,14 @@ html[data-theme="dark"] {
   border: 1px solid var(--line);
   background: var(--bg);
 }
-:root[data-theme="dark"] .summary-card {
-  border: 1px solid rgba(175, 119, 90, 0.13);
-  border-radius: var(--radius);
-  background: rgba(43, 41, 38, 0.84);
+:root[data-theme="dark"] .summary-grid {
+  border-bottom: 1px solid var(--line);
 }
 :root[data-theme="dark"] .summary-card span {
   color: var(--muted);
 }
 :root[data-theme="dark"] .summary-card small {
   color: var(--text-tertiary);
-}
-:root[data-theme="dark"] .summary-card.accent {
-  background: var(--accent-soft);
 }
 :root[data-theme="dark"] .summary-card.accent strong {
   color: var(--accent);

@@ -44,7 +44,7 @@ body {
   min-height: 100vh;
   margin: 0;
   color: var(--ink);
-  background: linear-gradient(145deg, rgba(255,255,255,.28), transparent 42%), var(--paper);
+  background: var(--paper);
 }
 body.modal-open { overflow: hidden; }
 button { font: inherit; color: inherit; }

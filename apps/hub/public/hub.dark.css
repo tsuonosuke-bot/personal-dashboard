@@ -61,7 +61,7 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] body {
   color: var(--ink);
-  background: linear-gradient(145deg, rgba(41, 41, 41, 0.28), transparent 42%), var(--paper);
+  background: var(--paper);
 }
 :root[data-theme="dark"] button {
   color: inherit;

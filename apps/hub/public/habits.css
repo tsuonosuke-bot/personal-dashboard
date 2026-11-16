@@ -18,7 +18,7 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { min-width: 320px; background: var(--paper); }
-body { min-height: 100vh; margin: 0; color: var(--ink); background: radial-gradient(circle at 15% 0%, rgba(255,255,255,.92), transparent 34%), var(--paper); }
+body { min-height: 100vh; margin: 0; color: var(--ink); background: var(--paper); }
 button, input, textarea, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 .shell { min-height: 100vh; }
@@ -37,7 +37,8 @@ button { cursor: pointer; }
 .icon-button { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); color: var(--accent); font-size: 18px; }
 .icon-button:disabled { opacity: .5; cursor: wait; }
 main { width: min(1080px, calc(100% - 24px)); margin: 0 auto; padding: 10px 0 24px; }
-.section-heading p, .modal-head p { margin: 0 0 4px; color: var(--accent); font-size: 12px; font-weight: 850; letter-spacing: .12em; }
+.section-heading p, .modal-head p { margin: 0 0 4px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.modal-head p:empty { display: none; }
 .primary-button, .secondary-button { min-height: 40px; padding: 0 16px; border-radius: var(--radius); font-weight: 600; }
 .primary-button { border: 0; background: var(--accent); color: #fff; }
 .primary-button:hover { background: var(--accent-hover); }
@@ -45,12 +46,12 @@ main { width: min(1080px, calc(100% - 24px)); margin: 0 auto; padding: 10px 0 24
 .topbar-add b { font-weight: 600; }
 .secondary-button { border: 1px solid var(--line); background: var(--bg); }
 .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 7px; }
-.summary-card { min-height: 66px; padding: 10px 13px; border: 1px solid rgba(91,60,44,.13); border-radius: var(--radius); background: rgba(255,253,250,.84); }
+.summary-grid { padding: 4px 0 10px; border-bottom: 1px solid var(--line); }
+.summary-card { min-height: 0; padding: 4px 0; }
 .summary-card span, .summary-card strong, .summary-card small { display: block; }
 .summary-card span { color: var(--muted); font-size: 12px; font-weight: 600; }
 .summary-card strong { margin: 3px 0 2px; font-size: 20px; }
 .summary-card small { color: var(--text-tertiary); font-size: 12px; }
-.summary-card.accent { background: var(--accent-soft); }
 .summary-card.accent strong { color: var(--accent); }
 .state-card { min-height: 132px; display: grid; place-items: center; align-content: center; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--muted); }
 .state-card p { margin: 10px 0 0; font-size: 12px; }
@@ -171,7 +172,7 @@ td.skip { color: var(--muted); }
   .source-badge { width: 29px; min-height: 29px; justify-content: center; padding: 0; }
   main { width: calc(100% - 12px); padding: 6px 0 12px; }
   .summary-grid { gap: 5px; }
-  .summary-card { min-height: 58px; padding: 8px; }
+  .summary-card { padding: 2px 0; }
   .summary-card strong { margin: 2px 0 0; font-size: 18px; }
   .summary-card small { display: none; }
   .panel { margin-top: 5px; padding: 9px; border-radius: var(--radius); }

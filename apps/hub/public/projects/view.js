@@ -98,18 +98,18 @@ export function createProjectView({
 
   function actionPanel(project) {
     if (project.nextAction) {
-      return `<div class="next-action"><small>NEXT ACTION</small><strong>${escapeHtml(project.nextAction.content)}</strong>${actionDateChips(project.nextAction, todayTokyo())}</div>`;
+      return `<div class="next-action"><small>次の一手</small><strong>${escapeHtml(project.nextAction.content)}</strong>${actionDateChips(project.nextAction, todayTokyo())}</div>`;
     }
     if (project.status === "waiting") {
-      return `<div class="next-action waiting"><small>WAITING</small><strong>${escapeHtml(project.waitingFor)} · ${displayDate(project.reviewOn)}再確認</strong></div>`;
+      return `<div class="next-action waiting"><small>待ち</small><strong>${escapeHtml(project.waitingFor)} · ${displayDate(project.reviewOn)}再確認</strong></div>`;
     }
     if (project.status === "on_hold") {
-      return `<div class="next-action waiting"><small>ON HOLD</small><strong>${displayDate(project.reviewOn)}に見直す</strong></div>`;
+      return `<div class="next-action waiting"><small>保留</small><strong>${displayDate(project.reviewOn)}に見直す</strong></div>`;
     }
     if (project.status === "completed") {
-      return '<div class="next-action waiting"><small>COMPLETED</small><strong>目標を達成しました</strong></div>';
+      return '<div class="next-action waiting"><small>完了</small><strong>目標を達成しました</strong></div>';
     }
-    return '<div class="next-action missing"><small>NEEDS ATTENTION</small><strong>Next Actionを決めてください</strong></div>';
+    return '<div class="next-action missing"><small>要対応</small><strong>Next Actionを決めてください</strong></div>';
   }
 
   function projectCard(project) {
@@ -596,7 +596,7 @@ export function createProjectView({
       .filter(Boolean)
       .join("");
 
-    els.detailKicker.textContent = project.theme || "PROJECT";
+    els.detailKicker.textContent = project.theme || "";
     els.detailTitle.textContent = project.title;
     els.detailBody.innerHTML = `
       <section class="detail-summary"><p>${escapeHtml(project.outcome)}</p><div class="detail-meta">${meta}</div></section>

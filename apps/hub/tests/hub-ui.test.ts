@@ -595,3 +595,16 @@ test("#343: the phone tab bar offers the same destinations as the page switcher"
   // 現在のページはリンクにせず <span> にするので、Ideaのページでは /compass/ を補う
   assert.deepEqual(inTabbar, [...new Set([...inSwitcher, "/compass/"])].sort());
 });
+
+test("pages use Japanese headings without English eyebrow labels or decorative backgrounds", async () => {
+  const files = ["habits/index.html", "projects/index.html", "writing/index.html", "projects/view.js", "projects.js", "writing.js"];
+  for (const file of files) {
+    const source = await readFile(new URL(`../public/${file}`, import.meta.url), "utf8");
+    assert.doesNotMatch(source, />(TODAY|THIS WEEK|HISTORY|MANAGE|HABIT|RECORD|NEW PROJECT|EDIT PROJECT|PROJECT|WRITING|NEXT ACTION|WAITING|ON HOLD|COMPLETED|NEEDS ATTENTION)</, file);
+    assert.doesNotMatch(source, /"(EDIT PROJECT|NEW PROJECT|PROJECT)"|`WRITING/, file);
+  }
+  for (const file of ["styles.css", "habits.css", "hub.css"]) {
+    const css = await readFile(new URL(`../public/${file}`, import.meta.url), "utf8");
+    assert.doesNotMatch(css.match(/\nbody \{[^}]*\}/)?.[0] ?? "", /gradient/, file);
+  }
+});

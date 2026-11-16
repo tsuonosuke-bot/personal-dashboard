@@ -118,7 +118,7 @@ function fillStatusOptions() {
 
 function showEditor(item) {
   state.selectedId = item.id;
-  els.editorKicker.textContent = `WRITING · ${item.id}`;
+  els.editorKicker.textContent = "";
   els.editorTitle.textContent = item.title;
   els.sourceWantLink.href = `/compass/?view=wants&id=${item.sourceWantId}`;
   els.sourceWantLink.textContent = `Want #${item.sourceWantId}を確認 →`;
