@@ -3,7 +3,7 @@ import { readApiJson } from "../api-client.js";
 import { loadTodos } from "./data.js";
 import { hideDrawer } from "./drawer.js";
 import { dateOffset, escapeHtml, formatCalendarSchedule, nextWeekendDate, setDrawerTitle, showToast, todayInTokyo, todoTiming, todoTimingLabel } from "./format.js";
-import { statusLabel, syncCompassRoute } from "./list.js";
+import { leaveDrawerRoute, statusLabel } from "./list.js";
 import { els, state } from "./state.js";
 import { chooseTodoNextResolution, openProjectTodoLink, unlinkProjectTodo } from "../shared/project-todo-link.js";
 
@@ -71,8 +71,8 @@ export function renderTodoDrawer(item) {
     ? `<div class="detail-section"><span>Projectタスク</span><p><a href="/projects/?id=${linked.projectId}">${escapeHtml(linked.projectTitle)}</a> · ${escapeHtml(linked.content)}</p><button type="button" id="unlinkProjectTodoButton">紐づけを解除</button></div>`
     : '<div class="detail-section"><button type="button" id="linkProjectTodoButton">Projectタスクと紐づける</button></div>';
   els.drawerBody.innerHTML = `<div class="detail-grid">
-      <div class="detail-box"><span>Status</span><strong>${escapeHtml(item.status === "pending" ? todoTimingLabel(item) : statusLabel(item.status, "todos"))}</strong></div>
-      <div class="detail-box"><span>Schedule</span><strong>${escapeHtml(formatCalendarSchedule(item.schedule))}</strong></div>
+      <div class="detail-box"><span>状態</span><strong>${escapeHtml(item.status === "pending" ? todoTimingLabel(item) : statusLabel(item.status, "todos"))}</strong></div>
+      <div class="detail-box"><span>予定日時</span><strong>${escapeHtml(formatCalendarSchedule(item.schedule))}</strong></div>
     </div>
     ${item.detail ? `<div class="detail-section"><span>補足</span><p>${escapeHtml(item.detail)}</p></div>` : ""}
     <div class="detail-section todo-source"><span>元の記録</span><p>${synced ? "Google Calendarから自動で取り込んだ予定" : `Want · ${item.sourceWantId}${item.sourceInboxId ? ` / Inbox · ${item.sourceInboxId}` : ""}`}</p></div>
@@ -156,7 +156,7 @@ async function changeTodoStatus(item, command) {
   const save = async (resolution = null) => {
     await sendTodoUpdate(item, command, { note, resolution });
     hideDrawer();
-    syncCompassRoute("todos", null, "replace", ["overdue", "today", "upcoming"].includes(state.metricFilter) ? state.metricFilter : null);
+    await leaveDrawerRoute("todos", ["overdue", "today", "upcoming"].includes(state.metricFilter) ? state.metricFilter : null);
     await loadTodos(true);
     showToast(command === "complete" ? "ToDoを完了しました。" : command === "skip" ? "ToDoを見送りにしました。" : "ToDoを未実施に戻しました。");
   };
@@ -240,7 +240,7 @@ async function saveTodoReschedule(event, item, command = "reschedule") {
   try {
     await sendTodoUpdate(item, command, { schedule });
     hideDrawer();
-    syncCompassRoute("todos", null, "replace", ["overdue", "today", "upcoming"].includes(state.metricFilter) ? state.metricFilter : null);
+    await leaveDrawerRoute("todos", ["overdue", "today", "upcoming"].includes(state.metricFilter) ? state.metricFilter : null);
     await loadTodos(true);
     showToast(command === "recreate" ? "Google Calendarへ新しい予定を作成しました。" : "Google Calendarの日程を更新しました。");
   } catch (error) {

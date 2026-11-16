@@ -356,6 +356,21 @@ export function syncCompassRoute(view, id = null, mode = "replace", filter = nul
   else window.history.replaceState(historyState, "", path);
 }
 
+// 保存して詳細を閉じるとき、開いたときに積んだ履歴を戻す。置き換えると同じ一覧が履歴に2つ並び、
+// ブラウザの「戻る」が1回空振りする。戻ったことによる再読み込み（app.jsのpopstate）は呼び出し側の再読み込みと重なるので飛ばす。
+export function leaveDrawerRoute(view, filter = null) {
+  if (!window.history.state?.compassDrawer) {
+    syncCompassRoute(view, null, "replace", filter);
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    state.skipNextPopstate = true;
+    const done = () => { window.removeEventListener("popstate", done); resolve(); };
+    window.addEventListener("popstate", done);
+    window.history.back();
+  });
+}
+
 export function setView(view, filter = defaultStatusByView[view], sync = true) {
   hideDrawer();
   state.bulkMode = false;

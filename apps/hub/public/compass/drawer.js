@@ -90,8 +90,8 @@ export function renderDrawerItem(item, view) {
   setDrawerTitle(item.content || "内容なし", { content: true });
   let body = `<div class="detail-grid">
     ${category ? `<label class="detail-box detail-box-wide want-category-field"><span>分類</span><select id="wantCategorySelect" aria-label="分類を変更">${wantCategoryOptions(item)}</select></label>` : ""}
-    <div class="detail-box"><span>Status</span><strong>${escapeHtml(itemStatusLabel(item, view))}</strong></div>
-    <div class="detail-box"><span>Created</span><strong>${escapeHtml(formatDate(item.createdAt, true))}</strong></div>
+    <div class="detail-box"><span>状態</span><strong>${escapeHtml(itemStatusLabel(item, view))}</strong></div>
+    <div class="detail-box"><span>作成日時</span><strong>${escapeHtml(formatDate(item.createdAt, true))}</strong></div>
   </div>`;
   if (view === "wants") {
     const routes = item.routes || [];

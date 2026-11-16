@@ -11,6 +11,7 @@ export const state = {
   triageSource: "wants",
   triageOrder: [],
   aiRequestToken: 0,
+  skipNextPopstate: false,
   calendarConnection: null,
   todosLoaded: false,
   todoSource: null,

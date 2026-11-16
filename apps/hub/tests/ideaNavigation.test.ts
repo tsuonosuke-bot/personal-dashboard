@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { readCompassScript } from "./compassScript.ts";
 
@@ -83,4 +84,22 @@ test("Inbox route buttons show names only, with a help toggle that lists every d
   assert.match(script, /id="routeHelpButton" type="button" aria-expanded="false" aria-controls="routeHelpList"/);
   assert.match(script, /\[\.\.\.PRIMARY_INBOX_ROUTES, \.\.\.MORE_INBOX_ROUTES\]/);
   assert.doesNotMatch(script, /id="askAiInboxButton"[^\n]*\n\s*<p class="ai-data-note">/);
+});
+
+test("saving a ToDo or Project route pops the drawer entry instead of stacking a duplicate list entry", async () => {
+  const script = await readCompassScript();
+  assert.match(script, /export function leaveDrawerRoute\(view, filter = null\)/);
+  assert.equal(script.match(/await leaveDrawerRoute\("todos"/g)?.length, 2);
+  assert.match(script, /await leaveDrawerRoute\(view, state\.metricFilter\)/);
+  assert.doesNotMatch(script, /hideDrawer\(\);\n\s*syncCompassRoute\("todos", null, "replace"/);
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(app, /if \(state\.skipNextPopstate\) \{ state\.skipNextPopstate = false; return; \}/);
+});
+
+test("detail labels are Japanese", async () => {
+  const script = await readCompassScript();
+  assert.doesNotMatch(script, /<span>(Status|Created|Schedule)<\/span>/);
+  assert.match(script, /<span>状態<\/span>/);
+  assert.match(script, /<span>作成日時<\/span>/);
+  assert.match(script, /<span>予定日時<\/span>/);
 });

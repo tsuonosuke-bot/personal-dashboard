@@ -83,7 +83,10 @@ document.addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
   if (!els.dashboardSwitcher.contains(event.target)) els.dashboardSwitcher.removeAttribute("open");
 });
-window.addEventListener("popstate", () => loadDashboard({ route: true }));
+window.addEventListener("popstate", () => {
+  if (state.skipNextPopstate) { state.skipNextPopstate = false; return; }
+  loadDashboard({ route: true });
+});
 
 restoreTodoLayout();
 const initialParameters = new URLSearchParams(window.location.search);
