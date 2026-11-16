@@ -28,9 +28,10 @@ test("API clientはHTMLと壊れたJSONを利用者向けエラーへ変換す�
   );
 });
 
-test("Hubは4つの直接追加と3種類の書き出しと接続状態を案内する", async () => {
-  const [html, compass, projects, migration] = await Promise.all([
+test("Hubは4つの直接追加と接続状態を案内し、3種類の書き出しは接続状態ページに置く", async () => {
+  const [html, status, compass, projects, migration] = await Promise.all([
     readFile(new URL("../public/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../public/status/index.html", import.meta.url), "utf8"),
     readCompassScript(),
     readClientScript("projects"),
     readFile(new URL("../supabase/migrations/202609220005_connection_status.sql", import.meta.url), "utf8"),
@@ -40,10 +41,12 @@ test("Hubは4つの直接追加と3種類の書き出しと接続状態を案内
   assert.match(html, /\/finance\/\?new=expense/);
   assert.match(html, /\/projects\/\?new=project/);
   assert.match(html, /\/knowledge\/\?view=quiz&amp;mode=daily/);
-  assert.match(html, /\/knowledge\/api\/export/);
-  assert.match(html, /\/finance\/api\/export/);
-  assert.match(html, /\/api\/export\/snapshot/);
-  assert.match(html, /\/status\//);
+  // #343: 書き出しは使う頻度が低いので接続状態ページへ移し、ホームには接続状態への導線だけを残す
+  assert.match(status, /\/knowledge\/api\/export/);
+  assert.match(status, /\/finance\/api\/export/);
+  assert.match(status, /\/api\/export\/snapshot/);
+  assert.doesNotMatch(html, /\/api\/export/);
+  assert.match(html, /href="\/status\/"/);
   assert.match(compass, /initialParameters\.get\("new"\) === "inbox"/);
   assert.match(projects, /openNewProjectOnLoad/);
   assert.match(migration, /notify pgrst, 'reload schema'/i);

@@ -38,7 +38,7 @@ test("#330: phone width keeps the counts, and queue details are not tooltip-only
   const [css, html, script] = await Promise.all([read("../public/hub.css"), read("../public/index.html"), read("../public/hub.js")]);
   assert.doesNotMatch(css, /\.app-row \{ display: none; \}/);
   const phone = css.slice(css.indexOf("ここは件数を読む欄にする"));
-  assert.match(phone.slice(0, phone.indexOf("}\n}")), /\.app-icon \{ display: none; \}/);
+  assert.match(phone.slice(0, phone.indexOf("}\n}")), /\.app-pill\.nav-only \{ display: none; \}/);
   // 3列になる幅では件数を戻す。
   const tablet = css.slice(css.indexOf("@media (max-width: 900px)"), css.indexOf("@media (max-width: 620px)"));
   assert.match(tablet, /\.app-pill small \{ display: block; \}/);
@@ -128,10 +128,10 @@ test("#335: saved sections apply before first paint and nothing shows until sett
 test("#335: client helpers build the request and detect newly shown sections", () => {
   assert.equal(hubUrl([]), "/api/hub");
   assert.equal(hubUrl(["journal", "expenses"]), "/api/hub?hidden=journal,expenses");
-  assert.deepEqual(parseHidden("journal data"), ["journal", "data"]);
+  assert.deepEqual(parseHidden("journal learning"), ["journal", "learning"]);
   assert.deepEqual(parseHidden(undefined), []);
-  assert.deepEqual(revealedSections(["journal", "data"], ["data"]), ["journal"]);
-  assert.deepEqual(revealedSections([], ["data"]), []);
+  assert.deepEqual(revealedSections(["journal", "learning"], ["learning"]), ["journal"]);
+  assert.deepEqual(revealedSections([], ["learning"]), []);
   assert.equal(sameSections(["a", "b"], ["b", "a"]), true);
   assert.equal(sameSections(["a"], ["a", "b"]), false);
 });

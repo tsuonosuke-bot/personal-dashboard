@@ -83,12 +83,14 @@ main { width: min(1240px, calc(100% - 32px)); margin: 0 auto; }
 .context-strip small { font-size: 12px; }
 
 /* アプリ一覧は「今日やること」の下に置く件数の行。枠や背景は付けず、区切り線だけで並べる */
-.app-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0 14px; margin-bottom: 18px; border-top: 1px solid var(--divider); border-bottom: 1px solid var(--divider); }
+.app-row { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 0 14px; margin-bottom: 18px; border-top: 1px solid var(--divider); border-bottom: 1px solid var(--divider); }
 .app-pill { --accent: var(--green); --soft: var(--green-soft); min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 6px 0; color: var(--ink); text-decoration: none; transition: border-color .18s ease; }
 .app-pill:hover b { color: var(--accent); }
 .app-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* 名前は縮めず、件数側だけを省略する */
 .app-pill b { flex: none; font-size: 13px; white-space: nowrap; }
+.sf6-pill { --accent: #b3203d; }
+.status-pill { --accent: #52645a; }
 .app-pill small { min-width: 0; margin-left: auto; overflow: hidden; color: var(--accent); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .projects-pill { --accent: var(--project); --soft: var(--project-soft); }
 .writing-pill { --accent: var(--plum); --soft: var(--plum-soft); }
@@ -208,15 +210,6 @@ a.today-row-title:hover { text-decoration: underline; }
 .today-toast { position: fixed; right: 18px; bottom: calc(18px + var(--tabbar-space, 0px)); z-index: 95; max-width: min(380px, calc(100vw - 36px)); display: flex; align-items: center; gap: 14px; padding: 11px 14px; border-radius: var(--radius); background: #202822; color: #fff; box-shadow: 0 10px 30px rgba(27,39,32,.22); font-size: 13px; }
 .today-toast button { min-height: 36px; flex: 0 0 auto; padding: 0 4px; border: 0; background: none; color: var(--text-tertiary); cursor: pointer; font-size: 13px; font-weight: 600; }
 
-.data-tools { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 3px 0 18px; padding: 8px 0; border-top: 1px solid var(--divider); }
-.data-tools > div { min-width: 0; }
-.data-tools strong, .data-tools small { display: block; }
-.data-tools strong { font-size: 12px; }
-.data-tools small { margin-top: 2px; color: var(--muted); font-size: 12px; }
-.data-tools nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
-.data-tools a { min-height: 29px; display: inline-flex; align-items: center; padding: 0 9px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); color: var(--ink); font-size: 12px; font-weight: 600; text-decoration: none; }
-.data-tools a:hover { border-color: var(--green); color: var(--green); }
-.data-tools .status-link { border-color: rgba(36,89,73,.28); background: var(--green-soft); color: var(--green); }
 
 .state-card { min-height: 150px; display: grid; place-items: center; align-content: center; margin: 3px 0 12px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,254,250,.75); color: var(--muted); }
 .state-card p { margin: 10px 0 0; font-size: 12px; }
@@ -469,7 +462,8 @@ a.today-row-title:hover { text-decoration: underline; }
 @media (max-width: 680px) {
   .app-row { gap: 4px; }
   .app-pill { min-height: 44px; display: grid; align-content: center; gap: 1px; padding: 5px 8px; }
-  .app-icon { display: none; }
+  /* 件数を持たない行き先（SF6・接続状態）はタブバーの「その他」から開く */
+  .app-pill.nav-only { display: none; }
   .app-pill b { color: var(--muted); font-size: 12px; font-weight: 600; }
   .app-pill small { margin-left: 0; font-size: 13px; }
 }
@@ -482,9 +476,6 @@ a.today-row-title:hover { text-decoration: underline; }
   /* backdrop-filter があると position: fixed の基準がヘッダーになり、メニューが画面下に出ない */
   .dashboard-header:has(.quick-add-menu[open]) { backdrop-filter: none; }
   .quick-add-menu nav { position: fixed; inset: auto 8px calc(8px + var(--tabbar-space, 0px)); width: auto; grid-template-columns: 1fr 1fr; padding: 9px; border-radius: var(--radius-lg); }
-  .data-tools { align-items: stretch; flex-direction: column; gap: 7px; }
-  .data-tools nav { display: grid; grid-template-columns: 1fr 1fr; }
-  .data-tools a { justify-content: center; min-height: 34px; }
 }
 
 /* ホームの表示設定 */
@@ -497,8 +488,8 @@ html[data-home-hidden~="learning"] [data-home-section="learning"],
 html[data-home-hidden~="inbox"] [data-home-section="inbox"],
 html[data-home-hidden~="expenses"] [data-home-section="expenses"],
 html[data-home-hidden~="knowledge"] [data-home-section="knowledge"],
-html[data-home-hidden~="journal"] [data-home-section="journal"],
-html[data-home-hidden~="data"] [data-home-section="data"] { display: none !important; }
+html[data-home-hidden~="journal"] [data-home-section="journal"] { display: none !important; }
 .home-settings-list { display: grid; gap: 2px; padding: 4px 0 8px; }
 .home-settings-row { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 4px; cursor: pointer; font-size: 14px; }
+.home-theme { display: flex; align-items: center; gap: 10px; min-height: 40px; margin-top: 4px; padding: 8px 4px 0; border-top: 1px solid var(--border); font-size: 14px; }
 .home-settings-row input { width: 18px; height: 18px; accent-color: var(--page-accent, var(--green)); }

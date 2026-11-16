@@ -46,6 +46,14 @@
       <div class="status-loading" id="loadingState" role="status"><span></span><p>3つの接続先を確認しています</p></div>
       <div class="status-error" id="errorState" role="alert" hidden><strong>接続状態を読み込めませんでした</strong><p id="errorMessage"></p><button id="retryButton" type="button">再試行</button></div>
       <section class="status-grid" id="statusGrid" aria-label="サービス別の接続状態" hidden></section>
+      <section class="status-exports" aria-labelledby="exportsTitle">
+        <h2 id="exportsTitle">データの書き出し</h2>
+        <nav aria-label="データの書き出し">
+          <a href="/knowledge/api/export">Knowledge JSON</a>
+          <a href="/finance/api/export">Finance CSV</a>
+          <a href="/api/export/snapshot">全体スナップショット</a>
+        </nav>
+      </section>
     </main>
     <script src="/status/status.js" type="module"></script>
     <script src="/tabbar.js" data-page="status" defer></script>

@@ -24,7 +24,7 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.match(html, /id="projectsMeta">—/);
   assert.match(html, /id="writingMeta">—/);
   assert.doesNotMatch(html, /目標をNext Actionへ|Pomeraで書くテーマ/);
-  assert.ok(html.indexOf('id="hubContent"') < html.indexOf('class="data-tools"'));
+  assert.doesNotMatch(html, /class="data-tools"/);
   // #349: 「今日やること」をホームの先頭に置き、アプリ一覧（件数の行）はその下に置く
   assert.ok(html.indexOf('id="todayPanel"') < html.indexOf('class="app-row"'));
   assert.ok(html.indexOf('class="app-row"') < html.indexOf('id="hubContent"'));
@@ -76,11 +76,11 @@ test("Hub keeps navigation and summary compact without a greeting hero", async (
   assert.doesNotMatch(`${html}\n${script}`, /再訪日|再訪期限/);
 });
 
-test("Hub keeps six destinations in one compact row and readable text on mobile", async () => {
+test("Hub keeps every destination in one compact row and readable text on mobile", async () => {
   const css = await readFile(new URL("../public/hub.css", import.meta.url), "utf8");
 
   assert.match(css, /@media \(max-width: 620px\)/);
-  assert.match(css, /\.app-row \{ display: grid; grid-template-columns: repeat\(6, minmax\(0, 1fr\)\);/);
+  assert.match(css, /\.app-row \{ display: grid; grid-template-columns: repeat\(8, minmax\(0, 1fr\)\);/);
   assert.match(css, /\.app-row \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \}/);
   assert.match(css, /\.projects-pill \{ --accent: var\(--project\); --soft: var\(--project-soft\); \}/);
   assert.match(css, /\.finance-pill \{ --accent: var\(--blue\); --soft: var\(--blue-soft\); \}/);
@@ -457,9 +457,14 @@ test("every Hub page shares one header, the same page switcher and the phone tab
     assert.match(html, /href="\/dashboard-shell\.dark\.css"/, page);
     assert.match(html, new RegExp(`<script src="/tabbar\\.js" data-page="${page}" defer></script>`), page);
     assert.doesNotMatch(html, /class="topbar"|class="status-header"|id="dashboardNav"/, page);
-    const nav = html.match(/<nav aria-label="ダッシュボードを切り替え">([\s\S]*?)<\/nav>/)?.[1] || "";
-    assert.deepEqual([...nav.matchAll(/>([^<>]+)<\/(?:a|span)>/g)].map((match) => match[1]), links, page);
+    // #343: ホームはヘッダーの切り替えを持たず、「今日やること」の下のアプリ一覧が同じ行き先を同じ順に並べる
+    const nav = page === "hub"
+      ? html.match(/<nav class="app-row"[^>]*>([\s\S]*?)<\/nav>/)?.[1] || ""
+      : html.match(/<nav aria-label="ダッシュボードを切り替え">([\s\S]*?)<\/nav>/)?.[1] || "";
+    const names = page === "hub" ? [...nav.matchAll(/<b>([^<]+)<\/b>/g)] : [...nav.matchAll(/>([^<>]+)<\/(?:a|span)>/g)];
+    assert.deepEqual(names.map((match) => match[1]), links, page);
     assert.equal((nav.match(/aria-current="page"/g) || []).length, page === "hub" ? 0 : 1, page);
+    if (page === "hub") assert.doesNotMatch(html, /class="dashboard-switcher"/);
     // 説明はヘルプページにまとめ、どのページのヘッダーからも開ける
     assert.match(html, /<a class="dashboard-refresh dashboard-help" href="\/help\/[^"]*" title="ヘルプ" aria-label="ヘルプ">\?<\/a>/, page);
   }
@@ -574,4 +579,19 @@ test("#350: Hub home shows numbers and actions, not explanatory subtitles", asyn
     const source = await readFile(new URL(`../public/${page}.html`, import.meta.url), "utf8");
     assert.doesNotMatch(source, /<\/h1><small>/, page);
   }
+});
+
+test("#343: the phone tab bar offers the same destinations as the page switcher", async () => {
+  const [tabbar, idea] = await Promise.all([
+    readFile(new URL("../public/static/tabbar.js", import.meta.url), "utf8"),
+    readFile(new URL("../public/compass/index.html", import.meta.url), "utf8"),
+  ]);
+  const inTabbar = [...tabbar.matchAll(/label: "([^"]+)", href: "([^"]+)"/g)]
+    .filter((match) => match[2] !== "/")
+    .map((match) => match[2])
+    .sort();
+  const nav = idea.match(/<nav aria-label="ダッシュボードを切り替え">([\s\S]*?)<\/nav>/)?.[1] || "";
+  const inSwitcher = [...nav.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
+  // 現在のページはリンクにせず <span> にするので、Ideaのページでは /compass/ を補う
+  assert.deepEqual(inTabbar, [...new Set([...inSwitcher, "/compass/"])].sort());
 });

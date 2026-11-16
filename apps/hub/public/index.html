@@ -29,21 +29,6 @@
             <span><h1>Personal Hub</h1></span>
           </a>
           <div class="dashboard-actions">
-            <details class="dashboard-switcher">
-              <summary aria-label="ページを切り替える">
-                <svg class="dashboard-switcher-icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="5" cy="6" r="1" /><circle cx="5" cy="12" r="1" /><circle cx="5" cy="18" r="1" />
-                  <path d="M9 6h10M9 12h10M9 18h10" />
-                </svg>
-                <span>Dashboards</span>
-              </summary>
-              <div class="dashboard-switcher-menu">
-                <nav aria-label="ダッシュボードを切り替え">
-                  <a href="/compass/">Idea</a><a href="/projects/">Projects</a><a href="/writing/">Writing</a><a href="/habits/">Habits</a><a href="/sf6/">SF6</a><a href="/go/financial">Finance</a><a href="/go/knowledge">Knowledge</a><a href="/status/">接続状態</a>
-                </nav>
-                <label class="theme-select"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label>
-              </div>
-            </details>
             <span class="source-badge" id="sourceBadge"><i></i><span>接続確認中</span></span>
             <button class="dashboard-refresh" id="refreshButton" type="button" title="再読み込み" aria-label="データを再読み込み">↻</button><button class="dashboard-refresh" id="homeSettingsButton" type="button" title="表示設定" aria-label="ホームの表示設定">⚙</button><a class="dashboard-refresh dashboard-help" href="/help/#hub" title="ヘルプ" aria-label="ヘルプ">?</a>
             <details class="quick-add-menu" id="quickAddMenu">
@@ -101,8 +86,10 @@
           <a class="app-pill projects-pill" id="projectsLink" href="/projects/"><b>Projects</b><small id="projectsMeta">—</small></a>
           <a class="app-pill writing-pill" id="writingLink" href="/writing/"><b>Writing</b><small id="writingMeta">—</small></a>
           <a class="app-pill habits-pill" id="habitsLink" href="/habits/"><b>Habits</b><small id="habitsMeta">—</small></a>
+          <a class="app-pill sf6-pill nav-only" href="/sf6/"><b>SF6</b></a>
           <a class="app-pill finance-pill" id="financialLink" href="/finance/"><b>Finance</b><small id="financialMeta">—</small></a>
           <a class="app-pill knowledge-pill" id="knowledgeLink" href="/knowledge/"><b>Knowledge</b><small id="knowledgeMeta">—</small></a>
+          <a class="app-pill status-pill nav-only" href="/status/"><b>接続状態</b></a>
         </nav>
 
         <div id="loadingState" class="state-card" role="status"><span class="spinner"></span><p>Supabaseから全体像を読み込んでいます</p></div>
@@ -165,15 +152,6 @@
           </details>
         </div>
 
-        <section class="data-tools" aria-label="データ管理" data-home-section="data" data-home-label="データ管理">
-          <div><strong>データ管理</strong></div>
-          <nav>
-            <a href="/knowledge/api/export">Knowledge JSON</a>
-            <a href="/finance/api/export">Finance CSV</a>
-            <a href="/api/export/snapshot">全体スナップショット</a>
-            <a class="status-link" href="/status/">接続状態</a>
-          </nav>
-        </section>
       </main>
     </div>
 
@@ -198,6 +176,7 @@
         </header>
         <p class="focus-message" id="homeSettingsMessage" role="status" hidden></p>
         <div class="home-settings-list" id="homeSettingsList"></div>
+        <label class="theme-select home-theme"><span>表示</span><select data-theme-select aria-label="表示テーマ"><option value="system">自動</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label>
       </section>
     </div>
     <div class="today-sheet" id="todaySheet" hidden>
