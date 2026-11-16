@@ -43,7 +43,7 @@ test("the detail drawer sits above the sticky header so its close button stays v
 });
 
 test("Inbox shows 予定・調査・開発・日記 first and orders the rest by purpose", async () => {
-  const { PRIMARY_INBOX_ROUTES, MORE_INBOX_ROUTES, inboxQuickRoutes } = await import("../public/compass/constants.js");
+  const { PRIMARY_INBOX_ROUTES, MORE_INBOX_ROUTES, inboxQuickRoutes } = await import(new URL("../public/compass/constants.js", import.meta.url).href);
   assert.deepEqual(PRIMARY_INBOX_ROUTES.map((key: string) => inboxQuickRoutes[key].label), ["予定", "調査", "開発", "日記"]);
   assert.deepEqual(MORE_INBOX_ROUTES.map((key: string) => inboxQuickRoutes[key].label), ["執筆", "問い", "習慣", "Focus", "欲しいもの", "SF6", "保留"]);
   // 両方を合わせると、すべての振り分け先が1回ずつ出る
