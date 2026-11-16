@@ -15,8 +15,15 @@ import { renderTodoDrawer } from "./todos.js";
 import { unsortedInboxCount, rememberInboxOrder } from "./triage-flow.js";
 import { wantCategory, wantCategoryMeta } from "./want-category.js";
 
+// Inboxの振り分けボタンは名前だけにする。何が起きるかは「?」で開く説明（routeHelpMarkup）で確かめる。
 function quickRouteButton(key, quick) {
-  return `<button class="quick-route-action" type="button" data-inbox-route="${key}"><strong>${escapeHtml(quick.label)}</strong><small>${escapeHtml(quick.description)}</small></button>`;
+  return `<button class="quick-route-action" type="button" data-inbox-route="${key}" title="${escapeHtml(quick.description)}"><strong>${escapeHtml(quick.label)}</strong></button>`;
+}
+
+function routeHelpMarkup() {
+  const rows = [...PRIMARY_INBOX_ROUTES, ...MORE_INBOX_ROUTES]
+    .map((key) => `<div><dt>${escapeHtml(inboxQuickRoutes[key].label)}</dt><dd>${escapeHtml(inboxQuickRoutes[key].description)}</dd></div>`).join("");
+  return `<dl class="route-help-list" id="routeHelpList" hidden>${rows}<div><dt>AIに聞く</dt><dd>本文をAIへ送り、振り分け案を出します。保存は案を確認してから</dd></div></dl>`;
 }
 
 export function renderDrawerItem(item, view) {
@@ -32,14 +39,15 @@ export function renderDrawerItem(item, view) {
       ? `${viewMeta[view].singular} · ${item.id} · 未整理 残り${unsortedInboxCount()}件`
       : `${viewMeta[view].singular} · ${item.id}`;
     setDrawerTitle(text || "内容なし", { content: true });
-    const meta = `<p class="drawer-meta">${escapeHtml(itemStatusLabel(item, view))} · ${escapeHtml(formatDate(item.createdAt, true))}</p>
+    // 未整理の状態は上の行（未整理 残りN件）に出ているので、ここは日時だけにする。
+    const meta = `<p class="drawer-meta">${pending ? "" : `${escapeHtml(itemStatusLabel(item, view))} · `}${escapeHtml(formatDate(item.createdAt, true))}</p>
       ${source ? `<p class="drawer-source">${sourceChipMarkup(source)}</p>` : ""}`;
     // 未整理なら、まずAIの案を聞くか、よく使う振り分け先を選ぶ。残りの行き先・目的からの選択・Projectは畳む。
     const quickRouteMarkup = pending
       ? `<div class="detail-section quick-route-section">
           <button class="ai-triage-button inbox-ai-button" id="askAiInboxButton" type="button">AIに振り分け案を聞く</button>
-          <p class="ai-data-note">本文をAIへ送信します。保存は案を確認してから。</p>
-          <span class="quick-route-label">自分で選ぶ</span>
+          <div class="quick-route-head"><span class="quick-route-label">自分で選ぶ</span><button class="route-help-button" id="routeHelpButton" type="button" aria-expanded="false" aria-controls="routeHelpList" aria-label="振り分け先の説明">?</button></div>
+          ${routeHelpMarkup()}
           <div class="quick-route-actions primary-routes" role="group" aria-label="よく使う振り分け先">
             ${PRIMARY_INBOX_ROUTES.map((key) => quickRouteButton(key, inboxQuickRoutes[key])).join("")}
           </div>
@@ -64,6 +72,11 @@ export function renderDrawerItem(item, view) {
     document.getElementById("editInboxButton").addEventListener("click", () => renderInboxEditForm(item));
     if (!pending) loadSf6InboxRelation(item, document.getElementById("sf6InboxRelation"));
     document.getElementById("askAiInboxButton")?.addEventListener("click", () => requestAiTriage(item));
+    document.getElementById("routeHelpButton")?.addEventListener("click", (event) => {
+      const list = document.getElementById("routeHelpList");
+      list.hidden = !list.hidden;
+      event.currentTarget.setAttribute("aria-expanded", String(!list.hidden));
+    });
     document.getElementById("triageInboxButton")?.addEventListener("click", () => renderTriageStart(item));
     els.drawerBody.querySelectorAll("[data-inbox-route]").forEach((button) => button.addEventListener("click", () => startInboxRoute(item, button.dataset.inboxRoute)));
     els.drawerBody.querySelector("[data-project-route]")?.addEventListener("click", () => startProjectRoute(item, view));

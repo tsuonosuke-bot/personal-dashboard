@@ -403,15 +403,26 @@ main { width: min(1240px, calc(100% - 28px)); }
 .drawer-source { margin: 10px 0 0; }
 .source-chip { display: inline-block; max-width: 100%; overflow: hidden; padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg-hover); color: var(--muted); font-size: 12px; font-weight: 600; line-height: 1.5; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
 a.source-chip:hover { border-color: var(--green); color: var(--green); }
+.compact-card { min-height: 0; }
+.compact-card .item-footer { margin-top: 8px; align-items: center; }
+.compact-card .status { padding: 2px 8px; }
+.item-date { min-width: 0; }
 .item-footer .source-chip { max-width: 220px; margin-left: 8px; padding: 1px 7px; font-size: 12px; }
 .source-context-origin { margin-top: 6px !important; }
 .inbox-ai-button { width: 100%; }
 .quick-route-section .ai-data-note { margin-top: 6px; }
-.quick-route-section .quick-route-label { margin-top: 18px; }
-.primary-routes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.primary-routes .quick-route-action { min-height: 64px; }
+.quick-route-head { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+.quick-route-head .quick-route-label { margin: 0; }
+.route-help-button { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer; }
+.route-help-button:hover, .route-help-button[aria-expanded="true"] { border-color: var(--green); color: var(--green); }
+.route-help-list { display: grid; gap: 6px; margin: 8px 0 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-subtle); font-size: 12px; line-height: 1.5; }
+.route-help-list[hidden] { display: none; }
+.route-help-list div { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: 8px; }
+.route-help-list dt { color: var(--ink); font-weight: 600; }
+.route-help-list dd { margin: 0; color: var(--muted); }
+.quick-route-section .quick-route-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 8px; }
+.quick-route-section .quick-route-action { min-height: 44px; padding: 6px 4px; }
 .primary-routes .quick-route-action strong { font-size: 13px; }
-.primary-routes .quick-route-action small { font-size: 12px; }
 .more-routes { margin-top: 12px; border-top: 1px solid var(--line); }
 .more-routes summary { min-height: 44px; display: flex; align-items: center; gap: 6px; color: var(--green); font-size: 12px; font-weight: 600; cursor: pointer; list-style: none; }
 .more-routes summary::-webkit-details-marker { display: none; }
@@ -440,6 +451,15 @@ a.source-chip:hover { border-color: var(--green); color: var(--green); }
   .workspace-tools[data-view="todos"][data-conditions="closed"] #statusFilter,
   .workspace-tools[data-view="todos"][data-conditions="closed"] .todo-filter-group { display: none; }
   .drawer h2.drawer-title-content { font-size: 17px; }
+  /* 画面の余白・全体の枠・カードの枠が重ならないよう、全体の枠を外してカードを詰める。 */
+  main { width: calc(100% - 24px); }
+  .workspace { padding: 12px 0; border: 0; border-radius: 0; background: transparent; }
+  .list-meta { min-height: 0; padding: 6px 0; }
+  .list-meta:has(#resultCount:empty) { justify-content: flex-end; }
+  .card-list { gap: 8px; }
+  .compact-card { min-height: 0; padding: 12px 14px; }
+  .compact-card h3 { font-size: 15px; line-height: 1.55; }
+  .compact-card .item-footer { margin-top: 6px; align-items: center; }
 }
 
 /* Wants: やりたいことのバックログを分類ごとに並べる */
@@ -462,7 +482,7 @@ a.source-chip:hover { border-color: var(--green); color: var(--green); }
 .want-stage-sleeping .want-row-title { color: var(--muted); font-weight: 500; }
 
 @media (max-width: 650px) {
-  .want-category-bar { flex-wrap: nowrap; overflow-x: auto; margin-inline: -10px; padding: 0 10px 2px; scrollbar-width: none; }
+  .want-category-bar { flex-wrap: nowrap; overflow-x: auto; margin-inline: -12px; padding: 0 12px 2px; scrollbar-width: none; }
   .want-category-bar .filter-chip { flex: 0 0 auto; }
   .card-list.backlog { grid-template-columns: 1fr; }
   .want-row-title { white-space: normal; }
