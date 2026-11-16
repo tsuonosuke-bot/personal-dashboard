@@ -858,6 +858,28 @@ html[data-theme="dark"] {
   border-color: var(--green);
   color: var(--green);
 }
+:root[data-theme="dark"] .route-help-button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+}
+:root[data-theme="dark"] .route-help-button:hover,
+:root[data-theme="dark"] .route-help-button[aria-expanded="true"] {
+  border-color: var(--green);
+  color: var(--green);
+}
+:root[data-theme="dark"] .route-help-list {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+}
+:root[data-theme="dark"] .route-help-list dt {
+  color: var(--ink);
+}
+:root[data-theme="dark"] .route-help-list dd {
+  color: var(--muted);
+}
 :root[data-theme="dark"] .more-routes {
   border-top: 1px solid var(--line);
 }
@@ -870,6 +892,13 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] .route-text-edit summary {
   color: var(--green);
+}
+@media (max-width: 650px) {
+  :root[data-theme="dark"] .workspace {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
 }
 :root[data-theme="dark"] .want-group {
   border: 1px solid var(--line);

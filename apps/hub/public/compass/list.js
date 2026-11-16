@@ -5,6 +5,7 @@ import { renderTodoCalendar } from "./calendar.js";
 import { closedStatusesByView, defaultStatusByView, routeDestinationMeta, viewMeta } from "./constants.js";
 import { loadTodos, loadDashboard } from "./data.js";
 import { hideDrawer, openDrawer } from "./drawer.js";
+import { formatShortDate } from "./short-date.js";
 import { escapeHtml, formatCalendarSchedule, formatDate, showToast, sortTodos, sourceChipMarkup, splitInboxSource, todayInTokyo, todoTiming, todoTimingLabel } from "./format.js";
 import { els, state } from "./state.js";
 import { WANT_CATEGORIES, groupWantsByCategory, wantBacklogStage, wantCategory, wantCategoryMeta } from "./want-category.js";
@@ -153,17 +154,22 @@ function cardMarkup(item) {
     return `<label class="item-card bulk-item-card${checked ? " selected" : ""}" data-id="${item.id}">
       <input class="bulk-item-checkbox" type="checkbox" value="${item.id}" ${checked ? "checked" : ""} aria-label="Inbox ${item.id}を選択">
       <div class="bulk-item-content">
-        <div class="item-top"><span class="item-id">INBOX · ${item.id ?? "?"}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(itemStatusLabel(item))}</span></div>
         <h3>${escapeHtml(text || "内容なし")}</h3>
-        <div class="item-footer"><span>${formatDate(item.createdAt)}${sourceChip}</span><span class="route-chips">${triageChips(item, "inbox")}</span></div>
+        ${compactFooter(item, sourceChip, "inbox")}
       </div>
     </label>`;
   }
-  return `<button class="item-card" type="button" data-id="${item.id}">
-    <div class="item-top"><span class="item-id">${viewMeta[state.view].singular.toUpperCase()} · ${item.id ?? "?"}</span><span class="status status-${escapeHtml(item.status)}">${escapeHtml(itemStatusLabel(item))}</span></div>
+  return `<button class="item-card compact-card" type="button" data-id="${item.id}">
     <h3>${escapeHtml(text || "内容なし")}</h3>
-    <div class="item-footer"><span>${formatDate(item.createdAt)}${sourceChip}</span><span class="route-chips">${triageChips(item, state.view)}</span></div>
+    ${compactFooter(item, sourceChip, state.view)}
   </button>`;
+}
+
+// 一覧のカードは本文と1行の補足（日付・出典・振り分け結果）だけにする。種類と番号は出さず、
+// 状態はステータスを絞り込んでいない（すべて）ときだけ出す（絞り込み中は全件同じになるため）。
+function compactFooter(item, sourceChip, view) {
+  const status = state.status ? "" : `<span class="status status-${escapeHtml(item.status)}">${escapeHtml(itemStatusLabel(item))}</span>`;
+  return `<div class="item-footer"><span class="item-date">${escapeHtml(formatShortDate(item.createdAt))}${sourceChip}</span><span class="route-chips">${triageChips(item, view)}${status}</span></div>`;
 }
 
 function wantRowMarkup(item, today) {
@@ -263,7 +269,8 @@ export function renderList() {
   renderCurrentTabCount(items);
   els.listTitle.textContent = viewMeta[state.view].title;
   const total = state.view === "todos" ? todoResultCount(items) : state.pages?.[state.view]?.total ?? items.length;
-  els.resultCount.textContent = `${total}件中 ${items.length}件を表示`;
+  // 件数はタブに出ているので、続きがあって一部だけ表示しているときだけ出す。
+  els.resultCount.textContent = items.length < total ? `${total}件中 ${items.length}件` : "";
   els.clearFilter.hidden = state.view === "wants"
     ? !(state.status !== "active" || state.search || state.metricFilter || state.wantCategory)
     : !(state.status || state.search || state.metricFilter);

@@ -60,3 +60,27 @@ test("route forms fold the title and body fields so the confirm button is reacha
   assert.match(script, /focusTextField\(form\.elements\.title\)/);
   assert.match(script, /else formSubmit\.focus\(\);/);
 });
+
+test("Inbox cards drop the kind/number row and show the status only when it varies", async () => {
+  const script = await readCompassScript();
+  assert.doesNotMatch(script, /INBOX · \$\{item\.id/);
+  assert.match(script, /const status = state\.status \? "" : `<span class="status/);
+  assert.match(script, /formatShortDate\(item\.createdAt\)/);
+  assert.match(script, /items\.length < total \? `\$\{total\}件中 \$\{items\.length\}件` : ""/);
+});
+
+test("formatShortDate omits the year for this year in Tokyo time", async () => {
+  const { formatShortDate } = await import(new URL("../public/compass/short-date.js", import.meta.url).href);
+  const now = new Date("2026-11-17T03:00:00Z");
+  assert.equal(formatShortDate("2026-11-16T16:30:00Z", now), "11/17");
+  assert.equal(formatShortDate("2025-12-31T00:00:00Z", now), "2025/12/31");
+  assert.equal(formatShortDate(null, now), "日時不明");
+});
+
+test("Inbox route buttons show names only, with a help toggle that lists every destination", async () => {
+  const script = await readCompassScript();
+  assert.doesNotMatch(script, /data-inbox-route="\$\{key\}"[^`]*<small>/);
+  assert.match(script, /id="routeHelpButton" type="button" aria-expanded="false" aria-controls="routeHelpList"/);
+  assert.match(script, /\[\.\.\.PRIMARY_INBOX_ROUTES, \.\.\.MORE_INBOX_ROUTES\]/);
+  assert.doesNotMatch(script, /id="askAiInboxButton"[^\n]*\n\s*<p class="ai-data-note">/);
+});
