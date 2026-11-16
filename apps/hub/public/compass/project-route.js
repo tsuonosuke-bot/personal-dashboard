@@ -11,7 +11,7 @@ import {
   sourceTextMarkup,
   splitInboxSource,
 } from "./format.js";
-import { syncCompassRoute } from "./list.js";
+import { leaveDrawerRoute } from "./list.js";
 import { triageCompletionNote, triageKicker, triageSourceLabel } from "./route.js";
 import { els, state } from "./state.js";
 
@@ -197,7 +197,7 @@ function renderProjectRouteForm(item, view, projects) {
           throw new Error(message);
       }
       hideDrawer();
-      syncCompassRoute(view, null, "replace", state.metricFilter);
+      await leaveDrawerRoute(view, state.metricFilter);
       const refreshed = await loadDashboard();
       showToast(
         refreshed
