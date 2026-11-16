@@ -44,7 +44,7 @@ body {
   min-height: 100vh;
   margin: 0;
   color: var(--ink);
-  background: linear-gradient(145deg, rgba(255,255,255,.28), transparent 42%), var(--paper);
+  background: var(--paper);
 }
 body.modal-open { overflow: hidden; }
 button { font: inherit; color: inherit; }
@@ -83,12 +83,15 @@ main { width: min(1240px, calc(100% - 32px)); margin: 0 auto; }
 .context-strip small { font-size: 12px; }
 
 /* アプリ一覧は「今日やること」の下に置く件数の行。枠や背景は付けず、区切り線だけで並べる */
-.app-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0 14px; margin-bottom: 18px; border-top: 1px solid var(--divider); border-bottom: 1px solid var(--divider); }
+/* 件数を持たないSF6（5列目）と接続状態（8列目）は名前の幅だけにして、件数の列に幅を回す */
+.app-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto repeat(2, minmax(0, 1fr)) auto; gap: 0 14px; margin-bottom: 18px; border-top: 1px solid var(--divider); border-bottom: 1px solid var(--divider); }
 .app-pill { --accent: var(--green); --soft: var(--green-soft); min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 6px 0; color: var(--ink); text-decoration: none; transition: border-color .18s ease; }
 .app-pill:hover b { color: var(--accent); }
 .app-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* 名前は縮めず、件数側だけを省略する */
 .app-pill b { flex: none; font-size: 13px; white-space: nowrap; }
+.sf6-pill { --accent: #b3203d; }
+.status-pill { --accent: #52645a; }
 .app-pill small { min-width: 0; margin-left: auto; overflow: hidden; color: var(--accent); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .projects-pill { --accent: var(--project); --soft: var(--project-soft); }
 .writing-pill { --accent: var(--plum); --soft: var(--plum-soft); }
@@ -100,7 +103,7 @@ main { width: min(1240px, calc(100% - 32px)); margin: 0 auto; }
    中は区切り線で分け、完了の丸はHabitsページと同じ見た目にする */
 .today-panel { margin-bottom: 14px; padding: 4px 0 6px; }
 .today-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--divider); }
-.today-head h2 { margin: 0; font: 750 22px/1.2 Inter, "Segoe UI", sans-serif; letter-spacing: -.01em; }
+.today-head h2 { margin: 0; font: 750 22px/1.2 var(--font-sans); letter-spacing: -.01em; }
 .today-counter { padding: 5px 11px; border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .today-all-done { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 12px 14px; border-radius: var(--radius); background: var(--green-soft); color: var(--green); font-size: 13px; font-weight: 600; }
 .today-all-done > span { font-size: 20px; }
@@ -208,20 +211,11 @@ a.today-row-title:hover { text-decoration: underline; }
 .today-toast { position: fixed; right: 18px; bottom: calc(18px + var(--tabbar-space, 0px)); z-index: 95; max-width: min(380px, calc(100vw - 36px)); display: flex; align-items: center; gap: 14px; padding: 11px 14px; border-radius: var(--radius); background: #202822; color: #fff; box-shadow: 0 10px 30px rgba(27,39,32,.22); font-size: 13px; }
 .today-toast button { min-height: 36px; flex: 0 0 auto; padding: 0 4px; border: 0; background: none; color: var(--text-tertiary); cursor: pointer; font-size: 13px; font-weight: 600; }
 
-.data-tools { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 3px 0 18px; padding: 8px 0; border-top: 1px solid var(--divider); }
-.data-tools > div { min-width: 0; }
-.data-tools strong, .data-tools small { display: block; }
-.data-tools strong { font-size: 12px; }
-.data-tools small { margin-top: 2px; color: var(--muted); font-size: 12px; }
-.data-tools nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
-.data-tools a { min-height: 29px; display: inline-flex; align-items: center; padding: 0 9px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg); color: var(--ink); font-size: 12px; font-weight: 600; text-decoration: none; }
-.data-tools a:hover { border-color: var(--green); color: var(--green); }
-.data-tools .status-link { border-color: rgba(36,89,73,.28); background: var(--green-soft); color: var(--green); }
 
 .state-card { min-height: 150px; display: grid; place-items: center; align-content: center; margin: 3px 0 12px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,254,250,.75); color: var(--muted); }
 .state-card p { margin: 10px 0 0; font-size: 12px; }
 .spinner { width: 24px; height: 24px; border: 2px solid var(--line); border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; }
-.error-state h2 { margin: 0; color: var(--ink); font: 700 18px/1.2 Inter, "Segoe UI", sans-serif; }
+.error-state h2 { margin: 0; color: var(--ink); font: 700 18px/1.2 var(--font-sans); }
 .error-state button { margin-top: 11px; padding: 7px 13px; border: 0; border-radius: var(--radius-sm); background: var(--green); color: #fff; cursor: pointer; }
 
 /* 毎日使う欄（Focus・Inbox）は枠なしで「今日やること」の下に置き、たまに見る欄は1行に畳む（#349） */
@@ -235,14 +229,14 @@ a.today-row-title:hover { text-decoration: underline; }
 .fold[open] > .fold-summary::after { content: "−"; }
 .fold-summary:hover h2 { color: var(--green); }
 .fold-summary:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-.fold-summary h2 { margin: 0; font: 600 14px/1.3 Inter, "Segoe UI", sans-serif; }
+.fold-summary h2 { margin: 0; font: 600 14px/1.3 var(--font-sans); }
 .fold-meta { min-width: 0; overflow: hidden; color: var(--muted); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .fold-body { padding: 2px 0 14px; }
 .fold-link { min-height: 40px; display: inline-flex; align-items: center; color: var(--green); font-size: 12px; font-weight: 600; text-decoration: none; }
 .fold-link:hover { text-decoration: underline; }
 .panel { min-width: 0; padding: 14px; border: 1px solid rgba(49,70,58,.12); border-radius: var(--radius); background: var(--surface); }
 .section-heading { min-height: 25px; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
-.section-heading h2 { margin: 0; font: 700 17px/1.15 Inter, "Segoe UI", sans-serif; letter-spacing: -.01em; }
+.section-heading h2 { margin: 0; font: 700 17px/1.15 var(--font-sans); letter-spacing: -.01em; }
 .section-heading > a, .section-links a { color: var(--green); font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .section-heading > a:hover, .section-links a:hover { text-decoration: underline; }
 .section-links { display: flex; align-items: center; gap: 10px; }
@@ -270,7 +264,7 @@ a.today-row-title:hover { text-decoration: underline; }
 .focus-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
 .focus-card { min-width: 0; min-height: 100px; display: grid; align-content: start; gap: 7px; padding: 11px; border: 1px solid #dedbcf; border-radius: var(--radius); background: rgba(255,255,255,.82); cursor: pointer; text-align: left; transition: border-color .18s ease, transform .18s ease; }
 .focus-card:hover { border-color: var(--orange); transform: translateY(-1px); }
-.focus-number { color: var(--orange); font: 750 10px/1 Inter, "Segoe UI", sans-serif; }
+.focus-number { color: var(--orange); font: 750 10px/1 var(--font-sans); }
 .focus-card strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; font-size: 12px; line-height: 1.45; }
 .focus-card small { display: -webkit-box; overflow: hidden; color: var(--muted); -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 12px; line-height: 1.45; }
 .focus-empty { grid-column: 1 / -1; min-height: 82px; display: grid; place-items: center; align-content: center; color: var(--muted); text-align: center; }
@@ -282,7 +276,7 @@ a.today-row-title:hover { text-decoration: underline; }
 .focus-modal-backdrop { position: absolute; inset: 0; width: 100%; border: 0; background: rgba(24,31,27,.52); cursor: default; }
 .focus-dialog { position: relative; width: min(760px, 100%); max-height: min(820px, calc(100vh - 28px)); overflow: auto; padding: 18px; border: 1px solid rgba(49,70,58,.2); border-radius: var(--radius-lg); background: var(--paper); box-shadow: 0 22px 70px rgba(19,29,23,.28); }
 .focus-dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 12px; }
-.focus-dialog-header h2 { margin: 0; font: 750 20px/1.2 Inter, "Segoe UI", sans-serif; }
+.focus-dialog-header h2 { margin: 0; font: 750 20px/1.2 var(--font-sans); }
 .focus-dialog-header p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
 .focus-close { width: 31px; height: 31px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; font-size: 18px; line-height: 1; }
 .focus-message { margin: 0 0 9px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--green-soft); color: var(--green); font-size: 12px; font-weight: 600; }
@@ -301,7 +295,7 @@ a.today-row-title:hover { text-decoration: underline; }
 .focus-order-actions button:disabled { opacity: .3; cursor: not-allowed; }
 .focus-editor label { display: grid; gap: 4px; min-width: 0; }
 .focus-editor label > span { color: var(--muted); font-size: 12px; font-weight: 600; }
-.focus-editor input, .focus-editor textarea { width: 100%; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); padding: 8px 9px; font: 10px/1.45 Inter, "Segoe UI", "Yu Gothic UI", sans-serif; resize: vertical; }
+.focus-editor input, .focus-editor textarea { width: 100%; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); padding: 8px 9px; font: 10px/1.45 var(--font-sans); resize: vertical; }
 .focus-editor input:focus, .focus-editor textarea:focus { outline: 2px solid rgba(36,89,73,.2); border-color: var(--green); }
 .focus-editor-actions { display: grid; gap: 5px; }
 .focus-editor-actions button { min-height: 31px; padding: 0 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap; }
@@ -320,7 +314,7 @@ a.today-row-title:hover { text-decoration: underline; }
 .record-row strong { font-size: 12px; }
 .record-row small { margin-top: 3px; color: var(--muted); font-size: 12px; }
 .transaction-money { display: grid; justify-items: end; gap: 3px; padding: 7px 0; }
-.transaction-money > b { color: var(--blue); font: 700 12px/1 Inter, "Segoe UI", sans-serif; white-space: nowrap; }
+.transaction-money > b { color: var(--blue); font: 700 12px/1 var(--font-sans); white-space: nowrap; }
 .transaction-money > small { margin: 0; color: var(--muted); font-size: 12px; }
 
 .knowledge-list { display: grid; gap: 5px; }
@@ -349,7 +343,7 @@ a.today-row-title:hover { text-decoration: underline; }
 .inbox-quick button:disabled { opacity: .45; cursor: not-allowed; }
 .inbox-quick-error { margin: 0 0 8px; color: #9a4b25; font-size: 12px; font-weight: 600; }
 .knowledge-heading-copy { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.inbox-card > span { color: var(--orange); font: 700 12px/1 Inter, "Segoe UI", sans-serif; }
+.inbox-card > span { color: var(--orange); font: 700 12px/1 var(--font-sans); }
 .inbox-card strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 12px; line-height: 1.35; }
 .inbox-card small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
 .inbox-state { display: inline-block; margin-bottom: 4px; padding: 3px 5px; border-radius: 999px; background: var(--orange-soft); color: #9a4b25; font-size: 12px; font-weight: 850; }
@@ -469,7 +463,8 @@ a.today-row-title:hover { text-decoration: underline; }
 @media (max-width: 680px) {
   .app-row { gap: 4px; }
   .app-pill { min-height: 44px; display: grid; align-content: center; gap: 1px; padding: 5px 8px; }
-  .app-icon { display: none; }
+  /* 件数を持たない行き先（SF6・接続状態）はタブバーの「その他」から開く */
+  .app-pill.nav-only { display: none; }
   .app-pill b { color: var(--muted); font-size: 12px; font-weight: 600; }
   .app-pill small { margin-left: 0; font-size: 13px; }
 }
@@ -482,9 +477,6 @@ a.today-row-title:hover { text-decoration: underline; }
   /* backdrop-filter があると position: fixed の基準がヘッダーになり、メニューが画面下に出ない */
   .dashboard-header:has(.quick-add-menu[open]) { backdrop-filter: none; }
   .quick-add-menu nav { position: fixed; inset: auto 8px calc(8px + var(--tabbar-space, 0px)); width: auto; grid-template-columns: 1fr 1fr; padding: 9px; border-radius: var(--radius-lg); }
-  .data-tools { align-items: stretch; flex-direction: column; gap: 7px; }
-  .data-tools nav { display: grid; grid-template-columns: 1fr 1fr; }
-  .data-tools a { justify-content: center; min-height: 34px; }
 }
 
 /* ホームの表示設定 */
@@ -497,8 +489,8 @@ html[data-home-hidden~="learning"] [data-home-section="learning"],
 html[data-home-hidden~="inbox"] [data-home-section="inbox"],
 html[data-home-hidden~="expenses"] [data-home-section="expenses"],
 html[data-home-hidden~="knowledge"] [data-home-section="knowledge"],
-html[data-home-hidden~="journal"] [data-home-section="journal"],
-html[data-home-hidden~="data"] [data-home-section="data"] { display: none !important; }
+html[data-home-hidden~="journal"] [data-home-section="journal"] { display: none !important; }
 .home-settings-list { display: grid; gap: 2px; padding: 4px 0 8px; }
 .home-settings-row { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 4px; cursor: pointer; font-size: 14px; }
+.home-theme { display: flex; align-items: center; gap: 10px; min-height: 40px; margin-top: 4px; padding: 8px 4px 0; border-top: 1px solid var(--border); font-size: 14px; }
 .home-settings-row input { width: 18px; height: 18px; accent-color: var(--page-accent, var(--green)); }

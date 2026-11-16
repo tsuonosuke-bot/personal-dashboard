@@ -59,17 +59,17 @@
 
         <div id="habitContent" hidden>
           <section class="panel" aria-labelledby="todayTitle">
-            <div class="section-heading"><div><p>TODAY</p><h2 id="todayTitle">今日</h2></div><small>タップすると記録・取消できます</small></div>
+            <div class="section-heading"><div><h2 id="todayTitle">今日</h2></div></div>
             <div class="habit-list" id="todayList"></div>
           </section>
 
           <section class="panel weekly-panel" aria-labelledby="weeklyTitle">
-            <div class="section-heading"><div><p>THIS WEEK</p><h2 id="weeklyTitle">今週</h2></div><small id="weekLabel"></small></div>
+            <div class="section-heading"><div><h2 id="weeklyTitle">今週</h2></div><small id="weekLabel"></small></div>
             <div class="habit-list" id="weeklyList"></div>
           </section>
 
           <section class="panel history-panel" aria-labelledby="historyTitle">
-            <div class="section-heading"><div><p>HISTORY</p><h2 id="historyTitle">履歴</h2></div><small>✓ 実施（•は後から記録・下線はメモあり）· ／ 休んだ · 記録なし — 対象外 · タップで記録・メモ（直近7日）</small></div>
+            <div class="section-heading"><div><h2 id="historyTitle">履歴</h2></div><small>✓ 実施（•は後から記録・下線はメモあり）· ／ 休んだ · 記録なし — 対象外 · タップで記録・メモ（直近7日）</small></div>
             <div class="history-controls">
               <div class="history-period" role="group" aria-label="履歴の期間">
                 <button type="button" data-history-period="week" aria-pressed="true">週</button>
@@ -87,7 +87,7 @@
           </section>
 
           <section class="panel manage-panel" aria-labelledby="manageTitle">
-            <div class="section-heading"><div><p>MANAGE</p><h2 id="manageTitle">休止・アーカイブ</h2></div><small>履歴は保持されます</small></div>
+            <div class="section-heading"><div><h2 id="manageTitle">休止・アーカイブ</h2></div><small>履歴は保持されます</small></div>
             <div class="manage-list" id="manageList"></div>
           </section>
         </div>
@@ -96,7 +96,7 @@
 
     <div class="modal-backdrop" id="habitModal" hidden>
       <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-        <div class="modal-head"><div><p>HABIT</p><h2 id="modalTitle">習慣を追加</h2></div><button id="modalClose" type="button" aria-label="閉じる">×</button></div>
+        <div class="modal-head"><div><h2 id="modalTitle">習慣を追加</h2></div><button id="modalClose" type="button" aria-label="閉じる">×</button></div>
         <form id="habitForm">
           <label><span>習慣名 <b>必須</b></span><input id="habitName" maxlength="240" required placeholder="例：Pomeraで書く" /></label>
           <label><span>目的・続けたい理由</span><textarea id="habitPurpose" maxlength="2000" rows="4" placeholder="空欄でも登録できます"></textarea></label>
@@ -110,7 +110,7 @@
     </div>
     <div class="modal-backdrop" id="logSheet" hidden>
       <section class="modal log-sheet" role="dialog" aria-modal="true" aria-labelledby="logSheetTitle">
-        <div class="modal-head"><div><p id="logSheetDate">RECORD</p><h2 id="logSheetTitle">実施記録</h2></div><button id="logSheetClose" type="button" aria-label="閉じる">×</button></div>
+        <div class="modal-head"><div><p id="logSheetDate"></p><h2 id="logSheetTitle">実施記録</h2></div><button id="logSheetClose" type="button" aria-label="閉じる">×</button></div>
         <form id="logSheetForm">
           <p class="log-sheet-status" id="logSheetStatus"></p>
           <fieldset class="log-sheet-kind" id="logSheetKindField"><legend>この日は</legend>

@@ -35,12 +35,12 @@ test("PUT saves and GET reads hidden sections", async (t) => {
     calls.push({ url: String(input), method: init?.method ?? "GET", body: init?.body as string | undefined });
     return init?.method === "POST"
       ? Response.json([{ hidden_sections: ["journal"] }])
-      : Response.json([{ hidden_sections: ["journal", "data"] }]);
+      : Response.json([{ hidden_sections: ["learning", "journal"] }]);
   });
-  const saved = await onRequest({ request: put({ hidden: ["data", "journal"] }), env });
+  const saved = await onRequest({ request: put({ hidden: ["learning", "journal"] }), env });
   assert.equal(saved.status, 200);
-  assert.deepEqual(await saved.json(), { hidden: ["journal", "data"] });
-  assert.deepEqual(JSON.parse(calls[0].body as string).hidden_sections, ["journal", "data"]);
+  assert.deepEqual(await saved.json(), { hidden: ["learning", "journal"] });
+  assert.deepEqual(JSON.parse(calls[0].body as string).hidden_sections, ["learning", "journal"]);
   const read = await onRequest({ request: new Request("https://hub.example/api/home-settings"), env });
-  assert.deepEqual(await read.json(), { hidden: ["journal", "data"] });
+  assert.deepEqual(await read.json(), { hidden: ["learning", "journal"] });
 });

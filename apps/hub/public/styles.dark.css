@@ -26,8 +26,7 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] body {
   color: var(--ink);
-  background: radial-gradient(circle at 90% 0%, rgba(213, 164, 102, .12), transparent 28rem),
-  linear-gradient(180deg, #201e19 0, var(--paper) 28rem);
+  background: var(--paper);
 }
 :root[data-theme="dark"] button {
   color: inherit;

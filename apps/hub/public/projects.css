@@ -60,6 +60,7 @@ a { color: inherit; }
 .board-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .board-header h2 { margin: 3px 0 0; font-size: 20px; }
 .eyebrow { color: var(--text-secondary); font-size: 12px; font-weight: 400; }
+.eyebrow:empty { display: none; }
 .tabs { display: flex; gap: 5px; margin: 13px 0 9px; border-bottom: 1px solid var(--line); }
 .tabs button { padding: 8px 10px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 600; }
 .tabs button.active { border-bottom-color: var(--accent); color: var(--accent); }

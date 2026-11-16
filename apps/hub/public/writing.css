@@ -23,7 +23,8 @@ a { color: inherit; }
 main { width: min(1120px, calc(100% - 28px)); margin: 0 auto; padding-bottom: 28px; }
 .page-heading { min-height: 128px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .eyebrow { color: var(--text-secondary); font-size: 12px; font-weight: 400; }
-.page-heading h1 { margin: 5px 0 4px; font: 750 32px/1.05 Inter, "Segoe UI", sans-serif; letter-spacing: -.03em; }
+.eyebrow:empty { display: none; }
+.page-heading h1 { margin: 5px 0 4px; font: 750 32px/1.05 var(--font-sans); letter-spacing: -.03em; }
 .page-heading p { margin: 0; color: var(--muted); font-size: 12px; }
 .primary-link { padding: 10px 13px; border-radius: var(--radius-sm); background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; text-decoration: none; }
 .primary-link:hover { background: var(--accent-hover); }

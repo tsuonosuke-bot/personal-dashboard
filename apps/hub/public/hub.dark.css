@@ -61,7 +61,7 @@ html[data-theme="dark"] {
 }
 :root[data-theme="dark"] body {
   color: var(--ink);
-  background: linear-gradient(145deg, rgba(41, 41, 41, 0.28), transparent 42%), var(--paper);
+  background: var(--paper);
 }
 :root[data-theme="dark"] button {
   color: inherit;
@@ -125,6 +125,12 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .app-pill:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+:root[data-theme="dark"] .sf6-pill {
+  --accent--light: var(--violet--light, var(--violet));
+}
+:root[data-theme="dark"] .status-pill {
+  --accent--light: var(--violet--light, var(--violet));
 }
 :root[data-theme="dark"] .app-pill small {
   color: var(--accent);
@@ -462,28 +468,6 @@ html[data-theme="dark"] {
   border: 0;
   background: none;
   color: var(--text-tertiary);
-}
-:root[data-theme="dark"] .data-tools {
-  border-top: 1px solid var(--divider);
-}
-:root[data-theme="dark"] .data-tools small {
-  color: var(--muted);
-}
-:root[data-theme="dark"] .data-tools a {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--ink);
-  text-decoration: none;
-}
-:root[data-theme="dark"] .data-tools a:hover {
-  border-color: var(--green);
-  color: var(--green);
-}
-:root[data-theme="dark"] .data-tools .status-link {
-  border-color: rgba(81, 184, 153, 0.28);
-  background: var(--green-soft);
-  color: var(--green);
 }
 :root[data-theme="dark"] .state-card {
   border: 1px solid var(--line);
@@ -934,6 +918,9 @@ html[data-theme="dark"] {
   :root[data-theme="dark"] .quick-add-menu nav {
     border-radius: var(--radius-lg);
   }
+}
+:root[data-theme="dark"] .home-theme {
+  border-top: 1px solid var(--border);
 }
 :root[data-theme="dark"] .home-settings-row input {
   accent-color: var(--page-accent, var(--green));

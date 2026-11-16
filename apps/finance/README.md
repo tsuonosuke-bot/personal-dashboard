@@ -184,7 +184,7 @@ Cloudflare PagesのProductionとPreviewの両方へ、「実行時の環境変�
 
 ## UIの方針
 
-- 見た目はNotionを手本にする（Knowledge・Hubと共通）。白い面、薄い境界線、枠のないヘッダーのボタン、12px以上の文字
+- 見た目はPersonal Dashboard共通のもの（Knowledge・Hubと同じトークン）。白い面、薄い境界線、枠のないヘッダーのボタン、12px以上の文字
 - 灰色・角丸・影は `src/index.css` の `:root` のトークン（`--text`、`--bg`、`--border` など）を使う。Tailwindの `slate` は
   同じ灰色に、`indigo`・`sky` はテーマカラーの濃淡に `@theme` で置き換えている
 - テーマカラーは青緑（`--accent: #315f78`）。ロゴ・主役の操作・小さな強調だけに使い、ほかのダッシュボードの色（Knowledgeの紫など）は使わない

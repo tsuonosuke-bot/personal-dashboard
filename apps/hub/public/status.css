@@ -3,6 +3,12 @@
 [hidden] { display: none !important; }
 body { min-width: 320px; min-height: 100vh; margin: 0; color: var(--ink); background: var(--paper); }
 button, a { font: inherit; }
+/* ホームから移したデータの書き出し（読み取り専用） */
+.status-exports { margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border); }
+.status-exports h2 { margin: 0 0 6px; font-size: 14px; }
+.status-exports nav { display: flex; flex-wrap: wrap; gap: 0 18px; }
+.status-exports a { min-height: 40px; display: inline-flex; align-items: center; color: var(--green); font-size: 13px; font-weight: 600; text-decoration: none; }
+.status-exports a:hover { text-decoration: underline; }
 .status-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .status-card { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: inset 0 3px 0 #a8afaa; }
 .status-card.live { box-shadow: inset 0 3px 0 var(--green); }

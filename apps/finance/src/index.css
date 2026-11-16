@@ -1,21 +1,21 @@
 @import 'tailwindcss';
 @import '@personal-dashboards/shell/header.css';
 
-/* Tailwindの色をNotion風にそろえる。slateは温かみのある灰色、indigo・skyはFinanceのテーマカラー（青緑）の濃淡にする */
+/* Tailwindの色を共通トークンにそろえる。slateはHubの深緑に寄せた灰色、indigo・skyはFinanceのテーマカラー（青緑）の濃淡にする */
 @theme {
-  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", Helvetica, Arial, sans-serif;
+  --font-sans: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", system-ui, -apple-system, "Segoe UI", sans-serif;
   --color-white: #ffffff;
-  --color-slate-50: #f7f7f5;
-  --color-slate-100: #f1f1ef;
-  --color-slate-200: #e9e9e7;
-  --color-slate-300: #d3d3d0;
-  --color-slate-400: #a5a4a0;
-  --color-slate-500: #787774;
-  --color-slate-600: #5f5e5a;
-  --color-slate-700: #4a4843;
-  --color-slate-800: #3f3d37;
-  --color-slate-900: #37352f;
-  --color-slate-950: #25241f;
+  --color-slate-50: #f4f6f3;
+  --color-slate-100: #ebeee9;
+  --color-slate-200: #e2e6df;
+  --color-slate-300: #c9d0c6;
+  --color-slate-400: #87918b;
+  --color-slate-500: #5b6660;
+  --color-slate-600: #4b5550;
+  --color-slate-700: #3a443f;
+  --color-slate-800: #2b3530;
+  --color-slate-900: #1d2621;
+  --color-slate-950: #131a16;
   --color-indigo-50: #eef4f6;
   --color-indigo-100: #e0ebf0;
   --color-indigo-200: #c6d8e0;
@@ -41,16 +41,16 @@
 }
 
 :root {
-  /* Notion風のデザイントークン。Knowledgeと同じ名前で、アクセントだけFinanceのテーマカラー（青緑）にする */
-  --text: #37352f;
-  --text-secondary: #787774;
-  --text-tertiary: #9b9a97;
+  /* Personal Dashboardのデザイントークン（Hubと同じ値）。アクセントだけFinanceのテーマカラー（青緑）にする */
+  --text: #1d2621;
+  --text-secondary: #5b6660;
+  --text-tertiary: #87918b;
   --bg: #ffffff;
-  --bg-subtle: #f7f7f5;
-  --bg-hover: #efefed;
-  --bg-active: #e6e6e3;
-  --border: #e9e9e7;
-  --border-strong: #d3d3d0;
+  --bg-subtle: #f4f6f3;
+  --bg-hover: #ebeee9;
+  --bg-active: #e0e5de;
+  --border: #e2e6df;
+  --border-strong: #c9d0c6;
   --accent: #315f78;
   --accent-hover: #254d63;
   --accent-soft: #e0ebf0;
@@ -60,9 +60,9 @@
   --orange-soft: #fbecdd;
   --green: #448361;
   --green-soft: #edf3ec;
-  --radius-sm: 6px;
-  --radius: 8px;
-  --radius-lg: 12px;
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 10px;
   --shadow-popover: 0 0 0 1px rgba(15, 15, 15, .05), 0 3px 6px rgba(15, 15, 15, .1), 0 9px 24px rgba(15, 15, 15, .2);
   font-family: var(--font-sans);
   color: var(--text);

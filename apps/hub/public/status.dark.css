@@ -18,6 +18,16 @@
   color: var(--ink);
   background: var(--paper);
 }
+:root[data-theme="dark"] .status-exports {
+  border-top: 1px solid var(--border);
+}
+:root[data-theme="dark"] .status-exports a {
+  color: var(--green);
+  text-decoration: none;
+}
+:root[data-theme="dark"] .status-exports a:hover {
+  text-decoration: underline;
+}
 :root[data-theme="dark"] .status-card {
   border: 1px solid var(--line);
   border-radius: var(--radius);
