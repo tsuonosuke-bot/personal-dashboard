@@ -41,3 +41,22 @@ test("the detail drawer sits above the sticky header so its close button stays v
   // iPhoneのホーム画面アプリでは、×がステータスバーやホームインジケーターに重ならないよう安全領域をあける
   assert.match(styles, /\.drawer-close \{[^}]*top: calc\(19px \+ env\(safe-area-inset-top\)\)/);
 });
+
+test("Inbox shows 予定・調査・開発・日記 first and orders the rest by purpose", async () => {
+  const { PRIMARY_INBOX_ROUTES, MORE_INBOX_ROUTES, inboxQuickRoutes } = await import("../public/compass/constants.js");
+  assert.deepEqual(PRIMARY_INBOX_ROUTES.map((key: string) => inboxQuickRoutes[key].label), ["予定", "調査", "開発", "日記"]);
+  assert.deepEqual(MORE_INBOX_ROUTES.map((key: string) => inboxQuickRoutes[key].label), ["執筆", "問い", "習慣", "Focus", "欲しいもの", "SF6", "保留"]);
+  // 両方を合わせると、すべての振り分け先が1回ずつ出る
+  assert.deepEqual([...PRIMARY_INBOX_ROUTES, ...MORE_INBOX_ROUTES].sort(), Object.keys(inboxQuickRoutes).sort());
+});
+
+test("route forms fold the title and body fields so the confirm button is reachable at once", async () => {
+  const script = await readCompassScript();
+  assert.match(script, /export function textEditDisclosure\(label, fields, open = false\)/);
+  assert.match(script, /textEditDisclosure\(`\$\{titleLabel\}・補足を直す`/);
+  assert.equal(script.match(/textEditDisclosure\("内容・メモを直す"/g)?.length, 2);
+  // 畳んだ欄に required を付けると、ブラウザの検証が隠れた欄で止まって送信できなくなる
+  assert.doesNotMatch(script, /id="(routeTitle|wishContent|deferContent)"[^>]*required/);
+  assert.match(script, /focusTextField\(form\.elements\.title\)/);
+  assert.match(script, /else formSubmit\.focus\(\);/);
+});

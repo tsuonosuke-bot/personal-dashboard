@@ -60,7 +60,7 @@ test("Compass offers Project as a separate commitment without replacing Inbox ro
     readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
   ]);
   assert.match(script, /Projectとして進める/);
-  assert.match(script, /Object\.entries\(inboxQuickRoutes\)/);
+  assert.match(script, /MORE_INBOX_ROUTES\.map\(\(key\) => quickRouteButton\(key, inboxQuickRoutes\[key\]\)\)/);
   assert.match(script, /fetch\("\/api\/project-source"/);
   assert.match(script, /"X-Dashboard-Action": "project-source-route"/);
   assert.match(script, /originalProjectUpdatedAt: project\.updatedAt/);

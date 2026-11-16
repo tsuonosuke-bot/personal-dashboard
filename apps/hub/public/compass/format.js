@@ -126,3 +126,14 @@ export function showToast(message) {
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(() => { els.toast.hidden = true; }, 3500);
 }
+
+// 振り分けの画面では、タイトルや本文の修正欄を「…を直す」に畳んでおく。入力の誤りを伝えるときは開いてから移る。
+export function textEditDisclosure(label, fields, open = false) {
+  return `<details class="route-text-edit"${open ? " open" : ""}><summary>${escapeHtml(label)}</summary><div class="route-text-fields">${fields}</div></details>`;
+}
+
+export function focusTextField(field) {
+  const disclosure = field.closest("details");
+  if (disclosure) disclosure.open = true;
+  field.focus();
+}

@@ -420,6 +420,12 @@ a.source-chip:hover { border-color: var(--green); color: var(--green); }
 .more-routes[open] summary { margin-bottom: 2px; }
 .more-routes .quick-route-actions { margin-top: 0; }
 .more-routes-intent { min-height: 40px; margin-top: 8px; font-size: 12px; }
+.route-text-edit { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.route-text-edit summary { min-height: 44px; display: flex; align-items: center; gap: 6px; color: var(--green); font-size: 13px; font-weight: 600; cursor: pointer; list-style: none; }
+.route-text-edit summary::-webkit-details-marker { display: none; }
+.route-text-edit summary::after { content: "▾"; font-size: 12px; transition: transform .15s ease; }
+.route-text-edit[open] summary::after { transform: rotate(180deg); }
+.route-text-fields { display: grid; gap: 14px; padding-bottom: 14px; }
 
 @media (max-width: 650px) {
   /* タブが同じ名前を示すので、見出しは読み上げ用に残して隠す。検索と状態の選択は1行に並べる。 */

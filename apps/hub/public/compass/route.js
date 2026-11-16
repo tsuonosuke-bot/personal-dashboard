@@ -4,7 +4,7 @@ import { DEFER_ROUTE, WISH_ROUTE, cadenceLabels, destinationsByIntent, inboxQuic
 import { loadDashboard } from "./data.js";
 import { closeDrawer, renderDrawerItem } from "./drawer.js";
 import { inboxExpected, renderDeferForm, renderWishForm, routeInboxViaApi } from "./edit-forms.js";
-import { escapeHtml, formatCalendarSchedule, setDrawerTitle, showToast, sourceTextMarkup, splitInboxSource } from "./format.js";
+import { escapeHtml, focusTextField, formatCalendarSchedule, textEditDisclosure, setDrawerTitle, showToast, sourceTextMarkup, splitInboxSource } from "./format.js";
 import { els, state } from "./state.js";
 import { refreshGoogleCalendarConnection } from "./todos.js";
 import { continueInboxTriage } from "./triage-flow.js";
@@ -188,7 +188,8 @@ function renderDestinationStep(item, intent) {
 function renderRouteForm(item, intent, destination, initial = {}, origin = initial.origin || "triage") {
   const destinationMeta = routeDestinationMeta[destination];
   if (!destinationMeta) return renderDestinationStep(item, intent);
-  const title = initial.title ?? splitInboxSource(item.content).body.slice(0, 240);
+  const defaultTitle = splitInboxSource(item.content).body.slice(0, 240);
+  const title = initial.title ?? defaultTitle;
   // 深掘りから来たInboxは、本文から外した出典を補足に残す（Issueやナレッジから元のカードを辿れるように）。
   const inboxSource = state.triageSource === "inbox" ? splitInboxSource(item.content).source : null;
   const detail = initial.detail ?? (inboxSource ? `深掘り元: ${inboxSource.label}（knowledge ${inboxSource.knowledgeId}）` : "");
@@ -233,9 +234,9 @@ function renderRouteForm(item, intent, destination, initial = {}, origin = initi
   els.drawerBody.innerHTML = `<form class="edit-form" id="routeForm">
     <div class="source-context"><span>${escapeHtml(triageSourceLabel())}</span>${sourceTextMarkup(item.content)}</div>
     ${routeBoundary ? `<p class="route-boundary">${escapeHtml(routeBoundary)}</p>` : ""}
-    <label class="form-field" for="routeTitle"><span>${escapeHtml(titleLabel)}</span><textarea id="routeTitle" name="title" rows="3" maxlength="240" required>${escapeHtml(title)}</textarea><small><b id="routeTitleCount">${title.length}</b> / 240</small></label>
-    <label class="form-field" for="routeDetail"><span>${escapeHtml(detailLabel)} <small>空欄可</small></span><textarea id="routeDetail" name="detail" rows="6" maxlength="2000">${escapeHtml(detail)}</textarea><small><b id="routeDetailCount">${detail.length}</b> / 2000</small></label>
     ${calendarFields}
+    ${textEditDisclosure(`${titleLabel}・補足を直す`, `<label class="form-field" for="routeTitle"><span>${escapeHtml(titleLabel)}</span><textarea id="routeTitle" name="title" rows="3" maxlength="240">${escapeHtml(title)}</textarea><small><b id="routeTitleCount">${title.length}</b> / 240</small></label>
+    <label class="form-field" for="routeDetail"><span>${escapeHtml(detailLabel)} <small>空欄可</small></span><textarea id="routeDetail" name="detail" rows="6" maxlength="2000">${escapeHtml(detail)}</textarea><small><b id="routeDetailCount">${detail.length}</b> / 2000</small></label>`, !title.trim() || title !== defaultTitle)}
     ${destination === "habit" ? `<label class="form-field" for="routeCadence"><span>頻度</span><select id="routeCadence" name="cadence">${Object.entries(cadenceLabels).map(([value, label]) => `<option value="${value}" ${cadence === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>` : ""}
     <p class="form-error" id="routeFormError" role="alert" hidden></p>
     <div class="drawer-actions"><button class="secondary-action" id="backToDestination" type="button">戻る</button><button class="primary-action" id="routeFormSubmit" type="submit" ${destination === "calendar" ? "disabled" : ""}>${needsPreview ? "確認へ" : routeConfirmationLabel(destination)}</button></div>
@@ -271,7 +272,7 @@ function renderRouteForm(item, intent, destination, initial = {}, origin = initi
       const error = document.getElementById("routeFormError");
       error.textContent = "タイトルを入力してください。";
       error.hidden = false;
-      form.elements.title.focus();
+      focusTextField(form.elements.title);
       return;
     }
     let nextCalendar = null;
@@ -320,7 +321,9 @@ function renderRouteForm(item, intent, destination, initial = {}, origin = initi
       error: document.getElementById("routeFormError"),
     });
   });
-  titleInput.focus();
+  // 文面はそのままで確定することが多いので、確定ボタンへ移る（予定は日付から）。
+  if (destination === "calendar") form.elements.calendarDate.focus();
+  else formSubmit.focus();
 }
 
 function renderRoutePreview(item, plan) {

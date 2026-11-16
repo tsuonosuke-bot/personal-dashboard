@@ -864,6 +864,13 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .more-routes summary {
   color: var(--green);
 }
+:root[data-theme="dark"] .route-text-edit {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+:root[data-theme="dark"] .route-text-edit summary {
+  color: var(--green);
+}
 :root[data-theme="dark"] .want-group {
   border: 1px solid var(--line);
   border-radius: var(--radius);
