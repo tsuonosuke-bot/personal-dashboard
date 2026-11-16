@@ -26,3 +26,18 @@ test("adding an Inbox clears search and category so the new item is visible", as
   assert.match(reset, /state\.wantCategory = "";/);
   assert.match(reset, /els\.searchInput\.value = "";/);
 });
+
+test("the detail drawer sits above the sticky header so its close button stays visible", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const [styles, shell] = await Promise.all([
+    readFile(new URL("../public/styles.css", import.meta.url), "utf8"),
+    readFile(new URL("../public/dashboard-shell.css", import.meta.url), "utf8"),
+  ]);
+  const z = (css: string, selector: RegExp) => Number(css.match(selector)?.[1]);
+  const header = z(shell, /\.dashboard-header \{[^}]*?z-index: (\d+);/);
+  const drawer = z(styles, /\n\.drawer \{[^}]*?z-index: (\d+);/);
+  const backdrop = z(styles, /\n\.drawer-backdrop \{[^}]*?z-index: (\d+);/);
+  assert.ok(backdrop > header && drawer > backdrop, `header ${header}, backdrop ${backdrop}, drawer ${drawer}`);
+  // iPhoneのホーム画面アプリでは、×がステータスバーやホームインジケーターに重ならないよう安全領域をあける
+  assert.match(styles, /\.drawer-close \{[^}]*top: calc\(19px \+ env\(safe-area-inset-top\)\)/);
+});

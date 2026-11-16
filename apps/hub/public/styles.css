@@ -145,10 +145,11 @@ select { height: 44px; padding: 0 34px 0 13px; border: 1px solid var(--line); bo
 .empty-state h3, .error-state h3 { margin: 12px 0 5px; color: var(--ink); }
 .empty-state p, .error-state p { margin: 0; font-size: 13px; }
 .error-state button { margin-top: 18px; padding: 10px 18px; border: 0; border-radius: var(--radius); background: var(--green); color: white; cursor: pointer; }
-.drawer-backdrop { position: fixed; inset: 0; z-index: 9; background: rgba(20,31,25,.32); backdrop-filter: blur(3px); }
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 10; width: min(470px, 94vw); padding: 58px 36px; overflow-y: auto; background: var(--card); box-shadow: -20px 0 70px rgba(25,38,30,.18); transform: translateX(105%); transition: transform .25s ease; }
+/* 詳細はヘッダー（z-index 20）より手前に出す。後ろだと右上の×と見出しの上端がヘッダーに隠れる */
+.drawer-backdrop { position: fixed; inset: 0; z-index: 29; background: rgba(20,31,25,.32); backdrop-filter: blur(3px); }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 30; width: min(470px, 94vw); padding: calc(58px + env(safe-area-inset-top)) 36px calc(58px + env(safe-area-inset-bottom)); overflow-y: auto; background: var(--card); box-shadow: -20px 0 70px rgba(25,38,30,.18); transform: translateX(105%); transition: transform .25s ease; }
 .drawer.open { transform: translateX(0); }
-.drawer-close { position: absolute; top: 19px; right: 22px; width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 50%; background: transparent; font-size: 20px; cursor: pointer; }
+.drawer-close { position: absolute; top: calc(19px + env(safe-area-inset-top)); right: 22px; width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 50%; background: transparent; font-size: 20px; cursor: pointer; }
 .drawer-kicker { margin: 0 0 12px; color: var(--text-secondary); font-size: 12px; font-weight: 400; }
 .drawer h2 { margin: 0; font-family: Georgia, "Yu Mincho", serif; font-size: 28px; font-weight: 500; line-height: 1.55; }
 .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 28px; }
@@ -280,7 +281,7 @@ select { height: 44px; padding: 0 34px 0 13px; border: 1px solid var(--line); bo
   .tabs { overflow-x: auto; }
   .tab { flex: 0 0 auto; padding-inline: 11px; }
   .card-list { grid-template-columns: 1fr; }
-  .drawer { padding: 54px 24px; }
+  .drawer { padding: calc(54px + env(safe-area-inset-top)) 24px calc(54px + env(safe-area-inset-bottom)); }
   .drawer-actions { flex-direction: column-reverse; }
   .drawer-actions button { width: 100%; }
   .project-optional-fields { grid-template-columns: 1fr; }
