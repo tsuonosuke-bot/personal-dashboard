@@ -3,7 +3,7 @@ import { readApiJson } from "../api-client.js";
 import { closeMeta, itemEditMeta } from "./constants.js";
 import { loadDashboard, applySavedIdeaRow, loadIdeaDetail } from "./data.js";
 import { closeDrawer, renderDrawerItem } from "./drawer.js";
-import { defaultRevisitDate, escapeHtml, setDrawerTitle, showToast, sourceTextMarkup, todayInTokyo } from "./format.js";
+import { defaultRevisitDate, escapeHtml, focusTextField, setDrawerTitle, textEditDisclosure, showToast, sourceTextMarkup, todayInTokyo } from "./format.js";
 import { canCloseItem, statusLabel } from "./list.js";
 import { triageKicker } from "./route.js";
 import { els, state } from "./state.js";
@@ -341,15 +341,15 @@ export function renderWishForm(sourceItem) {
   els.drawerBody.innerHTML = `<form class="edit-form" id="wishForm">
     <div class="source-context"><span>元のInbox</span>${sourceTextMarkup(sourceItem.content)}</div>
     <p class="route-boundary">購入予定にはせず、欲しいものとしてWantsに残します。必要になったら予定・調査・見送りへ振り分けられます。</p>
-    <label class="form-field" for="wishContent">
+    ${textEditDisclosure("内容・メモを直す", `<label class="form-field" for="wishContent">
       <span>欲しいもの</span>
-      <textarea id="wishContent" name="content" rows="6" maxlength="2000" required>${escapeHtml(sourceItem.content)}</textarea>
+      <textarea id="wishContent" name="content" rows="6" maxlength="2000">${escapeHtml(sourceItem.content)}</textarea>
       <small><b id="wishContentCount">${sourceItem.content.length}</b> / 2000</small>
     </label>
     <label class="form-field" for="wishNote">
       <span>メモ <small>空欄可</small></span>
       <textarea id="wishNote" name="note" rows="4" maxlength="2000" placeholder="欲しい理由、条件、候補など"></textarea>
-    </label>
+    </label>`)}
     <p class="form-error" id="wishError" role="alert" hidden></p>
     <div class="drawer-actions">
       <button class="secondary-action" id="cancelWish" type="button">戻る</button>
@@ -363,8 +363,7 @@ export function renderWishForm(sourceItem) {
   document.getElementById("cancelWish").addEventListener("click", () => renderDrawerItem(sourceItem, "inbox"));
   const idempotencyKey = crypto.randomUUID();
   form.addEventListener("submit", (event) => saveWish(event, sourceItem, idempotencyKey));
-  content.focus();
-  content.setSelectionRange(content.value.length, content.value.length);
+  document.getElementById("saveWishButton").focus();
 }
 
 function setWishError(message) {
@@ -381,7 +380,7 @@ async function saveWish(event, sourceItem, idempotencyKey) {
   const note = form.elements.note.value.trim();
   if (!content) {
     setWishError("欲しいものを入力してください。");
-    form.elements.content.focus();
+    focusTextField(form.elements.content);
     return;
   }
 
@@ -422,20 +421,20 @@ export function renderDeferForm(sourceItem) {
   els.drawerBody.innerHTML = `<form class="edit-form" id="deferForm">
     <div class="source-context"><span>元のInbox</span>${sourceTextMarkup(sourceItem.content)}</div>
     <p class="route-boundary">振り分け先は決めず、次に考える日だけ決めてWantsへ置きます。再訪日が来ると未整理のWantsとして浮上します。</p>
-    <label class="form-field" for="deferContent">
-      <span>内容</span>
-      <textarea id="deferContent" name="content" rows="6" maxlength="2000" required>${escapeHtml(sourceItem.content)}</textarea>
-      <small><b id="deferContentCount">${sourceItem.content.length}</b> / 2000</small>
-    </label>
     <label class="form-field" for="deferRevisitOn">
       <span>再訪日</span>
       <input id="deferRevisitOn" name="revisitOn" type="date" value="${escapeHtml(revisitOn)}" min="${escapeHtml(todayInTokyo())}" required>
       <small>既定は1ヶ月後です。</small>
     </label>
+    ${textEditDisclosure("内容・メモを直す", `<label class="form-field" for="deferContent">
+      <span>内容</span>
+      <textarea id="deferContent" name="content" rows="6" maxlength="2000">${escapeHtml(sourceItem.content)}</textarea>
+      <small><b id="deferContentCount">${sourceItem.content.length}</b> / 2000</small>
+    </label>
     <label class="form-field" for="deferNote">
       <span>メモ <small>空欄可</small></span>
       <textarea id="deferNote" name="note" rows="4" maxlength="2000" placeholder="今は動かさない理由、再訪時に思い出したいこと"></textarea>
-    </label>
+    </label>`)}
     <p class="form-error" id="deferError" role="alert" hidden></p>
     <div class="drawer-actions">
       <button class="secondary-action" id="cancelDefer" type="button">戻る</button>
@@ -449,8 +448,7 @@ export function renderDeferForm(sourceItem) {
   document.getElementById("cancelDefer").addEventListener("click", () => renderDrawerItem(sourceItem, "inbox"));
   const idempotencyKey = crypto.randomUUID();
   form.addEventListener("submit", (event) => saveDefer(event, sourceItem, idempotencyKey));
-  content.focus();
-  content.setSelectionRange(content.value.length, content.value.length);
+  document.getElementById("saveDeferButton").focus();
 }
 
 function setDeferError(message) {
@@ -468,7 +466,7 @@ async function saveDefer(event, sourceItem, idempotencyKey) {
   const note = form.elements.note.value.trim();
   if (!content) {
     setDeferError("内容を入力してください。");
-    form.elements.content.focus();
+    focusTextField(form.elements.content);
     return;
   }
   if (!revisitOn) {

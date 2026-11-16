@@ -2,7 +2,7 @@
 import { readApiJson } from "../api-client.js";
 import { activateModal, deactivateModal } from "../shared/modal-focus.js";
 import { parseCompassRoute } from "../compass-routing.js";
-import { PRIMARY_INBOX_ROUTES, defaultStatusByView, inboxQuickRoutes, quickWantRoutes, routeCompletionMeta, routeDestinationMeta, viewMeta } from "./constants.js";
+import { MORE_INBOX_ROUTES, PRIMARY_INBOX_ROUTES, defaultStatusByView, inboxQuickRoutes, quickWantRoutes, routeCompletionMeta, routeDestinationMeta, viewMeta } from "./constants.js";
 import { loadDashboard, loadIdeaDetail } from "./data.js";
 import { closeItem, renderInboxEditForm, renderItemEditForm, saveWantCategory, wantCategoryOptions } from "./edit-forms.js";
 import { calendarSchedule, escapeHtml, formatCalendarSchedule, formatDate, setDrawerTitle, showToast, sourceChipMarkup, splitInboxSource } from "./format.js";
@@ -46,7 +46,7 @@ export function renderDrawerItem(item, view) {
           <details class="more-routes">
             <summary>その他の振り分け先</summary>
             <div class="quick-route-actions" role="group" aria-label="その他の振り分け先">
-              ${Object.entries(inboxQuickRoutes).filter(([key]) => !PRIMARY_INBOX_ROUTES.includes(key)).map(([key, quick]) => quickRouteButton(key, quick)).join("")}
+              ${MORE_INBOX_ROUTES.map((key) => quickRouteButton(key, inboxQuickRoutes[key])).join("")}
             </div>
             <button class="text-button more-routes-intent" id="triageInboxButton" type="button">目的から選ぶ（行動する・掘り下げる…）</button>
             <div class="project-route-divider"><span>複数の行動になるなら</span></div>
@@ -246,6 +246,10 @@ export async function createInbox(event) {
     state.view = "inbox";
     state.status = defaultStatusByView.inbox;
     state.metricFilter = "";
+    // 検索や分類で絞り込んだままだと、追加したInboxが一覧に出ない。
+    state.search = "";
+    state.wantCategory = "";
+    els.searchInput.value = "";
     syncCompassRoute("inbox");
     showToast("Inboxに保存しました。リストへ反映しています。");
     await loadDashboard();

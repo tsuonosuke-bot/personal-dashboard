@@ -50,23 +50,26 @@ export const closeMeta = {
 
 export const DEFER_ROUTE = "defer";
 
-// Inboxの詳細で最初から並べる振り分け先。直近30日の振り分けで多い順（開発・調査・執筆）と、
-// 今は決めない「保留」。残りは「その他の振り分け先」に畳む。
-export const PRIMARY_INBOX_ROUTES = ["github", "knowledge", "writing", "defer"];
+// Inboxの詳細で最初から並べる振り分け先（予定・調査・開発・日記）。
+export const PRIMARY_INBOX_ROUTES = ["calendar", "knowledge", "github", "journal"];
+
+// 「その他の振り分け先」の並び。掘り下げる（執筆・問い）→ 続ける・意識する（習慣・Focus）→
+// 残す（欲しいもの・SF6）→ 今は決めない（保留）の順。
+export const MORE_INBOX_ROUTES = ["writing", "question", "habit", "focus", "wish", "sf6", "defer"];
 
 export const WISH_ROUTE = "wish";
 
 export const inboxQuickRoutes = {
-  sf6: { label: "SF6", description: "局面・手順・練習メニューへ" },
   calendar: { label: "予定", description: "日付を決めて動く", intent: "act", destination: "calendar" },
-  wish: { label: "欲しいもの", description: "欲しいものとして残す" },
-  writing: { label: "執筆", description: "Writingで考えを育てる", intent: "explore", destination: "writing" },
   knowledge: { label: "調査", description: "Knowledge候補として残す", intent: "explore", destination: "knowledge" },
-  habit: { label: "習慣", description: "繰り返す行動にする", intent: "continue", destination: "habit" },
-  focus: { label: "Focus", description: "意識し続ける", intent: "keep", destination: "focus" },
   github: { label: "開発", description: "GitHub候補として残す", intent: "act", destination: "github" },
   journal: { label: "日記", description: "Journal候補として残す", intent: "keep", destination: "journal" },
+  writing: { label: "執筆", description: "Writingで考えを育てる", intent: "explore", destination: "writing" },
   question: { label: "問い", description: "問いとして立て、材料を集める", intent: "explore", destination: "question" },
+  habit: { label: "習慣", description: "繰り返す行動にする", intent: "continue", destination: "habit" },
+  focus: { label: "Focus", description: "意識し続ける", intent: "keep", destination: "focus" },
+  wish: { label: "欲しいもの", description: "欲しいものとして残す" },
+  sf6: { label: "SF6", description: "局面・手順・練習メニューへ" },
   defer: { label: "保留", description: "再訪日を決めて置く" },
 };
 
