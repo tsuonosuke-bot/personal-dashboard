@@ -18,6 +18,31 @@ export function mondayOf(date: string): string {
   return addDays(date, -((day + 6) % 7));
 }
 
+/** 学習履歴グラフに出す日数。全期間を渡すと日が経つほど横軸が詰まり読めなくなるため、直近だけにする。 */
+export const HISTORY_CHART_DAYS = 30;
+
+export interface DailyHistoryPoint {
+  date: string;
+  total: number;
+  correct: number;
+  /** 回答がない日はnull（線は前後の日をつなぐ）。 */
+  accuracy: number | null;
+}
+
+/** todayまでの直近days日分。回答がない日も0問として補う。 */
+export function recentHistory(
+  history: { date: string; total: number; correct: number; accuracy: number }[],
+  today: string,
+  days = HISTORY_CHART_DAYS,
+): DailyHistoryPoint[] {
+  const byDate = new Map(history.map((row) => [row.date, row]));
+  return Array.from({ length: days }, (_, index) => {
+    const date = addDays(today, index - days + 1);
+    const row = byDate.get(date);
+    return row ? { ...row } : { date, total: 0, correct: 0, accuracy: null };
+  });
+}
+
 export interface TodayAnswers {
   answered: number;
   correct: number;

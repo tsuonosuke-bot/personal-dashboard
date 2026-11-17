@@ -8,6 +8,7 @@ import { MemoryHoldChart, WeeklyAccuracyChart } from "./ProgressCharts";
 import { RegistrationTrendChart } from "./RegistrationTrendChart";
 import type { Knowledge } from "../types";
 import { summaryMemory, type LearningSummary } from "../lib/learningReadApi";
+import { HISTORY_CHART_DAYS, recentHistory } from "../lib/learningSummary";
 
 interface Props {
   knowledge: Knowledge[];
@@ -39,10 +40,13 @@ function masterySummary(knowledge: Knowledge[]): string {
 export function DashboardCharts({ knowledge, registrationKnowledge, summary }: Props) {
   const [othersOpen, setOthersOpen] = useState(false);
   const memory = useMemo(() => summaryMemory(summary), [summary]);
-  const total = summary.history.reduce((sum, row) => sum + row.total, 0);
-  const correct = summary.history.reduce((sum, row) => sum + row.correct, 0);
-  const latest = summary.history[summary.history.length - 1];
-  const historyText = total ? `回答履歴は全${total}件、正答率は${Math.round(correct / total * 100)}%です。直近の${latest.date}は${latest.total}問でした。` : "回答履歴はまだありません。";
+  const history = useMemo(() => recentHistory(summary.history, summary.date), [summary]);
+  const total = history.reduce((sum, row) => sum + row.total, 0);
+  const correct = history.reduce((sum, row) => sum + row.correct, 0);
+  const latest = [...history].reverse().find((row) => row.total > 0);
+  const historyText = latest
+    ? `直近${HISTORY_CHART_DAYS}日の回答は${total}件、正答率は${Math.round(correct / total * 100)}%です。最後に回答した${latest.date}は${latest.total}問でした。`
+    : `直近${HISTORY_CHART_DAYS}日の回答はありません。`;
   return (
     <>
       <div className="progress-heading">
@@ -51,8 +55,8 @@ export function DashboardCharts({ knowledge, registrationKnowledge, summary }: P
       <div className="charts">
         <MemoryHoldChart data={memory} />
         <WeeklyAccuracyChart data={summary.weekly} />
-        <ChartCard id="history-chart" title="学習履歴（日別出題数・正答率）" summary={historyText} full>
-          <HistoryChart data={summary.history} />
+        <ChartCard id="history-chart" title={`学習履歴（直近${HISTORY_CHART_DAYS}日の出題数・正答率）`} summary={historyText} full>
+          <HistoryChart data={history} />
         </ChartCard>
       </div>
       <details className="other-charts" onToggle={(event) => setOthersOpen(event.currentTarget.open)}>
