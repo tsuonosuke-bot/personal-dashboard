@@ -152,3 +152,20 @@ test("今日の学習は要対応の状態とログ導線を常に出し、通�
   // 主行動（復習を始める）は見出しの横に残す
   assert.ok(panel.indexOf("today-learning-start") < panel.indexOf("today-learning-alerts"));
 });
+
+test("学習履歴グラフは今日までの直近30日だけを出し、回答のない日は0問で補う", async () => {
+  const { recentHistory, HISTORY_CHART_DAYS } = await import("../src/lib/learningSummary.ts");
+  const history = [
+    { date: "2026-09-01", total: 9, correct: 9, accuracy: 100 },
+    { date: "2026-11-01", total: 4, correct: 3, accuracy: 75 },
+    { date: "2026-11-18", total: 2, correct: 1, accuracy: 50 },
+  ];
+  const rows = recentHistory(history, "2026-11-18");
+  assert.equal(HISTORY_CHART_DAYS, 30);
+  assert.equal(rows.length, 30);
+  assert.equal(rows[0].date, "2026-10-20");
+  assert.equal(rows[29].date, "2026-11-18");
+  assert.ok(!rows.some((row) => row.date === "2026-09-01"));
+  assert.deepEqual(rows.find((row) => row.date === "2026-11-01"), history[1]);
+  assert.deepEqual(rows.find((row) => row.date === "2026-11-02"), { date: "2026-11-02", total: 0, correct: 0, accuracy: null });
+});
