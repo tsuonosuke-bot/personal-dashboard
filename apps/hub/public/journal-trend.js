@@ -32,6 +32,43 @@ function isRecordedDay(day) {
   return isMood(day.mood);
 }
 
+/**
+ * 直近90日を、今日で終わる7日ずつの週に分ける（90日 = 6日 + 7日×12）。記録のない日は平均に入れず、0としても扱わない。
+ * @type {typeof import("./journal-trend.d.ts").weeklyMoodAverages}
+ */
+export function weeklyMoodAverages(days) {
+  const weeks = [];
+  for (let end = days.length; end > 0; end -= 7) {
+    const slice = days.slice(Math.max(0, end - 7), end);
+    const moods = slice.map((day) => day.mood).filter(isMood);
+    weeks.unshift({
+      startDate: slice[0].date,
+      endDate: slice[slice.length - 1].date,
+      recorded: moods.length,
+      average: moods.length ? Math.round(moods.reduce((sum, mood) => sum + mood, 0) / moods.length * 10) / 10 : null,
+    });
+  }
+  return weeks;
+}
+
+/** @param {number} value */
+function averageLabel(value) {
+  const nearest = Math.max(-2, Math.min(2, Math.round(value)));
+  return `${moodLabel(nearest)}（${value > 0 ? "+" : ""}${value.toFixed(1)}）`;
+}
+
+/**
+ * 昨日のJournalが無いかどうか。今日の分はまだ書いていなくて当然なので見ない。気分が空でも行があれば記録済み。
+ * 判定できないとき（古い応答・取得不可）はfalse（知らせない）。
+ * @type {typeof import("./journal-trend.d.ts").yesterdayMissing}
+ */
+export function yesterdayMissing(trend) {
+  const days = trend?.days;
+  if (!Array.isArray(days) || days.length !== 90) return false;
+  const yesterday = days[88];
+  return typeof yesterday?.recorded === "boolean" ? !yesterday.recorded : false;
+}
+
 /** @type {typeof import("./journal-trend.d.ts").renderJournalTrendHtml} */
 export function renderJournalTrendHtml(trend, available = true) {
   if (!available) return '<p class="journal-trend-state">気分の推移を取得できませんでした</p>';
@@ -43,34 +80,31 @@ export function renderJournalTrendHtml(trend, available = true) {
   if (!recorded.length) return '<p class="journal-trend-state">直近90日に気分の記録はありません</p>';
 
   const latest = recorded[recorded.length - 1];
-  const width = 976;
-  /** @param {number} index */
-  const x = (index) => 62 + index * 10;
+  const weeks = weeklyMoodAverages(days);
+  // 週の平均を「普通」から上下に伸びる棒で描く。棒の長さだけを伸縮させるので、画面幅に合わせて横に引き伸ばしてよい（文字はSVGの外に置く）。
+  const slot = 10;
+  const width = weeks.length * slot;
   /** @param {number} mood */
-  const y = (mood) => 18 + (2 - mood) * 30;
-  const grid = [2, 1, 0, -1, -2].map((mood) => `<g class="journal-trend-grid"><line x1="62" x2="952" y1="${y(mood)}" y2="${y(mood)}"/><text x="3" y="${y(mood) + 3}">${moodLabel(mood)}</text></g>`).join("");
-  const marks = days.map((day, index) => {
-    if (!isMood(day.mood)) return "";
-    return `<circle class="journal-trend-point" cx="${x(index)}" cy="${y(day.mood)}" r="3.5"><title>${displayDate(day.date)} · ${moodLabel(day.mood)}</title></circle>`;
+  const y = (mood) => 60 - mood * 27;
+  const grid = [2, 1, 0, -1, -2].map((mood) => `<line class="journal-week-grid${mood === 0 ? " is-zero" : ""}" x1="0" x2="${width}" y1="${y(mood)}" y2="${y(mood)}" vector-effect="non-scaling-stroke"/>`).join("");
+  const bars = weeks.map((week, index) => {
+    if (week.average === null) return "";
+    const top = Math.min(y(week.average), y(0));
+    const height = Math.max(1.5, Math.abs(y(week.average) - y(0)));
+    const tone = week.average > 0 ? "up" : week.average < 0 ? "down" : "flat";
+    return `<rect class="journal-week-bar" data-tone="${tone}" x="${index * slot + 2}" y="${top}" width="${slot - 4}" height="${height}"><title>${shortDate(week.startDate)}〜${shortDate(week.endDate)} · 平均 ${averageLabel(week.average)} · 記録${week.recorded}日</title></rect>`;
   }).join("");
-  const lines = days.slice(1).map((day, index) => {
-    const previous = days[index];
-    if (!isMood(day.mood) || !isMood(previous.mood)) return "";
-    return `<line class="journal-trend-line" x1="${x(index)}" y1="${y(previous.mood)}" x2="${x(index + 1)}" y2="${y(day.mood)}"/>`;
-  }).join("");
-  const axisDates = Array.from({ length: 13 }, (_, week) => week * 7).concat(89);
-  const axis = axisDates.map((index) => {
-    const position = x(index);
-    const anchor = index === 0 ? "start" : index === 89 ? "end" : "middle";
-    return `<g class="journal-trend-tick"><line x1="${position}" x2="${position}" y1="143" y2="149"/><text x="${position}" y="164" text-anchor="${anchor}">${shortDate(days[index].date)}</text></g>`;
-  }).join("");
+  // 4週ごとに週の初日を出す（最新の週を含める）。
+  const labels = weeks.map((week, index) => `<span>${(weeks.length - 1 - index) % 4 === 0 ? shortDate(week.startDate) : ""}</span>`).join("");
+  const summary = weeks.flatMap((week) => week.average === null ? [] : [`${shortDate(week.startDate)}〜${shortDate(week.endDate)} ${averageLabel(week.average)}`]).join("、");
   const records = [...recorded].reverse().map((day) => `<li><time datetime="${day.date}">${displayDate(day.date)}</time><strong>${moodLabel(day.mood)}</strong></li>`).join("");
 
   return `<div class="journal-trend">
-    <div class="journal-trend-heading"><div><strong>気分のバロメーター</strong><small>直近90日 · 記録 ${recorded.length}日</small></div><p>最新 <time datetime="${latest.date}">${displayDate(latest.date)}</time> <b>${moodLabel(latest.mood)}</b></p></div>
-    <p class="journal-trend-scale">上：とても良い ／ 中央：普通 ／ 下：かなり低い。横にスクロールして過去へ。</p>
-    <div class="journal-trend-viewport" tabindex="0" aria-label="気分のグラフ。横にスクロールして過去の記録を表示">
-      <svg viewBox="0 0 ${width} 176" role="img" aria-label="直近90日の気分。記録のない日は線をつないでいません。最新は${displayDate(latest.date)}、${moodLabel(latest.mood)}。" xmlns="http://www.w3.org/2000/svg">${grid}${lines}${marks}${axis}</svg>
+    <div class="journal-trend-heading"><div><strong>気分のバロメーター</strong><small>直近90日の週平均 · 記録 ${recorded.length}日</small></div><p>最新 <time datetime="${latest.date}">${displayDate(latest.date)}</time> <b>${moodLabel(latest.mood)}</b></p></div>
+    <div class="journal-week-chart">
+      <div class="journal-week-scale" aria-hidden="true"><span>とても良い</span><span>普通</span><span>かなり低い</span></div>
+      <svg viewBox="0 0 ${width} 120" preserveAspectRatio="none" role="img" aria-label="直近90日の気分の週平均。記録のない週は棒を出していません。${summary}" xmlns="http://www.w3.org/2000/svg">${grid}${bars}</svg>
+      <div class="journal-week-dates" aria-hidden="true">${labels}</div>
     </div>
     <details class="journal-trend-records"><summary>日付ごとの記録を見る</summary><ol>${records}</ol></details>
   </div>`;
