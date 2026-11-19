@@ -2,7 +2,7 @@ import { fetchSupabase } from "@personal-dashboards/auth";
 import { DashboardError, type DashboardEnv } from "./dashboard.ts";
 
 /** ホームで表示/非表示を選べるセクション。キーは public/index.html の data-home-section と同じ。 */
-export const HOME_SECTIONS = ["apps", "today", "focus", "learning", "inbox", "expenses", "knowledge", "journal"] as const;
+export const HOME_SECTIONS = ["apps", "today", "closing", "focus", "learning", "inbox", "expenses", "knowledge", "journal"] as const;
 export type HomeSection = (typeof HOME_SECTIONS)[number];
 
 const MAX_REQUEST_CHARS = 2_000;

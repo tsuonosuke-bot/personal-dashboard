@@ -15,16 +15,17 @@ import { type HomeSection } from "./homeSettings.ts";
 
 /** 各取得元を使うホームの欄。その欄がすべて非表示なら読まない。警告に使う取得元（knowledgeStatus・DB容量）は常に読む。 */
 export const HUB_SOURCE_SECTIONS = {
-  inbox: ["apps", "learning", "inbox"],
+  // closing（今日の締め）は Inbox・家計簿の未分類・日記の有無・Habit の件数を使う（#337）。
+  inbox: ["apps", "learning", "inbox", "closing"],
   wants: ["apps", "inbox"],
   focus: ["focus"],
   projects: ["apps", "learning"],
   writing: ["apps"],
-  expenses: ["apps", "expenses"],
+  expenses: ["apps", "expenses", "closing"],
   knowledge: ["apps", "learning", "knowledge"],
   journal: ["journal"],
-  journalTrend: ["journal"],
-  habits: ["apps"],
+  journalTrend: ["journal", "closing"],
+  habits: ["apps", "closing"],
 } as const satisfies Record<string, readonly HomeSection[]>;
 type SkippableSource = keyof typeof HUB_SOURCE_SECTIONS;
 
@@ -34,7 +35,7 @@ export function skippedHubSources(hidden: readonly HomeSection[]): SkippableSour
 }
 
 interface KnowledgeHubSummary { dueCount: number; weakCount: number; items: KnowledgeRow[]; reviewStatus: KnowledgeReviewStatus; date?: unknown; todayAnswered?: unknown }
-interface FinanceHubSummary { currentMonthSpend: number; previousMonthSpend: number; recentExpenses: ExpenseRow[] }
+interface FinanceHubSummary { currentMonthSpend: number; previousMonthSpend: number; previousMonthToDateSpend?: unknown; unclassifiedCount?: unknown; recentExpenses: ExpenseRow[] }
 
 function validRemoteSummary<T>(value: unknown, counts: string[], array: string): T {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new HubError("HUB_SERVICE_RESPONSE_INVALID", "Invalid summary.");
@@ -112,7 +113,14 @@ export async function loadHub(env: HubEnv, now = new Date(), options: { sourceTi
   if (wants.status === "fulfilled") { result.summary.activeWants = wants.value.activeWants!; result.summary.untriagedWants = wants.value.untriagedWants!; }
   if (projects.status === "fulfilled") result.summary.activeProjects = projects.value.activeProjects!;
   if (writing.status === "fulfilled") result.summary.writingIdeas = writing.value.writingIdeas!;
-  if (expenses.status === "fulfilled") { result.summary.currentMonthSpend = expenses.value.currentMonthSpend; result.summary.previousMonthSpend = expenses.value.previousMonthSpend; }
+  if (expenses.status === "fulfilled") {
+    const value = expenses.value;
+    result.summary.currentMonthSpend = value.currentMonthSpend;
+    result.summary.previousMonthSpend = value.previousMonthSpend;
+    // 古いFinanceの関数ではこの2つが欠ける。欠けたらnullのまま（画面は比較・未分類の行を出さない）。
+    if (typeof value.previousMonthToDateSpend === "number" && Number.isFinite(value.previousMonthToDateSpend)) result.summary.previousMonthToDateSpend = value.previousMonthToDateSpend;
+    if (typeof value.unclassifiedCount === "number" && Number.isSafeInteger(value.unclassifiedCount) && value.unclassifiedCount >= 0) result.summary.unclassifiedExpenses = value.unclassifiedCount;
+  }
   if (knowledge.status === "fulfilled") {
     result.summary.dueKnowledge = knowledge.value.dueCount;
     result.summary.weakKnowledge = knowledge.value.weakCount;

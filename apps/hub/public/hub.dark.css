@@ -515,6 +515,21 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .fold-link:hover {
   text-decoration: underline;
 }
+:root[data-theme="dark"] .fold-meta-alert {
+  color: var(--attention);
+}
+:root[data-theme="dark"] .fold-subhead {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .spend-compare dt {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .spend-compare dd[data-trend="up"] {
+  color: var(--attention);
+}
+:root[data-theme="dark"] .spend-compare dd[data-trend="down"] {
+  color: var(--green);
+}
 :root[data-theme="dark"] .panel {
   border: 1px solid rgba(111, 154, 130, 0.12);
   border-radius: var(--radius);
@@ -694,31 +709,46 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .transaction-money > small {
   color: var(--muted);
 }
-:root[data-theme="dark"] .knowledge-item {
-  border-radius: var(--radius-sm);
-  background: var(--bg-hover);
-  text-decoration: none;
-}
-:root[data-theme="dark"] .knowledge-item:hover {
-  background: var(--violet-soft);
-}
-:root[data-theme="dark"] .knowledge-item small {
+:root[data-theme="dark"] .closing-count {
   color: var(--muted);
 }
-:root[data-theme="dark"] .reason {
-  border-radius: 999px;
+:root[data-theme="dark"] .closing-done {
+  color: var(--muted);
 }
-:root[data-theme="dark"] .reason.weak {
-  background: #412927;
-  color: #d38c88;
+:root[data-theme="dark"] .closing-list li {
+  border-top: 1px solid var(--border);
 }
-:root[data-theme="dark"] .reason.due {
-  background: var(--orange-soft);
-  color: #e1a386;
+:root[data-theme="dark"] .closing-list li:first-child {
+  border-top: 0;
 }
-:root[data-theme="dark"] .reason.new {
-  background: var(--green-soft);
+:root[data-theme="dark"] .closing-list a {
+  color: var(--ink);
+  text-decoration: none;
+}
+:root[data-theme="dark"] .closing-list a:hover {
   color: var(--green);
+}
+:root[data-theme="dark"] .closing-list a span {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .review-stats dt {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .review-message {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .review-start {
+  border-radius: var(--radius-sm);
+  background: var(--green--light, var(--green));
+  color: #fff;
+  text-decoration: none;
+}
+:root[data-theme="dark"] .review-start:hover {
+  background: #1c4639;
+}
+:root[data-theme="dark"] .review-start:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
 }
 :root[data-theme="dark"] .inbox-card {
   border: 1px solid var(--border);
@@ -793,29 +823,29 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .journal-trend-heading p b {
   color: var(--green);
 }
-:root[data-theme="dark"] .journal-trend-viewport:focus-visible {
-  outline: 2px solid var(--green);
-  outline-offset: 2px;
+:root[data-theme="dark"] .journal-week-scale {
+  color: var(--muted);
 }
-:root[data-theme="dark"] .journal-trend-viewport svg {
+:root[data-theme="dark"] .journal-week-chart svg {
   color: var(--green);
 }
-:root[data-theme="dark"] .journal-trend-grid line {
+:root[data-theme="dark"] .journal-week-grid {
+  stroke: var(--border);
+}
+:root[data-theme="dark"] .journal-week-grid.is-zero {
   stroke: var(--text-tertiary);
 }
-:root[data-theme="dark"] .journal-trend-grid text,
-:root[data-theme="dark"] .journal-trend-tick text {
+:root[data-theme="dark"] .journal-week-bar {
+  fill: var(--green);
+}
+:root[data-theme="dark"] .journal-week-bar[data-tone="down"] {
+  fill: var(--attention);
+}
+:root[data-theme="dark"] .journal-week-bar[data-tone="flat"] {
   fill: var(--muted);
 }
-:root[data-theme="dark"] .journal-trend-tick line {
-  stroke: var(--muted);
-}
-:root[data-theme="dark"] .journal-trend-line {
-  stroke: var(--green);
-}
-:root[data-theme="dark"] .journal-trend-point {
-  fill: var(--green);
-  stroke: #fff;
+:root[data-theme="dark"] .journal-week-dates {
+  color: var(--muted);
 }
 :root[data-theme="dark"] .journal-trend-records {
   border-top: 1px solid #4c584f;
@@ -878,9 +908,6 @@ html[data-theme="dark"] {
   background: var(--green-soft);
 }
 :root[data-theme="dark"] .journal-no-source {
-  color: var(--muted);
-}
-:root[data-theme="dark"] .journal-empty p {
   color: var(--muted);
 }
 :root[data-theme="dark"] .empty {

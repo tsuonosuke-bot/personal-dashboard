@@ -138,10 +138,13 @@ test("#335: client helpers build the request and detect newly shown sections", (
 
 test("#335: a source is skipped only when every section that uses it is hidden", () => {
   assert.deepEqual(skippedHubSources([]), []);
-  assert.deepEqual(skippedHubSources(["journal"]), ["journal", "journalTrend"]);
-  // 家計簿はアプリ一覧の件数にも使うので、片方だけでは読み続ける。
+  // 気分の推移（日記の有無）は「今日の締め」（#337）でも使うので、締めも隠したときだけ読まない。
+  assert.deepEqual(skippedHubSources(["journal"]), ["journal"]);
+  assert.deepEqual(skippedHubSources(["journal", "closing"]), ["journal", "journalTrend"]);
+  // 家計簿はアプリ一覧の件数と締めの未分類にも使うので、どれかが出ていれば読み続ける。
   assert.deepEqual(skippedHubSources(["expenses"]), []);
-  assert.deepEqual(skippedHubSources(["apps", "expenses"]), ["writing", "expenses", "habits"]);
+  assert.deepEqual(skippedHubSources(["apps", "expenses"]), ["writing"]);
+  assert.deepEqual(skippedHubSources(["apps", "expenses", "closing"]), ["writing", "expenses", "habits"]);
 });
 
 test("#335: hidden sections are not fetched, are not reported as failures, and alerts still load", async (t) => {
@@ -151,7 +154,7 @@ test("#335: hidden sections are not fetched, are not reported as failures, and a
     requests.push({ path: url.pathname, host: url.hostname, source: init?.body ? JSON.parse(String(init.body)).p_source : undefined });
     return hubReadFixture(input, init);
   });
-  const hub = await loadHub(env, now, { hidden: ["apps", "expenses", "journal"] });
+  const hub = await loadHub(env, now, { hidden: ["apps", "closing", "expenses", "journal"] });
   assert.equal(requests.some((request) => request.path.endsWith("/daily_journal")), false);
   assert.equal(requests.some((request) => request.host.includes("finance")), false);
   assert.equal(requests.some((request) => request.source === "habits" || request.source === "writing"), false);
@@ -179,4 +182,47 @@ test("#335: the API reads ?hidden= and ignores unknown names", async (t) => {
   assert.equal(sources.includes("focus"), false);
   assert.ok(sources.includes("inbox"));
   assert.deepEqual((await response.json()).source.skipped, ["focus"]);
+});
+
+test("#340: 家計簿の欄は先月の同じ日までと比べた差を符号つきで出し、未分類は1件以上のときだけ出す", async () => {
+  const { spendDifference, unclassifiedToShow } = await import("../public/home-finance.js");
+  assert.deepEqual(spendDifference(195570, 315600), { diff: -120030, sign: "−", trend: "down" });
+  assert.deepEqual(spendDifference(5000, 3000), { diff: 2000, sign: "＋", trend: "up" });
+  assert.deepEqual(spendDifference(100, 100), { diff: 0, sign: "±", trend: "flat" });
+  // 古いFinanceの関数では先月同日までの値が欠けるので、比較を出さない
+  assert.equal(spendDifference(100, null), null);
+  assert.equal(spendDifference(null, 100), null);
+  assert.equal(unclassifiedToShow(3), 3);
+  assert.equal(unclassifiedToShow(0), null);
+  assert.equal(unclassifiedToShow(null), null);
+  assert.equal(unclassifiedToShow(1.5), null);
+});
+
+test("#337: 今日の締めは夕方から出し、残っている記録だけを並べ、全部済んでいれば1行にする", async () => {
+  const { closingView, msUntilClosing } = await import("../public/home-closing.js");
+  const evening = new Date("2026-11-19T10:00:00Z"); // 19:00 JST
+  const morning = new Date("2026-11-19T00:00:00Z"); // 9:00 JST
+  const trend = (today: boolean, yesterday: boolean) => ({ days: Array.from({ length: 90 }, (_, index) => ({ recorded: index === 89 ? today : index === 88 ? yesterday : true })) });
+  const navigation = { financial: "/finance/", compass: "/compass/" };
+  const summary = { remainingHabitsToday: 2, unclassifiedExpenses: 3, pendingInbox: 0 };
+
+  assert.equal(closingView({ summary, journalTrend: trend(false, true), today: null, navigation }, morning).show, false);
+  assert.equal(msUntilClosing(morning), 9 * 60 * 60 * 1000);
+  assert.equal(msUntilClosing(evening), 0);
+
+  const view = closingView({ summary, journalTrend: trend(false, false), today: { completed: 5, habitsLeft: 1 }, navigation }, evening);
+  assert.equal(view.show, true);
+  assert.equal(view.completed, 5);
+  // Habitは今日の欄の値を優先する。Inbox 0件は出さない
+  assert.deepEqual(view.rows.map((row) => row.label), ["未記録のHabit 1件", "今日の日記がまだありません", "昨日の日記がまだありません", "未分類の支出 3件"]);
+  assert.equal(view.rows.find((row) => row.key === "unclassified")?.href, "/finance/");
+
+  const done = closingView({ summary: { remainingHabitsToday: 0, unclassifiedExpenses: 0, pendingInbox: 0 }, journalTrend: trend(true, true), today: null, navigation }, evening);
+  assert.equal(done.done, true);
+  assert.deepEqual(done.rows, []);
+
+  // 取得できなかった値の行は出さず、ほかの行は出す。何も分からなければ欄ごと出さない
+  const partial = closingView({ summary: { pendingInbox: 4 }, journalTrend: null, today: null, navigation }, evening);
+  assert.deepEqual(partial.rows.map((row) => row.key), ["inbox"]);
+  assert.equal(closingView({ summary: {}, journalTrend: null, today: null, navigation }, evening).show, false);
 });

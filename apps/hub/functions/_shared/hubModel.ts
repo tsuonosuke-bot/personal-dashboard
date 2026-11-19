@@ -114,7 +114,8 @@ export interface JournalMoment {
 export interface JournalTrend {
   startDate: string;
   endDate: string;
-  days: Array<{ date: string; mood: number | null }>;
+  /** recorded: その日のJournalの行があるか（気分が空でもtrue）。昨日の記録漏れを知らせるのに使う。 */
+  days: Array<{ date: string; mood: number | null; recorded: boolean }>;
 }
 
 export interface QueryDefinition {
@@ -258,15 +259,18 @@ export function journalTrendRange(now = new Date()): { startDate: string; endDat
 export function normalizeJournalTrend(rows: DailyJournalRow[], now = new Date()): JournalTrend {
   const { startDate, endDate } = journalTrendRange(now);
   const byDate = new Map<string, number>();
+  const recordedDates = new Set<string>();
   for (const row of rows) {
     const entryDate = plainDate(row.entry_date);
+    if (!entryDate || entryDate < startDate || entryDate > endDate) continue;
+    recordedDates.add(entryDate);
     const mood = moodValue(row.mood);
-    if (entryDate && entryDate >= startDate && entryDate <= endDate && mood !== null) byDate.set(entryDate, mood);
+    if (mood !== null) byDate.set(entryDate, mood);
   }
   const start = Date.parse(`${startDate}T00:00:00.000Z`);
   const days = Array.from({ length: 90 }, (_, index) => {
     const date = new Date(start + index * 86_400_000).toISOString().slice(0, 10);
-    return { date, mood: byDate.get(date) ?? null };
+    return { date, mood: byDate.get(date) ?? null, recorded: recordedDates.has(date) };
   });
   return { startDate, endDate, days };
 }
@@ -458,6 +462,9 @@ export function normalizeHub(
     summary: {
       currentMonthSpend: availability.expenses ? currentSpend : null,
       previousMonthSpend: availability.expenses ? previousSpend : null,
+      // 先月の同じ日までの支出と、未分類（97_未分類）の明細の件数。Financeの集計から入れる。取得できなければnull。
+      previousMonthToDateSpend: null as number | null,
+      unclassifiedExpenses: null as number | null,
       pendingInbox: availability.inbox ? pendingInbox.length : null,
       dueKnowledge: availability.knowledge ? knowledge.dueCount : null,
       knowledgeAnsweredToday: null as number | null,

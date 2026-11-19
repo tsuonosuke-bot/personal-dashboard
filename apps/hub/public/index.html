@@ -98,6 +98,11 @@
         </div>
 
         <div id="hubContent" class="content-grid" hidden>
+          <section class="daily closing-panel" id="closingPanel" data-home-section="closing" data-home-label="今日の締め" aria-labelledby="closingTitle" hidden>
+            <div class="section-heading"><h2 id="closingTitle">今日の締め</h2><span class="closing-count" id="closingCount" hidden></span></div>
+            <p class="closing-done" id="closingDone" hidden>今日の記録は済んでいます</p>
+            <ul class="closing-list" id="closingList"></ul>
+          </section>
           <section class="daily focus-panel" data-home-section="focus" data-home-label="Focus" aria-labelledby="focusTitle">
             <div class="section-heading">
               <div class="focus-heading-copy"><h2 id="focusTitle">Focus</h2></div>
@@ -119,24 +124,32 @@
             <div id="inboxList" class="inbox-list"></div>
           </section>
 
-          <details class="fold expenses-panel" data-home-section="expenses" data-fold="expenses" data-home-label="直近の家計簿">
-            <summary class="fold-summary"><h2 id="expensesTitle">直近の家計簿</h2><span class="fold-meta" id="expensesFoldMeta"></span></summary>
+          <details class="fold expenses-panel" data-home-section="expenses" data-fold="expenses" data-home-label="家計簿">
+            <summary class="fold-summary"><h2 id="expensesTitle">家計簿</h2><span class="fold-meta" id="expensesFoldMeta"></span><span class="fold-meta fold-meta-alert" id="expensesUnclassifiedMeta" hidden></span></summary>
             <div class="fold-body">
+              <dl class="spend-compare" id="spendCompare" hidden></dl>
+              <a class="fold-link" id="unclassifiedLink" href="/finance/" hidden></a>
+              <h3 class="fold-subhead">直近の明細</h3>
               <div id="expenseList" class="record-list"></div>
               <a class="fold-link" id="allExpensesLink" href="/finance/">一覧 →</a>
             </div>
           </details>
 
-          <details class="fold knowledge-panel" data-home-section="knowledge" data-fold="knowledge" data-home-label="今見るナレッジ">
-            <summary class="fold-summary"><h2 id="knowledgeTitle">今見るナレッジ</h2><span class="fold-meta" id="knowledgeFoldMeta"></span><span class="fold-meta" id="knowledgeQueueMeta" hidden></span></summary>
+          <details class="fold knowledge-panel" data-home-section="knowledge" data-fold="knowledge" data-home-label="復習">
+            <summary class="fold-summary"><h2 id="knowledgeTitle">復習</h2><span class="fold-meta" id="knowledgeFoldMeta"></span><span class="fold-meta" id="knowledgeQueueMeta" hidden></span></summary>
             <div class="fold-body">
-              <div id="knowledgeList" class="knowledge-list"></div>
-              <a class="fold-link" id="allKnowledgeLink" href="/knowledge/">一覧 →</a>
+              <dl class="review-stats" id="reviewStats"></dl>
+              <p class="review-message" id="reviewMessage" hidden></p>
+              <div class="review-actions">
+                <a class="review-start" id="reviewQueueStart" href="/knowledge/?view=quiz&amp;mode=daily" hidden>復習を始める</a>
+                <a class="fold-link" id="reviewLogLink" href="/knowledge/?view=log" hidden>採点結果を確認する →</a>
+                <a class="fold-link" id="allKnowledgeLink" href="/knowledge/">Knowledgeを開く →</a>
+              </div>
             </div>
           </details>
 
           <details class="fold journal-panel" data-home-section="journal" data-fold="journal" data-home-label="過去のJournal">
-            <summary class="fold-summary"><h2 id="journalTitle">過去のJournal</h2></summary>
+            <summary class="fold-summary"><h2 id="journalTitle">過去のJournal</h2><span class="fold-meta fold-meta-alert" id="journalMissingMeta" hidden>昨日の日記が未記録</span></summary>
             <div class="fold-body">
               <div id="journalTrend"></div>
               <div id="journalList" class="journal-list"></div>

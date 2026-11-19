@@ -1,10 +1,12 @@
 import { escapeHtml } from "./shared/html.js";
+import { spendDifference, unclassifiedToShow } from "./home-finance.js";
+import { closingView, msUntilClosing } from "./home-closing.js";
 import { readApiJson } from "./api-client.js";
-import { renderJournalTrendHtml } from "./journal-trend.js";
+import { renderJournalTrendHtml, yesterdayMissing } from "./journal-trend.js";
 import { createTodayPanel } from "./today-panel.js";
 import { renderLearningStages } from "./learning-stages.js";
 import { transactionDisplay } from "./transaction-display.js";
-import { knowledgeActivity, jstToday } from "./knowledge-activity.js";
+import { knowledgeActivity, jstToday, reviewPanel } from "./knowledge-activity.js";
 import { HOME_HIDDEN_KEY, parseHidden, hubUrl, revealedSections } from "./home-sections.js";
 import { skipRequest, restoreRequest, withAdded, withRemoved, inboxMetaLabel } from "./home-inbox.js";
 
@@ -13,9 +15,10 @@ const ids = [
   "compassLink", "projectsLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "projectsMeta", "writingMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
   "batchAlert", "batchAlertList", "loadingState", "errorState", "errorMessage", "todayPanel",
   "retryButton", "hubContent", "learningStages", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
-  "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "journalTrend", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
-  "inboxQuickForm", "inboxQuickInput", "inboxQuickSubmit", "inboxQuickError", "knowledgeQueueMeta",
-  "expensesFoldMeta", "knowledgeFoldMeta",
+  "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "journalList", "journalTrend", "journalMissingMeta", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
+  "inboxQuickForm", "inboxQuickInput", "inboxQuickSubmit", "inboxQuickError", "knowledgeQueueMeta", "reviewStats", "reviewMessage", "reviewQueueStart", "reviewLogLink",
+  "expensesFoldMeta", "knowledgeFoldMeta", "expensesUnclassifiedMeta", "spendCompare", "unclassifiedLink",
+  "closingPanel", "closingCount", "closingDone", "closingList",
   "homeSettingsButton", "homeSettingsModal", "homeSettingsBackdrop", "homeSettingsClose", "homeSettingsMessage", "homeSettingsList",
 ];
 
@@ -72,6 +75,7 @@ function renderNavigation(navigation) {
   els.writingLink.href = navigation.writing || "/writing/";
   els.allInboxLink.href = `${navigation.compass || "/compass/"}?view=inbox`;
   els.allExpensesLink.href = navigation.financial;
+  els.unclassifiedLink.href = navigation.financial;
   els.allKnowledgeLink.href = navigation.knowledge;
 }
 
@@ -97,6 +101,19 @@ function renderReview(summary, navigation) {
   ].filter(Boolean);
   els.knowledgeQueueMeta.hidden = queue.length === 0;
   els.knowledgeQueueMeta.textContent = queue.join(" · ");
+  renderReviewPanel(summary, navigation);
+}
+
+// 「復習」欄: 問題キューから始めるボタンと、今日の回答数・採点待ち・未確認だけを出す（#341）。
+function renderReviewPanel(summary, navigation) {
+  const panel = reviewPanel(summary);
+  els.reviewStats.innerHTML = panel.stats.map((stat) => `<div data-stat="${stat.key}"><dt>${escapeHtml(stat.label)}</dt><dd>${escapeHtml(stat.value)}</dd></div>`).join("");
+  els.reviewMessage.hidden = !panel.message;
+  els.reviewMessage.textContent = panel.message || "";
+  els.reviewQueueStart.hidden = !panel.startReview;
+  els.reviewQueueStart.href = navigation.knowledgeReview;
+  els.reviewLogLink.hidden = !panel.showLog;
+  els.reviewLogLink.href = navigation.knowledgeLog;
 }
 
 /** 確認が必要な項目（復習バッチの異常・採点エラー・問題の生成保留・DB容量の逼迫）。無ければ非表示。取得できない（null）ときも出さない。 */
@@ -129,8 +146,29 @@ function renderSummary(summary, navigation) {
   els.projectsMeta.textContent = labeledCount("進行中", summary.activeProjects);
   els.writingMeta.textContent = labeledCount("アイデア", summary.writingIdeas);
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
-  els.expensesFoldMeta.textContent = summary.currentMonthSpend === null || summary.currentMonthSpend === undefined ? "" : `今月 ${formatYen(summary.currentMonthSpend)}`;
+  renderSpend(summary);
   els.habitsMeta.textContent = labeledCount("残り", summary.remainingHabitsToday);
+}
+
+function renderSpend(summary) {
+  const current = summary.currentMonthSpend;
+  const difference = spendDifference(current, summary.previousMonthToDateSpend);
+  const compare = difference && { ...difference, label: `${difference.sign}${formatYen(Math.abs(difference.diff))}` };
+  els.expensesFoldMeta.textContent = !Number.isFinite(current) ? ""
+    : compare ? `今月 ${formatYen(current)}（先月同日比 ${compare.label}）` : `今月 ${formatYen(current)}`;
+  els.spendCompare.hidden = !Number.isFinite(current);
+  els.spendCompare.innerHTML = Number.isFinite(current) ? [
+    `<div><dt>今月の支出</dt><dd>${escapeHtml(formatYen(current))}</dd></div>`,
+    compare ? `<div><dt>先月の同じ日まで</dt><dd>${escapeHtml(formatYen(summary.previousMonthToDateSpend))}</dd></div>` : "",
+    compare ? `<div><dt>差</dt><dd data-trend="${compare.trend}">${escapeHtml(compare.label)}</dd></div>` : "",
+  ].join("") : "";
+  // 未分類は対処が要る数字なので、畳んだ行にも出す。0件・取得不可なら出さない。
+  const unclassified = unclassifiedToShow(summary.unclassifiedExpenses);
+  const hasUnclassified = unclassified !== null;
+  els.expensesUnclassifiedMeta.hidden = !hasUnclassified;
+  els.expensesUnclassifiedMeta.textContent = hasUnclassified ? `未分類 ${unclassified}件` : "";
+  els.unclassifiedLink.hidden = !hasUnclassified;
+  els.unclassifiedLink.textContent = hasUnclassified ? `未分類の明細 ${unclassified}件を分類する →` : "";
 }
 
 function renderExpenses(items, available = true) {
@@ -151,31 +189,6 @@ function renderExpenses(items, available = true) {
       <span class="transaction-money" data-kind="${display.kind}"><small>${display.label}</small><b>${escapeHtml(formatYen(display.amount))}</b></span>
     </div>
   `; }).join("");
-}
-
-function knowledgeReason(item) {
-  if (item.reason === "weak") return { label: "苦手", className: "weak", detail: item.accuracy === null ? "要復習" : `正答率 ${Math.round(item.accuracy)}%` };
-  if (item.reason === "due") return { label: "復習期限", className: "due", detail: item.nextReviewOn ? formatDate(item.nextReviewOn) : "今日" };
-  return { label: "新規", className: "new", detail: item.createdAt ? formatDate(item.createdAt) : item.mastery };
-}
-
-function renderKnowledge(items, url, available = true) {
-  if (!available) {
-    els.knowledgeList.innerHTML = empty("ナレッジを取得できませんでした");
-    return;
-  }
-  if (!items.length) {
-    els.knowledgeList.innerHTML = empty("表示するナレッジはまだありません");
-    return;
-  }
-  els.knowledgeList.innerHTML = items.map((item) => {
-    const reason = knowledgeReason(item);
-    return `<a class="knowledge-item" href="${escapeHtml(item.url || url)}">
-      <span class="reason ${reason.className}">${reason.label}</span>
-      <div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.category)} · ${escapeHtml(reason.detail)}</small></div>
-      <span aria-hidden="true">→</span>
-    </a>`;
-  }).join("");
 }
 
 function renderInbox(items, available = true) {
@@ -206,11 +219,36 @@ let inboxState = { pending: NaN, items: [] };
 let lastSummary = null;
 let lastNavigation = null;
 let lastAvailability = {};
+let lastJournalTrend = null;
+let todayStatus = null;
+
+// 「今日の締め」（#337）。夕方以降だけ、今日やり残した記録を短い一覧で出す。0件の行は出さない。
+function renderClosing() {
+  const view = closingView({ summary: lastSummary, journalTrend: lastJournalTrend, today: todayStatus, navigation: lastNavigation });
+  els.closingPanel.hidden = !view.show;
+  if (!view.show) return;
+  els.closingCount.hidden = view.completed === null;
+  els.closingCount.textContent = view.completed === null ? "" : `今日 ${view.completed}件完了`;
+  els.closingDone.hidden = !view.done;
+  els.closingList.innerHTML = view.rows.map((row) => row.href
+    ? `<li><a href="${escapeHtml(row.href)}">${escapeHtml(row.label)}<span aria-hidden="true">→</span></a></li>`
+    : `<li><span>${escapeHtml(row.label)}</span></li>`).join("");
+}
+document.addEventListener("hub:today-change", (event) => {
+  todayStatus = event.detail;
+  renderClosing();
+});
+function scheduleClosing() {
+  const wait = msUntilClosing();
+  if (wait > 0) window.setTimeout(() => { renderClosing(); }, wait + 1000);
+}
+scheduleClosing();
 
 function renderInboxState() {
   if (!lastSummary) return;
   lastSummary.pendingInbox = inboxState.pending;
   renderSummary(lastSummary, lastNavigation);
+  renderClosing();
   els.learningStages.innerHTML = renderLearningStages(lastSummary, lastAvailability);
   renderInbox(inboxState.items, true);
 }
@@ -441,17 +479,13 @@ function renderJournal(items, available = true) {
     els.journalList.innerHTML = empty("Journalを取得できませんでした");
     return;
   }
-  if (!items?.length) {
-    els.journalList.innerHTML = empty("表示する基準日がありません");
+  // 基準日以前のJournalが無い期間はカードを出さない（空のカードで場所を取らない）。
+  const found = (items || []).filter((item) => item.entry);
+  if (!found.length) {
+    els.journalList.innerHTML = empty(items?.length ? "この期間のJournalはありません" : "表示する基準日がありません");
     return;
   }
-  els.journalList.innerHTML = items.map((item) => {
-    if (!item.entry) {
-      return `<article class="journal-card journal-empty">
-        <div class="journal-period"><strong>${escapeHtml(item.label)}</strong><small>基準日 ${escapeHtml(formatDate(item.targetDate))}</small></div>
-        <p>この基準日以前のJournalはありません</p>
-      </article>`;
-    }
+  els.journalList.innerHTML = found.map((item) => {
     const entry = item.entry;
     const difference = entry.daysBeforeTarget === 0 ? "基準日と一致" : `基準日の${entry.daysBeforeTarget}日前`;
     const emotion = entry.emotionSummary
@@ -483,11 +517,8 @@ function renderJournal(items, available = true) {
 
 function renderJournalTrend(trend, available = true) {
   els.journalTrend.innerHTML = renderJournalTrendHtml(trend, available);
-}
-
-function scrollJournalTrendToLatest() {
-  const journalViewport = els.journalTrend.querySelector(".journal-trend-viewport");
-  if (journalViewport) journalViewport.scrollLeft = journalViewport.scrollWidth - journalViewport.clientWidth;
+  // 昨日の日記が無いときだけ、畳んだ行で知らせる。日記はNotion・会話側で書き、Hubからは書かない。
+  els.journalMissingMeta.hidden = !(available && yesterdayMissing(trend));
 }
 
 // たまに見る欄は畳んでおき、開いた欄だけをこの端末に覚える（中身は保存しない）。
@@ -514,8 +545,6 @@ function setupFolds() {
       } catch {
         // 保存できない環境では、開閉はこのページを開いている間だけ保たれる。
       }
-      // 畳んでいる間は幅が0なので、開いたときに気分の推移を最新側へ寄せる。
-      if (fold.open && fold.dataset.fold === "journal") scrollJournalTrendToLatest();
     });
   }
 }
@@ -556,14 +585,14 @@ async function loadHub({ silent = false } = {}) {
     renderFocus(payload.focus || [], availability.focus);
     renderInbox(payload.inbox || [], availability.inbox);
     renderExpenses(payload.recentExpenses, availability.expenses);
-    renderKnowledge(payload.knowledge, payload.navigation.knowledge, availability.knowledge);
     renderJournal(payload.journalMoments, availability.journal);
     renderJournalTrend(payload.journalTrend, availability.journalTrend !== false);
+    lastJournalTrend = availability.journalTrend !== false ? payload.journalTrend : null;
+    renderClosing();
     setSource(payload.source);
     els.loadingState.hidden = true;
     els.hubContent.hidden = false;
     hubHasData = true;
-    scrollJournalTrendToLatest();
   } catch (error) {
     if (generation !== hubLoadGeneration) return;
     setSource(null, true);
@@ -683,6 +712,10 @@ function refreshJstDay() {
   displayedDay = jstToday();
   setClock();
   if (lastSummary) renderReview(lastSummary, lastNavigation);
+  // 日付が変わったら昨日の締めは消し、翌日の夕方にまた出す。
+  todayStatus = null;
+  renderClosing();
+  scheduleClosing();
   loadHome();
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshJstDay(); });
