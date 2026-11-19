@@ -127,11 +127,16 @@
             </div>
           </details>
 
-          <details class="fold knowledge-panel" data-home-section="knowledge" data-fold="knowledge" data-home-label="今見るナレッジ">
-            <summary class="fold-summary"><h2 id="knowledgeTitle">今見るナレッジ</h2><span class="fold-meta" id="knowledgeFoldMeta"></span><span class="fold-meta" id="knowledgeQueueMeta" hidden></span></summary>
+          <details class="fold knowledge-panel" data-home-section="knowledge" data-fold="knowledge" data-home-label="復習">
+            <summary class="fold-summary"><h2 id="knowledgeTitle">復習</h2><span class="fold-meta" id="knowledgeFoldMeta"></span><span class="fold-meta" id="knowledgeQueueMeta" hidden></span></summary>
             <div class="fold-body">
-              <div id="knowledgeList" class="knowledge-list"></div>
-              <a class="fold-link" id="allKnowledgeLink" href="/knowledge/">一覧 →</a>
+              <dl class="review-stats" id="reviewStats"></dl>
+              <p class="review-message" id="reviewMessage" hidden></p>
+              <div class="review-actions">
+                <a class="review-start" id="reviewQueueStart" href="/knowledge/?view=quiz&amp;mode=daily" hidden>復習を始める</a>
+                <a class="fold-link" id="reviewLogLink" href="/knowledge/?view=log" hidden>採点結果を確認する →</a>
+                <a class="fold-link" id="allKnowledgeLink" href="/knowledge/">Knowledgeを開く →</a>
+              </div>
             </div>
           </details>
 
