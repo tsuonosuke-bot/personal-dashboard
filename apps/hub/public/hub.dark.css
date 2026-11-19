@@ -515,6 +515,9 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .fold-link:hover {
   text-decoration: underline;
 }
+:root[data-theme="dark"] .fold-meta-alert {
+  color: var(--attention);
+}
 :root[data-theme="dark"] .panel {
   border: 1px solid rgba(111, 154, 130, 0.12);
   border-radius: var(--radius);
@@ -793,29 +796,29 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .journal-trend-heading p b {
   color: var(--green);
 }
-:root[data-theme="dark"] .journal-trend-viewport:focus-visible {
-  outline: 2px solid var(--green);
-  outline-offset: 2px;
+:root[data-theme="dark"] .journal-week-scale {
+  color: var(--muted);
 }
-:root[data-theme="dark"] .journal-trend-viewport svg {
+:root[data-theme="dark"] .journal-week-chart svg {
   color: var(--green);
 }
-:root[data-theme="dark"] .journal-trend-grid line {
+:root[data-theme="dark"] .journal-week-grid {
+  stroke: var(--border);
+}
+:root[data-theme="dark"] .journal-week-grid.is-zero {
   stroke: var(--text-tertiary);
 }
-:root[data-theme="dark"] .journal-trend-grid text,
-:root[data-theme="dark"] .journal-trend-tick text {
+:root[data-theme="dark"] .journal-week-bar {
+  fill: var(--green);
+}
+:root[data-theme="dark"] .journal-week-bar[data-tone="down"] {
+  fill: var(--attention);
+}
+:root[data-theme="dark"] .journal-week-bar[data-tone="flat"] {
   fill: var(--muted);
 }
-:root[data-theme="dark"] .journal-trend-tick line {
-  stroke: var(--muted);
-}
-:root[data-theme="dark"] .journal-trend-line {
-  stroke: var(--green);
-}
-:root[data-theme="dark"] .journal-trend-point {
-  fill: var(--green);
-  stroke: #fff;
+:root[data-theme="dark"] .journal-week-dates {
+  color: var(--muted);
 }
 :root[data-theme="dark"] .journal-trend-records {
   border-top: 1px solid #4c584f;
@@ -878,9 +881,6 @@ html[data-theme="dark"] {
   background: var(--green-soft);
 }
 :root[data-theme="dark"] .journal-no-source {
-  color: var(--muted);
-}
-:root[data-theme="dark"] .journal-empty p {
   color: var(--muted);
 }
 :root[data-theme="dark"] .empty {

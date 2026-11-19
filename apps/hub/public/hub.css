@@ -229,11 +229,13 @@ a.today-row-title:hover { text-decoration: underline; }
 .fold[open] > .fold-summary::after { content: "−"; }
 .fold-summary:hover h2 { color: var(--green); }
 .fold-summary:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-.fold-summary h2 { margin: 0; font: 600 14px/1.3 var(--font-sans); }
+.fold-summary h2 { flex-shrink: 0; margin: 0; font: 600 14px/1.3 var(--font-sans); white-space: nowrap; }
 .fold-meta { min-width: 0; overflow: hidden; color: var(--muted); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .fold-body { padding: 2px 0 14px; }
 .fold-link { min-height: 40px; display: inline-flex; align-items: center; color: var(--green); font-size: 12px; font-weight: 600; text-decoration: none; }
 .fold-link:hover { text-decoration: underline; }
+/* 対処が要る数字（未分類の明細など）は、畳んだ行で切り詰めず色で示す（#340） */
+.fold-meta-alert { flex-shrink: 0; color: var(--attention); }
 .panel { min-width: 0; padding: 14px; border: 1px solid rgba(49,70,58,.12); border-radius: var(--radius); background: var(--surface); }
 .section-heading { min-height: 25px; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .section-heading h2 { margin: 0; font: 700 17px/1.15 var(--font-sans); letter-spacing: -.01em; }
@@ -356,15 +358,18 @@ a.today-row-title:hover { text-decoration: underline; }
 .journal-trend-heading small { color: var(--muted); font-size: 12px; }
 .journal-trend-heading p { margin: 0; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .journal-trend-heading p b { margin-left: 4px; color: var(--green); font-size: 12px; }
-.journal-trend-scale { display: none; }
-.journal-trend-viewport { overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; }
-.journal-trend-viewport:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-.journal-trend-viewport svg { display: block; width: 100%; min-width: 976px; height: auto; color: var(--green); }
-.journal-trend-grid line { stroke: var(--text-tertiary); stroke-width: 1; }
-.journal-trend-grid text, .journal-trend-tick text { fill: var(--muted); font-size: 12px; }
-.journal-trend-tick line { stroke: var(--muted); stroke-width: 1; }
-.journal-trend-line { stroke: var(--green); stroke-width: 2; stroke-linecap: round; }
-.journal-trend-point { fill: var(--green); stroke: #fff; stroke-width: 1.5; }
+/* 気分の週平均（#342）。棒だけのSVGを横に引き伸ばし、文字はSVGの外に置いて画面幅に収める */
+.journal-week-chart { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; margin: 4px 0 8px; }
+.journal-week-scale { display: flex; flex-direction: column; justify-content: space-between; height: 120px; color: var(--muted); font-size: 12px; line-height: 12px; }
+.journal-week-chart svg { display: block; width: 100%; height: 120px; color: var(--green); }
+.journal-week-grid { stroke: var(--border); stroke-width: 1; }
+.journal-week-grid.is-zero { stroke: var(--text-tertiary); }
+.journal-week-bar { fill: var(--green); }
+.journal-week-bar[data-tone="down"] { fill: var(--attention); }
+.journal-week-bar[data-tone="flat"] { fill: var(--muted); }
+.journal-week-dates { grid-column: 2; display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); color: var(--muted); font-size: 12px; white-space: nowrap; }
+.journal-week-dates span { overflow: visible; }
+.journal-week-dates span:last-child { justify-self: end; }
 .journal-trend-records { border-top: 1px solid #dfe8e1; }
 .journal-trend-records summary { padding: 7px 0 2px; color: var(--green); cursor: pointer; font-size: 12px; font-weight: 600; }
 .journal-trend-records summary:focus-visible { outline: 2px solid var(--green); }
@@ -396,8 +401,6 @@ a.today-row-title:hover { text-decoration: underline; }
 .journal-sources a { padding: 5px 7px; border: 1px solid rgba(36,89,73,.25); border-radius: var(--radius-sm); color: var(--green); font-size: 12px; font-weight: 600; text-decoration: none; }
 .journal-sources a:hover { border-color: var(--green); background: var(--green-soft); }
 .journal-no-source { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
-.journal-empty { min-height: 126px; display: grid; align-content: start; gap: 16px; padding: 12px; }
-.journal-empty p { margin: 0; color: var(--muted); font-size: 12px; }
 
 .empty { min-height: 96px; display: grid; place-items: center; align-content: center; color: var(--muted); text-align: center; }
 .empty span { color: var(--orange); font-size: 19px; }

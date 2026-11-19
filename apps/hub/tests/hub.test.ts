@@ -207,12 +207,14 @@ test("Journal trend uses JST dates, keeps missing days empty, and treats zero as
     { entry_date: "2026-09-22", mood: 3 },
   ], edge);
   assert.equal(trend.days.length, 90);
+  // recorded は行の有無。気分が範囲外・空でも行があれば記録済み（昨日の記録漏れの判定に使う）
   assert.deepEqual(trend.days.slice(-4), [
-    { date: "2026-09-22", mood: null },
-    { date: "2026-09-23", mood: -2 },
-    { date: "2026-09-24", mood: null },
-    { date: "2026-09-25", mood: 0 },
+    { date: "2026-09-22", mood: null, recorded: true },
+    { date: "2026-09-23", mood: -2, recorded: true },
+    { date: "2026-09-24", mood: null, recorded: true },
+    { date: "2026-09-25", mood: 0, recorded: true },
   ]);
+  assert.equal(trend.days[0].recorded, false);
 });
 
 test("hub shows the review queue counts instead of the old daily queue", () => {

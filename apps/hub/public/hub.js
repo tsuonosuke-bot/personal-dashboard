@@ -1,6 +1,6 @@
 import { escapeHtml } from "./shared/html.js";
 import { readApiJson } from "./api-client.js";
-import { renderJournalTrendHtml } from "./journal-trend.js";
+import { renderJournalTrendHtml, yesterdayMissing } from "./journal-trend.js";
 import { createTodayPanel } from "./today-panel.js";
 import { renderLearningStages } from "./learning-stages.js";
 import { transactionDisplay } from "./transaction-display.js";
@@ -13,7 +13,7 @@ const ids = [
   "compassLink", "projectsLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "projectsMeta", "writingMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
   "batchAlert", "batchAlertList", "loadingState", "errorState", "errorMessage", "todayPanel",
   "retryButton", "hubContent", "learningStages", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
-  "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "journalTrend", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
+  "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "journalTrend", "journalMissingMeta", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
   "inboxQuickForm", "inboxQuickInput", "inboxQuickSubmit", "inboxQuickError", "knowledgeQueueMeta",
   "expensesFoldMeta", "knowledgeFoldMeta",
   "homeSettingsButton", "homeSettingsModal", "homeSettingsBackdrop", "homeSettingsClose", "homeSettingsMessage", "homeSettingsList",
@@ -441,17 +441,13 @@ function renderJournal(items, available = true) {
     els.journalList.innerHTML = empty("Journalを取得できませんでした");
     return;
   }
-  if (!items?.length) {
-    els.journalList.innerHTML = empty("表示する基準日がありません");
+  // 基準日以前のJournalが無い期間はカードを出さない（空のカードで場所を取らない）。
+  const found = (items || []).filter((item) => item.entry);
+  if (!found.length) {
+    els.journalList.innerHTML = empty(items?.length ? "この期間のJournalはありません" : "表示する基準日がありません");
     return;
   }
-  els.journalList.innerHTML = items.map((item) => {
-    if (!item.entry) {
-      return `<article class="journal-card journal-empty">
-        <div class="journal-period"><strong>${escapeHtml(item.label)}</strong><small>基準日 ${escapeHtml(formatDate(item.targetDate))}</small></div>
-        <p>この基準日以前のJournalはありません</p>
-      </article>`;
-    }
+  els.journalList.innerHTML = found.map((item) => {
     const entry = item.entry;
     const difference = entry.daysBeforeTarget === 0 ? "基準日と一致" : `基準日の${entry.daysBeforeTarget}日前`;
     const emotion = entry.emotionSummary
@@ -483,11 +479,8 @@ function renderJournal(items, available = true) {
 
 function renderJournalTrend(trend, available = true) {
   els.journalTrend.innerHTML = renderJournalTrendHtml(trend, available);
-}
-
-function scrollJournalTrendToLatest() {
-  const journalViewport = els.journalTrend.querySelector(".journal-trend-viewport");
-  if (journalViewport) journalViewport.scrollLeft = journalViewport.scrollWidth - journalViewport.clientWidth;
+  // 昨日の日記が無いときだけ、畳んだ行で知らせる。日記はNotion・会話側で書き、Hubからは書かない。
+  els.journalMissingMeta.hidden = !(available && yesterdayMissing(trend));
 }
 
 // たまに見る欄は畳んでおき、開いた欄だけをこの端末に覚える（中身は保存しない）。
@@ -514,8 +507,6 @@ function setupFolds() {
       } catch {
         // 保存できない環境では、開閉はこのページを開いている間だけ保たれる。
       }
-      // 畳んでいる間は幅が0なので、開いたときに気分の推移を最新側へ寄せる。
-      if (fold.open && fold.dataset.fold === "journal") scrollJournalTrendToLatest();
     });
   }
 }
@@ -563,7 +554,6 @@ async function loadHub({ silent = false } = {}) {
     els.loadingState.hidden = true;
     els.hubContent.hidden = false;
     hubHasData = true;
-    scrollJournalTrendToLatest();
   } catch (error) {
     if (generation !== hubLoadGeneration) return;
     setSource(null, true);
