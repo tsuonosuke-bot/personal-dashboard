@@ -709,31 +709,24 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .transaction-money > small {
   color: var(--muted);
 }
-:root[data-theme="dark"] .knowledge-item {
-  border-radius: var(--radius-sm);
-  background: var(--bg-hover);
-  text-decoration: none;
-}
-:root[data-theme="dark"] .knowledge-item:hover {
-  background: var(--violet-soft);
-}
-:root[data-theme="dark"] .knowledge-item small {
+:root[data-theme="dark"] .review-stats dt {
   color: var(--muted);
 }
-:root[data-theme="dark"] .reason {
-  border-radius: 999px;
+:root[data-theme="dark"] .review-message {
+  color: var(--muted);
 }
-:root[data-theme="dark"] .reason.weak {
-  background: #412927;
-  color: #d38c88;
+:root[data-theme="dark"] .review-start {
+  border-radius: var(--radius-sm);
+  background: var(--green--light, var(--green));
+  color: #fff;
+  text-decoration: none;
 }
-:root[data-theme="dark"] .reason.due {
-  background: var(--orange-soft);
-  color: #e1a386;
+:root[data-theme="dark"] .review-start:hover {
+  background: #1c4639;
 }
-:root[data-theme="dark"] .reason.new {
-  background: var(--green-soft);
-  color: var(--green);
+:root[data-theme="dark"] .review-start:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
 }
 :root[data-theme="dark"] .inbox-card {
   border: 1px solid var(--border);

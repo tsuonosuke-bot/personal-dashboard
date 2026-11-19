@@ -5,7 +5,7 @@ import { renderJournalTrendHtml, yesterdayMissing } from "./journal-trend.js";
 import { createTodayPanel } from "./today-panel.js";
 import { renderLearningStages } from "./learning-stages.js";
 import { transactionDisplay } from "./transaction-display.js";
-import { knowledgeActivity, jstToday } from "./knowledge-activity.js";
+import { knowledgeActivity, jstToday, reviewPanel } from "./knowledge-activity.js";
 import { HOME_HIDDEN_KEY, parseHidden, hubUrl, revealedSections } from "./home-sections.js";
 import { skipRequest, restoreRequest, withAdded, withRemoved, inboxMetaLabel } from "./home-inbox.js";
 
@@ -14,8 +14,8 @@ const ids = [
   "compassLink", "projectsLink", "habitsLink", "financialLink", "knowledgeLink", "compassMeta", "projectsMeta", "writingMeta", "habitsMeta", "financialMeta", "knowledgeMeta",
   "batchAlert", "batchAlertList", "loadingState", "errorState", "errorMessage", "todayPanel",
   "retryButton", "hubContent", "learningStages", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
-  "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "journalTrend", "journalMissingMeta", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
-  "inboxQuickForm", "inboxQuickInput", "inboxQuickSubmit", "inboxQuickError", "knowledgeQueueMeta",
+  "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "journalList", "journalTrend", "journalMissingMeta", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
+  "inboxQuickForm", "inboxQuickInput", "inboxQuickSubmit", "inboxQuickError", "knowledgeQueueMeta", "reviewStats", "reviewMessage", "reviewQueueStart", "reviewLogLink",
   "expensesFoldMeta", "knowledgeFoldMeta", "expensesUnclassifiedMeta", "spendCompare", "unclassifiedLink",
   "homeSettingsButton", "homeSettingsModal", "homeSettingsBackdrop", "homeSettingsClose", "homeSettingsMessage", "homeSettingsList",
 ];
@@ -99,6 +99,19 @@ function renderReview(summary, navigation) {
   ].filter(Boolean);
   els.knowledgeQueueMeta.hidden = queue.length === 0;
   els.knowledgeQueueMeta.textContent = queue.join(" · ");
+  renderReviewPanel(summary, navigation);
+}
+
+// 「復習」欄: 問題キューから始めるボタンと、今日の回答数・採点待ち・未確認だけを出す（#341）。
+function renderReviewPanel(summary, navigation) {
+  const panel = reviewPanel(summary);
+  els.reviewStats.innerHTML = panel.stats.map((stat) => `<div data-stat="${stat.key}"><dt>${escapeHtml(stat.label)}</dt><dd>${escapeHtml(stat.value)}</dd></div>`).join("");
+  els.reviewMessage.hidden = !panel.message;
+  els.reviewMessage.textContent = panel.message || "";
+  els.reviewQueueStart.hidden = !panel.startReview;
+  els.reviewQueueStart.href = navigation.knowledgeReview;
+  els.reviewLogLink.hidden = !panel.showLog;
+  els.reviewLogLink.href = navigation.knowledgeLog;
 }
 
 /** 確認が必要な項目（復習バッチの異常・採点エラー・問題の生成保留・DB容量の逼迫）。無ければ非表示。取得できない（null）ときも出さない。 */
@@ -174,31 +187,6 @@ function renderExpenses(items, available = true) {
       <span class="transaction-money" data-kind="${display.kind}"><small>${display.label}</small><b>${escapeHtml(formatYen(display.amount))}</b></span>
     </div>
   `; }).join("");
-}
-
-function knowledgeReason(item) {
-  if (item.reason === "weak") return { label: "苦手", className: "weak", detail: item.accuracy === null ? "要復習" : `正答率 ${Math.round(item.accuracy)}%` };
-  if (item.reason === "due") return { label: "復習期限", className: "due", detail: item.nextReviewOn ? formatDate(item.nextReviewOn) : "今日" };
-  return { label: "新規", className: "new", detail: item.createdAt ? formatDate(item.createdAt) : item.mastery };
-}
-
-function renderKnowledge(items, url, available = true) {
-  if (!available) {
-    els.knowledgeList.innerHTML = empty("ナレッジを取得できませんでした");
-    return;
-  }
-  if (!items.length) {
-    els.knowledgeList.innerHTML = empty("表示するナレッジはまだありません");
-    return;
-  }
-  els.knowledgeList.innerHTML = items.map((item) => {
-    const reason = knowledgeReason(item);
-    return `<a class="knowledge-item" href="${escapeHtml(item.url || url)}">
-      <span class="reason ${reason.className}">${reason.label}</span>
-      <div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.category)} · ${escapeHtml(reason.detail)}</small></div>
-      <span aria-hidden="true">→</span>
-    </a>`;
-  }).join("");
 }
 
 function renderInbox(items, available = true) {
@@ -570,7 +558,6 @@ async function loadHub({ silent = false } = {}) {
     renderFocus(payload.focus || [], availability.focus);
     renderInbox(payload.inbox || [], availability.inbox);
     renderExpenses(payload.recentExpenses, availability.expenses);
-    renderKnowledge(payload.knowledge, payload.navigation.knowledge, availability.knowledge);
     renderJournal(payload.journalMoments, availability.journal);
     renderJournalTrend(payload.journalTrend, availability.journalTrend !== false);
     setSource(payload.source);

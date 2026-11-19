@@ -327,17 +327,16 @@ a.today-row-title:hover { text-decoration: underline; }
 .transaction-money > b { color: var(--blue); font: 700 12px/1 var(--font-sans); white-space: nowrap; }
 .transaction-money > small { margin: 0; color: var(--muted); font-size: 12px; }
 
-.knowledge-list { display: grid; gap: 5px; }
-.knowledge-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 7px; min-height: 44px; padding: 7px 8px; border-radius: var(--radius-sm); background: var(--bg-hover); text-decoration: none; }
-.knowledge-item:hover { background: var(--violet-soft); }
-.knowledge-item div { min-width: 0; }
-.knowledge-item strong, .knowledge-item small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.knowledge-item strong { font-size: 12px; }
-.knowledge-item small { margin-top: 3px; color: var(--muted); font-size: 12px; }
-.reason { padding: 4px 5px; border-radius: 999px; font-size: 12px; font-weight: 850; white-space: nowrap; }
-.reason.weak { background: #f5e1e0; color: #a9443e; }
-.reason.due { background: var(--orange-soft); color: #a85229; }
-.reason.new { background: var(--green-soft); color: var(--green); }
+/* 「復習」欄（#341）。問題キューから始めるボタンを主役にし、数字は今日の回答と採点の状況だけ */
+.review-stats { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 4px 0 8px; }
+.review-stats div { min-width: 0; }
+.review-stats dt { color: var(--muted); font-size: 12px; }
+.review-stats dd { margin: 2px 0 0; font: 650 17px/1.2 var(--font-sans); font-variant-numeric: tabular-nums; }
+.review-message { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+.review-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; }
+.review-start { min-height: 40px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: var(--radius-sm); background: var(--green); color: #fff; font-size: 13px; font-weight: 650; text-decoration: none; }
+.review-start:hover { background: #1c4639; }
+.review-start:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 
 .inbox-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
 .inbox-card { min-height: 61px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 9px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); text-decoration: none; transition: border-color .18s ease; }
@@ -465,9 +464,8 @@ a.today-row-title:hover { text-decoration: underline; }
   .inbox-card { min-height: 48px; padding: 7px 8px; }
   .inbox-card small { display: none; }
   .record-row { min-height: 43px; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 6px; }
-  .knowledge-item { min-height: 40px; }
   .journal-card summary { min-height: 112px; }
-  .record-row:nth-child(n+4), .knowledge-item:nth-child(n+4) { display: none; }
+  .record-row:nth-child(n+4) { display: none; }
 }
 
 /* タブバーが出る幅（dashboard-shell.css と同じ680px以下）では、アプリの切り替えはタブバーに任せ、ここは件数を読む欄にする */
