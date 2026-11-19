@@ -180,3 +180,17 @@ test("#335: the API reads ?hidden= and ignores unknown names", async (t) => {
   assert.ok(sources.includes("inbox"));
   assert.deepEqual((await response.json()).source.skipped, ["focus"]);
 });
+
+test("#340: 家計簿の欄は先月の同じ日までと比べた差を符号つきで出し、未分類は1件以上のときだけ出す", async () => {
+  const { spendDifference, unclassifiedToShow } = await import("../public/home-finance.js");
+  assert.deepEqual(spendDifference(195570, 315600), { diff: -120030, sign: "−", trend: "down" });
+  assert.deepEqual(spendDifference(5000, 3000), { diff: 2000, sign: "＋", trend: "up" });
+  assert.deepEqual(spendDifference(100, 100), { diff: 0, sign: "±", trend: "flat" });
+  // 古いFinanceの関数では先月同日までの値が欠けるので、比較を出さない
+  assert.equal(spendDifference(100, null), null);
+  assert.equal(spendDifference(null, 100), null);
+  assert.equal(unclassifiedToShow(3), 3);
+  assert.equal(unclassifiedToShow(0), null);
+  assert.equal(unclassifiedToShow(null), null);
+  assert.equal(unclassifiedToShow(1.5), null);
+});

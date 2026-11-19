@@ -1,4 +1,5 @@
 import { escapeHtml } from "./shared/html.js";
+import { spendDifference, unclassifiedToShow } from "./home-finance.js";
 import { readApiJson } from "./api-client.js";
 import { renderJournalTrendHtml } from "./journal-trend.js";
 import { createTodayPanel } from "./today-panel.js";
@@ -15,7 +16,7 @@ const ids = [
   "retryButton", "hubContent", "learningStages", "focusList", "manageFocusButton", "focusModal", "focusModalBackdrop", "closeFocusButton",
   "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "knowledgeList", "journalList", "journalTrend", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
   "inboxQuickForm", "inboxQuickInput", "inboxQuickSubmit", "inboxQuickError", "knowledgeQueueMeta",
-  "expensesFoldMeta", "knowledgeFoldMeta",
+  "expensesFoldMeta", "knowledgeFoldMeta", "expensesUnclassifiedMeta", "spendCompare", "unclassifiedLink",
   "homeSettingsButton", "homeSettingsModal", "homeSettingsBackdrop", "homeSettingsClose", "homeSettingsMessage", "homeSettingsList",
 ];
 
@@ -72,6 +73,7 @@ function renderNavigation(navigation) {
   els.writingLink.href = navigation.writing || "/writing/";
   els.allInboxLink.href = `${navigation.compass || "/compass/"}?view=inbox`;
   els.allExpensesLink.href = navigation.financial;
+  els.unclassifiedLink.href = navigation.financial;
   els.allKnowledgeLink.href = navigation.knowledge;
 }
 
@@ -129,8 +131,29 @@ function renderSummary(summary, navigation) {
   els.projectsMeta.textContent = labeledCount("進行中", summary.activeProjects);
   els.writingMeta.textContent = labeledCount("アイデア", summary.writingIdeas);
   els.financialMeta.textContent = formatYen(summary.currentMonthSpend);
-  els.expensesFoldMeta.textContent = summary.currentMonthSpend === null || summary.currentMonthSpend === undefined ? "" : `今月 ${formatYen(summary.currentMonthSpend)}`;
+  renderSpend(summary);
   els.habitsMeta.textContent = labeledCount("残り", summary.remainingHabitsToday);
+}
+
+function renderSpend(summary) {
+  const current = summary.currentMonthSpend;
+  const difference = spendDifference(current, summary.previousMonthToDateSpend);
+  const compare = difference && { ...difference, label: `${difference.sign}${formatYen(Math.abs(difference.diff))}` };
+  els.expensesFoldMeta.textContent = !Number.isFinite(current) ? ""
+    : compare ? `今月 ${formatYen(current)}（先月同日比 ${compare.label}）` : `今月 ${formatYen(current)}`;
+  els.spendCompare.hidden = !Number.isFinite(current);
+  els.spendCompare.innerHTML = Number.isFinite(current) ? [
+    `<div><dt>今月の支出</dt><dd>${escapeHtml(formatYen(current))}</dd></div>`,
+    compare ? `<div><dt>先月の同じ日まで</dt><dd>${escapeHtml(formatYen(summary.previousMonthToDateSpend))}</dd></div>` : "",
+    compare ? `<div><dt>差</dt><dd data-trend="${compare.trend}">${escapeHtml(compare.label)}</dd></div>` : "",
+  ].join("") : "";
+  // 未分類は対処が要る数字なので、畳んだ行にも出す。0件・取得不可なら出さない。
+  const unclassified = unclassifiedToShow(summary.unclassifiedExpenses);
+  const hasUnclassified = unclassified !== null;
+  els.expensesUnclassifiedMeta.hidden = !hasUnclassified;
+  els.expensesUnclassifiedMeta.textContent = hasUnclassified ? `未分類 ${unclassified}件` : "";
+  els.unclassifiedLink.hidden = !hasUnclassified;
+  els.unclassifiedLink.textContent = hasUnclassified ? `未分類の明細 ${unclassified}件を分類する →` : "";
 }
 
 function renderExpenses(items, available = true) {

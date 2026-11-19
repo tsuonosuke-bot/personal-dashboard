@@ -494,3 +494,26 @@ test("Hubの支出の取得範囲はJSTの先月1日から", () => {
   // UTCではまだ9月30日でも、JSTでは10月1日。
   assert.equal(expenseWindowStart(new Date("2026-09-30T16:00:00Z")), "2026-09-01");
 });
+
+test("#340: hub carries previous-month-to-date spend and the unclassified count, and leaves them null when Finance omits them", async () => {
+  const originalFetch = globalThis.fetch;
+  const env = {
+    SUPABASE_URL: "https://compass.supabase.co",
+    SUPABASE_SECRET_KEY: "server-secret",
+    HUB_SERVICE_TOKEN: "hub-service-token-that-is-at-least-32-characters", NAV_KNOWLEDGE_URL: "https://knowledge-50b.pages.dev/", NAV_FINANCIAL_URL: "https://finance-9qq.pages.dev/",
+  };
+  try {
+    globalThis.fetch = async (input, init) => hubReadFixture(input, init, { expenses: { currentMonthSpend: 5000, previousMonthSpend: 9000, previousMonthToDateSpend: 4000, unclassifiedCount: 3 } });
+    const withFields = await (await hubRoute({ request: new Request("https://hub.example/api/hub"), env })).json() as { summary: Record<string, unknown> };
+    assert.equal(withFields.summary.currentMonthSpend, 5000);
+    assert.equal(withFields.summary.previousMonthToDateSpend, 4000);
+    assert.equal(withFields.summary.unclassifiedExpenses, 3);
+
+    globalThis.fetch = async (input, init) => hubReadFixture(input, init);
+    const without = await (await hubRoute({ request: new Request("https://hub.example/api/hub"), env })).json() as { summary: Record<string, unknown> };
+    assert.equal(without.summary.previousMonthToDateSpend, null);
+    assert.equal(without.summary.unclassifiedExpenses, null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

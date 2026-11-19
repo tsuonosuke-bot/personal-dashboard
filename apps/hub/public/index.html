@@ -119,9 +119,12 @@
             <div id="inboxList" class="inbox-list"></div>
           </section>
 
-          <details class="fold expenses-panel" data-home-section="expenses" data-fold="expenses" data-home-label="直近の家計簿">
-            <summary class="fold-summary"><h2 id="expensesTitle">直近の家計簿</h2><span class="fold-meta" id="expensesFoldMeta"></span></summary>
+          <details class="fold expenses-panel" data-home-section="expenses" data-fold="expenses" data-home-label="家計簿">
+            <summary class="fold-summary"><h2 id="expensesTitle">家計簿</h2><span class="fold-meta" id="expensesFoldMeta"></span><span class="fold-meta fold-meta-alert" id="expensesUnclassifiedMeta" hidden></span></summary>
             <div class="fold-body">
+              <dl class="spend-compare" id="spendCompare" hidden></dl>
+              <a class="fold-link" id="unclassifiedLink" href="/finance/" hidden></a>
+              <h3 class="fold-subhead">直近の明細</h3>
               <div id="expenseList" class="record-list"></div>
               <a class="fold-link" id="allExpensesLink" href="/finance/">一覧 →</a>
             </div>

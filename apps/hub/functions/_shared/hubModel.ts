@@ -458,6 +458,9 @@ export function normalizeHub(
     summary: {
       currentMonthSpend: availability.expenses ? currentSpend : null,
       previousMonthSpend: availability.expenses ? previousSpend : null,
+      // 先月の同じ日までの支出と、未分類（97_未分類）の明細の件数。Financeの集計から入れる。取得できなければnull。
+      previousMonthToDateSpend: null as number | null,
+      unclassifiedExpenses: null as number | null,
       pendingInbox: availability.inbox ? pendingInbox.length : null,
       dueKnowledge: availability.knowledge ? knowledge.dueCount : null,
       knowledgeAnsweredToday: null as number | null,

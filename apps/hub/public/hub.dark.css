@@ -515,6 +515,21 @@ html[data-theme="dark"] {
 :root[data-theme="dark"] .fold-link:hover {
   text-decoration: underline;
 }
+:root[data-theme="dark"] .fold-meta-alert {
+  color: var(--attention);
+}
+:root[data-theme="dark"] .fold-subhead {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .spend-compare dt {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .spend-compare dd[data-trend="up"] {
+  color: var(--attention);
+}
+:root[data-theme="dark"] .spend-compare dd[data-trend="down"] {
+  color: var(--green);
+}
 :root[data-theme="dark"] .panel {
   border: 1px solid rgba(111, 154, 130, 0.12);
   border-radius: var(--radius);
