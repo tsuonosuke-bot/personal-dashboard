@@ -327,6 +327,18 @@ a.today-row-title:hover { text-decoration: underline; }
 .transaction-money > b { color: var(--blue); font: 700 12px/1 var(--font-sans); white-space: nowrap; }
 .transaction-money > small { margin: 0; color: var(--muted); font-size: 12px; }
 
+/* 今日の締め（#337）。夕方以降に、残っている記録への導線だけを並べる */
+.closing-panel .section-heading { justify-content: flex-start; }
+.closing-count { color: var(--muted); font-size: 12px; font-weight: 600; }
+.closing-done { margin: 0; color: var(--muted); font-size: 12px; }
+.closing-list { display: grid; margin: 0; padding: 0; list-style: none; }
+.closing-list li { border-top: 1px solid var(--border); }
+.closing-list li:first-child { border-top: 0; }
+.closing-list a, .closing-list span { min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.closing-list a { color: var(--ink); text-decoration: none; }
+.closing-list a:hover { color: var(--green); }
+.closing-list a span { min-height: 0; color: var(--muted); }
+
 /* 「復習」欄（#341）。問題キューから始めるボタンを主役にし、数字は今日の回答と採点の状況だけ */
 .review-stats { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 4px 0 8px; }
 .review-stats div { min-width: 0; }
@@ -498,7 +510,8 @@ html[data-home-hidden~="learning"] [data-home-section="learning"],
 html[data-home-hidden~="inbox"] [data-home-section="inbox"],
 html[data-home-hidden~="expenses"] [data-home-section="expenses"],
 html[data-home-hidden~="knowledge"] [data-home-section="knowledge"],
-html[data-home-hidden~="journal"] [data-home-section="journal"] { display: none !important; }
+html[data-home-hidden~="journal"] [data-home-section="journal"],
+html[data-home-hidden~="closing"] [data-home-section="closing"] { display: none !important; }
 .home-settings-list { display: grid; gap: 2px; padding: 4px 0 8px; }
 .home-settings-row { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 4px; cursor: pointer; font-size: 14px; }
 .home-theme { display: flex; align-items: center; gap: 10px; min-height: 40px; margin-top: 4px; padding: 8px 4px 0; border-top: 1px solid var(--border); font-size: 14px; }

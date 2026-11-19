@@ -15,16 +15,17 @@ import { type HomeSection } from "./homeSettings.ts";
 
 /** 各取得元を使うホームの欄。その欄がすべて非表示なら読まない。警告に使う取得元（knowledgeStatus・DB容量）は常に読む。 */
 export const HUB_SOURCE_SECTIONS = {
-  inbox: ["apps", "learning", "inbox"],
+  // closing（今日の締め）は Inbox・家計簿の未分類・日記の有無・Habit の件数を使う（#337）。
+  inbox: ["apps", "learning", "inbox", "closing"],
   wants: ["apps", "inbox"],
   focus: ["focus"],
   projects: ["apps", "learning"],
   writing: ["apps"],
-  expenses: ["apps", "expenses"],
+  expenses: ["apps", "expenses", "closing"],
   knowledge: ["apps", "learning", "knowledge"],
   journal: ["journal"],
-  journalTrend: ["journal"],
-  habits: ["apps"],
+  journalTrend: ["journal", "closing"],
+  habits: ["apps", "closing"],
 } as const satisfies Record<string, readonly HomeSection[]>;
 type SkippableSource = keyof typeof HUB_SOURCE_SECTIONS;
 

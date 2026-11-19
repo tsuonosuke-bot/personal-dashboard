@@ -1,5 +1,6 @@
 import { escapeHtml } from "./shared/html.js";
 import { spendDifference, unclassifiedToShow } from "./home-finance.js";
+import { closingView, msUntilClosing } from "./home-closing.js";
 import { readApiJson } from "./api-client.js";
 import { renderJournalTrendHtml, yesterdayMissing } from "./journal-trend.js";
 import { createTodayPanel } from "./today-panel.js";
@@ -17,6 +18,7 @@ const ids = [
   "focusMessage", "focusManageList", "inboxList", "inboxMeta", "writingLink", "expenseList", "journalList", "journalTrend", "journalMissingMeta", "allInboxLink", "allExpensesLink", "allKnowledgeLink",
   "inboxQuickForm", "inboxQuickInput", "inboxQuickSubmit", "inboxQuickError", "knowledgeQueueMeta", "reviewStats", "reviewMessage", "reviewQueueStart", "reviewLogLink",
   "expensesFoldMeta", "knowledgeFoldMeta", "expensesUnclassifiedMeta", "spendCompare", "unclassifiedLink",
+  "closingPanel", "closingCount", "closingDone", "closingList",
   "homeSettingsButton", "homeSettingsModal", "homeSettingsBackdrop", "homeSettingsClose", "homeSettingsMessage", "homeSettingsList",
 ];
 
@@ -217,11 +219,36 @@ let inboxState = { pending: NaN, items: [] };
 let lastSummary = null;
 let lastNavigation = null;
 let lastAvailability = {};
+let lastJournalTrend = null;
+let todayStatus = null;
+
+// 「今日の締め」（#337）。夕方以降だけ、今日やり残した記録を短い一覧で出す。0件の行は出さない。
+function renderClosing() {
+  const view = closingView({ summary: lastSummary, journalTrend: lastJournalTrend, today: todayStatus, navigation: lastNavigation });
+  els.closingPanel.hidden = !view.show;
+  if (!view.show) return;
+  els.closingCount.hidden = view.completed === null;
+  els.closingCount.textContent = view.completed === null ? "" : `今日 ${view.completed}件完了`;
+  els.closingDone.hidden = !view.done;
+  els.closingList.innerHTML = view.rows.map((row) => row.href
+    ? `<li><a href="${escapeHtml(row.href)}">${escapeHtml(row.label)}<span aria-hidden="true">→</span></a></li>`
+    : `<li><span>${escapeHtml(row.label)}</span></li>`).join("");
+}
+document.addEventListener("hub:today-change", (event) => {
+  todayStatus = event.detail;
+  renderClosing();
+});
+function scheduleClosing() {
+  const wait = msUntilClosing();
+  if (wait > 0) window.setTimeout(() => { renderClosing(); }, wait + 1000);
+}
+scheduleClosing();
 
 function renderInboxState() {
   if (!lastSummary) return;
   lastSummary.pendingInbox = inboxState.pending;
   renderSummary(lastSummary, lastNavigation);
+  renderClosing();
   els.learningStages.innerHTML = renderLearningStages(lastSummary, lastAvailability);
   renderInbox(inboxState.items, true);
 }
@@ -560,6 +587,8 @@ async function loadHub({ silent = false } = {}) {
     renderExpenses(payload.recentExpenses, availability.expenses);
     renderJournal(payload.journalMoments, availability.journal);
     renderJournalTrend(payload.journalTrend, availability.journalTrend !== false);
+    lastJournalTrend = availability.journalTrend !== false ? payload.journalTrend : null;
+    renderClosing();
     setSource(payload.source);
     els.loadingState.hidden = true;
     els.hubContent.hidden = false;
@@ -683,6 +712,10 @@ function refreshJstDay() {
   displayedDay = jstToday();
   setClock();
   if (lastSummary) renderReview(lastSummary, lastNavigation);
+  // 日付が変わったら昨日の締めは消し、翌日の夕方にまた出す。
+  todayStatus = null;
+  renderClosing();
+  scheduleClosing();
   loadHome();
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshJstDay(); });

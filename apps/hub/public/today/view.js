@@ -232,6 +232,9 @@ export function createTodayView({ state, els }) {
     const count = completedTodayCount({ todos: state.todos.data, habits: state.habits.data, projects: state.projects.data }, now);
     els.counter.hidden = !loaded;
     els.counter.textContent = `✓ 今日 ${count}件完了`;
+    // ホームの「今日の締め」が、完了数と未記録のHabitを今日の欄と同じ値で出せるよう知らせる（#337）。
+    const habitsLeft = state.habits.data ? Math.max(0, habitGroups(state.habits.data).dailyTarget - habitGroups(state.habits.data).dailyDone) : null;
+    document.dispatchEvent(new CustomEvent("hub:today-change", { detail: { completed: loaded ? count : null, habitsLeft } }));
     if (!state.todos.data || !state.habits.data) {
       els.allDone.hidden = true;
       return;
